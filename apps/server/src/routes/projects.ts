@@ -26,6 +26,7 @@ import {
   projectExists,
   projectSummaryOf,
   readMeta,
+  removeAssetEntry,
   scanProjects,
   writeAssetEntry,
   writeMeta,
@@ -371,6 +372,26 @@ router.put("/:id/assets/:file/description", (req, res) => {
   // writeAssetEntry merge từng field — KHÔNG rebuild cả file (giữ colorGrade/colorAdjust)
   writeAssetEntry(id, file, { description: body.description });
   res.json({ ...found, description: body.description });
+});
+
+// DELETE /api/projects/:id/assets/:file — xóa file asset (kể cả trong thư mục con) + entry assets.json
+router.delete("/:id/assets/:file", (req, res) => {
+  const id = req.params.id;
+  readMeta(id); // ném 404 nếu project không có
+  const file = path.basename(req.params.file); // chặn traversal
+  if (file === "assets.json") {
+    throw new HttpError(400, "PROTECTED_FILE", "Không thể xóa assets.json");
+  }
+
+  // File có thể nằm trong thư mục con (vd assets/audio/x.wav) — tìm bằng relPath thật
+  const found = listFilesRecursive(projectAssetsDirOf(id)).find((f) => f.name === file);
+  if (!found) {
+    throw new HttpError(404, "ASSET_NOT_FOUND", `Không tìm thấy asset "${file}" trong project "${id}"`);
+  }
+
+  fs.rmSync(path.join(repoRoot, found.relPath), { force: true });
+  removeAssetEntry(id, file); // dọn description/colorGrade/colorAdjust đi kèm
+  res.status(204).end();
 });
 
 // POST /api/projects/:id/assets/:file/grade-preview — sinh ảnh preview các preset màu

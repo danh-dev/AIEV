@@ -15,6 +15,7 @@ import {
   Play,
   RotateCcw,
   Save,
+  Trash2,
   Upload,
 } from "lucide-react";
 import {
@@ -28,6 +29,7 @@ import {
 import {
   DEFAULT_ADJUST,
   GRADE_LABELS,
+  deleteProjectAsset,
   getGradePresets,
   getGradePreviews,
   isDefaultAdjust,
@@ -217,6 +219,9 @@ export function ProjectAssetsCard({
   const [savingFile, setSavingFile] = useState<string | null>(null);
   const [savedFile, setSavedFile] = useState<string | null>(null);
 
+  // File đang xóa — disable nút xóa của đúng file đó
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
+
   // Nghe thử audio: một element dùng chung
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
@@ -294,6 +299,25 @@ export function ProjectAssetsCard({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSavingFile(null);
+    }
+  }
+
+  async function deleteAsset(file: FileInfo) {
+    if (
+      !window.confirm(
+        `Xóa asset "${file.name}"? File sẽ bị xóa khỏi project, không hoàn tác được.`
+      )
+    )
+      return;
+    setDeletingFile(file.name);
+    setError(null);
+    try {
+      await deleteProjectAsset(projectId, file.name);
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeletingFile(null);
     }
   }
 
@@ -523,26 +547,49 @@ export function ProjectAssetsCard({
     if (f.kind !== "video") return null;
     const label = gradeLabelOf(f);
     return (
-      <div>
+      <Button
+        variant="secondary"
+        small
+        className="h-6 px-2 text-xs"
+        onClick={() => setGradeFile(f)}
+        aria-label={`Chỉnh màu ${f.name}`}
+      >
+        <Palette size={12} strokeWidth={2} />
+        {label ? (
+          <>
+            <span
+              aria-hidden
+              className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
+            />
+            Màu: {label}
+          </>
+        ) : (
+          "Chỉnh màu"
+        )}
+      </Button>
+    );
+  }
+
+  /** Hàng nút thao tác của một asset — Chỉnh màu (video) + Xóa (mọi loại). */
+  function renderActions(f: FileInfo) {
+    const deleting = deletingFile === f.name;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {renderGradeButton(f)}
         <Button
           variant="secondary"
           small
-          className="h-6 px-2 text-xs"
-          onClick={() => setGradeFile(f)}
-          aria-label={`Chỉnh màu ${f.name}`}
+          className="h-6 px-2 text-xs text-[var(--danger)]"
+          disabled={deleting}
+          onClick={() => deleteAsset(f)}
+          aria-label={`Xóa ${f.name}`}
         >
-          <Palette size={12} strokeWidth={2} />
-          {label ? (
-            <>
-              <span
-                aria-hidden
-                className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
-              />
-              Màu: {label}
-            </>
+          {deleting ? (
+            <Loader2 size={12} strokeWidth={2} className="animate-spin" />
           ) : (
-            "Chỉnh màu"
+            <Trash2 size={12} strokeWidth={2} />
           )}
+          {deleting ? "Đang xóa…" : "Xóa"}
         </Button>
       </div>
     );
@@ -575,9 +622,9 @@ export function ProjectAssetsCard({
           </div>
         </div>
 
-        {/* Hàng dưới: mô tả full-width + nút chỉnh màu (video) */}
+        {/* Hàng dưới: mô tả full-width + nút chỉnh màu (video) / xóa */}
         {renderDescriptionEditor(f)}
-        {renderGradeButton(f)}
+        {renderActions(f)}
       </div>
     );
   }
@@ -632,7 +679,7 @@ export function ProjectAssetsCard({
             />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               {renderDescriptionEditor(f)}
-              {renderGradeButton(f)}
+              {renderActions(f)}
             </div>
           </div>
         )}

@@ -708,6 +708,13 @@ export const updateAssetDescription = (
     { description }
   );
 
+/** DELETE một asset của project — xóa file + entry mô tả/màu trong assets.json. */
+export const deleteProjectAsset = (projectId: string, file: string) =>
+  request<void>(
+    `/api/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(file)}`,
+    { method: "DELETE" }
+  );
+
 /**
  * Sinh ảnh preview các preset màu cho một video của project.
  * POST (dù là "get") vì server phải render 6 ảnh — mất vài giây.

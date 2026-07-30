@@ -324,6 +324,14 @@ export function writeAssetEntry(
   fs.writeFileSync(assetsJsonPathOf(id), JSON.stringify(map, null, 2) + "\n", "utf8");
 }
 
+/** Xóa hẳn entry của một asset khỏi assets.json (dùng khi xóa file asset) — không có entry thì bỏ qua */
+export function removeAssetEntry(id: string, fileName: string): void {
+  const map = readAssetEntries(id);
+  if (!(fileName in map)) return;
+  delete map[fileName];
+  fs.writeFileSync(assetsJsonPathOf(id), JSON.stringify(map, null, 2) + "\n", "utf8");
+}
+
 export function projectAssetsDirOf(id: string): string {
   return path.join(projectDirOf(id), "assets");
 }

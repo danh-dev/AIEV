@@ -79,6 +79,8 @@ File `video-projects/<id>/assets/assets.json` = `{ "<fileName>": { "description"
 
 ```
 PUT /api/projects/:id/assets/:file/description  { description } → 200 FileInfo
+DELETE /api/projects/:id/assets/:file           → 204 — xóa file asset (kể cả trong thư mục con)
+                                                  + entry trong assets.json (cấm xóa assets.json → 400)
 GET /api/assets?scope=project&projectId=<id>    → FileInfo[] (thêm description?: string)
 ```
 
