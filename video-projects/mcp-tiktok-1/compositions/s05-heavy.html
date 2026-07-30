@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>s05-heavy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=block&subset=vietnamese" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0a0e1a; }
+      #root {
+        position: relative; width: 1080px; height: 1920px; overflow: hidden;
+        font-family: "Be Vietnam Pro", "Inter", sans-serif;
+        background:
+          radial-gradient(1100px 900px at 50% 24%, rgba(0, 110, 255, 0.20) 0%, rgba(10, 14, 26, 0) 62%),
+          radial-gradient(900px 820px at 82% 86%, rgba(0, 194, 255, 0.13) 0%, rgba(10, 14, 26, 0) 60%),
+          linear-gradient(180deg, #0b1020 0%, #070b16 100%);
+      }
+      /* Lưới nền mờ tạo chiều sâu */
+      .grid {
+        position: absolute; inset: 0;
+        background-image:
+          linear-gradient(rgba(120, 190, 255, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(120, 190, 255, 0.055) 1px, transparent 1px);
+        background-size: 90px 90px;
+        -webkit-mask-image: radial-gradient(780px 780px at 50% 46%, #000 18%, transparent 78%);
+        mask-image: radial-gradient(780px 780px at 50% 46%, #000 18%, transparent 78%);
+      }
+      .vignette {
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(900px 1180px at 50% 46%, rgba(0,0,0,0) 52%, rgba(0,0,0,0.55) 100%);
+      }
+      .brand {
+        position: absolute; left: 62px; top: 64px;
+        display: flex; align-items: center; gap: 16px;
+        font-size: 26px; font-weight: 700; letter-spacing: 0.20em;
+        color: rgba(190, 224, 255, 0.7); text-transform: uppercase;
+      }
+      .brand .bdot {
+        width: 16px; height: 16px; border-radius: 50%;
+        background: linear-gradient(120deg, #0061ff, #00c2ff);
+        box-shadow: 0 0 18px rgba(0, 160, 255, 0.75);
+      }
+      /* Phần tử GSAP điều khiển — ẩn sẵn để không lóe ở frame đầu */
+      .an { visibility: hidden; will-change: transform, opacity; }
+      /* Chữ gradient: line-height 1.0 + padding trên/dưới để KHÔNG cụt dấu tiếng Việt */
+      .grad {
+        background: linear-gradient(100deg, #0061ff 0%, #00c2ff 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        line-height: 1.0; padding-top: 0.5em; padding-bottom: 0.16em;
+        font-weight: 800; letter-spacing: -0.03em;
+        filter: drop-shadow(0 0 30px rgba(0, 140, 255, 0.42));
+      }
+      .grad-warm {
+        background: linear-gradient(100deg, #ff9d2e 0%, #ffd24d 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        line-height: 1.0; padding-top: 0.5em; padding-bottom: 0.16em;
+        font-weight: 800; letter-spacing: -0.03em;
+        filter: drop-shadow(0 0 30px rgba(255, 160, 60, 0.38));
+      }
+      .glass {
+        background: rgba(12, 20, 40, 0.62);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-radius: 24px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(120,200,255,0.14), 0 22px 60px rgba(0,0,0,0.5);
+      }
+      .chip {
+        display: inline-flex; align-items: center; gap: 16px;
+        padding: 22px 40px; border-radius: 999px;
+        font-size: 42px; font-weight: 700; color: #ffffff; white-space: nowrap;
+        background: rgba(12, 20, 40, 0.7);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(120,200,255,0.18), 0 14px 38px rgba(0,0,0,0.45);
+      }
+      .chip .dot {
+        width: 16px; height: 16px; border-radius: 50%;
+        background: linear-gradient(120deg, #0061ff, #00c2ff);
+        box-shadow: 0 0 14px rgba(0,160,255,0.8);
+      }
+      .chip.past { opacity: 0.4; }
+      .chip.warm { box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,190,90,0.3), 0 14px 38px rgba(0,0,0,0.45); }
+      .chip.warm .dot { background: linear-gradient(120deg, #ff9d2e, #ffd24d); box-shadow: 0 0 14px rgba(255,170,60,0.8); }
+      .row { display: flex; justify-content: center; gap: 26px; margin-bottom: 26px; }
+      .shot { padding: 18px; }
+      .shot img { display: block; border-radius: 14px; }
+      .kw { color: #19c8ff; font-weight: 800; }
+      .kw-warm { color: #ffcf4d; font-weight: 800; }
+      .kicker {
+        font-size: 34px; font-weight: 700; letter-spacing: 0.16em;
+        color: rgba(180, 214, 255, 0.78); text-transform: uppercase;
+      }
+
+      /* ---- riêng s05-heavy ---- */
+      #head { position: absolute; left: 0; right: 0; top: 300px; text-align: center; }
+      #head h2 { font-size: 82px; }
+      .stat {
+        position: absolute; left: 120px; right: 120px; padding: 40px 46px; border-radius: 26px;
+      }
+      #s1 { top: 640px; } #s2 { top: 1030px; }
+      .stat .lb { font-size: 36px; font-weight: 700; letter-spacing: 0.14em; color: rgba(180,214,255,0.8); text-transform: uppercase; }
+      .stat .val { font-size: 92px; margin-top: -4px; }
+      .bar { position: relative; height: 18px; border-radius: 9px; margin-top: 26px; background: rgba(255,255,255,0.09); overflow: hidden; }
+      .bar i {
+        position: absolute; inset: 0; transform-origin: 0% 50%; border-radius: 9px;
+        background: linear-gradient(90deg, #ff9d2e, #ffd24d);
+        box-shadow: 0 0 24px rgba(255,170,60,0.7);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="s05-heavy"
+      data-start="0"
+      data-duration="5.3333"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div class="grid"></div>
+      <div class="brand"><span class="bdot"></span>noti.vn</div>
+
+      <div id="head" class="an"><h2 class="grad">NHƯNG NẾU...</h2></div>
+      <div id="s1" class="stat glass an">
+        <div class="lb">Dữ liệu</div>
+        <div class="val grad-warm">RẤT NHIỀU</div>
+        <div class="bar"><i id="b1"></i></div>
+      </div>
+      <div id="s2" class="stat glass an">
+        <div class="lb">Thời gian kéo</div>
+        <div class="val grad-warm">RẤT LÂU</div>
+        <div class="bar"><i id="b2"></i></div>
+      </div>
+      <div class="vignette"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const DUR = 5.3333;
+      const tl = gsap.timeline({ paused: true });
+      tl.set({}, {}, DUR); // neo đủ thời lượng — chống frame đen ở cuối scene
+
+      /* helper nhịp chung */
+      const inUp = (sel, at, o = {}) =>
+        tl.fromTo(sel, { autoAlpha: 0, y: o.y ?? 26 },
+          { autoAlpha: 1, y: 0, duration: o.dur ?? 0.4, ease: "power3.out" }, at);
+      const pop = (sel, at, sc = 1) =>
+        tl.fromTo(sel, { autoAlpha: 0, scale: 0.7 * sc, y: 18 },
+          { autoAlpha: 1, scale: sc, y: 0, duration: 0.36, ease: "back.out(2)" }, at);
+
+      inUp("#head", 0.05, { y: -24, dur: 0.42 });
+      gsap.set("#b1, #b2", { scaleX: 0 });
+      inUp("#s1", 1.97, { y: 34, dur: 0.44 });
+      tl.to("#b1", { scaleX: 0.94, duration: 0.95, ease: "power2.out" }, 2.10);
+      inUp("#s2", 3.67, { y: 34, dur: 0.44 });
+      tl.to("#b2", { scaleX: 0.98, duration: 1.0, ease: "power2.out" }, 3.80);
+
+      window.__timelines["s05-heavy"] = tl;
+    </script>
+  </body>
+</html>

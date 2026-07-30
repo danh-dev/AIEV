@@ -1,0 +1,599 @@
+{
+  "id": "mcp-tiktok-2",
+  "name": "MCP TikTok 2",
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "status": "done",
+  "brief": {
+    "sourceDescription": "Video giới thiệu về MCP chính thức của TikTok.",
+    "autoCut": true,
+    "subtitles": true,
+    "highlightEnabled": true,
+    "highlightKeywords": [
+      "MCP",
+      "TikTok Shop",
+      "quảng cáo",
+      "GMV Max",
+      "Pixel",
+      "Catalog",
+      "dữ liệu",
+      "đơn hàng",
+      "connect",
+      "AI",
+      "limit chat AI",
+      "phân tích",
+      "báo cáo"
+    ],
+    "skill": null,
+    "sfxMode": "recommended",
+    "notes": "Edit video này theo pipeline chia scene + lắp ráp bằng Remotion (làm đúng theo skill video-pipeline và remotion-assemble):\n1. Phân tích video nguồn (transcribe nếu cần) và chia thành các scene rời, khai báo trong meta.json đúng schema: scene chữ động/motion graphics dùng HyperFrames (có src), đoạn footage dùng thẳng khai srcVideo với from/to.\n2. Dựng các scene HyperFrames (chữ động, callout, caption) và render từng scene ra renders/ ở chất lượng draft trước.\n3. Dùng Remotion lắp ráp toàn bài: ghép các scene + footage theo đúng thứ tự timeline, crossfade nhẹ giữa các đoạn (transitionOverlap), voice gốc giữ nguyên làm xương sống sync, chèn sound effect theo atFrame.\n4. Render draft toàn bài bằng Remotion, trích frame verify ở các mốc chuyển cảnh (không hở frame đen, chữ tiếng Việt đủ dấu), sửa xong mới render final.\n5. Cập nhật meta.json đúng hợp đồng (output là STRING đường dẫn outputs/<id>-v<N>.mp4).\nYêu cầu chất lượng: chuyển cảnh mượt, sound effect nhẹ nhàng không chói tai, video nhìn thật chuyên nghiệp.\n\n## STYLE (Noti.vn / GĐT)\n- Nền dark `#0A0E1A → #0F1629` (gradient) + grain nhẹ.\n- Accent gradient text: `linear-gradient(100deg, #0061ff, #00c2ff)` qua `background-clip:text` cho tiêu đề.\n- Glassmorphism: `background: rgba(255,255,255,0.06); backdrop-filter: blur(20px); border-radius: 20px;` viền bằng box-shadow (KHÔNG dùng border 1px cứng):\n  `box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.05), 0 18px 50px rgba(0,0,0,0.45);`\n- Chữ: tiêu đề weight 800, phụ đề 600, body 400. Letter-spacing chặt (`-0.03em`) cho heading lớn.\n- Glow chữ nhấn: `filter: drop-shadow(0 0 26px rgba(0,140,255,0.4))` (drop-shadow cho gradient text, KHÔNG dùng text-shadow vì chữ trong suốt).\n\n## HIỆU ỨNG (GSAP)\n- Text reveal: y 40→0, opacity 0→1, stagger 0.06–0.09, ease `power3.out`.\n- Kinetic keyword: scale-pop 0.8→1.05→1 + glow flash (tween `filter` drop-shadow).\n- Caption karaoke: bám timestamp, cụm 4–7 từ, từ đang nói highlight `#19c8ff` + scale 1.13.\n- Chuyển cảnh: mặc định blur+fade crossfade 0.4s; nhịp nhanh slide-push (`power4.inOut`); scene nhấn scale-zoom (xem mục 🔍 ZOOM).\n- Background: blob gradient xanh trôi chậm (parallax) + grain CSS tất định.\n- ⚠️ KHÔNG dùng `setTimeout`/`Date.now()`/`Math.random()` — chỉ GSAP timeline (HyperFrames capture frame theo thời gian timeline). Mọi animation tất định.\n"
+  },
+  "scenes": [
+    {
+      "id": "s01-hook",
+      "src": "compositions/s01-hook.html",
+      "render": "renders/s01-hook.mp4",
+      "durationInFrames": 71,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "f1a",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 2.1667,
+      "to": 3.4,
+      "durationInFrames": 37,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "f1b",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 3.3667,
+      "to": 5.9333,
+      "durationInFrames": 77,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "s02-features",
+      "src": "compositions/s02-features.html",
+      "render": "renders/s02-features.mp4",
+      "durationInFrames": 121,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "f2a",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 9.9,
+      "to": 11.4,
+      "durationInFrames": 45,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "f2b",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 11.5,
+      "to": 13.8667,
+      "durationInFrames": 71,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "s03-shop",
+      "src": "compositions/s03-shop.html",
+      "render": "renders/s03-shop.mp4",
+      "durationInFrames": 177,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "f3",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 19.9667,
+      "to": 22.2667,
+      "durationInFrames": 69,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "s04-connect",
+      "src": "compositions/s04-connect.html",
+      "render": "renders/s04-connect.mp4",
+      "durationInFrames": 103,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "f4",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 25.3,
+      "to": 30.4333,
+      "durationInFrames": 154,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "s05-heavy",
+      "src": "compositions/s05-heavy.html",
+      "render": "renders/s05-heavy.mp4",
+      "durationInFrames": 160,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "s06-limit",
+      "src": "compositions/s06-limit.html",
+      "render": "renders/s06-limit.mp4",
+      "durationInFrames": 191,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "f5",
+      "srcVideo": "assets/mcp-tiktok-1.mp4",
+      "from": 42.2,
+      "to": 44.6667,
+      "durationInFrames": 74,
+      "transitionOverlap": 6,
+      "muted": true
+    },
+    {
+      "id": "s07-outro",
+      "src": "compositions/s07-outro.html",
+      "render": "renders/s07-outro.mp4",
+      "durationInFrames": 225,
+      "transitionOverlap": 6
+    },
+    {
+      "id": "s08-endcard",
+      "src": "compositions/s08-endcard.html",
+      "render": "renders/s08-endcard.mp4",
+      "durationInFrames": 81,
+      "transitionOverlap": 0
+    }
+  ],
+  "audio": {
+    "voice": "assets/audio/narration.cut.wav",
+    "sfx": [
+      {
+        "file": "assets/sfx/pop.mp3",
+        "atFrame": 4,
+        "volume": 0.32,
+        "mediaStart": 0.227,
+        "event": "hook: MCP bật ra"
+      },
+      {
+        "file": "assets/sfx/camera-flash-1.wav",
+        "atFrame": 167,
+        "volume": 0.2,
+        "mediaStart": 0,
+        "event": "ảnh TikTok Ads vào"
+      },
+      {
+        "file": "assets/sfx/pop.mp3",
+        "atFrame": 216,
+        "volume": 0.26,
+        "mediaStart": 0.227,
+        "event": "chip GMV Max"
+      },
+      {
+        "file": "assets/sfx/ting.wav",
+        "atFrame": 386,
+        "volume": 0.3,
+        "mediaStart": 0.969,
+        "event": "câu hỏi TikTok Shop"
+      },
+      {
+        "file": "assets/sfx/ding.mp3",
+        "atFrame": 635,
+        "volume": 0.32,
+        "mediaStart": 0.135,
+        "event": "MCP cắm vào AI"
+      },
+      {
+        "file": "assets/sfx/pop.mp3",
+        "atFrame": 865,
+        "volume": 0.26,
+        "mediaStart": 0.227,
+        "event": "mở đoạn dữ liệu nhiều"
+      },
+      {
+        "file": "assets/sfx/ting.wav",
+        "atFrame": 1073,
+        "volume": 0.3,
+        "mediaStart": 0.969,
+        "event": "cảnh báo tràn limit"
+      },
+      {
+        "file": "assets/sfx/pop.mp3",
+        "atFrame": 1272,
+        "volume": 0.3,
+        "mediaStart": 0.227,
+        "event": "đồ chơi mới cho TikTok"
+      },
+      {
+        "file": "assets/sfx/ta-da.mp3",
+        "atFrame": 1474,
+        "volume": 0.48,
+        "mediaStart": 0.29,
+        "event": "chốt: khá là thiết thực"
+      }
+    ]
+  },
+  "output": "outputs/mcp-tiktok-2-v1.mp4",
+  "tags": [
+    "tiktok"
+  ],
+  "createdAt": "2026-07-29T22:30:51.376Z",
+  "updatedAt": "2026-07-29T23:58:28.985Z",
+  "captions": [
+    {
+      "from": 71,
+      "durationInFrames": 54,
+      "words": [
+        {
+          "text": "sẽ",
+          "start": 73,
+          "end": 78
+        },
+        {
+          "text": "có",
+          "start": 78,
+          "end": 84
+        },
+        {
+          "text": "là",
+          "start": 84,
+          "end": 90
+        },
+        {
+          "text": "liên",
+          "start": 90,
+          "end": 107
+        },
+        {
+          "text": "quan",
+          "start": 107,
+          "end": 111
+        },
+        {
+          "text": "đến",
+          "start": 111,
+          "end": 116
+        },
+        {
+          "text": "quảng",
+          "start": 116,
+          "end": 123,
+          "hi": true
+        },
+        {
+          "text": "cáo",
+          "start": 123,
+          "end": 128,
+          "hi": true
+        }
+      ]
+    },
+    {
+      "from": 125,
+      "durationInFrames": 37,
+      "words": [
+        {
+          "text": "này,",
+          "start": 128,
+          "end": 134
+        },
+        {
+          "text": "nhóm",
+          "start": 135,
+          "end": 140
+        },
+        {
+          "text": "quảng",
+          "start": 140,
+          "end": 144,
+          "hi": true
+        },
+        {
+          "text": "cáo",
+          "start": 144,
+          "end": 149,
+          "hi": true
+        },
+        {
+          "text": "này",
+          "start": 149,
+          "end": 154
+        }
+      ]
+    },
+    {
+      "from": 297,
+      "durationInFrames": 35,
+      "words": [
+        {
+          "text": "cho",
+          "start": 300,
+          "end": 303
+        },
+        {
+          "text": "mọi",
+          "start": 303,
+          "end": 307
+        },
+        {
+          "text": "người",
+          "start": 307,
+          "end": 308
+        },
+        {
+          "text": "nhé",
+          "start": 308,
+          "end": 313
+        },
+        {
+          "text": "thì",
+          "start": 313,
+          "end": 324
+        },
+        {
+          "text": "ở",
+          "start": 324,
+          "end": 330
+        },
+        {
+          "text": "đây",
+          "start": 330,
+          "end": 335
+        }
+      ]
+    },
+    {
+      "from": 332,
+      "durationInFrames": 28,
+      "words": [
+        {
+          "text": "nếu",
+          "start": 335,
+          "end": 341
+        },
+        {
+          "text": "trường",
+          "start": 341,
+          "end": 346
+        },
+        {
+          "text": "hợp",
+          "start": 346,
+          "end": 349
+        },
+        {
+          "text": "anh",
+          "start": 349,
+          "end": 352
+        },
+        {
+          "text": "chị",
+          "start": 352,
+          "end": 356
+        },
+        {
+          "text": "em",
+          "start": 356,
+          "end": 359
+        },
+        {
+          "text": "làm",
+          "start": 359,
+          "end": 363
+        }
+      ]
+    },
+    {
+      "from": 360,
+      "durationInFrames": 26,
+      "words": [
+        {
+          "text": "chạy",
+          "start": 363,
+          "end": 370
+        },
+        {
+          "text": "com",
+          "start": 370,
+          "end": 374
+        },
+        {
+          "text": "ấy",
+          "start": 374,
+          "end": 382
+        }
+      ]
+    },
+    {
+      "from": 563,
+      "durationInFrames": 57,
+      "words": [
+        {
+          "text": "là",
+          "start": 565,
+          "end": 569
+        },
+        {
+          "text": "một",
+          "start": 569,
+          "end": 580
+        },
+        {
+          "text": "cái",
+          "start": 580,
+          "end": 602
+        },
+        {
+          "text": "connect",
+          "start": 602,
+          "end": 614,
+          "hi": true
+        },
+        {
+          "text": "thôi",
+          "start": 614,
+          "end": 620
+        }
+      ]
+    },
+    {
+      "from": 725,
+      "durationInFrames": 77,
+      "words": [
+        {
+          "text": "trường",
+          "start": 728,
+          "end": 734
+        },
+        {
+          "text": "hợp",
+          "start": 734,
+          "end": 737
+        },
+        {
+          "text": "dữ",
+          "start": 737,
+          "end": 748,
+          "hi": true
+        },
+        {
+          "text": "liệu",
+          "start": 748,
+          "end": 755,
+          "hi": true
+        },
+        {
+          "text": "đơn",
+          "start": 755,
+          "end": 766,
+          "hi": true
+        },
+        {
+          "text": "hàng",
+          "start": 766,
+          "end": 772,
+          "hi": true
+        },
+        {
+          "text": "hoặc",
+          "start": 772,
+          "end": 782
+        },
+        {
+          "text": "dữ",
+          "start": 782,
+          "end": 790,
+          "hi": true
+        },
+        {
+          "text": "liệu",
+          "start": 790,
+          "end": 796,
+          "hi": true
+        },
+        {
+          "text": "người",
+          "start": 796,
+          "end": 805
+        }
+      ]
+    },
+    {
+      "from": 802,
+      "durationInFrames": 63,
+      "words": [
+        {
+          "text": "ít",
+          "start": 805,
+          "end": 812
+        },
+        {
+          "text": "ít",
+          "start": 812,
+          "end": 818
+        },
+        {
+          "text": "thì",
+          "start": 818,
+          "end": 820
+        },
+        {
+          "text": "mình",
+          "start": 820,
+          "end": 831
+        },
+        {
+          "text": "nghĩ",
+          "start": 831,
+          "end": 837
+        },
+        {
+          "text": "là",
+          "start": 837,
+          "end": 840
+        },
+        {
+          "text": "kéo",
+          "start": 840,
+          "end": 847
+        },
+        {
+          "text": "thoải",
+          "start": 847,
+          "end": 852
+        },
+        {
+          "text": "mái",
+          "start": 852,
+          "end": 860
+        }
+      ]
+    },
+    {
+      "from": 1240,
+      "durationInFrames": 32,
+      "words": [
+        {
+          "text": "là",
+          "start": 1243,
+          "end": 1245
+        },
+        {
+          "text": "mọi",
+          "start": 1245,
+          "end": 1250
+        },
+        {
+          "text": "người",
+          "start": 1250,
+          "end": 1254
+        },
+        {
+          "text": "sẽ",
+          "start": 1254,
+          "end": 1259
+        },
+        {
+          "text": "có",
+          "start": 1259,
+          "end": 1265
+        },
+        {
+          "text": "một",
+          "start": 1265,
+          "end": 1268
+        },
+        {
+          "text": "cái",
+          "start": 1268,
+          "end": 1272
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>c03-ecom-ai</title>
+    <link rel="stylesheet" href="assets/base.css" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      #bg { position: absolute; inset: 0; overflow: hidden; }
+      #bg img { width: 1080px; height: 1920px; object-fit: cover; display: block; }
+      /* Scrim: tối dần xuống đáy để chữ trắng luôn đọc rõ trên ảnh */
+      #scrim {
+        position: absolute; left: 0; right: 0; bottom: 0; height: 1240px;
+        background: linear-gradient(180deg,
+          rgba(16,17,19,0) 0%, rgba(16,17,19,0.5) 30%,
+          rgba(16,17,19,0.88) 62%, rgba(13,14,16,0.97) 100%);
+        pointer-events: none;
+      }
+      /* Khối chữ neo theo ĐÁY — tự co theo số dòng tiêu đề. Video này KHÔNG có
+         phụ đề nên khối chữ hạ thấp hơn test1 (bottom 470 thay vì 566),
+         vẫn trên safe zone TikTok (~288px). */
+      #stack {
+        position: absolute; left: 84px; right: 76px; bottom: 470px;
+        display: flex; flex-direction: column; align-items: flex-start;
+      }
+      #kicker { margin-bottom: 26px; }
+      #title h1 { font-size: 118px; line-height: 1.02; }
+      #sub { margin-top: 16px; }
+      #sub > span { font-size: 50px; font-weight: 700; color: rgba(255,255,255,0.9); }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="c03-ecom-ai"
+      data-start="0"
+      data-duration="2.7"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div id="bg"><img src="assets/illustrations/ecom-va-ai.png" alt="" /></div>
+      <div id="scrim"></div>
+      <div class="brand"><span class="bdot"></span>noti.vn</div>
+
+      <div id="stack">
+        <div id="kicker" class="an"><span class="chip hot"><span class="dot"></span>Dành cho</span></div>
+        <div id="title" class="an"><h1><span class="grad">ECOM &amp; AI</span></h1></div>
+        <div id="sub" class="an"><span>nên <span class="kw-hot">focus</span> sự kiện này</span></div>
+      </div>
+      <div class="vignette"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const DUR = 2.7;
+      const tl = gsap.timeline({ paused: true });
+      tl.set({}, {}, DUR); // neo đủ thời lượng slot — chống frame đen cuối scene
+
+      /* Ken Burns nhẹ trên ảnh minh họa — cảnh trám vẫn "sống", không chóng mặt */
+      tl.fromTo("#bg img", { scale: 1.08, autoAlpha: 0.25 },
+        { scale: 1.0, autoAlpha: 1, duration: DUR, ease: "none" }, 0);
+      tl.fromTo("#scrim", { autoAlpha: 0.45 }, { autoAlpha: 1, duration: 0.3, ease: "power2.out" }, 0);
+
+      tl.fromTo("#kicker", { autoAlpha: 0, y: 24 },
+        { autoAlpha: 1, y: 0, duration: 0.34, ease: "power3.out" }, 0.04);
+      tl.fromTo("#title", { autoAlpha: 0, y: 36 },
+        { autoAlpha: 1, y: 0, duration: 0.46, ease: "power3.out" }, 0.20);
+      /* Scale-pop rất nhẹ trên tiêu đề — cú "nhấn" key chính của cảnh trám */
+      tl.fromTo("#title", { scale: 0.965 },
+        { scale: 1, duration: 0.52, ease: "power4.out" }, 0.20);
+      tl.fromTo("#sub", { autoAlpha: 0, y: 22 },
+        { autoAlpha: 1, y: 0, duration: 0.38, ease: "power3.out" }, 0.40);
+      /* trôi lên rất nhẹ phần còn lại — giữ nhịp, không đứng hình */
+      tl.to("#kicker, #title, #sub",
+        { y: -12, duration: Math.max(0.4, DUR - 0.66), ease: "sine.inOut" }, 0.66);
+
+      window.__timelines["c03-ecom-ai"] = tl;
+    </script>
+  </body>
+</html>

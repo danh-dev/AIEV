@@ -1,0 +1,20 @@
+node_modules/
+.env
+.next/
+dist/
+
+# Video working files — nặng, tái tạo được
+video-projects/*/renders/
+video-projects/*/verify/
+video-projects/*/cache/
+video-projects/*/assets/
+video-projects/*/props.resolved.json
+image-projects/
+engines/remotion/public/staging/*
+!engines/remotion/public/staging/.gitkeep
+outputs/
+imports/
+*.log
+
+# DB + cấu hình máy local
+apps/server/data/

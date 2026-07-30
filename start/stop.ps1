@@ -1,0 +1,22 @@
+﻿# AI Edit Video by noti.vn — dừng toàn bộ hệ thống (web 6868 + server 6869)
+
+$ErrorActionPreference = "SilentlyContinue"
+$killed = 0
+
+foreach ($port in 6868, 6869) {
+    $pids = Get-NetTCPConnection -LocalPort $port -State Listen |
+        Select-Object -ExpandProperty OwningProcess -Unique
+    foreach ($procId in $pids) {
+        if ($procId -and $procId -ne 0) {
+            # Kill cả cây process (node + con của nó)
+            taskkill /pid $procId /t /f | Out-Null
+            $killed++
+        }
+    }
+}
+
+if ($killed -gt 0) {
+    Write-Host "  [OK] Đã dừng hệ thống AI Edit Video ($killed process)." -ForegroundColor Green
+} else {
+    Write-Host "  Hệ thống không chạy — không có gì để dừng." -ForegroundColor DarkGray
+}

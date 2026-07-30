@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>s04-connect</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=block&subset=vietnamese" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0a0e1a; }
+      #root {
+        position: relative; width: 1080px; height: 1920px; overflow: hidden;
+        font-family: "Be Vietnam Pro", "Inter", sans-serif;
+        background:
+          radial-gradient(1100px 900px at 50% 24%, rgba(0, 110, 255, 0.20) 0%, rgba(10, 14, 26, 0) 62%),
+          radial-gradient(900px 820px at 82% 86%, rgba(0, 194, 255, 0.13) 0%, rgba(10, 14, 26, 0) 60%),
+          linear-gradient(180deg, #0b1020 0%, #070b16 100%);
+      }
+      /* Lưới nền mờ tạo chiều sâu */
+      .grid {
+        position: absolute; inset: 0;
+        background-image:
+          linear-gradient(rgba(120, 190, 255, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(120, 190, 255, 0.055) 1px, transparent 1px);
+        background-size: 90px 90px;
+        -webkit-mask-image: radial-gradient(780px 780px at 50% 46%, #000 18%, transparent 78%);
+        mask-image: radial-gradient(780px 780px at 50% 46%, #000 18%, transparent 78%);
+      }
+      .vignette {
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(900px 1180px at 50% 46%, rgba(0,0,0,0) 52%, rgba(0,0,0,0.55) 100%);
+      }
+      .brand {
+        position: absolute; left: 62px; top: 64px;
+        display: flex; align-items: center; gap: 16px;
+        font-size: 26px; font-weight: 700; letter-spacing: 0.20em;
+        color: rgba(190, 224, 255, 0.7); text-transform: uppercase;
+      }
+      .brand .bdot {
+        width: 16px; height: 16px; border-radius: 50%;
+        background: linear-gradient(120deg, #0061ff, #00c2ff);
+        box-shadow: 0 0 18px rgba(0, 160, 255, 0.75);
+      }
+      /* Phần tử GSAP điều khiển — ẩn sẵn để không lóe ở frame đầu */
+      .an { visibility: hidden; will-change: transform, opacity; }
+      /* Chữ gradient: line-height 1.0 + padding trên/dưới để KHÔNG cụt dấu tiếng Việt */
+      .grad {
+        background: linear-gradient(100deg, #0061ff 0%, #00c2ff 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        line-height: 1.0; padding-top: 0.5em; padding-bottom: 0.16em;
+        font-weight: 800; letter-spacing: -0.03em;
+        filter: drop-shadow(0 0 30px rgba(0, 140, 255, 0.42));
+      }
+      .grad-warm {
+        background: linear-gradient(100deg, #ff9d2e 0%, #ffd24d 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        line-height: 1.0; padding-top: 0.5em; padding-bottom: 0.16em;
+        font-weight: 800; letter-spacing: -0.03em;
+        filter: drop-shadow(0 0 30px rgba(255, 160, 60, 0.38));
+      }
+      .glass {
+        background: rgba(12, 20, 40, 0.62);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-radius: 24px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 0 1px rgba(120,200,255,0.14), 0 22px 60px rgba(0,0,0,0.5);
+      }
+      .chip {
+        display: inline-flex; align-items: center; gap: 16px;
+        padding: 22px 40px; border-radius: 999px;
+        font-size: 42px; font-weight: 700; color: #ffffff; white-space: nowrap;
+        background: rgba(12, 20, 40, 0.7);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(120,200,255,0.18), 0 14px 38px rgba(0,0,0,0.45);
+      }
+      .chip .dot {
+        width: 16px; height: 16px; border-radius: 50%;
+        background: linear-gradient(120deg, #0061ff, #00c2ff);
+        box-shadow: 0 0 14px rgba(0,160,255,0.8);
+      }
+      .chip.past { opacity: 0.4; }
+      .chip.warm { box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,190,90,0.3), 0 14px 38px rgba(0,0,0,0.45); }
+      .chip.warm .dot { background: linear-gradient(120deg, #ff9d2e, #ffd24d); box-shadow: 0 0 14px rgba(255,170,60,0.8); }
+      .row { display: flex; justify-content: center; gap: 26px; margin-bottom: 26px; }
+      .shot { padding: 18px; }
+      .shot img { display: block; border-radius: 14px; }
+      .kw { color: #19c8ff; font-weight: 800; }
+      .kw-warm { color: #ffcf4d; font-weight: 800; }
+      .kicker {
+        font-size: 34px; font-weight: 700; letter-spacing: 0.16em;
+        color: rgba(180, 214, 255, 0.78); text-transform: uppercase;
+      }
+
+      /* ---- riêng s04-connect ---- */
+      #diagram { position: absolute; left: 0; right: 0; top: 480px; height: 420px; }
+      .node {
+        position: absolute; top: 0; width: 340px; height: 340px; border-radius: 34px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      }
+      #n-mcp { left: 96px; } #n-ai { right: 96px; }
+      .node img { width: 190px; }
+      .node .lb { font-size: 44px; font-weight: 800; color: #fff; letter-spacing: 0.04em; }
+      .node .ai { font-size: 108px; }
+      #wire {
+        position: absolute; left: 436px; top: 166px; width: 208px; height: 8px; border-radius: 4px;
+        transform-origin: 0% 50%;
+        background: linear-gradient(90deg, #0061ff, #00c2ff);
+        box-shadow: 0 0 26px rgba(0,170,255,0.8);
+      }
+      #headline { position: absolute; left: 0; right: 0; top: 1030px; text-align: center; }
+      #headline .l { display: block; font-size: 84px; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="s04-connect"
+      data-start="0"
+      data-duration="3.4333"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div class="grid"></div>
+      <div class="brand"><span class="bdot"></span>noti.vn</div>
+
+      <div id="diagram">
+        <div id="n-mcp" class="node glass an"><img src="assets/tipdilz7wysq-4koczm3j4zq2mpnagvby6g.png" alt=""><span class="lb">MCP</span></div>
+        <div id="wire" class="an"></div>
+        <div id="n-ai" class="node glass an"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#7fd4ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg><span class="lb ai grad">AI</span></div>
+      </div>
+      <div id="headline">
+        <span class="l grad an" id="h1">KÉO DỮ LIỆU</span>
+        <span class="l grad an" id="h2">VỀ PHÂN TÍCH</span>
+      </div>
+      <div class="vignette"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const DUR = 3.4333;
+      const tl = gsap.timeline({ paused: true });
+      tl.set({}, {}, DUR); // neo đủ thời lượng — chống frame đen ở cuối scene
+
+      /* helper nhịp chung */
+      const inUp = (sel, at, o = {}) =>
+        tl.fromTo(sel, { autoAlpha: 0, y: o.y ?? 26 },
+          { autoAlpha: 1, y: 0, duration: o.dur ?? 0.4, ease: "power3.out" }, at);
+      const pop = (sel, at, sc = 1) =>
+        tl.fromTo(sel, { autoAlpha: 0, scale: 0.7 * sc, y: 18 },
+          { autoAlpha: 1, scale: sc, y: 0, duration: 0.36, ease: "back.out(2)" }, at);
+
+      tl.fromTo("#n-mcp", { autoAlpha: 0, x: -60, scale: 0.9 },
+        { autoAlpha: 1, x: 0, scale: 1, duration: 0.42, ease: "back.out(1.4)" }, 0.08);
+      tl.fromTo("#wire", { autoAlpha: 0, scaleX: 0 },
+        { autoAlpha: 1, scaleX: 1, duration: 0.36, ease: "power2.out" }, 0.62);
+      tl.fromTo("#n-ai", { autoAlpha: 0, x: 60, scale: 0.9 },
+        { autoAlpha: 1, x: 0, scale: 1, duration: 0.42, ease: "back.out(1.4)" }, 0.88);
+      tl.to("#wire", { boxShadow: "0 0 44px rgba(0,200,255,1)", duration: 0.5, yoyo: true, repeat: 1, ease: "sine.inOut" }, 1.15);
+      inUp("#h1", 1.97, { y: 28, dur: 0.4 });
+      inUp("#h2", 2.60, { y: 28, dur: 0.4 });
+      tl.to("#h2", { scale: 1.06, duration: 0.24, yoyo: true, repeat: 1, ease: "sine.inOut" }, 2.87);
+
+      window.__timelines["s04-connect"] = tl;
+    </script>
+  </body>
+</html>

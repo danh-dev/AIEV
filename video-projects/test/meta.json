@@ -1,0 +1,33 @@
+{
+  "id": "test",
+  "name": "test",
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "status": "draft",
+  "brief": {
+    "sourceDescription": "",
+    "autoCut": true,
+    "subtitles": true,
+    "highlightEnabled": true,
+    "highlightKeywords": [],
+    "keyLayoutEnabled": true,
+    "mainKey": "",
+    "relatedKeys": [],
+    "skill": null,
+    "sfxMode": "recommended",
+    "autoIllustrations": false,
+    "illustrationModel": null,
+    "styleId": null,
+    "notes": ""
+  },
+  "scenes": [],
+  "audio": {
+    "voice": null,
+    "sfx": []
+  },
+  "output": null,
+  "tags": [],
+  "createdAt": "2026-07-29T10:56:30.321Z",
+  "updatedAt": "2026-07-30T06:01:55.661Z"
+}

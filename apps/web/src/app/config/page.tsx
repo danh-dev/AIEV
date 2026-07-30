@@ -1,0 +1,481 @@
+"use client";
+
+/**
+ * Trang Cấu hình — tăng tốc phần cứng + cài đặt render: worker Chrome
+ * (HyperFrames), GPU cho capture/encode, concurrency Remotion + queue, draft fps.
+ * Mỗi thay đổi PUT ngay (auto-save) — server đọc settings mỗi lần job chạy
+ * và mỗi tick của queue nên hiệu lực NGAY, không cần restart.
+ */
+
+import { Check, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getRenderSettings,
+  updateRenderSettings,
+  type HardwareInfo,
+  type RenderSettings,
+  type RenderSettingsResponse,
+} from "@/lib/api";
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { PageHeader } from "@/components/PageHeader";
+
+const PLATFORM_LABELS: Record<string, string> = {
+  win32: "Windows",
+  darwin: "macOS",
+  linux: "Linux",
+};
+
+/** value dùng chung cho các nhóm nút: number hoặc null (draft fps "Giữ nguyên"). */
+type SegValue = number | null;
+
+interface SegOption {
+  value: SegValue;
+  label: string;
+}
+
+const WORKER_OPTIONS: SegOption[] = [
+  { value: 0, label: "Auto" },
+  { value: 4, label: "4" },
+  { value: 6, label: "6" },
+  { value: 8, label: "8" },
+  { value: 12, label: "12" },
+];
+
+const REMOTION_OPTIONS: SegOption[] = WORKER_OPTIONS;
+
+const QUEUE_OPTIONS: SegOption[] = [
+  { value: 1, label: "1" },
+  { value: 2, label: "2" },
+  { value: 3, label: "3" },
+  { value: 4, label: "4" },
+];
+
+const DRAFT_FPS_OPTIONS: SegOption[] = [
+  { value: null, label: "Giữ nguyên" },
+  { value: 15, label: "15 fps" },
+  { value: 24, label: "24 fps" },
+];
+
+/** Nhóm nút chọn một giá trị — style giống bộ chọn tỉ lệ của Tạo ảnh. */
+function SegGroup({
+  options,
+  value,
+  onSelect,
+  ariaLabel,
+}: {
+  options: SegOption[];
+  value: SegValue;
+  onSelect: (v: SegValue) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label={ariaLabel}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={String(o.value)}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onSelect(o.value)}
+            className={`min-w-[44px] rounded-[var(--radius)] border px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
+              active
+                ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Hàng field: label + hint + control (nhóm nút). */
+function FieldRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="py-4 first:pt-0 last:pb-0">
+      <p className="text-sm font-medium">{label}</p>
+      {hint && (
+        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{hint}</p>
+      )}
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
+/** Hàng toggle: label + hint (muted hoặc danger) + switch. */
+function ToggleRow({
+  id,
+  label,
+  hint,
+  hintTone = "muted",
+  checked,
+  disabled = false,
+  disabledNote,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  hintTone?: "muted" | "danger";
+  checked: boolean;
+  disabled?: boolean;
+  disabledNote?: string;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+      <div className={`min-w-0 ${disabled ? "opacity-60" : ""}`}>
+        <label
+          htmlFor={id}
+          className={`text-sm font-medium ${disabled ? "" : "cursor-pointer"}`}
+        >
+          {label}
+        </label>
+        <p
+          className={`mt-0.5 text-xs ${
+            hintTone === "danger"
+              ? "text-[var(--danger)]"
+              : "text-[var(--text-muted)]"
+          }`}
+        >
+          {hint}
+        </p>
+        {disabled && disabledNote && (
+          <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
+            {disabledNote}
+          </p>
+        )}
+      </div>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        className={`switch mt-0.5 ${
+          disabled ? "cursor-not-allowed opacity-50" : ""
+        }`}
+        onClick={() => onChange(!checked)}
+      />
+    </div>
+  );
+}
+
+/** Card phần cứng — 3 khối CPU / RAM / GPU (tên + dòng chi tiết) + badges. */
+function HardwareCard({ hw }: { hw: HardwareInfo }) {
+  // CPU: "6 cores · 12 threads · up to 4.1 GHz" — phần nào không tra được thì bỏ
+  const cpuDetail = [
+    hw.cpuCores ? `${hw.cpuCores} cores` : `${hw.cpuThreads} cores`,
+    hw.cpuCores ? `${hw.cpuThreads} threads` : null,
+    hw.cpuMaxGhz ? `up to ${hw.cpuMaxGhz} GHz` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  // Tên CPU thường tự chứa "@ x.xGHz" ở cuối — cắt cho gọn (đã có "up to" ở dòng chi tiết)
+  const cpuName = hw.cpuModel.replace(/\s*CPU\s*@.*$/i, "").replace(/\s*@.*$/, "").trim();
+
+  const blocks = [
+    {
+      label: "CPU",
+      name: cpuName || "Không phát hiện",
+      detail: cpuDetail,
+    },
+    {
+      label: "RAM",
+      name: `${hw.ramGb} GB${hw.ramType ? ` ${hw.ramType}` : ""}`,
+      detail: hw.ramSpeedMhz ? `${hw.ramSpeedMhz} MHz` : "",
+    },
+    {
+      label: "GPU",
+      name: hw.gpuName || "Không phát hiện",
+      detail:
+        [
+          hw.gpuVramGb ? `${hw.gpuVramGb} GB` : null,
+          hw.nvenc ? "NVENC" : null,
+          hw.videotoolbox ? "VideoToolbox" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || (hw.gpuName ? "Không tăng tốc encode" : ""),
+    },
+  ];
+  const cpuOnly = !hw.nvenc && !hw.videotoolbox;
+  return (
+    <Card title="Phần cứng phát hiện được">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
+        {blocks.map((b) => (
+          <div key={b.label} className="min-w-0">
+            <div className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+              {b.label}
+            </div>
+            <div className="mt-1 truncate text-sm font-semibold" title={b.name}>
+              {b.name}
+            </div>
+            {b.detail && (
+              <div className="mt-0.5 text-xs text-[var(--text-muted)]">{b.detail}</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+        <span className="text-xs text-[var(--text-muted)]">
+          Hệ điều hành: {PLATFORM_LABELS[hw.platform] ?? hw.platform}
+        </span>
+        <span className="grow" />
+        {hw.nvenc && (
+          <span className="badge badge-success">
+            <span className="badge-dot" />
+            NVENC (encode GPU NVIDIA)
+          </span>
+        )}
+        {hw.videotoolbox && (
+          <span className="badge badge-success">
+            <span className="badge-dot" />
+            VideoToolbox + Fast Capture (macOS)
+          </span>
+        )}
+        {cpuOnly && (
+          <span className="badge badge-muted">
+            <span className="badge-dot" />
+            Chỉ CPU
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-xs text-[var(--text-muted)]">
+        Mang project sang máy khác (vd MacBook) — tab này tự phát hiện và hiện
+        đúng tùy chọn cho máy đó.
+      </p>
+    </Card>
+  );
+}
+
+const APPLIED_NOTICE_MS = 2500;
+
+export default function ConfigPage() {
+  const [data, setData] = useState<RenderSettingsResponse | null>(null);
+  const dataRef = useRef<RenderSettingsResponse | null>(null);
+  dataRef.current = data;
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
+  const appliedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getRenderSettings()
+      .then((res) => {
+        if (!alive) return;
+        setData(res);
+        setLoadError(null);
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setLoadError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      alive = false;
+      if (appliedTimer.current) clearTimeout(appliedTimer.current);
+    };
+  }, []);
+
+  const flashApplied = useCallback(() => {
+    setApplied(true);
+    if (appliedTimer.current) clearTimeout(appliedTimer.current);
+    appliedTimer.current = setTimeout(
+      () => setApplied(false),
+      APPLIED_NOTICE_MS
+    );
+  }, []);
+
+  /**
+   * Cập nhật lạc quan + PUT ngay; lỗi thì rollback về settings trước đó.
+   * Fetch nằm NGOÀI state updater — updater phải thuần (StrictMode chạy 2 lần
+   * → fetch trong updater là double-fire PUT).
+   */
+  const apply = useCallback(
+    (patch: Partial<RenderSettings>) => {
+      const d = dataRef.current;
+      if (!d) return;
+      const prev = d.settings;
+      setSaveError(null);
+      setData({ ...d, settings: { ...prev, ...patch } });
+      updateRenderSettings(patch)
+        .then((res) => {
+          setData((cur) => (cur ? { ...cur, settings: res.settings } : cur));
+          flashApplied();
+        })
+        .catch((e) => {
+          setData((cur) => (cur ? { ...cur, settings: prev } : cur));
+          setSaveError(e instanceof Error ? e.message : String(e));
+        });
+    },
+    [flashApplied]
+  );
+
+  const settings = data?.settings ?? null;
+  const hw = data?.hardware ?? null;
+  /** Máy không có encoder GPU nào → 2 toggle encode GPU bị khóa. */
+  const gpuEncodeUnavailable = hw ? !hw.nvenc && !hw.videotoolbox : false;
+  const gpuEncodeNote =
+    "Máy này không có encoder GPU (NVENC/VideoToolbox) — dùng libx264 trên CPU.";
+
+  return (
+    <div className="flex w-full flex-col gap-4">
+      <PageHeader
+        title="Cấu hình"
+        subtitle="Tăng tốc phần cứng và cài đặt render"
+      />
+
+      {loadError && (
+        <ErrorBanner
+          message="Không tải được cài đặt render."
+          detail={loadError}
+        />
+      )}
+      {saveError && (
+        <ErrorBanner message="Không lưu được cài đặt." detail={saveError} />
+      )}
+
+      {hw && <HardwareCard hw={hw} />}
+
+      {settings && data && (
+        <Card
+          title="Cài đặt render"
+          actions={
+            <div className="flex items-center gap-3">
+              {applied && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
+                  <Check size={13} strokeWidth={2} className="shrink-0" />
+                  Đã áp dụng — hiệu lực ngay, không cần restart
+                </span>
+              )}
+              <Button
+                variant="secondary"
+                small
+                onClick={() => apply({ ...data.defaults })}
+              >
+                <RotateCcw size={13} strokeWidth={2} />
+                Khôi phục mặc định
+              </Button>
+            </div>
+          }
+        >
+          {/* 2 cột nội bộ trên md+ — mỗi cột một nhóm setting, mobile xếp dọc */}
+          <div className="grid md:grid-cols-2 md:gap-x-10">
+            {/* Cột trái: HyperFrames capture + encode GPU */}
+            <div className="divide-y divide-[var(--border)] pb-4 md:pb-0">
+              <FieldRow
+                label="Worker Chrome (HyperFrames)"
+                hint="Mỗi worker ~256MB RAM — máy 64GB thoải mái 8-12"
+              >
+                <SegGroup
+                  ariaLabel="Số worker Chrome"
+                  options={WORKER_OPTIONS}
+                  value={settings.workers}
+                  onSelect={(v) => apply({ workers: v ?? 0 })}
+                />
+              </FieldRow>
+
+              <ToggleRow
+                id="acc-browser-gpu"
+                label="GPU cho capture (browser)"
+                hint="Chrome dùng GPU để dựng hình; tắt nếu gặp lỗi render"
+                checked={settings.browserGpu}
+                onChange={(v) => apply({ browserGpu: v })}
+              />
+
+              <ToggleRow
+                id="acc-gpu-draft"
+                label="Encode GPU cho bản draft"
+                hint="NVENC/VideoToolbox — nhanh, draft không cần chất lượng tối đa"
+                checked={settings.gpuEncodeDraft}
+                disabled={gpuEncodeUnavailable}
+                disabledNote={gpuEncodeNote}
+                onChange={(v) => apply({ gpuEncodeDraft: v })}
+              />
+
+              <ToggleRow
+                id="acc-gpu-final"
+                label="Encode GPU cho bản FINAL"
+                hint="Nhanh hơn nhiều nhưng chất lượng nhỉnh kém libx264 cùng dung lượng — video đăng TikTok thường khó phân biệt"
+                hintTone="danger"
+                checked={settings.gpuEncodeFinal}
+                disabled={gpuEncodeUnavailable}
+                disabledNote={gpuEncodeNote}
+                onChange={(v) => apply({ gpuEncodeFinal: v })}
+              />
+            </div>
+
+            {/* Cột phải: capture nhanh + concurrency + draft fps */}
+            <div className="divide-y divide-[var(--border)] border-t border-[var(--border)] pt-4 md:border-t-0 md:pt-0">
+              <ToggleRow
+                id="acc-fast-capture"
+                label="Fast capture (macOS)"
+                hint="~2x tốc độ capture, chỉ thực sự hoạt động trên macOS + GPU; nơi khác tự fallback vô hại"
+                checked={settings.fastCapture}
+                onChange={(v) => apply({ fastCapture: v })}
+              />
+
+              <FieldRow
+                label="Remotion concurrency"
+                hint="Số tab render song song khi Remotion lắp ráp timeline"
+              >
+                <SegGroup
+                  ariaLabel="Remotion concurrency"
+                  options={REMOTION_OPTIONS}
+                  value={settings.remotionConcurrency}
+                  onSelect={(v) => apply({ remotionConcurrency: v ?? 0 })}
+                />
+              </FieldRow>
+
+              <FieldRow
+                label="Job render đồng thời (queue)"
+                hint="Song song giữa các project khác nhau; máy yếu để 1"
+              >
+                <SegGroup
+                  ariaLabel="Số job render đồng thời"
+                  options={QUEUE_OPTIONS}
+                  value={settings.queueConcurrency}
+                  onSelect={(v) => apply({ queueConcurrency: v ?? 1 })}
+                />
+              </FieldRow>
+
+              <FieldRow
+                label="Draft fps"
+                hint="Draft 15fps nhanh gần gấp đôi, chỉ để duyệt nhịp; final luôn đúng fps project"
+              >
+                <SegGroup
+                  ariaLabel="FPS bản draft"
+                  options={DRAFT_FPS_OPTIONS}
+                  value={settings.draftFps}
+                  onSelect={(v) => apply({ draftFps: v })}
+                />
+              </FieldRow>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {!data && !loadError && (
+        // Skeleton trong lúc chờ GET /api/render-settings
+        <>
+          <div className="card h-[140px] animate-pulse bg-[var(--bg-subtle)]" />
+          <div className="card h-[360px] animate-pulse bg-[var(--bg-subtle)]" />
+        </>
+      )}
+    </div>
+  );
+}

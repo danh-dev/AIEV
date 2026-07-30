@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>s08-outro</title>
+    <link rel="stylesheet" href="assets/base.css" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      #halo {
+        position: absolute; left: 100px; top: 600px;
+        width: 880px; height: 760px; border-radius: 50px;
+        background:
+          radial-gradient(circle at 36% 40%, rgba(55, 189, 248, 0.3) 0%, rgba(16, 17, 19, 0) 62%),
+          radial-gradient(circle at 74% 66%, rgba(237, 60, 71, 0.26) 0%, rgba(16, 17, 19, 0) 58%);
+        filter: blur(32px);
+      }
+      #kicker { position: absolute; left: 0; right: 0; top: 704px; text-align: center; }
+      /* Thẻ keyword — thứ duy nhất người xem cần copy lại */
+      #kwcard {
+        position: absolute; left: 96px; right: 96px; top: 800px;
+        padding: 60px 48px; text-align: center; border-radius: 28px;
+      }
+      #kwcard .k1 { font-size: 92px; font-weight: 800; letter-spacing: -0.03em; color: #ffffff; line-height: 1.08; }
+      #kwcard .plus {
+        display: block; margin: 22px auto; width: 74px; height: 74px; border-radius: 50px;
+        font-size: 44px; font-weight: 800; line-height: 74px; color: #ffffff;
+        background: linear-gradient(120deg, #ed3c47, #ff7849);
+        box-shadow: 0 0 26px rgba(237, 60, 71, 0.55);
+      }
+      #kwcard .k2 {
+        font-size: 92px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.08;
+        background: linear-gradient(100deg, #37bdf8 0%, #8fd9ff 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        filter: drop-shadow(0 0 30px rgba(55, 189, 248, 0.4));
+      }
+      #hint { position: absolute; left: 110px; right: 110px; top: 1330px; text-align: center; }
+      #hint .t { font-size: 44px; font-weight: 600; line-height: 1.4; color: rgba(255, 255, 255, 0.82); }
+      #cta { position: absolute; left: 0; right: 0; top: 1500px; text-align: center; }
+      #cta .t { font-size: 54px; font-weight: 800; letter-spacing: -0.02em; color: #ffffff; }
+      #sig { position: absolute; left: 0; right: 0; top: 1608px; text-align: center; }
+      #sig .chip { font-size: 40px; padding: 22px 44px; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="s08-outro"
+      data-start="0"
+      data-duration="3.2"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div class="grid"></div>
+      <div id="halo"></div>
+      <div class="brand"><span class="bdot"></span>noti.vn</div>
+
+      <div id="kicker" class="an kicker">Từ khóa để tự tìm hiểu</div>
+      <div id="kwcard" class="an glass">
+        <div class="glass-sheen"></div>
+        <div class="k1">CLAUDE CODE</div>
+        <span class="plus">+</span>
+        <div class="k2">HYPERFRAMES</div>
+      </div>
+      <div id="hint" class="an">
+        <div class="t">Gõ đúng cụm này trên <span class="kw">YouTube</span> hoặc hỏi thẳng AI.</div>
+      </div>
+      <div id="cta" class="an"><div class="t">Chúc mọi người ứng dụng thành công!</div></div>
+      <div id="sig" class="an"><span class="chip hot"><span class="dot"></span>noti.vn</span></div>
+      <div class="vignette"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const DUR = 3.2;
+      const tl = gsap.timeline({ paused: true });
+      tl.set({}, {}, DUR); // neo đủ thời lượng — chống frame đen ở cuối scene
+
+      tl.set("#kicker, #kwcard", { autoAlpha: 1 }, 0);
+      tl.fromTo("#kicker", { autoAlpha: 0, y: -16 },
+        { autoAlpha: 1, y: 0, duration: 0.34, ease: "power3.out" }, 0);
+      tl.fromTo("#kwcard", { y: 40, scale: 0.93 },
+        { y: 0, scale: 1, duration: 0.56, ease: "back.out(1.4)" }, 0);
+      tl.fromTo("#halo", { autoAlpha: 0.35, scale: 0.9 },
+        { autoAlpha: 1, scale: 1.05, duration: DUR, ease: "sine.inOut" }, 0);
+      tl.fromTo("#kwcard .plus", { scale: 0, rotate: -90 },
+        { scale: 1, rotate: 0, duration: 0.42, ease: "back.out(2.2)" }, 0.34);
+
+      tl.fromTo("#hint", { autoAlpha: 0, y: 26 },
+        { autoAlpha: 1, y: 0, duration: 0.42, ease: "power3.out" }, 0.66);
+      tl.fromTo("#cta", { autoAlpha: 0, y: 26 },
+        { autoAlpha: 1, y: 0, duration: 0.44, ease: "power3.out" }, 0.92);
+      tl.fromTo("#sig", { autoAlpha: 0, scale: 0.8 },
+        { autoAlpha: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 1.18);
+
+      /* giữ nhịp đến hết scene */
+      tl.to("#kwcard", { y: -10, duration: 1.4, ease: "sine.inOut" }, 1.5);
+
+      window.__timelines["s08-outro"] = tl;
+    </script>
+  </body>
+</html>
