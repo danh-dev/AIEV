@@ -1,12 +1,25 @@
 "use client";
 
-import { Clapperboard, Copy, Plus, Ruler, Sparkles, Tag, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Clapperboard,
+  Copy,
+  Play,
+  Plus,
+  Ruler,
+  Sparkles,
+  Tag,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  cleanProjectJunk,
+  createJob,
   createProject,
   deleteProject,
+  getProjectJunk,
   getProjects,
   startProjectEdit,
   type ProjectSummary,
@@ -21,6 +34,7 @@ import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { TagInput } from "@/components/TagInput";
 import {
+  formatBytes,
   formatDateTime,
   formatTokens,
   formatUsd,
@@ -112,6 +126,12 @@ export default function ProjectsPage() {
   } | null>(null);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+
+  // Bulk "Xóa file rác" + "Render final" trên các project đã chọn
+  const [junkBusy, setJunkBusy] = useState(false);
+  const [renderBusy, setRenderBusy] = useState(false);
+  const [bulkActionNotice, setBulkActionNotice] = useState<string | null>(null);
+  const [bulkActionErrors, setBulkActionErrors] = useState<string[]>([]);
 
   // Nhân bản project — project gốc đang chọn + notice sau khi clone xong
   const [cloneSource, setCloneSource] = useState<{
@@ -292,6 +312,114 @@ export default function ProjectsPage() {
     }
   }
 
+  // ---- Xóa file rác hàng loạt ----
+
+  async function onBulkCleanJunk() {
+    if (junkBusy || renderBusy || selectedProjects.length === 0) return;
+    setJunkBusy(true);
+    setBulkActionNotice(null);
+    setBulkActionErrors([]);
+    const targets = selectedProjects;
+    const errors: string[] = [];
+    try {
+      // Quét file rác từng project để confirm MỘT lần với tổng dung lượng
+      const junks: {
+        id: string;
+        name: string;
+        items: number;
+        bytes: number;
+      }[] = [];
+      for (const p of targets) {
+        try {
+          const junk = await getProjectJunk(p.id);
+          if (junk.items.length > 0) {
+            junks.push({
+              id: p.id,
+              name: p.name,
+              items: junk.items.length,
+              bytes: junk.totalBytes,
+            });
+          }
+        } catch (e) {
+          errors.push(
+            `${p.name} (${p.id}): ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+      }
+      if (junks.length === 0) {
+        if (errors.length > 0) setBulkActionErrors(errors);
+        else setBulkActionNotice("Không có file rác nào để xóa.");
+        return;
+      }
+      const totalItems = junks.reduce((sum, j) => sum + j.items, 0);
+      const totalBytes = junks.reduce((sum, j) => sum + j.bytes, 0);
+      if (
+        !window.confirm(
+          `Xóa ${totalItems} mục file rác của ${junks.length} project, giải phóng ${formatBytes(totalBytes)}?\n` +
+            "File nguồn của project và video final được giữ nguyên."
+        )
+      )
+        return;
+      // Xóa tuần tự — project đang có job server trả 409, gom lỗi và đi tiếp
+      let freed = 0;
+      let deleted = 0;
+      let cleaned = 0;
+      for (const j of junks) {
+        try {
+          const result = await cleanProjectJunk(j.id);
+          freed += result.freedBytes;
+          deleted += result.deleted;
+          cleaned++;
+        } catch (e) {
+          errors.push(
+            `${j.name} (${j.id}): ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+      }
+      if (cleaned > 0) {
+        setBulkActionNotice(
+          `Đã giải phóng ${formatBytes(freed)} (${deleted} mục file rác, ${cleaned} project).`
+        );
+      }
+      if (errors.length > 0) setBulkActionErrors(errors);
+      await load();
+    } finally {
+      setJunkBusy(false);
+    }
+  }
+
+  // ---- Render final hàng loạt ----
+
+  async function onBulkRenderFinal() {
+    if (junkBusy || renderBusy || selectedProjects.length === 0) return;
+    setRenderBusy(true);
+    setBulkActionNotice(null);
+    setBulkActionErrors([]);
+    const targets = selectedProjects;
+    const errors: string[] = [];
+    let created = 0;
+    // Submit đúng job như nút "Render final" đơn lẻ — queue tự điều phối,
+    // project chưa đủ điều kiện (chưa có draft…) server tự trả lỗi
+    for (const p of targets) {
+      try {
+        await createJob({ projectId: p.id, type: "assemble-final" });
+        created++;
+      } catch (e) {
+        errors.push(
+          `${p.name} (${p.id}): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    setRenderBusy(false);
+    if (created > 0) {
+      setBulkActionNotice(
+        `Đã đưa ${created} job render final vào hàng đợi — theo dõi ở Render Queue.`
+      );
+    }
+    if (errors.length > 0) setBulkActionErrors(errors);
+    await load();
+  }
+
   // ---- Tạo project ----
 
   function openCreate() {
@@ -364,6 +492,20 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {bulkActionNotice && (
+        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
+          <CheckCircle2 size={15} strokeWidth={2} className="shrink-0" />
+          {bulkActionNotice}
+        </div>
+      )}
+
+      {bulkActionErrors.length > 0 && (
+        <ErrorBanner
+          message={`Không xử lý được ${bulkActionErrors.length} project.`}
+          detail={bulkActionErrors.join("\n")}
+        />
+      )}
+
       {cloneNotice && (
         <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
           <Copy size={15} strokeWidth={2} className="shrink-0" />
@@ -390,15 +532,44 @@ export default function ProjectsPage() {
             <Button
               variant="secondary"
               small
+              disabled={junkBusy || renderBusy}
               onClick={() => setSelected(new Set())}
             >
               Bỏ chọn
             </Button>
-            <Button variant="destructive" small onClick={openDelete}>
+            <Button
+              variant="secondary"
+              small
+              disabled={junkBusy || renderBusy}
+              onClick={onBulkCleanJunk}
+            >
+              <Trash2 size={14} strokeWidth={2} />
+              {junkBusy ? "Đang xóa file rác…" : "Xóa file rác"}
+            </Button>
+            <Button
+              variant="destructive"
+              small
+              disabled={junkBusy || renderBusy}
+              onClick={openDelete}
+            >
               <Trash2 size={14} strokeWidth={2} />
               Xóa đã chọn
             </Button>
-            <Button small onClick={openBulkEdit}>
+            <Button
+              small
+              disabled={junkBusy || renderBusy}
+              onClick={onBulkRenderFinal}
+            >
+              <Play size={14} strokeWidth={2} />
+              {renderBusy
+                ? "Đang tạo job…"
+                : `Render final (${selected.size})`}
+            </Button>
+            <Button
+              small
+              disabled={junkBusy || renderBusy}
+              onClick={openBulkEdit}
+            >
               <Sparkles size={14} strokeWidth={2} />
               Tạo video ({selected.size})
             </Button>
