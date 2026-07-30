@@ -2,31 +2,38 @@
 
 ## Chạy hệ thống
 
-Nhấp đúp **`start.bat`** — script sẽ tự động:
+**Windows** — nhấp đúp **`start.bat`**.
+**macOS / Linux** — mở Terminal ở thư mục gốc:
 
-1. Kiểm tra Node.js (cần bản 20+)
+```bash
+chmod +x start/start.sh start/stop.sh   # chỉ cần lần đầu
+./start/start.sh
+```
+
+Script (cả hai hệ) tự động:
+
+1. Kiểm tra Node.js 20+ (macOS kiểm thêm ffmpeg — `brew install ffmpeg` nếu thiếu)
 2. Cài dependencies nếu là lần chạy đầu (vài phút)
-3. Build backend + web UI nếu chưa build
+3. Build backend + web UI nếu chưa build hoặc code mới hơn bản build
 4. Tạo file `.env` nếu chưa có
-5. Chạy server (port 6869) + web (port 6868) trong cửa sổ log riêng
+5. Chạy server (port 6869) + web (port 6868) — Windows mở cửa sổ log riêng, macOS ghi log vào `start/server.log` (`tail -f start/server.log` để xem)
 6. Mở trình duyệt tại **http://localhost:6868**
 
-Nếu hệ thống đang chạy sẵn, `start.bat` chỉ mở lại trình duyệt.
+Nếu hệ thống đang chạy sẵn, script chỉ mở lại trình duyệt; đang chạy dở dang (một trong hai port chết) thì tự dọn sạch và khởi động lại.
 
 ## Dừng hệ thống
 
-Nhấp đúp **`stop.bat`** (hoặc đóng cửa sổ "AI Edit Video - LOG").
+- Windows: nhấp đúp **`stop.bat`** (hoặc đóng cửa sổ "AI Edit Video - LOG")
+- macOS / Linux: `./start/stop.sh`
 
-## Bật tính năng Chat AI
+## Bật tính năng Chat / Edit AI
 
-Mở file `.env` ở thư mục gốc, điền:
+Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy — chạy `claude` trong terminal rồi `/login` — hệ thống tự dùng gói subscription.
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
+Cách 2: mở file `.env` ở thư mục gốc, điền `ANTHROPIC_API_KEY=sk-ant-...` (lấy tại https://console.anthropic.com/settings/keys) rồi chạy lại script.
 
-(lấy key tại https://console.anthropic.com/settings/keys) rồi chạy lại `start.bat`.
+Tạo ảnh AI cần thêm `GEMINI_API_KEY` trong `.env` (lấy tại https://aistudio.google.com/apikey) — hoặc điền ngay trên web UI, tab **Kết nối**.
 
 ## Dành cho dev
 
-Muốn chạy chế độ dev (hot-reload) thay vì bản build: mở terminal ở thư mục gốc và chạy `npm run dev`.
+Muốn chạy chế độ dev (hot-reload) thay vì bản build: `npm run dev` ở thư mục gốc.
