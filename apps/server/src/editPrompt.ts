@@ -248,6 +248,13 @@ export function buildEditPrompt(input: {
     "- Mọi render — tạo job qua API nội bộ hay chạy CLI trực tiếp — đều được, " +
       `nhưng phải ghi kết quả vào \`video-projects/${id}/renders/\` và cập nhật \`meta.json\`.`,
   );
+  lines.push(
+    `- NHIỆM VỤ CHỈ HOÀN THÀNH khi file final \`outputs/${id}-v<N>.mp4\` đã render xong và ` +
+      "`meta.json` có status=done + output trỏ file đó. KHÔNG kết thúc lượt sau khi mới lập " +
+      "kế hoạch/draft; nếu đã tạo job render qua API thì PHẢI đợi job chạy xong " +
+      "(poll GET /api/jobs/<id> bằng curl, sleep giữa các lần) rồi verify + cập nhật meta " +
+      "trước khi kết thúc.",
+  );
 
   return lines.join("\n") + "\n";
 }

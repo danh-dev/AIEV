@@ -592,7 +592,16 @@ router.post("/:id/edit", (req, res) => {
   });
 
   const sessionId = `sess_${nanoid()}`;
-  db.createChatSession(sessionId, `Edit: ${meta.name || id}`, id, model ?? null, effort ?? null);
+  // goal='final': phiên edit chỉ được coi là hoàn thành khi video final tồn tại thật
+  // (agent.ts gate trong finally — xem docs/API.md mục Chat)
+  db.createChatSession(
+    sessionId,
+    `Edit: ${meta.name || id}`,
+    id,
+    model ?? null,
+    effort ?? null,
+    "final",
+  );
 
   // Trả 202 NGAY, agent chạy nền — cùng pipeline với /api/chat (SSE kênh `agent`,
   // message đầu session được agent.ts tự prepend CLAUDE.md)

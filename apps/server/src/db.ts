@@ -92,6 +92,13 @@ try {
 } catch {
   /* cột đã tồn tại */
 }
+// Migration: mục tiêu của phiên — 'final' = phiên edit project, chỉ coi là hoàn thành khi
+// video final tồn tại thật (gate trong agent.ts); null = chat thường, không gate
+try {
+  db.exec("ALTER TABLE chat_sessions ADD COLUMN goal TEXT");
+} catch {
+  /* cột đã tồn tại */
+}
 
 /**
  * Phiên đang 'running' lúc server tắt (ngay dưới sẽ bị đánh 'interrupted') có autoResume bật —
@@ -291,6 +298,8 @@ export interface ChatSessionRow {
   autoResume: number;
   /** Số lần auto-resume liên tiếp của lượt hiện tại (reset khi user gửi message mới) */
   resumeAttempts: number;
+  /** Mục tiêu phiên: "final" = phiên edit project, chỉ xong khi video final tồn tại; null = chat thường */
+  goal: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -437,11 +446,12 @@ export function createChatSession(
   projectId?: string | null,
   model?: string | null,
   effort?: string | null,
+  goal?: string | null,
 ): ChatSessionRow {
   const now = nowIso();
   db.prepare(
-    "INSERT INTO chat_sessions (sessionId, title, projectId, model, effort, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  ).run(sessionId, title, projectId ?? null, model ?? null, effort ?? null, now, now);
+    "INSERT INTO chat_sessions (sessionId, title, projectId, model, effort, goal, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run(sessionId, title, projectId ?? null, model ?? null, effort ?? null, goal ?? null, now, now);
   return getChatSession(sessionId)!;
 }
 
@@ -527,7 +537,7 @@ export function listChatSessions(
 ): Array<Omit<ChatSessionRow, "sdkSessionId">> {
   const base =
     "SELECT sessionId, title, projectId, status, model, effort, runStartedAt, runFinishedAt, " +
-    "autoResume, resumeAttempts, createdAt, updatedAt FROM chat_sessions";
+    "autoResume, resumeAttempts, goal, createdAt, updatedAt FROM chat_sessions";
   if (projectId) {
     return db
       .prepare(`${base} WHERE projectId = ? ORDER BY updatedAt DESC`)
