@@ -202,6 +202,9 @@ PUT    /api/images/:id            partial (name/prompt/kind/aspect/overlay) → 
 DELETE /api/images/:id            → 204
 POST   /api/images/:id/background multipart → ImageProject (tự upload nền, không cần Gemini)
 POST   /api/images/:id/generate   { step?: "all"|"background"|"compose" } → 202 Job (queue type "image-gen")
+GET    /api/images/:id/junk       → { items: [{ relPath, size }], totalBytes } — file rác: props.json,
+                                    staging Remotion img-<id>/ (background/final/meta giữ nguyên)
+POST   /api/images/:id/junk/clean → { freedBytes, deleted } — xóa các mục trên; job running/queued → 409 JOB_RUNNING
 ```
 
 Pipeline generate: (1) `background` — gọi Gemini tạo ảnh nền theo prompt + kind + aspect,

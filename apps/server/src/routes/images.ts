@@ -3,7 +3,7 @@ import path from "node:path";
 import { Router } from "express";
 import multer from "multer";
 import { nanoid } from "nanoid";
-import { paths } from "../config.js";
+import { paths, repoRoot } from "../config.js";
 import * as db from "../db.js";
 import { broadcast } from "../events.js";
 import {
@@ -25,7 +25,14 @@ import {
 import { IMAGE_MODELS } from "../gemini.js";
 import { styleExists } from "../styles.js";
 import { queue } from "../queue.js";
-import { HttpError, ensureDir, isKebabCase, moveFile, nowIso } from "../util.js";
+import {
+  HttpError,
+  ensureDir,
+  isKebabCase,
+  listFilesRecursive,
+  moveFile,
+  nowIso,
+} from "../util.js";
 
 /**
  * Image Projects — tạo ảnh AI (Gemini nền + Remotion hoàn thiện).
@@ -221,6 +228,64 @@ router.post("/:id/background", upload.single("file"), (req, res) => {
     }
     throw err;
   }
+});
+
+// ---------------------------------------------------------------- File rác
+// File trung gian của bước compose — xóa được an toàn, KHÔNG đụng file nguồn
+// (background.png/.jpg, final.png, meta.json). Pattern y hệt junk của video project.
+
+interface JunkItem {
+  /** relPath từ repo root, dấu /; thư mục kết thúc bằng "/" */
+  relPath: string;
+  size: number;
+}
+
+function collectImageJunk(id: string): { items: JunkItem[]; totalBytes: number } {
+  const items: JunkItem[] = [];
+
+  // props.json — PosterProps đã stage cho Remotion (sản phẩm của lần compose)
+  const propsFile = path.join(imageDirOf(id), "props.json");
+  if (fs.existsSync(propsFile)) {
+    items.push({
+      relPath: `image-projects/${id}/props.json`,
+      size: fs.statSync(propsFile).size,
+    });
+  }
+
+  // Staging hardlink cho Remotion — img-<id>
+  const staging = path.join(paths.stagingDir, `img-${id}`);
+  if (fs.existsSync(staging)) {
+    items.push({
+      relPath: `engines/remotion/public/staging/img-${id}/`,
+      size: listFilesRecursive(staging).reduce((sum, f) => sum + f.size, 0),
+    });
+  }
+
+  return { items, totalBytes: items.reduce((sum, i) => sum + i.size, 0) };
+}
+
+// GET /api/images/:id/junk — liệt kê file rác (file trung gian) + tổng dung lượng
+router.get("/:id/junk", (req, res) => {
+  const meta = readImageMeta(req.params.id); // ném 404 nếu không có
+  res.json(collectImageJunk(meta.id));
+});
+
+// POST /api/images/:id/junk/clean — xóa file rác; job running/queued của project → 409
+router.post("/:id/junk/clean", (req, res) => {
+  const meta = readImageMeta(req.params.id); // ném 404 nếu không có
+  if (db.hasActiveJobForProject(meta.id)) {
+    throw new HttpError(
+      409,
+      "JOB_RUNNING",
+      "Image project đang có job chạy/chờ trong hàng đợi — đợi xong rồi mới dọn file rác",
+    );
+  }
+  const { items, totalBytes } = collectImageJunk(meta.id);
+  for (const item of items) {
+    // relPath dạng repo-relative dấu / (thư mục có "/" cuối) — path.join tự chuẩn hóa
+    fs.rmSync(path.join(repoRoot, item.relPath), { recursive: true, force: true });
+  }
+  res.json({ freedBytes: totalBytes, deleted: items.length });
 });
 
 // POST /api/images/:id/generate — { step? } → 202 Job (queue type "image-gen")

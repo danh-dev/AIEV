@@ -1202,6 +1202,19 @@ export const updateImageProject = (
 export const deleteImageProject = (id: string) =>
   request<void>(`/api/images/${encodeURIComponent(id)}`, { method: "DELETE" });
 
+/** GET danh sách file rác của image project (props.json + staging Remotion). */
+export const getImageJunk = (id: string) =>
+  request<ProjectJunk>(`/api/images/${encodeURIComponent(id)}/junk`);
+
+/**
+ * POST xóa file rác của image project — props.json và staging Remotion img-<id>.
+ * Ảnh nền, final.png và meta giữ nguyên. Project đang có job chạy/chờ → 409 JOB_RUNNING.
+ */
+export const cleanImageJunk = (id: string) =>
+  post<{ freedBytes: number; deleted: number }>(
+    `/api/images/${encodeURIComponent(id)}/junk/clean`
+  );
+
 /** Upload ảnh nền thủ công (multipart) — thay cho bước Gemini. */
 export const uploadImageBackground = (id: string, file: File) => {
   const form = new FormData();
