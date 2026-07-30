@@ -73,6 +73,8 @@ export const paths = {
   /** File upload của style (logo, font) — serve qua /media/assets/styles/files/ */
   stylesFilesDir: path.join(repoRoot, "assets", "styles", "files"),
   sfxDir: path.join(repoRoot, "assets", "sound-effects"),
+  /** Thư viện nhạc nền dùng chung (library.json + file nhạc) */
+  musicDir: path.join(repoRoot, "assets", "music"),
   outputsDir: path.join(repoRoot, "outputs"),
   importsDir: path.join(repoRoot, "imports"),
   skillsDir: path.join(repoRoot, ".claude", "skills"),
@@ -91,6 +93,7 @@ export function ensureBaseDirs(): void {
     paths.stylesDir,
     paths.stylesFilesDir,
     paths.sfxDir,
+    paths.musicDir,
     paths.outputsDir,
     paths.importsDir,
   ];

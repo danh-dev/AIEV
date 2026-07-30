@@ -1,5 +1,6 @@
 import { buildFilterChain, normAdjust } from "./color.js";
 import type { Brief, FileInfoWithDescription, ProjectMeta } from "./meta.js";
+import type { MusicEntry } from "./routes/music.js";
 import type { SfxEntry } from "./routes/sfx.js";
 import type { StyleDesign } from "./styles.js";
 
@@ -15,11 +16,13 @@ export function buildEditPrompt(input: {
   assets: FileInfoWithDescription[];
   /** Danh sách sfx đề xuất (tag hay-dung) — chỉ dùng khi sfxMode = "recommended" */
   recommendedSfx: SfxEntry[];
+  /** Thư viện nhạc nền (assets/music/) — chỉ dùng khi musicMode = "auto" */
+  music: MusicEntry[];
   /** Style Design đã resolve từ brief.styleId (hoặc default) — null = không cưỡng chế style */
   style: StyleDesign | null;
   extraNotes: string;
 }): string {
-  const { id, meta, brief, assets, recommendedSfx, style, extraNotes } = input;
+  const { id, meta, brief, assets, recommendedSfx, music, style, extraNotes } = input;
   const lines: string[] = [];
 
   // --- Tiêu đề nhiệm vụ
@@ -197,6 +200,28 @@ export function buildEditPrompt(input: {
     );
   } else {
     lines.push("KHÔNG dùng sound effect trong video này.");
+  }
+  lines.push("");
+
+  // --- Nhạc nền theo musicMode
+  lines.push("## Nhạc nền");
+  if (brief.musicMode === "none") {
+    lines.push("KHÔNG dùng nhạc nền trong video này.");
+  } else if (music.length === 0) {
+    lines.push(
+      "Thư viện nhạc trống — bỏ qua nhạc nền, KHÔNG tự tải nhạc từ mạng (bản quyền).",
+    );
+  } else {
+    lines.push(
+      "Chọn MỘT bài hợp mood nội dung trong thư viện dưới đây (file nằm trong `assets/music/`) " +
+        "và làm theo skill `background-music`: khai vào `meta.json` field `audio.music`, " +
+        "sinh speech ranges từ transcript, volume duck 0.10–0.15 khi có thoại / 0.30–0.40 khi không.",
+    );
+    for (const e of music) {
+      const dur = e.durationMs !== null ? `${e.durationMs}ms` : "chưa đo thời lượng";
+      const tags = e.tags.length > 0 ? ` [${e.tags.join(", ")}]` : "";
+      lines.push(`- \`${e.file}\` (${dur})${tags} — ${e.description.trim() || "(không có mô tả)"}`);
+    }
   }
   lines.push("");
 

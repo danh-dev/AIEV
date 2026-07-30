@@ -176,6 +176,9 @@ export interface GradePreviewResult {
 
 export type SfxMode = "recommended" | "library" | "none";
 
+/** Nhạc nền: AI tự chọn bài theo mood trong thư viện / không dùng. */
+export type MusicMode = "auto" | "none";
+
 /** Kịch bản edit của project — AI đọc phần này khi bắt đầu edit. */
 export interface Brief {
   sourceDescription: string;
@@ -193,6 +196,8 @@ export interface Brief {
   relatedKeys: string[];
   skill: string | null;
   sfxMode: SfxMode;
+  /** "auto" (mặc định) = AI tự chọn nhạc nền theo mood, "none" = không dùng. */
+  musicMode: MusicMode;
   notes: string;
   /** BẬT = Claude chọn ý chính, Gemini vẽ ảnh minh họa rồi ghép vào video. */
   autoIllustrations: boolean;
@@ -272,6 +277,14 @@ export interface SkillDetail {
 }
 
 export interface SfxEntry {
+  file: string;
+  tags: string[];
+  durationMs: number | null;
+  description: string;
+}
+
+/** Một bài nhạc nền trong thư viện assets/music/ — tags = mood. */
+export interface MusicEntry {
   file: string;
   tags: string[];
   durationMs: number | null;
@@ -928,6 +941,26 @@ export const patchSfx = (
 
 export const deleteSfx = (file: string) =>
   request<void>(`/api/sfx/${encodeURIComponent(file)}`, { method: "DELETE" });
+
+// ============ Nhạc nền (Music) ============
+
+export const getMusic = () => request<MusicEntry[]>("/api/music");
+
+export const uploadMusic = (file: File, tags: string, description: string) => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("tags", tags);
+  form.append("description", description);
+  return request<MusicEntry>(`${serverOrigin()}/api/music`, { method: "POST", body: form });
+};
+
+export const patchMusic = (
+  file: string,
+  patch: { description?: string; tags?: string[] }
+) => jsonBody<MusicEntry>(`/api/music/${encodeURIComponent(file)}`, "PATCH", patch);
+
+export const deleteMusic = (file: string) =>
+  request<void>(`/api/music/${encodeURIComponent(file)}`, { method: "DELETE" });
 
 // ============ Assets ============
 

@@ -6,6 +6,7 @@ import {
 } from "./manifest";
 import { CaptionTrack } from "./components/CaptionTrack";
 import { HighlightTrack } from "./components/HighlightTrack";
+import { MusicTrack } from "./components/MusicTrack";
 import { SceneClip } from "./components/SceneClip";
 import { SfxTrack } from "./components/SfxTrack";
 import { Transition } from "./components/Transition";
@@ -59,6 +60,9 @@ export const Assemble: React.FC<Manifest> = (manifest) => {
 
       {/* Sound effects theo atFrame */}
       <SfxTrack sfx={audio.sfx} />
+
+      {/* Nhạc nền loop + auto-ducking theo speech ranges */}
+      {audio.music ? <MusicTrack music={audio.music} /> : null}
     </AbsoluteFill>
   );
 };

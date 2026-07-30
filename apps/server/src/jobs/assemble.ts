@@ -100,6 +100,11 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     for (const sfx of props.audio.sfx ?? []) {
       if (typeof sfx.file === "string" && sfx.file) sfx.file = stage(sfx.file);
     }
+    // Nhạc nền (file đã copy vào assets/ của project — xem skill background-music)
+    const music = props.audio.music;
+    if (music && typeof music.file === "string" && music.file) {
+      music.file = stage(music.file);
+    }
   }
 
   // ---- 2. props.resolved.json -----------------------------------------

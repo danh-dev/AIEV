@@ -19,6 +19,7 @@ import {
   getSkills,
   updateBrief,
   type Brief,
+  type MusicMode,
   type PromptTemplate,
   type SfxMode,
   type SkillMeta,
@@ -47,6 +48,7 @@ export const DEFAULT_BRIEF: Brief = {
   relatedKeys: [],
   skill: null,
   sfxMode: "recommended",
+  musicMode: "auto",
   notes: "",
   autoIllustrations: false,
   illustrationModel: null,
@@ -56,6 +58,11 @@ export const DEFAULT_BRIEF: Brief = {
 export const SFX_MODE_LABEL: Record<SfxMode, string> = {
   recommended: "Dùng bộ đề xuất",
   library: "AI tự tìm trong thư viện",
+  none: "Không dùng",
+};
+
+export const MUSIC_MODE_LABEL: Record<MusicMode, string> = {
+  auto: "AI tự chọn theo mood",
   none: "Không dùng",
 };
 
@@ -710,6 +717,35 @@ export function ProjectBriefCard({
                 {SFX_MODE_LABEL[mode]}
               </label>
             ))}
+          </div>
+
+          {/* Nhạc nền — thư viện assets/music/, AI duck tự động khi có thoại */}
+          <div className="mt-3 border-t border-[var(--border)] pt-3">
+            <FieldLabel
+              label="Nhạc nền"
+              hint="AI chọn một bài trong thư viện Nhạc nền hợp mood nội dung, tự giảm âm lượng (duck) khi có thoại."
+            />
+            <div
+              className="flex flex-col gap-1.5"
+              role="radiogroup"
+              aria-label="Nhạc nền"
+            >
+              {(Object.keys(MUSIC_MODE_LABEL) as MusicMode[]).map((mode) => (
+                <label
+                  key={mode}
+                  className="flex cursor-pointer items-center gap-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="brief-music-mode"
+                    className="accent-[var(--primary)]"
+                    checked={form.musicMode === mode}
+                    onChange={() => set("musicMode", mode)}
+                  />
+                  {MUSIC_MODE_LABEL[mode]}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 

@@ -126,10 +126,30 @@ export const highlightCueSchema = z.looseObject({
   accent: z.enum(["hot", "cool"]).optional(),
 });
 
+/**
+ * Nhạc nền toàn bài, loop nếu ngắn hơn video, auto-ducking TẤT ĐỊNH theo
+ * speech ranges (AI sinh từ transcript — xem skill `background-music`).
+ */
+export const musicSchema = z.looseObject({
+  /** Đường dẫn tương đối trong staging, vd "staging/vid-demo/assets__music__lofi.mp3" */
+  file: z.string().min(1),
+  /** Âm lượng khi KHÔNG có thoại (intro/outro/khoảng nghỉ) */
+  volume: z.number().min(0).max(1).default(0.35),
+  /** Âm lượng khi ĐANG có thoại — nhạc phải thấp hơn giọng rõ rệt */
+  duckVolume: z.number().min(0).max(1).default(0.12),
+  /**
+   * Các đoạn CÓ thoại: mảng [startSec, endSec] tính bằng GIÂY trên timeline
+   * composition. AI sinh từ word timestamps của transcript, gap < 0.6s đã merge.
+   */
+  speech: z.array(z.tuple([z.number(), z.number()])).default([]),
+});
+
 export const audioSchema = z.looseObject({
   /** Voice-over chạy suốt từ frame 0 (đường dẫn staging) */
   voice: z.string().nullable().optional(),
   sfx: z.array(sfxSchema).default([]),
+  /** Nhạc nền auto-ducking — null = không dùng nhạc */
+  music: musicSchema.nullable().default(null),
 });
 
 export const manifestSchema = z.looseObject({
@@ -141,7 +161,7 @@ export const manifestSchema = z.looseObject({
   /** "draft" | "rendering" | "done" — giữ string để không strict-fail giá trị mới */
   status: z.string(),
   scenes: z.array(sceneSchema).min(1),
-  audio: audioSchema.default({ sfx: [] }),
+  audio: audioSchema.default({ sfx: [], music: null }),
   /**
    * Phụ đề karaoke overlay TOÀN BÀI (việc của tầng lắp ráp, xem skill
    * video-pipeline). Rỗng = không overlay; scene HyperFrames tự lo chữ của nó.
@@ -157,6 +177,7 @@ export const manifestSchema = z.looseObject({
 });
 
 export type Sfx = z.infer<typeof sfxSchema>;
+export type Music = z.infer<typeof musicSchema>;
 export type Zoom = z.infer<typeof zoomSchema>;
 export type CaptionWord = z.infer<typeof captionWordSchema>;
 export type CaptionCue = z.infer<typeof captionCueSchema>;

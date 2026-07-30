@@ -34,10 +34,24 @@ export interface SfxMeta {
   [key: string]: unknown;
 }
 
+/** Nhạc nền với auto-ducking khi có thoại — file staging + speech ranges (giây) */
+export interface MusicMeta {
+  file: string;
+  volume?: number;
+  duckVolume?: number;
+  speech?: [number, number][];
+  [key: string]: unknown;
+}
+
 /** Kịch bản edit — AI đọc phần này khi bắt đầu edit project (xem docs/API.md mục Project Brief) */
 export type SfxMode = "recommended" | "library" | "none";
 
 export const SFX_MODES: SfxMode[] = ["recommended", "library", "none"];
+
+/** Nhạc nền: AI tự chọn theo mood trong thư viện assets/music/ hoặc không dùng */
+export type MusicMode = "auto" | "none";
+
+export const MUSIC_MODES: MusicMode[] = ["auto", "none"];
 
 export interface Brief {
   /** Mô tả nội dung video gốc — bối cảnh cho AI */
@@ -60,6 +74,8 @@ export interface Brief {
   skill: string | null;
   /** Sound effect: chỉ bộ đề xuất / tự tìm cả thư viện / không dùng */
   sfxMode: SfxMode;
+  /** Nhạc nền: "auto" = AI tự chọn bài theo mood (thư viện assets/music/), "none" = không dùng */
+  musicMode: MusicMode;
   /** BẬT = Claude tự tạo ảnh minh họa bằng Gemini (đồng bộ Design System) và ghép vào video */
   autoIllustrations: boolean;
   /** Model Gemini cho ảnh minh họa (null = mặc định Nano Banana 2) */
@@ -82,6 +98,7 @@ export function defaultBrief(): Brief {
     relatedKeys: [],
     skill: null,
     sfxMode: "recommended",
+    musicMode: "auto",
     autoIllustrations: false,
     illustrationModel: null,
     styleId: null,
@@ -111,6 +128,7 @@ export function briefOf(meta: ProjectMeta): Brief {
   }
   if (typeof b.skill === "string" && b.skill.trim()) base.skill = b.skill.trim();
   if (SFX_MODES.includes(b.sfxMode as SfxMode)) base.sfxMode = b.sfxMode as SfxMode;
+  if (MUSIC_MODES.includes(b.musicMode as MusicMode)) base.musicMode = b.musicMode as MusicMode;
   if (typeof b.autoIllustrations === "boolean") base.autoIllustrations = b.autoIllustrations;
   if (typeof b.illustrationModel === "string" && b.illustrationModel.trim()) {
     base.illustrationModel = b.illustrationModel.trim();
@@ -132,6 +150,8 @@ export interface ProjectMeta {
   audio?: {
     voice?: string | null;
     sfx?: SfxMeta[];
+    /** Nhạc nền auto-ducking (xem skill background-music) — null/thiếu = không có nhạc */
+    music?: MusicMeta | null;
     [key: string]: unknown;
   };
   output?: string | null;

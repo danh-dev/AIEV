@@ -60,6 +60,7 @@ Brief = {
   relatedKeys: string[],                   // key liên quan user chỉ định (bắt buộc dùng đủ) — [] = AI tự chọn 3–6 key
   skill: string|null,                      // tên skill dùng để edit (null = AI tự chọn)
   sfxMode: "recommended"|"library"|"none", // sfx: chỉ dùng bộ đề xuất / tự tìm cả thư viện / không dùng
+  musicMode: "auto"|"none",                // nhạc nền: AI tự chọn bài theo mood trong assets/music/ (mặc định) / không dùng
   autoIllustrations: boolean,              // BẬT = AI tự tạo ảnh minh họa (Gemini) khi edit
   illustrationModel: string|null,          // model Gemini tạo ảnh (null = mặc định)
   styleId: string|null,                    // Style Design áp cho project (null = style default)
@@ -326,6 +327,23 @@ Quy ước "đề xuất": entry có tag `hay-dung` là sound effect được đ
 AI ưu tiên dùng khi brief đặt sfxMode "recommended".
 ```
 
+## Music (nhạc nền)
+
+```
+MusicEntry = { file, tags: string[], durationMs: number|null, description }
+             — tags = MOOD của bài (nang-luong, chill, cam-hung, cang-thang, vui-ve...)
+
+GET    /api/music               → MusicEntry[]  (đọc assets/music/library.json, chỉ trả entry có file tồn tại)
+POST   /api/music               multipart: file (audio) + fields tags (csv), description
+                                → MusicEntry (lưu file kebab-case ASCII, đo durationMs bằng ffprobe, cập nhật library.json)
+PATCH  /api/music/:file         { description?, tags? } → MusicEntry
+DELETE /api/music/:file         → 204
+```
+
+Brief đặt `musicMode: "auto"` → server soạn danh sách thư viện vào edit prompt, AI chọn MỘT bài
+hợp mood và cấu hình auto-ducking theo skill `background-music` (khai `meta.json` → `audio.music`).
+Thư viện trống → AI bỏ qua nhạc nền, KHÔNG tự tải nhạc từ mạng (bản quyền). CHỈ dùng nhạc không lời.
+
 ## Assets / Imports
 
 ```
@@ -395,3 +413,8 @@ GET /api/usage/timeline?days=30&scope=all|video|image
 - Composition duy nhất `Assemble`, data-driven từ props (schema = meta.json, xem skill `remotion-assemble`).
 - `calculateMetadata` đọc width/height/fps/tổng durationInFrames từ props.
 - Asset không đọc trực tiếp từ đường dẫn tuyệt đối — server stage bằng hardlink (`fs.linkSync`, fallback copy) vào `engines/remotion/public/staging/<projectId>/` rồi props dùng `staticFile("staging/<projectId>/<file>")`.
+- Nhạc nền: `audio.music = { file, volume=0.35, duckVolume=0.12, speech: [[startSec,endSec],...] } | null`
+  (file copy vào `assets/` của project, server stage như sfx). Component `MusicTrack` loop cả bài,
+  fade-in 0.5s đầu / fade-out 1s cuối, và duck TẤT ĐỊNH: trong speech range (đoạn CÓ thoại, giây trên
+  timeline composition) volume = duckVolume, ngoài = volume, chuyển mượt bằng interpolate trong 0.4s
+  quanh mỗi biên. Speech ranges do AI sinh từ transcript (merge gap < 0.6s) — xem skill `background-music`.

@@ -14,6 +14,7 @@ import { paths, repoRoot } from "../config.js";
 import * as db from "../db.js";
 import { buildEditPrompt } from "../editPrompt.js";
 import {
+  MUSIC_MODES,
   SFX_MODES,
   briefOf,
   defaultBrief,
@@ -29,11 +30,13 @@ import {
   writeAssetEntry,
   writeMeta,
   type Brief,
+  type MusicMode,
   type ProjectMeta,
   type SfxMode,
 } from "../meta.js";
 import { parseModelEffort } from "./providers.js";
 import { RECOMMENDED_TAG, readLibrary } from "./sfx.js";
+import { readMusicLibrary } from "./music.js";
 import { getStyle, styleExists } from "../styles.js";
 import {
   HttpError,
@@ -303,6 +306,16 @@ router.put("/:id/brief", (req, res) => {
     }
     brief.sfxMode = body.sfxMode as SfxMode;
   }
+  if ("musicMode" in body) {
+    if (!MUSIC_MODES.includes(body.musicMode as MusicMode)) {
+      throw new HttpError(
+        400,
+        "INVALID_BRIEF",
+        `musicMode phải là một trong: ${MUSIC_MODES.join(" | ")}`,
+      );
+    }
+    brief.musicMode = body.musicMode as MusicMode;
+  }
   if ("autoIllustrations" in body) {
     if (typeof body.autoIllustrations !== "boolean") {
       throw new HttpError(400, "INVALID_BRIEF", "autoIllustrations phải là boolean");
@@ -456,6 +469,11 @@ router.post("/:id/edit", (req, res) => {
             e.tags.includes(RECOMMENDED_TAG) && fs.existsSync(path.join(paths.sfxDir, e.file)),
         )
       : [];
+  // Thư viện nhạc nền — chỉ soạn vào prompt khi brief bật nhạc auto
+  const music =
+    brief.musicMode === "auto"
+      ? readMusicLibrary().filter((e) => fs.existsSync(path.join(paths.musicDir, e.file)))
+      : [];
 
   const prompt = buildEditPrompt({
     id,
@@ -463,6 +481,7 @@ router.post("/:id/edit", (req, res) => {
     brief,
     assets: listProjectAssets(id),
     recommendedSfx,
+    music,
     // Style Design cưỡng chế: style đã chọn trong brief hoặc style default
     style: getStyle(brief.styleId),
     extraNotes,
