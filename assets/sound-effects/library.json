@@ -5,7 +5,7 @@
       "khac"
     ],
     "durationMs": 2116,
-    "description": "Chưa phân loại — nghe thử để cập nhật mô tả"
+    "description": "Chạy nhanh, đi trốn, hài hước vui vui"
   },
   {
     "file": "anime-wow-1.mp3",
@@ -863,7 +863,8 @@
     "file": "swoosh.mp3",
     "tags": [
       "transition",
-      "swoosh"
+      "swoosh",
+      "hay-dung"
     ],
     "durationMs": 360,
     "description": "Swoosh chuyển cảnh"
@@ -1009,6 +1010,6 @@
       "khac"
     ],
     "durationMs": 1161,
-    "description": "Chưa phân loại — nghe thử để cập nhật mô tả"
+    "description": "thêm kết nối, tham gia mới"
   }
 ]

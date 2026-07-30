@@ -11,8 +11,14 @@
  */
 
 import { AlertTriangle, Info } from "lucide-react";
-import { useEffect, useState } from "react";
-import { getProviders, type AgentEffort, type Provider } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getClaudeModels,
+  getProviders,
+  type AgentEffort,
+  type Provider,
+  type ProviderModel,
+} from "@/lib/api";
 
 export const DEFAULT_MODEL = "claude-fable-5";
 export const DEFAULT_EFFORT: AgentEffort = "medium";
@@ -79,6 +85,30 @@ export function useProviders(): {
   return { providers, error };
 }
 
+/**
+ * Danh sách model Claude live — lazy: chỉ fetch khi user chạm vào select Model
+ * lần đầu (load()), giống useGeminiImageModels. Server cache 10 phút; chưa
+ * fetch xong thì UI vẫn dùng danh sách tĩnh từ /api/providers.
+ */
+export function useClaudeModels() {
+  const [models, setModels] = useState<ProviderModel[] | null>(null);
+  const startedRef = useRef(false);
+
+  const load = useCallback(async () => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    try {
+      const { models } = await getClaudeModels();
+      setModels(models);
+    } catch {
+      // lỗi mạng → cho phép thử lại ở lần focus sau, UI vẫn còn danh sách tĩnh
+      startedRef.current = false;
+    }
+  }, []);
+
+  return { models, load };
+}
+
 interface PickerProps {
   model: string;
   effort: AgentEffort;
@@ -102,7 +132,11 @@ export function AiModelBlock({
   const { providers } = useProviders();
   const claude = providers?.find((p) => p.id === "claude");
   const gemini = providers?.find((p) => p.id === "gemini");
-  const models = claudeModels(claude);
+  const { models: liveModels, load: loadClaudeModels } = useClaudeModels();
+  // Chưa fetch live → tạm dùng danh sách tĩnh từ /api/providers
+  const models = liveModels ?? claudeModels(claude);
+  // Model đã lưu không (chưa) nằm trong danh sách → vẫn hiển thị bằng id thô
+  const modelMissing = model !== "" && !models.some((m) => m.id === model);
 
   return (
     <div>
@@ -142,8 +176,10 @@ export function AiModelBlock({
               className="input"
               value={model}
               disabled={disabled}
+              onFocus={loadClaudeModels}
               onChange={(e) => onModelChange(e.target.value)}
             >
+              {modelMissing && <option value={model}>{model}</option>}
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
@@ -196,7 +232,11 @@ export function AiModelInlineRow({
   const { providers } = useProviders();
   const claude = providers?.find((p) => p.id === "claude");
   const gemini = providers?.find((p) => p.id === "gemini");
-  const models = claudeModels(claude);
+  const { models: liveModels, load: loadClaudeModels } = useClaudeModels();
+  // Chưa fetch live → tạm dùng danh sách tĩnh từ /api/providers
+  const models = liveModels ?? claudeModels(claude);
+  // Model đã lưu không (chưa) nằm trong danh sách → vẫn hiển thị bằng id thô
+  const modelMissing = model !== "" && !models.some((m) => m.id === model);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -205,8 +245,10 @@ export function AiModelInlineRow({
         aria-label="Model AI cho phiên mới"
         value={model}
         disabled={disabled}
+        onFocus={loadClaudeModels}
         onChange={(e) => onModelChange(e.target.value)}
       >
+        {modelMissing && <option value={model}>{model}</option>}
         {models.map((m) => (
           <option key={m.id} value={m.id}>
             {m.label}

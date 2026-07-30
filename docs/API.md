@@ -125,6 +125,7 @@ Provider = { id: "claude"|"gemini", label, connected: boolean,
 - gemini: connected khi có GEMINI_API_KEY/GOOGLE_API_KEY trong .env (GOOGLE_API_KEY thắng nếu có cả hai).
   Antigravity/gemini-cli chỉ được ghi nhận ở note (auth nội bộ IDE, không gọi API ảnh được). roles = ["image"].
 - `GET /api/providers/gemini/image-models` → [{ id, label }] — danh sách model tạo ảnh Gemini khả dụng.
+- `GET /api/providers/claude/models` → { source: "anthropic"|"static", models: [{ id, label }] } — danh sách model Claude live từ Anthropic Models API (cần ANTHROPIC_API_KEY, cache 10'); OAuth-only/lỗi → danh sách tĩnh đầy đủ.
 
 ## Kết nối (Connections — trang /connections)
 

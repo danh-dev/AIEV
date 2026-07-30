@@ -1079,6 +1079,20 @@ export interface GeminiImageModels {
 export const getGeminiImageModels = () =>
   request<GeminiImageModels>("/api/providers/gemini/image-models");
 
+/** Kết quả GET /api/providers/claude/models. */
+export interface ClaudeModels {
+  /** anthropic = danh sách live từ Models API; static = fallback (chỉ OAuth / lỗi mạng). */
+  source: "anthropic" | "static";
+  models: ProviderModel[];
+}
+
+/**
+ * Danh sách model Claude MỚI NHẤT — server cache 10 phút; chưa fetch xong
+ * thì UI dùng danh sách tĩnh từ /api/providers.
+ */
+export const getClaudeModels = () =>
+  request<ClaudeModels>("/api/providers/claude/models");
+
 // ============ Kết nối (API key providers) ============
 
 export const getConnections = () =>

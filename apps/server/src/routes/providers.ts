@@ -10,11 +10,26 @@ import { HttpError } from "../util.js";
  * Xem docs/API.md mục "AI Providers & chọn model".
  */
 
+/**
+ * Danh sách tĩnh ĐẦY ĐỦ model Claude đang khả dụng (sắp mới → cũ) — fallback khi
+ * không có ANTHROPIC_API_KEY (OAuth subscription không gọi được Models API) hoặc
+ * fetch lỗi. Các model 3.7/3.5 đã retired (404) nên không liệt kê.
+ */
 export const CLAUDE_MODELS = [
   { id: "claude-fable-5", label: "Fable 5 (mạnh nhất)" },
   { id: "claude-opus-5", label: "Opus 5" },
   { id: "claude-sonnet-5", label: "Sonnet 5 (cân bằng)" },
+  { id: "claude-opus-4-8", label: "Opus 4.8" },
+  { id: "claude-opus-4-7", label: "Opus 4.7" },
+  { id: "claude-opus-4-6", label: "Opus 4.6" },
+  { id: "claude-sonnet-4-6", label: "Sonnet 4.6" },
   { id: "claude-haiku-4-5", label: "Haiku 4.5 (nhanh)" },
+  { id: "claude-opus-4-5", label: "Opus 4.5" },
+  { id: "claude-sonnet-4-5", label: "Sonnet 4.5" },
+  { id: "claude-opus-4-1", label: "Opus 4.1" },
+  { id: "claude-opus-4-0", label: "Opus 4" },
+  { id: "claude-sonnet-4-0", label: "Sonnet 4" },
+  { id: "claude-3-haiku-20240307", label: "Haiku 3" },
 ];
 
 export const CLAUDE_MODEL_IDS: string[] = CLAUDE_MODELS.map((m) => m.id);
@@ -79,6 +94,70 @@ async function fetchLiveImageModels(): Promise<{
   }
 }
 
+// Cache danh sách model Claude live từ Anthropic Models API — 10 phút
+let liveClaudeModelsCache: { at: number; list: Array<{ id: string; label: string }> } | null =
+  null;
+const CLAUDE_MODELS_CACHE_MS = 10 * 60 * 1000;
+
+/**
+ * Lấy danh sách model Claude MỚI NHẤT từ Anthropic Models API
+ * (GET https://api.anthropic.com/v1/models, header x-api-key + anthropic-version: 2023-06-01,
+ * phân trang after_id/has_more, mỗi model có id + display_name).
+ * Chỉ gọi được với ANTHROPIC_API_KEY — OAuth subscription hoặc lỗi mạng
+ * → fallback danh sách tĩnh CLAUDE_MODELS.
+ */
+async function fetchLiveClaudeModels(): Promise<{
+  source: "anthropic" | "static";
+  models: Array<{ id: string; label: string }>;
+}> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return { source: "static", models: CLAUDE_MODELS };
+  if (liveClaudeModelsCache && Date.now() - liveClaudeModelsCache.at < CLAUDE_MODELS_CACHE_MS) {
+    return { source: "anthropic", models: liveClaudeModelsCache.list };
+  }
+  try {
+    const list: Array<{ id: string; label: string }> = [];
+    let afterId: string | null = null;
+    // API trả mới → cũ; lặp phân trang, chặn tối đa 10 trang để an toàn
+    for (let page = 0; page < 10; page++) {
+      const url = new URL("https://api.anthropic.com/v1/models");
+      url.searchParams.set("limit", "100");
+      if (afterId) url.searchParams.set("after_id", afterId);
+      const r = await fetch(url, {
+        headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
+      });
+      if (!r.ok) return { source: "static", models: CLAUDE_MODELS };
+      const data = (await r.json()) as {
+        data?: Array<{ id?: string; display_name?: string }>;
+        has_more?: boolean;
+        last_id?: string | null;
+      };
+      for (const m of data.data ?? []) {
+        if (m.id) list.push({ id: m.id, label: m.display_name || m.id });
+      }
+      if (!data.has_more || !data.last_id) break;
+      afterId = data.last_id;
+    }
+    if (list.length > 0) {
+      liveClaudeModelsCache = { at: Date.now(), list };
+      return { source: "anthropic", models: list };
+    }
+    return { source: "static", models: CLAUDE_MODELS };
+  } catch {
+    return { source: "static", models: CLAUDE_MODELS };
+  }
+}
+
+/**
+ * Model Claude hợp lệ: trong danh sách tĩnh, trong cache live, hoặc id dạng
+ * claude-* (model đã lưu từ danh sách live trước khi server restart).
+ */
+function isValidClaudeModel(id: string): boolean {
+  if (CLAUDE_MODEL_IDS.includes(id)) return true;
+  if (liveClaudeModelsCache?.list.some((m) => m.id === id)) return true;
+  return /^claude-[a-z0-9][a-z0-9.-]*$/i.test(id);
+}
+
 /**
  * Parse + validate `model`/`effort` từ body của POST /api/chat và POST /api/projects/:id/edit.
  * undefined = không gửi (giữ nguyên lựa chọn cũ của session / mặc định SDK).
@@ -89,7 +168,7 @@ export function parseModelEffort(body: Record<string, unknown>): {
 } {
   const out: { model?: string; effort?: string } = {};
   if ("model" in body && body.model !== undefined && body.model !== null && body.model !== "") {
-    if (typeof body.model !== "string" || !CLAUDE_MODEL_IDS.includes(body.model)) {
+    if (typeof body.model !== "string" || !isValidClaudeModel(body.model)) {
       throw new HttpError(
         400,
         "INVALID_MODEL",
@@ -178,6 +257,11 @@ router.get("/", (_req, res) => {
 // GET /api/providers/gemini/image-models — danh sách model ảnh MỚI NHẤT (live từ Google, cache 1h)
 router.get("/gemini/image-models", async (_req, res) => {
   res.json(await fetchLiveImageModels());
+});
+
+// GET /api/providers/claude/models — danh sách model Claude MỚI NHẤT (live từ Anthropic, cache 10')
+router.get("/claude/models", async (_req, res) => {
+  res.json(await fetchLiveClaudeModels());
 });
 
 export default router;
