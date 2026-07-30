@@ -40,9 +40,10 @@ export function buildEditPrompt(input: {
     `- Tự động cắt: ${
       brief.autoCut
         ? "Có — BẮT BUỘC cắt khoảng lặng + đoạn thừa TRƯỚC khi dựng, theo ĐÚNG quy trình skill `auto-cut` " +
-          "(silencedetect + rà transcript cắt filler/câu nói hỏng, remap word timestamp, verify bằng " +
-          "silencedetect LẦN 2 trên bản đã cắt). Báo cáo cuối PHẢI ghi rõ: đã cắt bao nhiêu giây, " +
-          "bao nhiêu đoạn (lặng/thừa) — không cắt được gì thì nêu lý do cụ thể."
+          "(silencedetect + rà transcript cắt filler/câu nói hỏng + PHÂN TÍCH NGỮ NGHĨA thoại tìm nội dung " +
+          "LẶP Ý: các câu cùng ý chỉ giữ MỘT bản đầy đủ nhất — câu sau nói lại dài/đủ hơn thì giữ câu sau; " +
+          "remap word timestamp, verify bằng silencedetect LẦN 2 trên bản đã cắt). Báo cáo cuối PHẢI có " +
+          "bảng các đoạn đã cắt (mốc giây | lý do | câu giữ lại) + tổng số giây — không cắt được gì thì nêu lý do."
         : "Không — giữ nguyên nhịp video, không tự ý cắt bỏ đoạn nào"
     }`,
   );

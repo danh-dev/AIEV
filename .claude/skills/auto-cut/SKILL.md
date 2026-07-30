@@ -32,8 +32,25 @@ Transcribe xong (word timestamp), rà từng câu:
 - Filler đứng một mình ("ừm", "à", "ờ", "kiểu như là") → cắt cả cụm theo timestamp của từ.
 - Câu bị nói lại (nội dung gần trùng, thường liền kề) → giữ lần nói CUỐI, cắt các lần trước.
 - Chào hỏi/dẫn dắt dông dài không phục vụ nội dung → đề xuất cắt (ghi vào bảng cho user thấy).
-- Mức cắt theo brief: mặc định = lặng ≥0.45s + filler + câu hỏng; user muốn "giữ tự nhiên"
+- Mức cắt theo brief: mặc định = lặng ≥0.45s + filler + câu hỏng + lặp ý; user muốn "giữ tự nhiên"
   → chỉ lặng ≥1s; user muốn "gắt/nhịp nhanh" → 0.3s + cắt cả dẫn dắt.
+
+### Bước 2b — NỘI DUNG LẶP Ý (AI đọc thoại — bắt buộc, đây là loại "thừa" user thấy rõ nhất)
+
+Máy đo không bắt được loại này — phải ĐỌC toàn bộ transcript như một bài thoại và phân tích ngữ nghĩa:
+
+1. **Nhóm các câu CÙNG Ý** — không cần trùng từ, chỉ cần cùng nội dung (người nói hay diễn đạt lại
+   một ý 2–3 lần: lần đầu ngắn/vấp, lần sau đầy đủ hơn). Xét cả các câu KHÔNG liền kề (nói ý A,
+   lan man, rồi quay lại nói ý A kỹ hơn).
+2. **Trong mỗi nhóm giữ MỘT bản duy nhất — bản ĐẦY ĐỦ NHẤT**:
+   - Câu trước nói ngắn, câu sau nói lại DÀI/đầy đủ hơn → **giữ câu sau**, cắt câu trước.
+   - Câu sau chỉ là echo ngắn nhắc lại câu trước ("đúng vậy, như tôi nói...") → giữ câu trước, cắt echo.
+   - Hai bản tương đương → giữ bản nói mượt hơn (ít vấp, không filler).
+3. **Kiểm tra mạch nội dung sau khi cắt**: đọc lại transcript đã cắt từ đầu đến cuối — các câu giữ lại
+   phải nối nhau trôi chảy, không hụt ngữ cảnh (câu giữ lại tham chiếu "như vừa nói" tới câu đã cắt
+   → hoặc giữ cả hai, hoặc chọn bản không tham chiếu).
+4. **Lập bảng trước khi cắt** (đưa vào báo cáo/NOTES): `mốc giây | câu bị cắt | lý do | câu giữ lại` —
+   để user soi được từng quyết định cắt.
 
 ## Bước 3 — Cắt một lần bằng filter_complex
 
