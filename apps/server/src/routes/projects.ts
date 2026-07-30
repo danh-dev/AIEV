@@ -214,6 +214,89 @@ router.post("/:id/clone", (req, res) => {
   res.status(201).json(projectSummaryOf(newId));
 });
 
+// ---------------------------------------------------------------- File rác
+// File trung gian sau khi xuất final — xóa được an toàn, KHÔNG đụng file nguồn
+// (index.html, compositions/, assets/, meta.json, hyperframes.json, outputs/<id>-v*.mp4).
+
+interface JunkItem {
+  /** relPath từ repo root, dấu /; thư mục kết thúc bằng "/" */
+  relPath: string;
+  size: number;
+}
+
+function dirSizeOf(absDir: string): number {
+  return listFilesRecursive(absDir).reduce((sum, f) => sum + f.size, 0);
+}
+
+function collectJunk(id: string): { items: JunkItem[]; totalBytes: number } {
+  const dir = projectDirOf(id);
+  const items: JunkItem[] = [];
+
+  // Thư mục trung gian trong project: scene render, frame verify, cache preview màu
+  for (const name of ["renders", "verify", "cache"]) {
+    const abs = path.join(dir, name);
+    if (fs.existsSync(abs) && listFilesRecursive(abs).length > 0) {
+      items.push({ relPath: `video-projects/${id}/${name}/`, size: dirSizeOf(abs) });
+    }
+  }
+
+  // props đã stage cho Remotion (sản phẩm của lần assemble)
+  const propsFile = path.join(dir, "props.resolved.json");
+  if (fs.existsSync(propsFile)) {
+    items.push({
+      relPath: `video-projects/${id}/props.resolved.json`,
+      size: fs.statSync(propsFile).size,
+    });
+  }
+
+  // Bản draft lắp ráp toàn bài (final <id>-v*.mp4 giữ nguyên)
+  const draft = path.join(paths.outputsDir, `${id}-draft.mp4`);
+  if (fs.existsSync(draft)) {
+    items.push({ relPath: `outputs/${id}-draft.mp4`, size: fs.statSync(draft).size });
+  }
+
+  // Staging hardlink cho Remotion — vid-<id> (video project), img-<id> (image project trùng id)
+  for (const prefix of ["vid", "img"]) {
+    const abs = path.join(paths.stagingDir, `${prefix}-${id}`);
+    if (fs.existsSync(abs)) {
+      items.push({
+        relPath: `engines/remotion/public/staging/${prefix}-${id}/`,
+        size: dirSizeOf(abs),
+      });
+    }
+  }
+
+  return { items, totalBytes: items.reduce((sum, i) => sum + i.size, 0) };
+}
+
+// GET /api/projects/:id/junk — liệt kê file rác (file trung gian) + tổng dung lượng
+router.get("/:id/junk", (req, res) => {
+  const id = req.params.id;
+  readMeta(id); // ném 404 nếu project không có
+  res.json(collectJunk(id));
+});
+
+// POST /api/projects/:id/junk/clean — xóa file rác; job running/queued của project → 409
+router.post("/:id/junk/clean", (req, res) => {
+  const id = req.params.id;
+  readMeta(id); // ném 404 nếu project không có
+  if (db.hasActiveJobForProject(id)) {
+    throw new HttpError(
+      409,
+      "JOB_RUNNING",
+      "Project đang có job chạy/chờ trong hàng đợi — đợi xong rồi mới dọn file rác",
+    );
+  }
+  const { items, totalBytes } = collectJunk(id);
+  for (const item of items) {
+    // relPath dạng repo-relative dấu / (thư mục có "/" cuối) — path.join tự chuẩn hóa
+    fs.rmSync(path.join(repoRoot, item.relPath), { recursive: true, force: true });
+  }
+  // renders/ là thư mục scaffold chuẩn của project — tạo lại rỗng
+  ensureDir(path.join(projectDirOf(id), "renders"));
+  res.json({ freedBytes: totalBytes, deleted: items.length });
+});
+
 // PUT /api/projects/:id/tags — thay toàn bộ tags
 router.put("/:id/tags", (req, res) => {
   const id = req.params.id;

@@ -31,10 +31,12 @@ import React, {
   type ReactNode,
 } from "react";
 import {
+  cleanProjectJunk,
   createJob,
   deleteProject,
   getChatSessions,
   getProject,
+  getProjectJunk,
   mediaUrl,
   startProjectEdit,
   updateBrief,
@@ -474,9 +476,46 @@ export default function ProjectDetailPage() {
       const job = await createJob({ projectId, type, sceneId });
       setJobNotice(`Đã đưa job ${job.id} (${type}) vào hàng đợi.`);
     } catch (e) {
-      setJobError(e instanceof Error ? e.message : String(e));
+      setJobError(
+        `Không tạo được job: ${e instanceof Error ? e.message : String(e)}`
+      );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // Xóa file rác — file trung gian sau khi xuất final (renders/verify/cache,
+  // props.resolved.json, draft lắp ráp, staging Remotion); file nguồn giữ nguyên
+  const [cleaning, setCleaning] = useState(false);
+  async function onCleanJunk() {
+    if (cleaning) return;
+    setCleaning(true);
+    setJobError(null);
+    setJobNotice(null);
+    try {
+      const junk = await getProjectJunk(projectId);
+      if (junk.items.length === 0) {
+        setJobNotice("Không có file rác nào để xóa.");
+        return;
+      }
+      if (
+        !window.confirm(
+          `Xóa ${junk.items.length} mục file rác, giải phóng ${formatBytes(junk.totalBytes)}?\n` +
+            "File nguồn của project và video final được giữ nguyên."
+        )
+      )
+        return;
+      const result = await cleanProjectJunk(projectId);
+      setJobNotice(
+        `Đã giải phóng ${formatBytes(result.freedBytes)} (${result.deleted} mục file rác).`
+      );
+      load();
+    } catch (e) {
+      setJobError(
+        `Không xóa được file rác: ${e instanceof Error ? e.message : String(e)}`
+      );
+    } finally {
+      setCleaning(false);
     }
   }
 
@@ -966,6 +1005,23 @@ export default function ProjectDetailPage() {
                       />
                       Lắp ráp draft
                     </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={cleaning}
+                      className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        onCleanJunk();
+                      }}
+                    >
+                      <Trash2
+                        size={14}
+                        strokeWidth={2}
+                        className="shrink-0 text-[var(--text-muted)]"
+                      />
+                      {cleaning ? "Đang xóa file rác…" : "Xóa file rác"}
+                    </button>
                   </div>
                 )}
               </div>
@@ -974,9 +1030,7 @@ export default function ProjectDetailPage() {
               <p className="text-xs text-[var(--success)]">{jobNotice}</p>
             )}
             {jobError && (
-              <p className="text-xs text-[var(--danger)]">
-                Không tạo được job: {jobError}
-              </p>
+              <p className="text-xs text-[var(--danger)]">{jobError}</p>
             )}
           </div>
 

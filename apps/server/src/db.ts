@@ -232,6 +232,16 @@ export function getRunningJob(): JobRow | undefined {
     | undefined;
 }
 
+/** Project đang có job running/queued? — chặn thao tác dọn file trung gian khi job cần chúng */
+export function hasActiveJobForProject(projectId: string): boolean {
+  const row = db
+    .prepare(
+      "SELECT 1 FROM jobs WHERE projectId = ? AND status IN ('running', 'queued') LIMIT 1",
+    )
+    .get(projectId);
+  return row !== undefined;
+}
+
 export function countQueuedJobs(): number {
   const row = db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'queued'").get() as {
     n: number;

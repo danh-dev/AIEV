@@ -40,6 +40,12 @@ POST   /api/projects/:id/clone  { name? } → ProjectSummary (201) — nhân b�
 
 PUT    /api/projects/:id/tags   { tags: string[] } → 200 ProjectSummary — gán tag cho project
 
+GET    /api/projects/:id/junk        → { items: [{ relPath, size }], totalBytes } — file rác (file trung gian):
+                                       renders/ verify/ cache/, props.resolved.json, outputs/<id>-draft.mp4,
+                                       staging Remotion vid-<id>/ img-<id>/ (thư mục có "/" cuối, size là tổng)
+POST   /api/projects/:id/junk/clean  → { freedBytes, deleted } — xóa các mục trên (file nguồn + final giữ nguyên);
+                                       project đang có job running/queued → 409 JOB_RUNNING
+
 FileInfo = { name, relPath, size, mtime, kind: "video"|"audio"|"image"|"other" }
 ```
 

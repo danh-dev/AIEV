@@ -708,6 +708,31 @@ export const updateAssetDescription = (
     { description }
   );
 
+/** Một mục file rác — relPath từ repo root, thư mục kết thúc bằng "/". */
+export interface JunkItem {
+  relPath: string;
+  size: number;
+}
+
+export interface ProjectJunk {
+  items: JunkItem[];
+  totalBytes: number;
+}
+
+/** GET danh sách file rác (file trung gian sau khi xuất final) của project. */
+export const getProjectJunk = (id: string) =>
+  request<ProjectJunk>(`/api/projects/${encodeURIComponent(id)}/junk`);
+
+/**
+ * POST xóa file rác của project — renders/verify/cache, props.resolved.json,
+ * draft lắp ráp và staging Remotion. File nguồn + video final giữ nguyên.
+ * Project đang có job chạy/chờ → lỗi 409 JOB_RUNNING.
+ */
+export const cleanProjectJunk = (id: string) =>
+  post<{ freedBytes: number; deleted: number }>(
+    `/api/projects/${encodeURIComponent(id)}/junk/clean`
+  );
+
 /** DELETE một asset của project — xóa file + entry mô tả/màu trong assets.json. */
 export const deleteProjectAsset = (projectId: string, file: string) =>
   request<void>(
