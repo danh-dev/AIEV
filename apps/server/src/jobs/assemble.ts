@@ -87,6 +87,11 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     if (typeof scene.srcVideo === "string" && scene.srcVideo) {
       scene.srcVideo = stage(scene.srcVideo);
     }
+    // Scene ảnh tĩnh (ảnh minh họa AI) — cũng phải stage, nếu không Remotion
+    // load `assets/...` từ public/ và chết 404 giữa chừng.
+    if (typeof scene.srcImage === "string" && scene.srcImage) {
+      scene.srcImage = stage(scene.srcImage);
+    }
   }
   if (props.audio) {
     if (typeof props.audio.voice === "string" && props.audio.voice) {

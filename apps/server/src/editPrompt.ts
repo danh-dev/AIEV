@@ -39,7 +39,10 @@ export function buildEditPrompt(input: {
   lines.push(
     `- Tự động cắt: ${
       brief.autoCut
-        ? "Có — tự động cắt bỏ đoạn thừa, khoảng lặng"
+        ? "Có — BẮT BUỘC cắt khoảng lặng + đoạn thừa TRƯỚC khi dựng, theo ĐÚNG quy trình skill `auto-cut` " +
+          "(silencedetect + rà transcript cắt filler/câu nói hỏng, remap word timestamp, verify bằng " +
+          "silencedetect LẦN 2 trên bản đã cắt). Báo cáo cuối PHẢI ghi rõ: đã cắt bao nhiêu giây, " +
+          "bao nhiêu đoạn (lặng/thừa) — không cắt được gì thì nêu lý do cụ thể."
         : "Không — giữ nguyên nhịp video, không tự ý cắt bỏ đoạn nào"
     }`,
   );

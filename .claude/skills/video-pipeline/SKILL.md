@@ -106,6 +106,7 @@ Nguyên nhân số 1 làm pipeline mất cả tiếng: **re-render draft CẢ B�
 
 ## Checklist trước khi báo hoàn thành
 
+- [ ] Nếu brief bật autoCut: đã cắt theo skill `auto-cut`, verify silencedetect lần 2 trên bản cắt, báo cáo ghi số giây/số đoạn đã cắt
 - [ ] Mọi scene qua verify frame, chữ tiếng Việt đủ dấu
 - [ ] Audio không lệch sync ở đầu/giữa/cuối (kiểm bằng 3 điểm ngẫu nhiên)
 - [ ] Sound effect đúng frame, âm lượng không đè giọng nói (sfx thấp hơn voice ~10dB)

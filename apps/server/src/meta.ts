@@ -17,6 +17,8 @@ export interface SceneMeta {
   src?: string;
   /** Footage dùng thẳng — không qua HyperFrames */
   srcVideo?: string;
+  /** Ảnh tĩnh (ảnh minh họa AI) — scene cutaway full-bleed */
+  srcImage?: string;
   durationInFrames?: number;
   render?: string;
   from?: number;
