@@ -124,6 +124,9 @@ export function PhoneConnectModal({
         {t("phone.note")}
       </p>
 
+      {/* Ghi chú dùng từ xa: Tailscale / Cloudflare Tunnel — trang /m tự chọn endpoint upload */}
+      <p className="text-xs text-[var(--text-muted)]">{t("phone.tunnel-note")}</p>
+
       <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
         {t("phone.keep-awake")}
       </p>

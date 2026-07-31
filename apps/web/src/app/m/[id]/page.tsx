@@ -5,16 +5,20 @@
  * (http://<ip-máy-chủ>:6868/m/<projectId>, điện thoại cùng WiFi).
  *
  * Tối giản cho màn dọc, không Shell/sidebar (Shell tự bypass /m/*).
- * Upload gọi THẲNG backend 6869 (serverOrigin) — không qua proxy /api của Next:
- * request dài qua proxy dính buffering + timeout của Node server nên file video
- * lớn hay kẹt giữa chừng. Backend đã mở CORS cho origin http://<ip-LAN>:6868
- * và start.ps1 mở firewall port 6869.
+ * Endpoint upload chọn qua uploadOrigin() (api.ts):
+ * - Cùng WiFi/LAN (hostname là localhost/IP private/Tailscale 100.x): gọi
+ *   THẲNG backend 6869 — né proxy /api của Next vì request dài dính
+ *   buffering + timeout, file video lớn hay kẹt giữa chừng. Backend đã mở
+ *   CORS cho origin http://<ip-LAN>:6868 và start.ps1 mở firewall port 6869.
+ * - Qua domain tunnel (vd Cloudflare Tunnel → localhost:6868): cổng 6869
+ *   không tồn tại trên domain → upload same-origin qua proxy /api của Next
+ *   (proxyTimeout 10 phút, đủ cho file lớn).
  */
 
 import { Camera, Check, Loader2, Smartphone, Upload } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getProject, serverOrigin } from "@/lib/api";
+import { getProject, uploadOrigin } from "@/lib/api";
 import { formatBytes } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -28,7 +32,7 @@ interface UploadItem {
   error?: string;
 }
 
-/** Upload MỘT file thẳng backend 6869 (/api/assets) — XHR để có progress từng phần. */
+/** Upload MỘT file lên /api/assets (origin theo uploadOrigin) — XHR để có progress từng phần. */
 function uploadOne(
   projectId: string,
   file: File,
@@ -36,7 +40,7 @@ function uploadOne(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${serverOrigin()}/api/assets`);
+    xhr.open("POST", `${uploadOrigin()}/api/assets`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };

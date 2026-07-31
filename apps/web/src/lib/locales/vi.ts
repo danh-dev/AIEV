@@ -468,6 +468,8 @@ export const vi: Record<string, string> = {
     "Điện thoại phải cùng WiFi với máy này. Lần đầu Windows hỏi firewall → chọn Allow.",
   "phone.keep-awake":
     "Giữ màn hình điện thoại sáng khi đang tải file lớn — tắt màn hình là trình duyệt ngừng gửi.",
+  "phone.tunnel-note":
+    "Dùng từ xa qua 4G/5G: Tailscale (chọn IP 100.x) hoặc Cloudflare Tunnel trỏ domain về cổng 6868 — trang upload tự thích ứng.",
 
   // ===== Upload đang đến server (SSE kênh "upload") =====
   "upload.receiving": "Đang nhận file… {percent}%",

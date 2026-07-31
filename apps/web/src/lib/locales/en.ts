@@ -468,6 +468,8 @@ export const en: Record<string, string> = {
     "Your phone must be on the same WiFi as this machine. The first time, Windows will ask about the firewall — choose Allow.",
   "phone.keep-awake":
     "Keep the phone's screen on while uploading large files — once the screen turns off, the browser stops sending.",
+  "phone.tunnel-note":
+    "Remote over 4G/5G: Tailscale (pick the 100.x IP) or a Cloudflare Tunnel pointing a domain at port 6868 — the upload page adapts automatically.",
 
   // ===== Incoming upload (SSE "upload" channel) =====
   "upload.receiving": "Receiving file… {percent}%",

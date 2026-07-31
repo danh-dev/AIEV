@@ -1,34 +1,34 @@
 # AIEV — AI Edit Video by [noti.vn](https://noti.vn)
 
-🇻🇳 Tiếng Việt · [🇬🇧 English](README.en.md)
+🇬🇧 English · [🇻🇳 Tiếng Việt](README.vi.md)
 
-> **Edit video tự động bằng AI.** Claude đóng vai đạo diễn — điều khiển **HyperFrames** (dựng scene motion-graphics bằng HTML + GSAP) và **Remotion** (lắp ráp timeline) — bạn giám sát mọi thứ qua web dashboard tại `http://localhost:6868`.
+> **Automatic AI video editing.** Claude acts as the director — driving **HyperFrames** (motion-graphics scenes built with HTML + GSAP) and **Remotion** (timeline assembly) — while you supervise everything through the web dashboard at `http://localhost:6868`.
 
-Đưa clip vào, mô tả ngắn gọn bạn muốn gì, bấm **"Bắt đầu edit bằng AI"** — hệ thống tự transcribe, viết kịch bản dựng, tạo scene chữ động, phụ đề karaoke, zoom nhấn nhịp, sound effect theo timestamp, lắp ráp và xuất MP4.
+Drop in a clip, briefly describe what you want, click **"Start editing with AI"** — the system automatically transcribes, writes the editing script, creates kinetic-typography scenes, karaoke subtitles, beat-synced zooms, timestamped sound effects, assembles the timeline and exports an MP4.
 
-## Tính năng
+## Features
 
 | | |
 |---|---|
-| 🎬 **Edit video bằng AI** | Claude tự phân tích source → dựng scene HyperFrames → lắp ráp Remotion → MP4. Draft trước, final sau, verify từng frame. |
-| 🎨 **Style Design** | Nhiều bộ nhận diện (màu, font, logo, tone, hiệu ứng gradient/liquid glass) — sản phẩm tuân thủ 100% style đã chọn. Font chỉ cần gõ tên, tự tải từ Google Fonts (đủ dấu tiếng Việt). |
-| 🖼️ **Tạo ảnh AI** | Gemini vẽ nền (không chữ) → Remotion đặt tiêu đề/logo/số liệu theo Style Design — chữ tiếng Việt không bao giờ sai chính tả. |
-| ✨ **Ảnh minh họa trong video** | Claude chọn ý chính, Gemini vẽ minh họa đồng bộ style rồi ghép đúng thời điểm (~$0.05/ảnh). |
-| 🔑 **Bố cục Key** | Key chính hiện vùng trên video, key liên quan hiện vùng dưới theo nội dung đang nói — AI tự đề xuất hoặc bạn chỉ định. |
-| 📝 **Phụ đề karaoke tiếng Việt** | faster-whisper (ưu tiên GPU) word-timestamp, highlight keyword, các fix mất dấu đã kiểm chứng. |
-| 🎨 **Chỉnh màu có preview** | 14 preset + chỉnh tay, xem trước từng frame; footage log/HDR tự tonemap. |
-| 🔊 **Sound effects** | Thư viện 100+ file kèm bộ đề xuất — AI chèn theo nhịp nội dung, khớp mốc zoom. |
-| 🧠 **Skills** | Know-how sản xuất tích lũy dạng markdown, quản lý trên web UI; có cả **tạo skill mới bằng AI** từ form câu hỏi. |
-| ⚡ **Tăng tốc phần cứng** | Tự phát hiện GPU (NVENC trên NVIDIA, VideoToolbox trên macOS), render song song, `--gl angle`. |
-| 📊 **Dashboard** | Tiến trình realtime (SSE), render queue, token AI theo ngày/loại project (in/out), phiên AI tự chạy tiếp khi gián đoạn. |
+| 🎬 **AI video editing** | Claude analyzes the source → builds HyperFrames scenes → assembles with Remotion → MP4. Draft first, final later, every frame verified. |
+| 🎨 **Style Design** | Multiple brand kits (colors, fonts, logo, tone, gradient/liquid-glass effects) — every output follows the selected style 100%. Just type a font name and it downloads from Google Fonts (full Vietnamese diacritics). |
+| 🖼️ **AI image generation** | Gemini paints the background (no text) → Remotion places titles/logo/figures per the Style Design — Vietnamese text is never misspelled. |
+| ✨ **In-video AI illustrations** | Claude picks key moments, Gemini draws style-matched illustrations and they're placed at exactly the right time (~$0.05/image). |
+| 🔑 **Key layout** | The main key appears in the upper band of the video, related keys in the lower band synced to what's being said — AI suggests them or you specify. |
+| 📝 **Vietnamese karaoke subtitles** | faster-whisper (GPU preferred) word timestamps, keyword highlighting, battle-tested fixes for missing diacritics. |
+| 🎨 **Color grading with preview** | 14 presets + manual adjustments, per-frame preview; log/HDR footage is tonemapped automatically. |
+| 🔊 **Sound effects** | Library of 100+ files with a curated set — AI inserts them to match the content rhythm and zoom beats. |
+| 🧠 **Skills** | Production know-how accumulated as markdown, managed in the web UI; includes **AI-powered skill creation** from a question form. |
+| ⚡ **Hardware acceleration** | Auto-detects the GPU (NVENC on NVIDIA, VideoToolbox on macOS), parallel rendering, `--gl angle`. |
+| 📊 **Dashboard** | Realtime progress (SSE), render queue, AI tokens by day/project type (in/out), AI sessions auto-resume after interruptions. |
 
-## Kiến trúc
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Web UI (Next.js, port 6868)                        │
 │  Dashboard · Videos/Images Project · Style Design   │
-│  Render Queue · Sound Effects · Skills · Cấu hình   │
+│  Render Queue · Sound Effects · Skills · Settings   │
 └──────────────────────┬──────────────────────────────┘
                        │ REST + SSE
 ┌──────────────────────┴──────────────────────────────┐
@@ -42,64 +42,69 @@
 └──────────────────┘        └──────────────────────┘
 ```
 
-Hợp đồng API đầy đủ: [`docs/API.md`](docs/API.md). Quy trình sản xuất + know-how: [`.claude/skills/`](.claude/skills/).
+Full API contract: [`docs/API.md`](docs/API.md). Production workflow + know-how: [`.claude/skills/`](.claude/skills/).
 
-## Yêu cầu
+## Requirements
 
 - **Node.js 20+**
-- **FFmpeg** trên PATH (macOS: `brew install ffmpeg`)
-- **Google Chrome** (HyperFrames và Remotion render qua headless Chromium)
-- **Claude**: đăng nhập [Claude Code](https://claude.com/claude-code) trên máy (dùng subscription OAuth — khuyên dùng) *hoặc* điền `ANTHROPIC_API_KEY` vào `.env`
-- **Gemini** (chỉ cần cho tạo ảnh): `GEMINI_API_KEY` trong `.env` — lấy tại [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-- Tùy chọn: GPU NVIDIA (NVENC) hoặc Mac Apple Silicon (VideoToolbox) để render nhanh hơn; Python + `faster-whisper` cho phụ đề
+- **FFmpeg** on PATH (macOS: `brew install ffmpeg`)
+- **Google Chrome** (HyperFrames and Remotion render through headless Chromium)
+- **Claude**: sign in to [Claude Code](https://claude.com/claude-code) on this machine (uses subscription OAuth — recommended) *or* put `ANTHROPIC_API_KEY` in `.env`
+- **Gemini** (only needed for image generation): `GEMINI_API_KEY` in `.env` — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- Optional: an NVIDIA GPU (NVENC) or Apple Silicon Mac (VideoToolbox) for faster rendering; Python + `faster-whisper` for subtitles
 
-## Chạy
+## Getting started
 
 ```bash
 git clone https://github.com/giapducthang/AIEV.git
 cd AIEV
 ```
 
-**Windows** — double-click `start\start.bat` (hoặc chạy `start\start.ps1`).
+**Windows** — double-click `start\start.bat` (or run `start\start.ps1`).
 
 **macOS / Linux**
 ```bash
-chmod +x start/start.sh start/stop.sh   # lần đầu
+chmod +x start/start.sh start/stop.sh   # first time only
 ./start/start.sh
 ```
 
-Script tự lo mọi thứ: kiểm tra môi trường → `npm install` (lần đầu) → build → tạo `.env` → chạy server + web → mở `http://localhost:6868`. Dừng bằng `start\stop.bat` / `./start/stop.sh`.
+The script handles everything: checks the environment → `npm install` (first run) → build → creates `.env` → starts server + web → opens `http://localhost:6868`. Stop with `start\stop.bat` / `./start/stop.sh`.
 
-Chạy dev thủ công: `npm install` rồi `npm run dev`.
+Manual dev run: `npm install` then `npm run dev`.
 
-## Upload từ điện thoại
+## Upload from your phone
 
-Trong trang project, ở card **Nguồn & Asset** bấm **Kết nối điện thoại** — quét mã QR bằng camera điện thoại (cùng WiFi với máy chạy hệ thống) để mở trang upload `http://<ip-máy>:6868/m/<project>`. Video/ảnh chọn trên điện thoại sẽ tải thẳng vào asset của project. Lần đầu Windows hỏi firewall thì chọn **Allow** (script start đã tự thêm rule nếu có quyền admin).
+On a project page, in the **Sources & Assets** card click **Connect phone** — scan the QR code with your phone camera (same WiFi as the machine running the system) to open the upload page `http://<machine-ip>:6868/m/<project>`. Videos/photos picked on the phone upload straight into the project's assets. The first time Windows asks about the firewall, choose **Allow** (the start script adds the rule automatically when it has admin rights).
 
-## Cấu trúc thư mục
+**Remote over 4G/5G** (not on the same WiFi):
+- **Tailscale** — install it on the machine running the system + your phone, then pick the `100.x` IP in the Connect phone modal; the QR works exactly like on the LAN.
+- **Cloudflare Tunnel** — `cloudflared tunnel --url http://localhost:6868` (or point your own subdomain at port 6868), then open `https://<domain>/m/<project>` on the phone — the upload page adapts automatically.
+- ⚠️ **Warning**: the dashboard has no login yet — only expose it publicly behind Cloudflare Access, or never share the link.
+
+## Folder structure
 
 ```
 ├── apps/web/          # Next.js dashboard (port 6868)
 ├── apps/server/       # Express backend: Agent SDK + render queue + SQLite (port 6869)
-├── engines/remotion/  # Remotion: composition Assemble (video) + Poster (ảnh)
-├── .claude/skills/    # Skills — know-how sản xuất, quản lý được từ web UI
+├── engines/remotion/  # Remotion: Assemble (video) + Poster (image) compositions
+├── .claude/skills/    # Skills — production know-how, manageable from the web UI
 ├── assets/
-│   ├── sound-effects/ # Thư viện sound effect + library.json
-│   ├── styles/        # Style Design (styles.json + font/logo)
-│   └── prompts/       # Prompt mẫu
-├── video-projects/    # Mỗi video một folder (không commit)
-├── image-projects/    # Project tạo ảnh (không commit)
-├── outputs/           # Video final (không commit)
-├── start/             # Script khởi động Win (.bat/.ps1) + macOS/Linux (.sh)
-└── docs/API.md        # Hợp đồng API — nguồn sự thật duy nhất
+│   ├── sound-effects/ # Sound-effect library + library.json
+│   ├── styles/        # Style Design (styles.json + fonts/logos)
+│   └── prompts/       # Prompt templates
+├── video-projects/    # One folder per video (not committed)
+├── image-projects/    # Image-generation projects (not committed)
+├── outputs/           # Final videos (not committed)
+├── start/             # Startup scripts for Windows (.bat/.ps1) + macOS/Linux (.sh)
+└── docs/API.md        # API contract — the single source of truth
 ```
 
 ## Tech stack
 
 Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk) · [HyperFrames](https://www.npmjs.com/package/hyperframes) · [Remotion](https://remotion.dev) · Gemini API · faster-whisper · FFmpeg
 
-> Lưu ý giấy phép: Remotion miễn phí cho cá nhân và công ty ≤ 3 người — vượt mức cần [Company License](https://remotion.pro).
+> License note: Remotion is free for individuals and companies of up to 3 people — beyond that you need a [Company License](https://remotion.pro).
 
 ---
 
-Made with ❤️ by **noti.vn** — Claude điều khiển, con người duyệt.
+Made with ❤️ by **noti.vn** — Claude directs, humans approve.

@@ -591,6 +591,27 @@ export function serverOrigin(): string {
   return `http://${window.location.hostname}:${port}`;
 }
 
+/**
+ * Origin để UPLOAD file từ trang mobile /m — tự thích ứng cách truy cập:
+ * - LAN/localhost (localhost, 127.x, IP private 192.168/10./172.16-31,
+ *   Tailscale 100.64-127): gọi THẲNG backend 6869 (serverOrigin) — né proxy
+ *   Next vì request dài dễ dính buffering/timeout với file video lớn.
+ * - Domain qua tunnel (vd Cloudflare Tunnel https://aiev.noti.vn →
+ *   localhost:6868): cổng 6869 KHÔNG tồn tại trên domain đó → upload
+ *   same-origin qua đường proxy /api của Next (đã set proxyTimeout 10 phút).
+ */
+export function uploadOrigin(): string {
+  if (typeof window === "undefined") return "http://localhost:6869";
+  const host = window.location.hostname;
+  const isLocalNetwork =
+    host === "localhost" ||
+    /^127\./.test(host) ||
+    /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(
+      host
+    );
+  return isLocalNetwork ? serverOrigin() : window.location.origin;
+}
+
 export class ApiError extends Error {
   code: string;
   status: number;
