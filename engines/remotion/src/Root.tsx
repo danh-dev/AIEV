@@ -98,16 +98,15 @@ const calculatePosterMetadata: CalculateMetadataFunction<PosterProps> = ({
 };
 
 /**
- * Thumbnail demo — background/portrait null nên mở studio được mà không cần
+ * Thumbnail demo — background/frame null nên mở studio được mà không cần
  * file trong public/staging. Render thật luôn --props=<file>.
  */
 const demoThumbnail: ThumbnailProps = thumbnailSchema.parse({
   aspect: "9:16",
   background: null,
-  portrait: null,
-  title: "Video này Edit",
-  highlight: "bằng AI",
-  brandName: "Noti.vn",
+  frame: null,
+  title: "Video này Edit bằng AI",
+  design: { brandName: "Noti.vn" },
 });
 
 /** Still 1 frame — width/height suy từ props.aspect (giống Poster). */

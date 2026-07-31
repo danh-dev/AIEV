@@ -159,6 +159,18 @@ Chi tiết kỹ thuật (đã verify 2026-07-29):
   { responseModalities:["TEXT","IMAGE"], imageConfig:{ aspectRatio:"9:16"|..., imageSize:"1K"|"2K" } } };
   ảnh trả về candidates[0].content.parts[].inlineData.data (base64). Không có free tier ảnh (~$0.05-0.07/ảnh 1K).
 
+## Thumbnail video project (POST /api/projects/:id/thumbnail)
+
+```
+POST /api/projects/:id/thumbnail  { title, frameAt?, sourceRel?, bgPrompt?, styleId? } → 201 { file: "thumbnail.png", relPath }
+```
+Chạy ĐỒNG BỘ (~1 phút): ffmpeg cắt frame tại giây `frameAt` (mặc định 1) từ video (`sourceRel`,
+mặc định output final trong meta, fallback video asset đầu) → Gemini vẽ nền theo Style Design
+(lỗi/thiếu key → composition tự dựng nền gradient từ style) → `remotion still Thumbnail`
+(nền + frame card + title + logo, 100% theo style) → `video-projects/<id>/thumbnail.png`.
+Style resolve: `body.styleId` → `brief.styleId` → default. `GET /api/projects/:id` trả thêm
+`thumbnail: "thumbnail.png"|null` (check file tồn tại).
+
 ## Style Design (nhiều bộ nhận diện, tab riêng — THAY THẾ Design System cũ) — assets/styles/styles.json
 
 ```

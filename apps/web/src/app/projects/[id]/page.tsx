@@ -10,6 +10,7 @@ import {
   FileQuestion,
   FileText,
   Image as ImageIcon,
+  Loader2,
   MessageSquare,
   Minus,
   MonitorPlay,
@@ -32,6 +33,7 @@ import {
 import {
   cleanProjectJunk,
   createJob,
+  createThumbnail,
   deleteProject,
   getChatSessions,
   getJobs,
@@ -173,22 +175,84 @@ function FileTable({ files }: { files: FileInfo[] }) {
 /**
  * Card Video output — trạng thái "AI đang tạo video" (phiên running) hiện TRÊN,
  * video đã có (project.output) hiện DƯỚI; chưa có gì thì empty state nhỏ.
+ * Kèm khu Thumbnail: ảnh bìa đã tạo + nút "Tạo thumbnail" (POST đồng bộ ~1 phút).
  */
 function VideoOutputCard({
+  projectId,
+  projectName,
   output,
+  thumbnail,
   aiRunning,
   version,
+  onChanged,
 }: {
+  projectId: string;
+  projectName?: string;
   output: string | null | undefined;
+  /** "thumbnail.png" nếu đã có — null/undefined = chưa tạo */
+  thumbnail?: string | null;
   aiRunning: boolean;
   /** updatedAt của project — cache-bust vì file draft ghi đè cùng tên */
   version?: string;
+  /** Gọi sau khi tạo thumbnail xong để reload project */
+  onChanged: () => void;
 }) {
   const fileName = output ? output.split(/[\\/]/).pop() : null;
   const outputUrl = output
     ? mediaUrl(output) + (version ? `?v=${encodeURIComponent(version)}` : "")
     : "";
   const [zoomed, setZoomed] = useState(false);
+
+  // ---- Thumbnail ----------------------------------------------------------
+  const thumbRel = `video-projects/${projectId}/${thumbnail ?? "thumbnail.png"}`;
+  const thumbUrl =
+    mediaUrl(thumbRel) + (version ? `?v=${encodeURIComponent(version)}` : "");
+  // FileInfo tối thiểu cho MediaPreviewModal (mtime chỉ dùng cache-bust)
+  const thumbFile: FileInfo = {
+    name: "thumbnail.png",
+    relPath: thumbRel,
+    size: 0,
+    mtime: version ?? "",
+    kind: "image",
+  };
+  const [thumbPreview, setThumbPreview] = useState(false);
+  const [thumbRevealError, setThumbRevealError] = useState<string | null>(null);
+  // Modal "Tạo thumbnail"
+  const [thumbOpen, setThumbOpen] = useState(false);
+  const [thumbTitle, setThumbTitle] = useState("");
+  const [thumbFrameAt, setThumbFrameAt] = useState("1");
+  const [thumbPrompt, setThumbPrompt] = useState("");
+  const [thumbBusy, setThumbBusy] = useState(false);
+  const [thumbError, setThumbError] = useState<string | null>(null);
+
+  function openThumbModal() {
+    setThumbTitle(projectName ?? projectId);
+    setThumbFrameAt("1");
+    setThumbPrompt("");
+    setThumbError(null);
+    setThumbOpen(true);
+  }
+
+  async function onCreateThumb() {
+    const title = thumbTitle.trim();
+    if (!title || thumbBusy) return;
+    setThumbBusy(true);
+    setThumbError(null);
+    try {
+      const frameAt = Number(thumbFrameAt);
+      await createThumbnail(projectId, {
+        title,
+        ...(Number.isFinite(frameAt) && frameAt >= 0 ? { frameAt } : {}),
+        ...(thumbPrompt.trim() ? { bgPrompt: thumbPrompt.trim() } : {}),
+      });
+      setThumbOpen(false);
+      onChanged();
+    } catch (e) {
+      setThumbError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setThumbBusy(false);
+    }
+  }
 
   // Đóng lightbox bằng Escape
   useEffect(() => {
@@ -252,6 +316,130 @@ function VideoOutputCard({
       ) : !aiRunning ? (
         <EmptyState icon={MonitorPlay} description="Chưa có video output." />
       ) : null}
+
+      {/* Khu Thumbnail — ảnh bìa của video (POST /api/projects/:id/thumbnail) */}
+      {(output || thumbnail) && (
+        <div className="mt-3 border-t border-[var(--border)] pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-[var(--text-muted)]">
+              Thumbnail
+            </span>
+            <Button variant="secondary" small onClick={openThumbModal}>
+              <ImageIcon size={13} strokeWidth={2} />
+              Tạo thumbnail
+            </Button>
+          </div>
+          {thumbRevealError && (
+            <p className="mt-2 text-xs text-[var(--danger)]">{thumbRevealError}</p>
+          )}
+          {thumbnail ? (
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setThumbPreview(true)}
+                title="Xem thumbnail lớn"
+                className="shrink-0"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumbUrl}
+                  alt="Thumbnail của video"
+                  className="h-24 w-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] object-contain transition-opacity duration-150 hover:opacity-85"
+                />
+              </button>
+              <RevealButton
+                relPath={thumbRel}
+                onError={setThumbRevealError}
+              />
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              Chưa có thumbnail.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Preview thumbnail lớn */}
+      <MediaPreviewModal
+        file={thumbPreview ? thumbFile : null}
+        onClose={() => setThumbPreview(false)}
+      />
+
+      {/* Modal "Tạo thumbnail" — chạy đồng bộ ~1 phút */}
+      <Modal
+        title="Tạo thumbnail"
+        open={thumbOpen}
+        onClose={() => {
+          if (!thumbBusy) setThumbOpen(false);
+        }}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setThumbOpen(false)}
+              disabled={thumbBusy}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={onCreateThumb}
+              disabled={thumbBusy || !thumbTitle.trim()}
+            >
+              {thumbBusy ? (
+                <>
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                  Đang tạo (~1 phút)…
+                </>
+              ) : (
+                <>
+                  <ImageIcon size={14} strokeWidth={2} />
+                  Tạo thumbnail
+                </>
+              )}
+            </Button>
+          </>
+        }
+      >
+        <label className="flex flex-col gap-1 text-sm">
+          Title trên thumbnail
+          <input
+            className="input"
+            value={thumbTitle}
+            onChange={(e) => setThumbTitle(e.target.value)}
+            placeholder="Cụm giật tít 4–8 từ"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Cắt frame tại giây
+          <input
+            className="input"
+            type="number"
+            min={0}
+            step={0.5}
+            value={thumbFrameAt}
+            onChange={(e) => setThumbFrameAt(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Prompt nền (tùy chọn)
+          <input
+            className="input"
+            value={thumbPrompt}
+            onChange={(e) => setThumbPrompt(e.target.value)}
+            placeholder="Bỏ trống = tự sinh từ title, nền vẽ bằng Gemini theo Style Design"
+          />
+        </label>
+        <p className="text-xs text-[var(--text-muted)]">
+          Hệ thống cắt frame từ video final, Gemini vẽ nền theo Style Design rồi
+          Remotion ghép title — chạy khoảng 1 phút.
+        </p>
+        {thumbError && (
+          <p className="text-xs text-[var(--danger)]">
+            Không tạo được thumbnail: {thumbError}
+          </p>
+        )}
+      </Modal>
 
       {/* Lightbox phóng to — click nền hoặc Escape để đóng */}
       {zoomed && output && (
@@ -848,9 +1036,13 @@ export default function ProjectDetailPage() {
 
               <div className="flex flex-col gap-4">
                 <VideoOutputCard
+                  projectId={projectId}
+                  projectName={project?.name}
                   output={project?.output}
+                  thumbnail={project?.thumbnail}
                   aiRunning={aiRunning}
                   version={project?.updatedAt}
+                  onChanged={load}
                 />
                 <Card title="Renders">
                   <FileTable files={renders} />

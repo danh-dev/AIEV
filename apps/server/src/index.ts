@@ -26,6 +26,7 @@ import imagesRouter from "./routes/images.js";
 import connectionsRouter from "./routes/connections.js";
 import renderSettingsRouter from "./routes/renderSettingsRoute.js";
 import illustrationsRouter from "./routes/illustrations.js";
+import thumbnailsRouter from "./routes/thumbnails.js";
 import updateRouter from "./routes/update.js";
 import revealRouter from "./routes/reveal.js";
 import { GRADE_PRESETS } from "./color.js";
@@ -63,6 +64,8 @@ app.get("/api/events", addSseClient);
 app.use("/api/health", healthRouter);
 app.use("/api/overview", overviewRouter);
 app.use("/api/projects", projectsRouter);
+// POST /api/projects/:id/thumbnail — projectsRouter không match nên rơi xuống đây
+app.use("/api/projects", thumbnailsRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/sfx", sfxRouter);

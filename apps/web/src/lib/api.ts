@@ -229,6 +229,8 @@ export interface SceneMeta {
 export interface ProjectDetail extends ProjectSummary {
   scenes?: SceneMeta[];
   brief?: Brief;
+  /** "thumbnail.png" nếu video-projects/<id>/thumbnail.png tồn tại — null = chưa tạo. */
+  thumbnail?: string | null;
   files: { renders: FileInfo[]; assets: FileInfo[] };
   [key: string]: unknown;
 }
@@ -741,6 +743,20 @@ export const updateAssetDescription = (
     `/api/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(file)}/description`,
     "PUT",
     { description }
+  );
+
+/**
+ * POST tạo thumbnail cho video project — chạy ĐỒNG BỘ (~1 phút: ffmpeg cắt
+ * frame + Gemini vẽ nền theo Style Design + Remotion still). Trả 201 khi
+ * video-projects/<id>/thumbnail.png đã ghi xong.
+ */
+export const createThumbnail = (
+  id: string,
+  input: { title: string; frameAt?: number; bgPrompt?: string }
+) =>
+  post<{ file: string; relPath: string }>(
+    `/api/projects/${encodeURIComponent(id)}/thumbnail`,
+    input
   );
 
 /** Một mục file rác — relPath từ repo root, thư mục kết thúc bằng "/". */

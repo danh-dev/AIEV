@@ -257,6 +257,13 @@ export function buildEditPrompt(input: {
       `nhưng phải ghi kết quả vào \`video-projects/${id}/renders/\` và cập nhật \`meta.json\`.`,
   );
   lines.push(
+    `- Sau khi final xong: tạo thumbnail bằng \`POST http://localhost:6869/api/projects/${id}/thumbnail\` ` +
+      "(body JSON `{ title, frameAt }`) — title do bạn CHỌN từ transcript (cụm giật tít 4-8 từ, đúng chính tả), " +
+      "frameAt = khoảnh khắc mặt/hình ảnh biểu cảm nhất trong video final (giây). Xem kết quả " +
+      `\`video-projects/${id}/thumbnail.png\` bằng Read để verify chữ đủ dấu + bố cục; xấu thì gọi lại ` +
+      "với frameAt/title khác.",
+  );
+  lines.push(
     `- NHIỆM VỤ CHỈ HOÀN THÀNH khi file final \`outputs/${id}-v<N>.mp4\` đã render xong và ` +
       "`meta.json` có status=done + output trỏ file đó. KHÔNG kết thúc lượt sau khi mới lập " +
       "kế hoạch/draft; nếu đã tạo job render qua API thì PHẢI đợi job chạy xong " +

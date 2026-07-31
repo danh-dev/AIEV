@@ -152,6 +152,8 @@ router.get("/:id", (req, res) => {
     output: normOutput(meta.output),
     tags: normTags(meta.tags),
     brief: briefOf(meta),
+    // Thumbnail đã tạo (POST /api/projects/:id/thumbnail) — null = chưa có
+    thumbnail: fs.existsSync(path.join(dir, "thumbnail.png")) ? "thumbnail.png" : null,
     files: {
       renders: listFilesRecursive(path.join(dir, "renders")),
       assets: listProjectAssets(id), // FileInfo + description? từ assets.json
