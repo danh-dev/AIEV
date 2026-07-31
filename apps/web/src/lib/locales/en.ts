@@ -100,6 +100,7 @@ export const en: Record<string, string> = {
   "update.send-failed": "Could not send the update command.",
   "update.updating": "Updating…",
   "update.will-reload": "The page will reload automatically",
+  "update.maybe-failed": "The update may have failed — check start/update.log",
   "update.check-failed": "Could not check for updates",
   "update.check-now": "Check again now",
   "update.click-check": "Click to check now",

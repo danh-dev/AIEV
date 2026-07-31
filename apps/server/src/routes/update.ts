@@ -117,7 +117,8 @@ router.post("/apply", (_req, res) => {
     });
     return;
   }
-  res.status(202).json({ ok: true });
+  // Script update tự ghi toàn bộ output vào start/update.log — soi khi lỗi.
+  res.status(202).json({ ok: true, logHint: "start/update.log" });
   const child =
     process.platform === "win32"
       ? spawn(

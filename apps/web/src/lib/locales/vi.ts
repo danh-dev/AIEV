@@ -100,6 +100,7 @@ export const vi: Record<string, string> = {
   "update.send-failed": "Không gửi được lệnh cập nhật.",
   "update.updating": "Đang cập nhật…",
   "update.will-reload": "Trang sẽ tự tải lại",
+  "update.maybe-failed": "Cập nhật có thể thất bại — xem start/update.log",
   "update.check-failed": "Không kiểm tra được bản mới",
   "update.check-now": "Kiểm tra lại ngay",
   "update.click-check": "Bấm để kiểm tra ngay",

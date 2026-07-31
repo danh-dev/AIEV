@@ -7,6 +7,7 @@ import { useT } from "@/lib/i18n";
 
 const CHECK_MS = 5 * 60 * 1000; // check bản mới mỗi 5 phút
 const HEALTH_POLL_MS = 5_000; // poll /api/health trong lúc update
+const UPDATE_TIMEOUT_MS = 4 * 60 * 1000; // quá 4 phút không thấy server chết+sống lại → coi như fail
 
 /**
  * Badge cuối sidebar: báo có bản cập nhật từ GitHub + nút bấm tự kéo về.
@@ -16,6 +17,7 @@ export function UpdateBadge() {
   const { t, tf } = useT();
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [updateFailed, setUpdateFailed] = useState(false);
   const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const aliveRef = useRef(true);
@@ -55,11 +57,14 @@ export function UpdateBadge() {
     };
   }, [check]);
 
-  // Đang update: chờ health chết trước rồi sống lại → reload
+  // Đang update: chờ health chết trước rồi sống lại → reload.
+  // Quá UPDATE_TIMEOUT_MS mà không thấy chu kỳ chết+sống → script update có thể
+  // đã thoát vì pull fail (server cũ vẫn chạy) — báo lỗi + chỉ tới update.log.
   useEffect(() => {
     if (!updating) return;
     let alive = true;
     let sawDown = false;
+    const startedAt = Date.now();
     const timer = setInterval(async () => {
       let up = false;
       try {
@@ -73,6 +78,11 @@ export function UpdateBadge() {
         sawDown = true;
       } else if (sawDown) {
         location.reload();
+        return;
+      }
+      if (Date.now() - startedAt > UPDATE_TIMEOUT_MS) {
+        setUpdating(false);
+        setUpdateFailed(true);
       }
     }, HEALTH_POLL_MS);
     return () => {
@@ -85,6 +95,7 @@ export function UpdateBadge() {
     const ok = window.confirm(t("update.confirm"));
     if (!ok) return;
     setNotice(null);
+    setUpdateFailed(false);
     try {
       await applyUpdate();
       setUpdating(true);
@@ -107,6 +118,26 @@ export function UpdateBadge() {
           {t("update.will-reload")}
         </p>
         <div className="progress-indeterminate mt-2" aria-label={t("update.updating")} />
+      </div>
+    );
+  }
+
+  // Update gửi đi nhưng quá lâu không thấy server restart → có thể script đã fail
+  if (updateFailed) {
+    return (
+      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
+        <p className="text-xs text-[var(--danger)]">{t("update.maybe-failed")}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setUpdateFailed(false);
+            check(true);
+          }}
+          disabled={checking}
+          className="btn btn-secondary btn-sm mt-2 w-full"
+        >
+          {t("update.check-now")}
+        </button>
       </div>
     );
   }
