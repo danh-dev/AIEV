@@ -19,6 +19,7 @@ import {
 } from "@/lib/api";
 import { useProviders } from "@/components/ModelPicker";
 import { StyleSelect } from "@/components/StyleSelect";
+import { useT } from "@/lib/i18n";
 
 /**
  * Danh sách model ảnh Gemini live — lazy: chỉ fetch khi user chạm vào select
@@ -50,13 +51,14 @@ export function useGeminiImageModels() {
 
 // ---- Nhãn & options ----
 
+// label là KEY dictionary — dịch bằng t() lúc render.
 export const KIND_OPTIONS: { value: ImageKind; label: string }[] = [
-  { value: "background", label: "Background" },
-  { value: "3d", label: "Minh họa 3D" },
-  { value: "character", label: "Nhân vật" },
-  { value: "texture", label: "Texture Liquid Glass" },
-  { value: "product", label: "Ảnh sản phẩm" },
-  { value: "concept", label: "Concept quảng cáo" },
+  { value: "background", label: "imageForm.kind.background" },
+  { value: "3d", label: "imageForm.kind.3d" },
+  { value: "character", label: "imageForm.kind.character" },
+  { value: "texture", label: "imageForm.kind.texture" },
+  { value: "product", label: "imageForm.kind.product" },
+  { value: "concept", label: "imageForm.kind.concept" },
 ];
 
 export const KIND_LABEL: Record<ImageKind, string> = Object.fromEntries(
@@ -69,17 +71,18 @@ export const ASPECT_OPTIONS: {
   height: number;
   note: string;
 }[] = [
-  { value: "9:16", width: 1080, height: 1920, note: "Dọc" },
-  { value: "16:9", width: 1920, height: 1080, note: "Ngang" },
-  { value: "1:1", width: 1080, height: 1080, note: "Vuông" },
-  { value: "4:5", width: 1080, height: 1350, note: "Feed" },
+  { value: "9:16", width: 1080, height: 1920, note: "imageForm.aspect.portrait" },
+  { value: "16:9", width: 1920, height: 1080, note: "imageForm.aspect.landscape" },
+  { value: "1:1", width: 1080, height: 1080, note: "imageForm.aspect.square" },
+  { value: "4:5", width: 1080, height: 1350, note: "imageForm.aspect.feed" },
 ];
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 export const STATUS_LABEL: Record<ImageProjectStatus, string> = {
-  draft: "Nháp",
-  generating: "Đang tạo",
-  done: "Hoàn thành",
-  error: "Lỗi",
+  draft: "imageForm.status.draft",
+  generating: "imageForm.status.generating",
+  done: "imageForm.status.done",
+  error: "imageForm.status.error",
 };
 
 const STATUS_TONE: Record<ImageProjectStatus, string> = {
@@ -90,12 +93,13 @@ const STATUS_TONE: Record<ImageProjectStatus, string> = {
 };
 
 export function ImageStatusBadge({ status }: { status: ImageProjectStatus }) {
+  const { t } = useT();
   return (
     <span className={`badge ${STATUS_TONE[status] ?? "badge-muted"}`}>
       <span
         className={`badge-dot ${status === "generating" ? "badge-dot-pulse" : ""}`}
       />
-      {STATUS_LABEL[status] ?? String(status)}
+      {STATUS_LABEL[status] ? t(STATUS_LABEL[status]) : String(status)}
     </span>
   );
 }
@@ -188,6 +192,7 @@ export function ImageProjectFields({
    */
   sectioned?: boolean;
 }) {
+  const { t, tf } = useT();
   const { prompt, kind, aspect, overlay, model, styleId } = value;
   const { providers } = useProviders();
   const geminiModels =
@@ -226,13 +231,13 @@ export function ImageProjectFields({
           onChange={(v) => onChange({ styleId: v })}
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Ảnh tạo ra bắt buộc tuân theo màu, font, logo và tone của style này.
+          {t("imageForm.style-hint")}
         </p>
       </div>
 
       <div>
         <label className="label" htmlFor={`${idPrefix}-prompt`}>
-          Yêu cầu tạo ảnh
+          {t("imageForm.prompt-label")}
         </label>
         <textarea
           id={`${idPrefix}-prompt`}
@@ -241,13 +246,13 @@ export function ImageProjectFields({
           value={prompt}
           disabled={disabled}
           onChange={(e) => onChange({ prompt: e.target.value })}
-          placeholder="vd: Background digital marketing với các icon automation bay lơ lửng, phong cách 3D hiện đại..."
+          placeholder={t("imageForm.prompt-placeholder")}
         />
       </div>
 
       <div>
         <label className="label" htmlFor={`${idPrefix}-kind`}>
-          Loại ảnh
+          {t("imageForm.kind-label")}
         </label>
         <select
           id={`${idPrefix}-kind`}
@@ -258,7 +263,7 @@ export function ImageProjectFields({
         >
           {KIND_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.label)}
             </option>
           ))}
         </select>
@@ -267,7 +272,7 @@ export function ImageProjectFields({
       {showModel && (
         <div>
           <label className="label" htmlFor={`${idPrefix}-model`}>
-            Model tạo nền (Gemini)
+            {t("imageForm.model-label")}
           </label>
           <select
             id={`${idPrefix}-model`}
@@ -277,7 +282,7 @@ export function ImageProjectFields({
             onFocus={loadModels}
             onChange={(e) => onChange({ model: e.target.value || null })}
           >
-            <option value="">Mặc định (Nano Banana 2)</option>
+            <option value="">{t("images.model-default")}</option>
             {modelMissing && <option value={model!}>{model}</option>}
             {modelOptions.map((m) => (
               <option key={m.id} value={m.id}>
@@ -288,20 +293,19 @@ export function ImageProjectFields({
           {modelsLoading ? (
             <p className="mt-1 flex items-center gap-1 text-xs text-[var(--text-muted)]">
               <Loader2 size={12} strokeWidth={2} className="animate-spin" />
-              Đang tải model…
+              {t("images.loading-models")}
             </p>
           ) : (
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Danh sách lấy trực tiếp từ Google · Lite rẻ/nhanh hơn · Pro chất
-              lượng cao nhất
+              {t("imageForm.model-hint")}
             </p>
           )}
         </div>
       )}
 
-      {sectioned && <FormSectionHeading>Định dạng</FormSectionHeading>}
+      {sectioned && <FormSectionHeading>{t("imageForm.format")}</FormSectionHeading>}
       <div>
-        <span className="label">Tỉ lệ</span>
+        <span className="label">{t("imageForm.aspect-label")}</span>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {ASPECT_OPTIONS.map((o) => {
             const active = aspect === o.value;
@@ -332,7 +336,7 @@ export function ImageProjectFields({
                     active ? "opacity-80" : "text-[var(--text-muted)]"
                   }`}
                 >
-                  {o.width}×{o.height} · {o.note}
+                  {o.width}×{o.height} · {t(o.note)}
                 </span>
               </button>
             );
@@ -341,20 +345,20 @@ export function ImageProjectFields({
       </div>
 
       {sectioned && (
-        <FormSectionHeading>Chữ trên ảnh (Remotion đặt)</FormSectionHeading>
+        <FormSectionHeading>{t("imageForm.overlay-heading")}</FormSectionHeading>
       )}
       <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
         {!sectioned && (
           <p className="text-[13px] font-medium">
-            Nội dung chữ trên ảnh{" "}
+            {t("imageForm.overlay-title")}{" "}
             <span className="font-normal text-[var(--text-muted)]">
-              (Remotion đặt — đồng bộ Design System)
+              {t("imageForm.overlay-sub")}
             </span>
           </p>
         )}
         <div>
           <label className="label" htmlFor={`${idPrefix}-ov-title`}>
-            Tiêu đề
+            {t("imageForm.title-label")}
           </label>
           <input
             id={`${idPrefix}-ov-title`}
@@ -362,12 +366,12 @@ export function ImageProjectFields({
             value={overlay.title}
             disabled={disabled}
             onChange={(e) => patchOverlay({ title: e.target.value })}
-            placeholder="vd: Tự động hóa marketing"
+            placeholder={t("imageForm.title-placeholder")}
           />
         </div>
         <div>
           <label className="label" htmlFor={`${idPrefix}-ov-subtitle`}>
-            Phụ đề
+            {t("imageForm.subtitle-label")}
           </label>
           <input
             id={`${idPrefix}-ov-subtitle`}
@@ -375,33 +379,33 @@ export function ImageProjectFields({
             value={overlay.subtitle}
             disabled={disabled}
             onChange={(e) => patchOverlay({ subtitle: e.target.value })}
-            placeholder="vd: Tiết kiệm 10 giờ mỗi tuần"
+            placeholder={t("imageForm.subtitle-placeholder")}
           />
         </div>
         <div>
-          <span className="label">Số liệu</span>
+          <span className="label">{t("imageForm.stats-label")}</span>
           <div className="flex flex-col gap-2">
             {overlay.stats.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
                   className="input h-8 flex-1 text-[13px]"
-                  aria-label={`Nhãn số liệu ${i + 1}`}
+                  aria-label={tf("imageForm.stat-label-aria", { n: i + 1 })}
                   value={s.label}
                   disabled={disabled}
                   onChange={(e) => setStat(i, { label: e.target.value })}
-                  placeholder="Nhãn — vd: Khách hàng"
+                  placeholder={t("imageForm.stat-label-placeholder")}
                 />
                 <input
                   className="input h-8 w-28 text-[13px]"
-                  aria-label={`Giá trị số liệu ${i + 1}`}
+                  aria-label={tf("imageForm.stat-value-aria", { n: i + 1 })}
                   value={s.value}
                   disabled={disabled}
                   onChange={(e) => setStat(i, { value: e.target.value })}
-                  placeholder="vd: 10K+"
+                  placeholder={t("imageForm.stat-value-placeholder")}
                 />
                 <button
                   type="button"
-                  aria-label={`Xóa số liệu ${i + 1}`}
+                  aria-label={tf("imageForm.stat-remove-aria", { n: i + 1 })}
                   disabled={disabled}
                   className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg)] hover:text-[var(--danger)]"
                   onClick={() =>
@@ -425,7 +429,7 @@ export function ImageProjectFields({
               }
             >
               <Plus size={13} strokeWidth={2} />
-              Thêm số liệu
+              {t("imageForm.add-stat")}
             </button>
           </div>
         </div>
@@ -439,7 +443,7 @@ export function ImageProjectFields({
             value={overlay.cta}
             disabled={disabled}
             onChange={(e) => patchOverlay({ cta: e.target.value })}
-            placeholder="vd: Dùng thử miễn phí"
+            placeholder={t("imageForm.cta-placeholder")}
           />
         </div>
         <div className="flex items-center justify-between gap-3">
@@ -447,14 +451,14 @@ export function ImageProjectFields({
             htmlFor={`${idPrefix}-ov-logo`}
             className="cursor-pointer text-sm font-medium"
           >
-            Hiện logo brand
+            {t("imageForm.show-logo")}
           </label>
           <button
             id={`${idPrefix}-ov-logo`}
             type="button"
             role="switch"
             aria-checked={overlay.showLogo}
-            aria-label="Hiện logo brand"
+            aria-label={t("imageForm.show-logo")}
             disabled={disabled}
             className="switch"
             onClick={() => patchOverlay({ showLogo: !overlay.showLogo })}
@@ -463,8 +467,7 @@ export function ImageProjectFields({
       </div>
 
       <p className="text-xs text-[var(--text-muted)]">
-        Ảnh nền do Gemini tạo sẽ không chứa chữ — mọi chữ do hệ thống đặt để
-        đúng font và màu brand.
+        {t("imageForm.no-text-note")}
       </p>
     </>
   );

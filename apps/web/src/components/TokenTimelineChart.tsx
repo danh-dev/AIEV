@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UsageTimelinePoint } from "@/lib/api";
 import { formatTokens, formatUsd } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 /**
  * Combo chart SVG thuần — token AI theo ngày.
@@ -73,6 +74,7 @@ export function TokenTimelineChart({
   data: UsageTimelinePoint[];
   days?: number;
 }) {
+  const { t, tf } = useT();
   const [hover, setHover] = useState<number | null>(null);
 
   // Đo chiều rộng container — SVG vẽ đúng scale 1:1, chữ giữ nguyên px
@@ -151,7 +153,9 @@ export function TokenTimelineChart({
           <div className="whitespace-nowrap rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs shadow-[var(--shadow-card)]">
             <div className="font-medium">{fmtDayFull(hovered.date)}</div>
             <div className="text-[var(--text-muted)]">
-              Tổng {hovered.tokens.toLocaleString("vi-VN")} token
+              {tf("chart.total-tokens", {
+                n: hovered.tokens.toLocaleString("vi-VN"),
+              })}
               {hovered.costUsd > 0 && ` · ${formatUsd(hovered.costUsd)}`}
             </div>
             {(hovered.tokensIn > 0 || hovered.tokensOut > 0) && (
@@ -185,7 +189,7 @@ export function TokenTimelineChart({
         width="100%"
         height={H}
         role="img"
-        aria-label={`Biểu đồ token AI theo ngày, ${days} ngày gần nhất — cột là tổng, đường theo từng AI`}
+        aria-label={tf("chart.aria", { days })}
         onMouseLeave={() => setHover(null)}
       >
         {/* Grid ngang recessive + nhãn trục Y */}
@@ -332,7 +336,7 @@ export function TokenTimelineChart({
               className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
               style={{ background: "var(--primary)", opacity: 0.35 }}
             />
-            Tổng/ngày
+            {t("chart.total-per-day")}
           </span>
         </div>
       )}

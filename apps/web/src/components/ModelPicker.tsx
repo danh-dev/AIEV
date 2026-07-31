@@ -19,6 +19,7 @@ import {
   type Provider,
   type ProviderModel,
 } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 export const DEFAULT_MODEL = "claude-fable-5";
 export const DEFAULT_EFFORT: AgentEffort = "medium";
@@ -28,15 +29,17 @@ export const EFFORT_OPTIONS: {
   label: string;
   hint: string;
 }[] = [
-  { value: "low", label: "Nhanh", hint: "nhanh, tiết kiệm" },
-  { value: "medium", label: "Chuẩn", hint: "cân bằng" },
-  { value: "high", label: "Sâu", hint: "kỹ lưỡng, chậm hơn" },
+  // label/hint là KEY dictionary — dịch bằng t() lúc render
+  { value: "low", label: "effort.low", hint: "effort.low-hint" },
+  { value: "medium", label: "effort.medium", hint: "effort.medium-hint" },
+  { value: "high", label: "effort.high", hint: "effort.high-hint" },
 ];
 
 /** Fallback khi chưa fetch được /api/providers — chỉ để select không trống. */
 const FALLBACK_MODELS = [{ id: DEFAULT_MODEL, label: "Claude Fable 5" }];
 
-const GEMINI_TOOLTIP = "Gemini dùng cho tính năng Tạo ảnh";
+// KEY dictionary — dịch bằng t() lúc render
+const GEMINI_TOOLTIP = "model.gemini-tooltip";
 
 // Cache module-level — providers thay đổi khi sửa .env/đăng nhập lại,
 // một lần fetch mỗi phiên UI là đủ.
@@ -129,6 +132,7 @@ export function AiModelBlock({
   onEffortChange,
   disabled = false,
 }: PickerProps) {
+  const { t } = useT();
   const { providers } = useProviders();
   const claude = providers?.find((p) => p.id === "claude");
   const gemini = providers?.find((p) => p.id === "gemini");
@@ -140,7 +144,7 @@ export function AiModelBlock({
 
   return (
     <div>
-      <span className="label">AI thực hiện</span>
+      <span className="label">{t("model.performer")}</span>
       <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-medium">Claude</span>
@@ -149,27 +153,26 @@ export function AiModelBlock({
               <span className="badge badge-success">
                 <span className="badge-dot" />
                 {claude.source === "api-key"
-                  ? "Đã kết nối API key"
-                  : "Đã kết nối subscription"}
+                  ? t("model.connected-api-key")
+                  : t("model.connected-subscription")}
               </span>
             ) : (
               <span className="badge badge-danger">
                 <span className="badge-dot" />
-                Chưa kết nối
+                {t("model.not-connected")}
               </span>
             ))}
         </div>
         {claude && !claude.connected && (
           <p className="flex items-start gap-1.5 text-xs font-medium text-[var(--danger)]">
             <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
-            Chưa kết nối Claude — đăng nhập Claude Code (subscription) hoặc thêm
-            ANTHROPIC_API_KEY vào .env rồi khởi động lại server.
+            {t("model.claude-warning")}
           </p>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="ai-model">
-              Model
+              {t("model.model")}
             </label>
             <select
               id="ai-model"
@@ -189,7 +192,7 @@ export function AiModelBlock({
           </div>
           <div>
             <label className="label" htmlFor="ai-effort">
-              Chế độ
+              {t("model.effort")}
             </label>
             <select
               id="ai-effort"
@@ -200,7 +203,7 @@ export function AiModelBlock({
             >
               {EFFORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label} — {o.hint}
+                  {t(o.label)} — {t(o.hint)}
                 </option>
               ))}
             </select>
@@ -209,11 +212,12 @@ export function AiModelBlock({
         {gemini && (
           <p
             className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]"
-            title={GEMINI_TOOLTIP}
+            title={t(GEMINI_TOOLTIP)}
           >
             <Info size={13} strokeWidth={2} className="shrink-0" />
-            Gemini {gemini.connected ? "đã kết nối" : "chưa kết nối"} — chỉ dùng
-            cho tính năng Tạo ảnh, không dùng cho chat/edit.
+            {gemini.connected
+              ? t("model.gemini-connected")
+              : t("model.gemini-not-connected")}
           </p>
         )}
       </div>
@@ -229,6 +233,7 @@ export function AiModelInlineRow({
   onEffortChange,
   disabled = false,
 }: PickerProps) {
+  const { t } = useT();
   const { providers } = useProviders();
   const claude = providers?.find((p) => p.id === "claude");
   const gemini = providers?.find((p) => p.id === "gemini");
@@ -242,7 +247,7 @@ export function AiModelInlineRow({
     <div className="flex flex-wrap items-center gap-2">
       <select
         className="input h-7 w-auto px-2 text-xs"
-        aria-label="Model AI cho phiên mới"
+        aria-label={t("model.aria-model")}
         value={model}
         disabled={disabled}
         onFocus={loadClaudeModels}
@@ -257,33 +262,33 @@ export function AiModelInlineRow({
       </select>
       <select
         className="input h-7 w-auto px-2 text-xs"
-        aria-label="Chế độ AI cho phiên mới"
+        aria-label={t("model.aria-effort")}
         value={effort}
         disabled={disabled}
         onChange={(e) => onEffortChange(e.target.value as AgentEffort)}
       >
         {EFFORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {t(o.label)}
           </option>
         ))}
       </select>
       {claude && !claude.connected && (
         <span
           className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--danger)]"
-          title="Đăng nhập Claude Code (subscription) hoặc thêm ANTHROPIC_API_KEY vào .env."
+          title={t("model.claude-warning-short")}
         >
           <AlertTriangle size={12} strokeWidth={2} className="shrink-0" />
-          Chưa kết nối Claude
+          {t("model.claude-not-connected")}
         </span>
       )}
       {gemini && (
         <span
           className="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]"
-          title={GEMINI_TOOLTIP}
+          title={t(GEMINI_TOOLTIP)}
         >
           <Info size={12} strokeWidth={2} className="shrink-0" />
-          Gemini: chỉ Tạo ảnh
+          {t("model.gemini-images-only")}
         </span>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 
 /**
  * Banner lỗi theo spec: nền --danger-bg, viền trái 3px --danger,
@@ -14,6 +15,7 @@ export function ErrorBanner({
   message: string;
   detail?: string;
 }) {
+  const { t } = useT();
   const [openDetail, setOpenDetail] = useState(false);
   return (
     <div className="banner-danger">
@@ -37,7 +39,7 @@ export function ErrorBanner({
                 ) : (
                   <ChevronRight size={12} strokeWidth={2} />
                 )}
-                Chi tiết
+                {t("common.details")}
               </button>
               {openDetail && (
                 <pre className="mt-2 max-h-48 overflow-auto rounded-[var(--radius)] bg-[var(--surface)] p-2 font-mono text-xs whitespace-pre-wrap">

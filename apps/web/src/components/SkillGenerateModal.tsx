@@ -24,6 +24,7 @@ import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
 import { formatTokens, KEBAB_RE } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 const PLATFORM_OPTIONS = [
   "TikTok",
@@ -38,13 +39,14 @@ type AspectOption = (typeof ASPECT_OPTIONS)[number];
 
 const FPS_OPTIONS = [30, 60] as const;
 
+// label là KEY dictionary — dịch bằng t() lúc render.
 const CAPTION_OPTIONS: {
   value: "karaoke" | "sentence" | "none";
   label: string;
 }[] = [
-  { value: "karaoke", label: "Karaoke từng từ" },
-  { value: "sentence", label: "Theo câu" },
-  { value: "none", label: "Không" },
+  { value: "karaoke", label: "skillGen.caption.karaoke" },
+  { value: "sentence", label: "skillGen.caption.sentence" },
+  { value: "none", label: "skillGen.caption.none" },
 ];
 
 /** Giá trị "không dùng skill mẫu" trong select baseSkill. */
@@ -160,6 +162,7 @@ export function SkillGenerateModal({
   /** Lưu thành công — parent đóng modal, reload danh sách, điều hướng. */
   onSaved: (name: string) => void;
 }) {
+  const { t, tf } = useT();
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState<FormState>(() => initialForm(skills));
   const [formInitialized, setFormInitialized] = useState(false);
@@ -253,21 +256,21 @@ export function SkillGenerateModal({
   return (
     <Modal
       wide
-      title={step === 1 ? "Tạo skill bằng AI" : "Duyệt draft skill"}
+      title={step === 1 ? t("skills.create-ai") : t("skillGen.review-title")}
       open={open}
       onClose={close}
       footer={
         step === 1 ? (
           <>
             <Button variant="secondary" onClick={close} disabled={generating}>
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={onGenerate}
               disabled={!goalValid || nameHintInvalid || generating}
             >
               <Sparkles size={16} strokeWidth={2} />
-              {generating ? "Đang tạo…" : "Tạo skill bằng AI"}
+              {generating ? t("common.creating") : t("skills.create-ai")}
             </Button>
           </>
         ) : (
@@ -278,18 +281,18 @@ export function SkillGenerateModal({
               disabled={busy}
             >
               <ArrowLeft size={14} strokeWidth={2} />
-              Sửa câu trả lời
+              {t("skillGen.edit-answers")}
             </Button>
             <Button variant="secondary" onClick={onGenerate} disabled={busy}>
               <RefreshCw size={14} strokeWidth={2} />
-              {generating ? "Đang tạo lại…" : "Tạo lại"}
+              {generating ? t("skillGen.regenerating") : t("skillGen.regenerate")}
             </Button>
             <Button
               onClick={onSave}
               disabled={!draftNameValid || !draftContent.trim() || busy}
             >
               <Save size={14} strokeWidth={2} />
-              {saving ? "Đang lưu…" : "Lưu skill"}
+              {saving ? t("common.saving") : t("skillGen.save")}
             </Button>
           </>
         )
@@ -298,12 +301,12 @@ export function SkillGenerateModal({
       {step === 1 ? (
         <>
           {genError && (
-            <ErrorBanner message="Không tạo được skill." detail={genError} />
+            <ErrorBanner message={t("skillGen.gen-error")} detail={genError} />
           )}
 
           <div>
             <label className="label" htmlFor="sg-goal">
-              Mục đích &amp; loại video *
+              {t("skillGen.goal-label")}
             </label>
             <textarea
               id="sg-goal"
@@ -312,14 +315,14 @@ export function SkillGenerateModal({
               disabled={generating}
               value={form.goal}
               onChange={(e) => patch({ goal: e.target.value })}
-              placeholder="vd: Video TikTok review sản phẩm công nghệ, talking-head + b-roll, nhịp nhanh"
+              placeholder={t("skillGen.goal-placeholder")}
             />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="sg-platform">
-                Nền tảng
+                {t("skillGen.platform")}
               </label>
               <select
                 id="sg-platform"
@@ -332,14 +335,14 @@ export function SkillGenerateModal({
               >
                 {PLATFORM_OPTIONS.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {p === "Khác" ? t("projects.other") : p}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="label" htmlFor="sg-duration">
-                Độ dài mục tiêu
+                {t("skillGen.duration")}
               </label>
               <input
                 id="sg-duration"
@@ -351,12 +354,12 @@ export function SkillGenerateModal({
               />
             </div>
             <div>
-              <span className="label">Định dạng khung</span>
+              <span className="label">{t("skillGen.aspect")}</span>
               <Segmented
                 options={ASPECT_OPTIONS}
                 value={form.aspect}
                 disabled={generating}
-                ariaLabel="Định dạng khung"
+                ariaLabel={t("skillGen.aspect")}
                 onChange={(aspect) => patch({ aspect })}
               />
             </div>
@@ -372,7 +375,7 @@ export function SkillGenerateModal({
             </div>
             <div>
               <label className="label" htmlFor="sg-style">
-                Phong cách &amp; nhịp điệu
+                {t("skillGen.style")}
               </label>
               <input
                 id="sg-style"
@@ -380,12 +383,12 @@ export function SkillGenerateModal({
                 disabled={generating}
                 value={form.style}
                 onChange={(e) => patch({ style: e.target.value })}
-                placeholder="vd: trẻ trung, cắt nhanh, nhiều kinetic typography"
+                placeholder={t("skillGen.style-placeholder")}
               />
             </div>
             <div>
               <label className="label" htmlFor="sg-captions">
-                Phụ đề
+                {t("brief.subtitles")}
               </label>
               <select
                 id="sg-captions"
@@ -398,14 +401,14 @@ export function SkillGenerateModal({
               >
                 {CAPTION_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}
+                    {t(o.label)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="label" htmlFor="sg-base">
-                Skill mẫu tham khảo
+                {t("skillGen.base")}
               </label>
               <select
                 id="sg-base"
@@ -414,7 +417,7 @@ export function SkillGenerateModal({
                 value={form.baseSkill}
                 onChange={(e) => patch({ baseSkill: e.target.value })}
               >
-                <option value={NO_BASE}>Không dùng mẫu</option>
+                <option value={NO_BASE}>{t("skillGen.no-base")}</option>
                 {skills.map((s) => (
                   <option key={s.name} value={s.name}>
                     {s.name}
@@ -424,7 +427,7 @@ export function SkillGenerateModal({
             </div>
             <div>
               <label className="label" htmlFor="sg-name">
-                Tên skill (tùy chọn)
+                {t("skillGen.name-label")}
               </label>
               <input
                 id="sg-name"
@@ -436,11 +439,11 @@ export function SkillGenerateModal({
               />
               {nameHintInvalid ? (
                 <p className="mt-1 text-xs text-[var(--danger)]">
-                  Tên phải là kebab-case: chữ thường, số, gạch nối.
+                  {t("skills.kebab-error")}
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Bỏ trống để AI tự đặt.
+                  {t("skillGen.name-hint")}
                 </p>
               )}
             </div>
@@ -464,7 +467,7 @@ export function SkillGenerateModal({
                   onChange={(e) => patch({ sfx: e.target.checked })}
                 />
                 <span className="text-sm">
-                  Sound effect đồng bộ timestamp
+                  {t("skillGen.sfx-sync")}
                 </span>
               </label>
             </div>
@@ -472,7 +475,7 @@ export function SkillGenerateModal({
 
           <div>
             <label className="label" htmlFor="sg-notes">
-              Ghi chú thêm
+              {t("skillGen.notes")}
             </label>
             <textarea
               id="sg-notes"
@@ -481,7 +484,7 @@ export function SkillGenerateModal({
               disabled={generating}
               value={form.notes}
               onChange={(e) => patch({ notes: e.target.value })}
-              placeholder="Yêu cầu riêng, quy tắc branding, điều cần tránh…"
+              placeholder={t("skillGen.notes-placeholder")}
             />
           </div>
 
@@ -489,10 +492,10 @@ export function SkillGenerateModal({
             <div className="flex flex-col gap-1.5 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2.5">
               <div
                 className="progress-indeterminate"
-                aria-label="Đang tạo skill"
+                aria-label={t("skillGen.generating-aria")}
               />
               <p className="text-xs text-[var(--text-muted)]">
-                Claude đang soạn skill — có thể mất 1–3 phút…
+                {t("skillGen.generating")}
               </p>
             </div>
           )}
@@ -500,15 +503,15 @@ export function SkillGenerateModal({
       ) : (
         <>
           {fromRaw && (
-            <ErrorBanner message="AI trả sai định dạng — sửa tay rồi lưu." />
+            <ErrorBanner message={t("skillGen.bad-format")} />
           )}
           {saveError && (
-            <ErrorBanner message="Không lưu được skill." detail={saveError} />
+            <ErrorBanner message={t("skillGen.save-error")} detail={saveError} />
           )}
 
           <div>
             <label className="label" htmlFor="sg-draft-name">
-              Tên skill
+              {t("skillGen.draft-name")}
             </label>
             <input
               id="sg-draft-name"
@@ -523,13 +526,13 @@ export function SkillGenerateModal({
             />
             {nameConflict ? (
               <p className="mt-1 text-xs text-[var(--danger)]">
-                Đã có skill trùng tên — đổi tên khác rồi lưu lại.
+                {t("skillGen.name-conflict")}
               </p>
             ) : (
               draftName &&
               !draftNameValid && (
                 <p className="mt-1 text-xs text-[var(--danger)]">
-                  Tên phải là kebab-case: chữ thường, số, gạch nối.
+                  {t("skills.kebab-error")}
                 </p>
               )
             )}
@@ -537,7 +540,7 @@ export function SkillGenerateModal({
 
           <div>
             <label className="label" htmlFor="sg-draft-content">
-              Nội dung SKILL.md
+              {t("skillGen.content-label")}
             </label>
             <textarea
               id="sg-draft-content"
@@ -551,7 +554,7 @@ export function SkillGenerateModal({
 
           {draftTokens !== null && (
             <p className="text-xs text-[var(--text-muted)]">
-              Tốn {formatTokens(draftTokens)} token.
+              {tf("skillGen.tokens-used", { n: formatTokens(draftTokens) })}
             </p>
           )}
 
@@ -559,15 +562,15 @@ export function SkillGenerateModal({
             <div className="flex flex-col gap-1.5 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2.5">
               <div
                 className="progress-indeterminate"
-                aria-label="Đang tạo lại skill"
+                aria-label={t("skillGen.regenerating-aria")}
               />
               <p className="text-xs text-[var(--text-muted)]">
-                Claude đang soạn lại skill — có thể mất 1–3 phút…
+                {t("skillGen.regenerating-note")}
               </p>
             </div>
           )}
           {genError && (
-            <ErrorBanner message="Không tạo lại được skill." detail={genError} />
+            <ErrorBanner message={t("skillGen.regen-error")} detail={genError} />
           )}
         </>
       )}

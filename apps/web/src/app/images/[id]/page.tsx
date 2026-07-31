@@ -32,6 +32,7 @@ import {
 import { useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import {
@@ -46,6 +47,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { ProgressBar } from "@/components/ProgressBar";
 import { useProviders } from "@/components/ModelPicker";
 import { formatRelative } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 /** Job image-gen đang theo dõi trên trang — cập nhật realtime qua SSE. */
 interface ActiveJob {
@@ -55,12 +57,13 @@ interface ActiveJob {
   status: JobStatus;
 }
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const JOB_STATUS_LABEL: Record<JobStatus, string> = {
-  queued: "Chờ chạy",
-  running: "Đang chạy",
-  done: "Hoàn thành",
-  failed: "Lỗi",
-  canceled: "Đã hủy",
+  queued: "imageDetail.job.queued",
+  running: "imageDetail.job.running",
+  done: "imageDetail.job.done",
+  failed: "imageDetail.job.failed",
+  canceled: "imageDetail.job.canceled",
 };
 
 const JOB_STATUS_TONE: Record<JobStatus, string> = {
@@ -115,6 +118,7 @@ export default function ImageProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const imageId = params.id;
   const router = useRouter();
+  const { t, tf } = useT();
 
   const [proj, setProj] = useState<ImageProject | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -366,24 +370,27 @@ export default function ImageProjectDetailPage() {
     }
   }
 
+  // Modal xác nhận xóa dự án ảnh — bắt gõ DELETE (thay window.confirm)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function onDelete() {
-    if (
-      !window.confirm(
-        `Xóa dự án ảnh "${proj?.name ?? imageId}"? Toàn bộ image-projects/${imageId} sẽ bị xóa.`
-      )
-    )
-      return;
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await deleteImageProject(imageId);
       router.push("/images");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setDeleteError(e instanceof Error ? e.message : String(e));
+      setDeleting(false);
     }
   }
 
   const geminiTooltip = geminiConnected
     ? undefined
-    : "Chưa kết nối Gemini — thêm GEMINI_API_KEY (hoặc GOOGLE_API_KEY) vào .env rồi khởi động lại server, hoặc dùng nút Tải nền lên.";
+    : t("imageDetail.gemini-tooltip");
 
   // Select model gọn ở hàng hành động — live list, fallback danh sách tĩnh
   const currentModel = draft?.model ?? proj?.model ?? null;
@@ -397,13 +404,13 @@ export default function ImageProjectDetailPage() {
         title={proj?.name ?? imageId}
         subtitle={
           proj
-            ? `${KIND_LABEL[proj.kind]} · cập nhật ${formatRelative(proj.updatedAt)}`
+            ? `${t(KIND_LABEL[proj.kind])} · ${tf("project.updated", { time: formatRelative(proj.updatedAt) })}`
             : undefined
         }
         actions={
           <Button variant="secondary" onClick={() => router.push("/images")}>
             <ArrowLeft size={15} strokeWidth={2} />
-            Dự án ảnh
+            {t("imageDetail.back")}
           </Button>
         }
       />
@@ -417,17 +424,17 @@ export default function ImageProjectDetailPage() {
       )}
 
       {error && (
-        <ErrorBanner message="Không tải được dự án ảnh." detail={error} />
+        <ErrorBanner message={t("imageDetail.load-error")} detail={error} />
       )}
       {proj?.status === "error" && proj.error && (
-        <ErrorBanner message="Lần tạo ảnh gần nhất bị lỗi." detail={proj.error} />
+        <ErrorBanner message={t("imageDetail.last-gen-error")} detail={proj.error} />
       )}
 
       <div className="grid items-start gap-4 xl:grid-cols-5">
         {/* Cột trái — ảnh */}
         <div className="flex flex-col gap-4 xl:col-span-3">
           <Card
-            title="Ảnh final"
+            title={t("imageDetail.final-card")}
             actions={
               proj?.final ? (
                 <div className="flex items-center gap-3">
@@ -437,7 +444,7 @@ export default function ImageProjectDetailPage() {
                     className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                   >
                     <Maximize2 size={13} strokeWidth={2} />
-                    Phóng to
+                    {t("common.zoom")}
                   </button>
                   <a
                     href={imageFileUrl(imageId, proj.final, proj.updatedAt)}
@@ -445,7 +452,7 @@ export default function ImageProjectDetailPage() {
                     className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                   >
                     <Download size={13} strokeWidth={2} />
-                    Tải xuống
+                    {t("imageDetail.download")}
                   </a>
                 </div>
               ) : undefined
@@ -459,7 +466,7 @@ export default function ImageProjectDetailPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[13px] font-medium">
-                    Tiến trình tạo ảnh
+                    {t("imageDetail.progress")}
                   </span>
                   <span
                     className={`badge ${
@@ -471,7 +478,7 @@ export default function ImageProjectDetailPage() {
                         !activeJob || jobRunning ? "badge-dot-pulse" : ""
                       }`}
                     />
-                    {JOB_STATUS_LABEL[activeJob?.status ?? "running"]}
+                    {t(JOB_STATUS_LABEL[activeJob?.status ?? "running"])}
                   </span>
                 </div>
                 {activeJob ? (
@@ -482,19 +489,19 @@ export default function ImageProjectDetailPage() {
                 ) : (
                   <div
                     className="progress-indeterminate"
-                    aria-label="Đang tạo ảnh"
+                    aria-label={t("imageDetail.generating-aria")}
                   />
                 )}
                 {activeJob?.status === "failed" && (
                   <ErrorBanner
-                    message="Tạo ảnh thất bại."
+                    message={t("imageDetail.gen-failed")}
                     detail={proj?.error ?? undefined}
                   />
                 )}
                 {logLines.length > 0 && (
                   <details>
                     <summary className="cursor-pointer text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]">
-                      Xem log ({logLines.length} dòng)
+                      {tf("imageDetail.view-log", { n: logLines.length })}
                     </summary>
                     <div
                       ref={logBoxRef}
@@ -510,27 +517,27 @@ export default function ImageProjectDetailPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageFileUrl(imageId, proj.final, proj.updatedAt)}
-                alt={`Ảnh final — ${proj.name}`}
+                alt={tf("imageDetail.final-alt-name", { name: proj.name })}
                 className="mx-auto max-h-[480px] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
               />
             ) : !generating && !activeJob ? (
               <EmptyState
                 icon={ImageIcon}
-                description="Chưa có ảnh final. Tạo ảnh nền rồi bấm Hoàn thiện thiết kế — hoặc Tạo tất cả."
+                description={t("imageDetail.no-final")}
               />
             ) : null}
           </Card>
 
-          <Card title="Các bước">
+          <Card title={t("imageDetail.steps")}>
             <div className="grid grid-cols-2 gap-3">
               <StepThumb
-                label="Background (Gemini / tải lên)"
+                label={t("imageDetail.step-bg")}
                 relPath={
                   proj?.background
                     ? `image-projects/${imageId}/${proj.background}?v=${encodeURIComponent(proj.updatedAt)}`
                     : null
                 }
-                alt="Ảnh nền"
+                alt={t("imageDetail.bg-alt")}
               />
               <StepThumb
                 label="Final (Remotion)"
@@ -539,7 +546,7 @@ export default function ImageProjectDetailPage() {
                     ? `image-projects/${imageId}/${proj.final}?v=${encodeURIComponent(proj.updatedAt)}`
                     : null
                 }
-                alt="Ảnh hoàn thiện"
+                alt={t("imageDetail.final-alt")}
               />
             </div>
           </Card>
@@ -547,10 +554,10 @@ export default function ImageProjectDetailPage() {
 
         {/* Cột phải — hành động + form */}
         <div className="flex flex-col gap-4 xl:col-span-2">
-          <Card title="Tạo ảnh">
+          <Card title={t("imageDetail.generate-card")}>
             <div className="flex flex-col gap-3">
               {genError && (
-                <ErrorBanner message="Không chạy được." detail={genError} />
+                <ErrorBanner message={t("imageDetail.run-error")} detail={genError} />
               )}
 
               {/* Hành động chính — full-width, một chạm */}
@@ -561,7 +568,7 @@ export default function ImageProjectDetailPage() {
                   onClick={() => runGenerate("all")}
                 >
                   <Zap size={15} strokeWidth={2} />
-                  Tạo tất cả
+                  {t("imageDetail.generate-all")}
                 </Button>
               </span>
 
@@ -569,7 +576,7 @@ export default function ImageProjectDetailPage() {
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <label className="label" htmlFor="image-quick-model">
-                    Model tạo nền
+                    {t("imageDetail.bg-model")}
                   </label>
                   {(modelsLoading || modelSaving) && (
                     <span className="mb-1.5 flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
@@ -578,7 +585,7 @@ export default function ImageProjectDetailPage() {
                         strokeWidth={2}
                         className="animate-spin"
                       />
-                      {modelsLoading ? "Đang tải model…" : "Đang lưu…"}
+                      {modelsLoading ? t("images.loading-models") : t("common.saving")}
                     </span>
                   )}
                 </div>
@@ -590,7 +597,7 @@ export default function ImageProjectDetailPage() {
                   onFocus={loadModels}
                   onChange={(e) => onModelChange(e.target.value || null)}
                 >
-                  <option value="">Mặc định (Nano Banana 2)</option>
+                  <option value="">{t("images.model-default")}</option>
                   {modelMissing && (
                     <option value={currentModel!}>{currentModel}</option>
                   )}
@@ -613,7 +620,7 @@ export default function ImageProjectDetailPage() {
                     onClick={() => runGenerate("background")}
                   >
                     <Wand2 size={14} strokeWidth={2} />
-                    Tạo nền (Gemini)
+                    {t("imageDetail.gen-bg")}
                   </Button>
                 </span>
                 <span
@@ -621,7 +628,7 @@ export default function ImageProjectDetailPage() {
                   title={
                     proj?.background
                       ? undefined
-                      : "Cần có ảnh nền trước — tạo bằng Gemini hoặc tải lên."
+                      : t("imageDetail.need-bg")
                   }
                 >
                   <Button
@@ -632,14 +639,13 @@ export default function ImageProjectDetailPage() {
                     onClick={() => runGenerate("compose")}
                   >
                     <Layers size={14} strokeWidth={2} />
-                    Hoàn thiện (Remotion)
+                    {t("imageDetail.compose")}
                   </Button>
                 </span>
               </div>
               {!geminiConnected && gemini && (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Gemini chưa kết nối — thêm GEMINI_API_KEY vào .env, hoặc tải
-                  nền lên thủ công rồi Hoàn thiện thiết kế.
+                  {t("imageDetail.gemini-hint")}
                 </p>
               )}
 
@@ -648,20 +654,20 @@ export default function ImageProjectDetailPage() {
                 <button
                   type="button"
                   disabled={uploadingBg || generating}
-                  title="Tải ảnh nền lên thủ công — không cần Gemini"
+                  title={t("imageDetail.upload-bg-title")}
                   className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => bgInputRef.current?.click()}
                 >
                   <Upload size={13} strokeWidth={2} />
-                  {uploadingBg ? "Đang tải nền…" : "Tải nền lên…"}
+                  {uploadingBg ? t("imageDetail.uploading-bg") : t("imageDetail.upload-bg")}
                 </button>
                 <button
                   type="button"
                   className="flex items-center gap-1.5 text-xs font-medium text-[var(--danger)] transition-colors duration-150 hover:opacity-75"
-                  onClick={onDelete}
+                  onClick={() => setDeleteOpen(true)}
                 >
                   <Trash2 size={13} strokeWidth={2} />
-                  Xóa dự án
+                  {t("imageDetail.delete-project")}
                 </button>
               </div>
               <input
@@ -678,18 +684,18 @@ export default function ImageProjectDetailPage() {
             </div>
           </Card>
 
-          <Card title="Thiết lập">
+          <Card title={t("imageDetail.settings")}>
             {draft ? (
               <div className="flex flex-col gap-3">
                 {saveError && (
-                  <ErrorBanner message="Không lưu được." detail={saveError} />
+                  <ErrorBanner message={t("common.save-error")} detail={saveError} />
                 )}
                 <p className="text-xs font-semibold tracking-wide text-[var(--text-muted)] uppercase">
-                  Nội dung
+                  {t("imageDetail.content")}
                 </p>
                 <div>
                   <label className="label" htmlFor="image-edit-name">
-                    Tên
+                    {t("common.name")}
                   </label>
                   <input
                     id="image-edit-name"
@@ -720,23 +726,43 @@ export default function ImageProjectDetailPage() {
                     disabled={saving}
                   >
                     <Save size={15} strokeWidth={2} />
-                    {saving ? "Đang lưu…" : "Lưu thay đổi"}
+                    {saving ? t("common.saving") : t("imageDetail.save-changes")}
                   </Button>
                   {saved && (
                     <span className="text-center text-sm text-[var(--success)]">
-                      Đã lưu.
+                      {t("common.saved")}
                     </span>
                   )}
                 </div>
               </div>
             ) : (
               <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-                Đang tải…
+                {t("common.loading")}
               </p>
             )}
           </Card>
         </div>
       </div>
+
+      {/* Modal xác nhận xóa dự án ảnh — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        title={t("imageDetail.delete-title")}
+        description={
+          <>
+            {t("imageDetail.delete-desc-1")}{" "}
+            <span className="font-medium">{proj?.name ?? imageId}</span>? {t("project.delete-desc-2")}{" "}
+            <code className="rounded bg-[var(--bg-subtle)] px-1 text-xs">
+              image-projects/{imageId}
+            </code>{" "}
+            {t("project.delete-desc-3")}
+          </>
+        }
+        busy={deleting}
+        error={deleteError}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDelete}
+      />
 
       {/* Lightbox phóng to ảnh final */}
       {zoomed && proj?.final && (
@@ -744,11 +770,11 @@ export default function ImageProjectDetailPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--text)]/80 p-6"
           onClick={() => setZoomed(false)}
           role="dialog"
-          aria-label="Xem ảnh phóng to"
+          aria-label={t("imageDetail.zoom-aria")}
         >
           <button
             type="button"
-            aria-label="Đóng"
+            aria-label={t("common.close")}
             onClick={() => setZoomed(false)}
             className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg)] text-[var(--text)] shadow-[var(--shadow-card)] transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
           >
@@ -757,7 +783,7 @@ export default function ImageProjectDetailPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageFileUrl(imageId, proj.final, proj.updatedAt)}
-            alt={`Ảnh final — ${proj.name}`}
+            alt={tf("imageDetail.final-alt-name", { name: proj.name })}
             className="max-h-[92vh] max-w-full rounded-[var(--radius-lg)]"
             onClick={(e) => e.stopPropagation()}
           />

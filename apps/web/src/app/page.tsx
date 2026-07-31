@@ -39,25 +39,27 @@ import { Button } from "@/components/Button";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
 import { TokenTimelineChart } from "@/components/TokenTimelineChart";
 import { formatRelative, formatTokens, formatUsd } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const JOB_TYPE_LABEL: Record<Job["type"], string> = {
-  "scene-draft": "Render scene (draft)",
-  "scene-final": "Render scene (final)",
-  "assemble-draft": "Lắp ráp (draft)",
-  "assemble-final": "Lắp ráp (final)",
-  "image-gen": "Tạo ảnh",
+  "scene-draft": "dash.job.scene-draft",
+  "scene-final": "dash.job.scene-final",
+  "assemble-draft": "dash.job.assemble-draft",
+  "assemble-final": "dash.job.assemble-final",
+  "image-gen": "dash.job.image-gen",
 };
 
-function healthProblems(overview: Overview): string[] {
+function healthProblems(
+  overview: Overview,
+  t: (key: string) => string
+): string[] {
   const problems: string[] = [];
   const c = overview.health?.checks;
   if (!c) return problems;
-  if (!c.ffmpeg) problems.push("FFmpeg không có trên PATH — render sẽ thất bại.");
-  if (!c.claudeAuth)
-    problems.push(
-      "Chưa có xác thực Claude — đăng nhập Claude Code trên máy này (VSCode) hoặc điền ANTHROPIC_API_KEY vào .env.",
-    );
-  if (!c.hyperframes) problems.push("HyperFrames chưa cài — không render được scene.");
+  if (!c.ffmpeg) problems.push(t("dash.health.ffmpeg"));
+  if (!c.claudeAuth) problems.push(t("dash.health.claude"));
+  if (!c.hyperframes) problems.push(t("dash.health.hyperframes"));
   return problems;
 }
 
@@ -78,10 +80,11 @@ function Skeleton({ className = "" }: { className?: string }) {
 
 const USAGE_DAYS_OPTIONS = [7, 30, 90] as const;
 
+// label là KEY dictionary — dịch bằng t() lúc render.
 const USAGE_SCOPE_OPTIONS: { value: UsageScope; label: string }[] = [
-  { value: "all", label: "Tất cả" },
-  { value: "video", label: "Video" },
-  { value: "image", label: "Ảnh" },
+  { value: "all", label: "dash.scope.all" },
+  { value: "video", label: "dash.scope.video" },
+  { value: "image", label: "dash.scope.image" },
 ];
 
 /** Nhóm nút pill chọn khoảng ngày — segmented control nhỏ trong header card. */
@@ -92,11 +95,12 @@ function DaysPillGroup({
   value: number;
   onChange: (days: number) => void;
 }) {
+  const { t, tf } = useT();
   return (
     <div
       className="flex items-center rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] p-0.5"
       role="group"
-      aria-label="Khoảng thời gian"
+      aria-label={t("dash.days-aria")}
     >
       {USAGE_DAYS_OPTIONS.map((d) => {
         const active = value === d;
@@ -112,7 +116,7 @@ function DaysPillGroup({
                 : "text-[var(--text-muted)] hover:text-[var(--text)]"
             }`}
           >
-            {d} ngày
+            {tf("dash.days", { n: d })}
           </button>
         );
       })}
@@ -153,6 +157,7 @@ function StatTile({
 }
 
 export default function DashboardPage() {
+  const { t, tf } = useT();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const overviewRef = useRef<Overview | null>(null);
@@ -269,8 +274,10 @@ export default function DashboardPage() {
           steps: cur.steps + (e.kind === "tool" ? 1 : 0),
           action:
             e.kind === "tool"
-              ? `Đang dùng ${e.tool?.name ?? "công cụ"}…`
-              : "Đang soạn nội dung…",
+              ? tf("dash.using-tool", {
+                  tool: e.tool?.name ?? t("dash.tool-fallback"),
+                })
+              : t("dash.composing"),
         },
       };
     });
@@ -335,19 +342,19 @@ export default function DashboardPage() {
     )
     .slice(0, 5);
 
-  const problems = overview ? healthProblems(overview) : [];
+  const problems = overview ? healthProblems(overview, t) : [];
   const running = overview?.runningJob ?? null;
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Dashboard" subtitle="Tổng quan hệ thống edit video" />
+      <PageHeader title={t("nav.dashboard")} subtitle={t("dash.subtitle")} />
 
       {error && (
-        <ErrorBanner message="Không tải được dữ liệu tổng quan." detail={error} />
+        <ErrorBanner message={t("dash.load-error")} detail={error} />
       )}
       {problems.length > 0 && (
         <ErrorBanner
-          message="Hệ thống thiếu thành phần cần thiết:"
+          message={t("dash.health-title")}
           detail={problems.join("\n")}
         />
       )}
@@ -357,33 +364,37 @@ export default function DashboardPage() {
         <StatTile
           icon={Clapperboard}
           value={projects ? String(projects.length) : null}
-          label="Tổng project"
-          sub={projects ? `${doneProjects} hoàn thành` : undefined}
+          label={t("dash.total-projects")}
+          sub={projects ? tf("dash.done-count", { n: doneProjects }) : undefined}
         />
         <StatTile
           icon={Film}
           value={projects ? String(exportedProjects) : null}
-          label="Video đã xuất"
-          sub="project có output"
+          label={t("dash.exported")}
+          sub={t("dash.has-output")}
         />
         <StatTile
           icon={BarChart3}
           value={timeline30 ? formatTokens(usage30Total.tokens) : null}
-          label="Token 30 ngày"
+          label={t("dash.tokens-30d")}
           sub={timeline30 ? formatUsd(usage30Total.costUsd) : undefined}
         />
         <StatTile
           icon={Activity}
           value={jobs ? String(todayJobs.length) : null}
-          label="Job hôm nay"
-          sub={jobs ? `${todayDone} xong · ${todayFailed} lỗi` : undefined}
+          label={t("dash.jobs-today")}
+          sub={
+            jobs
+              ? tf("dash.jobs-today-sub", { done: todayDone, failed: todayFailed })
+              : undefined
+          }
         />
       </div>
 
       {/* Hàng 2 — chart 2/3 + cột phải (AI / job đang chạy / hàng đợi) */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <Card
-          title="Token AI theo ngày"
+          title={t("dash.tokens-by-day")}
           className="lg:col-span-2"
           actions={
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
@@ -393,8 +404,11 @@ export default function DashboardPage() {
                   title={`${usageTotal.tokens.toLocaleString("vi-VN")} token`}
                 >
                   <span>
-                    Tổng {usageDays} ngày: {formatTokens(usageTotal.tokens)}{" "}
-                    token · {formatUsd(usageTotal.costUsd)}
+                    {tf("dash.total-days", {
+                      days: usageDays,
+                      tokens: formatTokens(usageTotal.tokens),
+                      cost: formatUsd(usageTotal.costUsd),
+                    })}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <ArrowDownToLine
@@ -418,13 +432,13 @@ export default function DashboardPage() {
               <DaysPillGroup value={usageDays} onChange={setUsageDays} />
               <select
                 className="input h-7 w-auto px-2 text-xs"
-                aria-label="Loại project"
+                aria-label={t("dash.scope-aria")}
                 value={usageScope}
                 onChange={(e) => setUsageScope(e.target.value as UsageScope)}
               >
                 {USAGE_SCOPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}
+                    {t(o.label)}
                   </option>
                 ))}
               </select>
@@ -438,7 +452,7 @@ export default function DashboardPage() {
           ) : (
             <EmptyState
               icon={BarChart3}
-              description="Chưa có dữ liệu — token sẽ được ghi nhận khi AI làm việc."
+              description={t("dash.no-usage")}
             />
           )}
         </Card>
@@ -448,8 +462,8 @@ export default function DashboardPage() {
             <Card
               title={
                 agentEntries.length === 1
-                  ? "AI đang làm việc"
-                  : `AI đang làm việc · ${agentEntries.length} phiên`
+                  ? t("dash.ai-working")
+                  : tf("dash.ai-working-n", { n: agentEntries.length })
               }
               actions={<SessionStatusBadge status="running" />}
             >
@@ -470,7 +484,8 @@ export default function DashboardPage() {
                         />
                         <span className="truncate text-[var(--text-muted)]">
                           {act.action}
-                          {act.steps > 0 && ` · bước ${act.steps}`}
+                          {act.steps > 0 &&
+                            ` · ${tf("dash.step", { n: act.steps })}`}
                         </span>
                       </span>
                       {pid && (
@@ -478,7 +493,7 @@ export default function DashboardPage() {
                           href={`/projects/${encodeURIComponent(pid)}`}
                           className="shrink-0 text-sm font-medium text-[var(--primary)] hover:underline"
                         >
-                          Mở project →
+                          {t("dash.open-project")}
                         </Link>
                       )}
                     </div>
@@ -488,7 +503,7 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          <Card title="Job đang chạy">
+          <Card title={t("dash.running-job")}>
             {running ? (
               <div className="flex flex-col gap-2">
                 <div className="flex min-w-0 items-baseline justify-between gap-2">
@@ -499,7 +514,7 @@ export default function DashboardPage() {
                     {running.projectId}
                   </Link>
                   <span className="shrink-0 text-xs text-[var(--text-muted)]">
-                    {JOB_TYPE_LABEL[running.type]}
+                    {t(JOB_TYPE_LABEL[running.type])}
                     {running.sceneId ? ` · ${running.sceneId}` : ""}
                   </span>
                 </div>
@@ -508,25 +523,25 @@ export default function DashboardPage() {
             ) : (
               <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
                 <Play size={14} strokeWidth={2} className="shrink-0 opacity-60" />
-                Không có job nào đang chạy.
+                {t("dash.no-running-job")}
               </p>
             )}
           </Card>
 
-          <Card title="Hàng đợi">
+          <Card title={t("dash.queue")}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
                 <span className="text-[24px] font-bold leading-tight">
                   {overview ? overview.queuedCount : "—"}
                 </span>
                 <span className="text-xs text-[var(--text-muted)]">
-                  job đang chờ
+                  {t("dash.jobs-waiting")}
                 </span>
               </div>
               <Link href="/queue">
                 <Button variant="secondary" small>
                   <ListVideo size={14} strokeWidth={2} />
-                  Xem hàng đợi
+                  {t("dash.view-queue")}
                 </Button>
               </Link>
             </div>
@@ -537,13 +552,13 @@ export default function DashboardPage() {
       {/* Hàng 3 — project gần đây (bảng) + phiên AI gần đây */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card
-          title="Project gần đây"
+          title={t("dash.recent-projects")}
           actions={
             <Link
               href="/projects"
               className="text-xs font-medium text-[var(--primary)] hover:underline"
             >
-              Xem tất cả →
+              {t("dash.view-all")}
             </Link>
           }
         >
@@ -557,10 +572,10 @@ export default function DashboardPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Tên</th>
-                  <th>Trạng thái</th>
-                  <th>Token</th>
-                  <th>Sửa cuối</th>
+                  <th>{t("common.name")}</th>
+                  <th>{t("common.status")}</th>
+                  <th>{t("dash.col-token")}</th>
+                  <th>{t("common.updated")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -590,17 +605,17 @@ export default function DashboardPage() {
           ) : (
             <EmptyState
               icon={Clapperboard}
-              description="Chưa có project nào. Tạo project đầu tiên để bắt đầu dựng video."
+              description={t("projects.empty")}
               action={
                 <Link href="/projects">
-                  <Button>Tạo project</Button>
+                  <Button>{t("projects.create")}</Button>
                 </Link>
               }
             />
           )}
         </Card>
 
-        <Card title="Phiên AI gần đây">
+        <Card title={t("dash.recent-sessions")}>
           {sessions === null ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-8 w-full" />
@@ -619,7 +634,7 @@ export default function DashboardPage() {
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {s.title || "Phiên chat"}
+                    {s.title || t("dash.chat-session")}
                   </span>
                   <SessionStatusBadge status={s.status} />
                   <span className="shrink-0 text-xs text-[var(--text-muted)]">
@@ -630,7 +645,7 @@ export default function DashboardPage() {
                       href={`/projects/${encodeURIComponent(s.projectId)}`}
                       className="shrink-0 text-xs font-medium text-[var(--primary)] hover:underline"
                     >
-                      Mở project →
+                      {t("dash.open-project")}
                     </Link>
                   )}
                 </li>
@@ -639,7 +654,7 @@ export default function DashboardPage() {
           ) : (
             <EmptyState
               icon={MessagesSquare}
-              description="Chưa có phiên AI nào — bắt đầu edit từ trang project."
+              description={t("dash.no-sessions")}
             />
           )}
         </Card>

@@ -7,13 +7,16 @@ import { useEffect, useState } from "react";
 import { deleteSkill, getSkill, updateSkill } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
+import { useT } from "@/lib/i18n";
 
 export default function SkillDetailPage() {
   const params = useParams<{ name: string }>();
   const name = params.name;
   const router = useRouter();
+  const { t } = useT();
 
   const [content, setContent] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -54,14 +57,20 @@ export default function SkillDetailPage() {
     }
   }
 
+  // Modal xác nhận xóa skill — bắt gõ DELETE (thay window.confirm)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   async function onDelete() {
-    if (!window.confirm(`Xóa skill "${name}"? Hành động này không hoàn tác được.`))
-      return;
+    if (deleting) return;
+    setDeleting(true);
     try {
       await deleteSkill(name);
       router.push("/skills");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setDeleting(false);
+      setDeleteOpen(false);
     }
   }
 
@@ -70,31 +79,31 @@ export default function SkillDetailPage() {
     <div className="flex h-[calc(100vh-56px-40px)] w-full flex-col gap-4">
       <PageHeader
         title={name}
-        subtitle=".claude/skills — Skill mới/sửa sẽ được Claude nhận ở phiên làm việc kế tiếp."
+        subtitle={t("skills.detail-subtitle")}
         actions={
           <>
             <Link href="/skills">
               <Button variant="secondary">
                 <ArrowLeft size={15} strokeWidth={2} />
-                Danh sách
+                {t("common.back-to-list")}
               </Button>
             </Link>
-            <Button variant="destructive" onClick={onDelete}>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 size={15} strokeWidth={2} />
-              Xóa
+              {t("common.delete")}
             </Button>
             <Button onClick={onSave} disabled={!dirty || saving}>
               <Save size={15} strokeWidth={2} />
-              {saving ? "Đang lưu…" : "Lưu"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
       />
 
-      {error && <ErrorBanner message="Thao tác với skill thất bại." detail={error} />}
+      {error && <ErrorBanner message={t("skills.action-error")} detail={error} />}
       {savedAt && !dirty && !error && (
         <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--success-bg)] px-4 py-2 text-sm text-[var(--success)]">
-          Đã lưu.
+          {t("common.saved")}
         </div>
       )}
 
@@ -111,10 +120,25 @@ export default function SkillDetailPage() {
           />
         ) : !error ? (
           <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            Đang tải…
+            {t("common.loading")}
           </p>
         ) : null}
       </Card>
+
+      {/* Modal xác nhận xóa skill — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        title={t("skills.delete-title")}
+        description={
+          <>
+            {t("skills.delete-desc-1")}{" "}
+            <span className="font-medium">{name}</span>? {t("common.no-undo")}
+          </>
+        }
+        busy={deleting}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDelete}
+      />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 # AIEV — AI Edit Video by [noti.vn](https://noti.vn)
 
+🇻🇳 Tiếng Việt · [🇬🇧 English](README.en.md)
+
 > **Edit video tự động bằng AI.** Claude đóng vai đạo diễn — điều khiển **HyperFrames** (dựng scene motion-graphics bằng HTML + GSAP) và **Remotion** (lắp ráp timeline) — bạn giám sát mọi thứ qua web dashboard tại `http://localhost:6868`.
 
 Đưa clip vào, mô tả ngắn gọn bạn muốn gì, bấm **"Bắt đầu edit bằng AI"** — hệ thống tự transcribe, viết kịch bản dựng, tạo scene chữ động, phụ đề karaoke, zoom nhấn nhịp, sound effect theo timestamp, lắp ráp và xuất MP4.

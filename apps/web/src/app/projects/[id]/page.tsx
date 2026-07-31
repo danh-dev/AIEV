@@ -58,6 +58,7 @@ import { ProjectBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { ChatThread } from "@/components/ChatThread";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import {
   AiModelBlock,
   DEFAULT_EFFORT,
@@ -85,6 +86,7 @@ import {
   SessionStatusBadge,
   sessionStatusLabel,
 } from "@/components/SessionStatusBadge";
+import { useT } from "@/lib/i18n";
 
 function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   const cls = "shrink-0 text-[var(--text-muted)]";
@@ -111,12 +113,13 @@ function sceneRenderFile(scene: SceneMeta, renders: FileInfo[]): FileInfo | null
 
 /** Bảng file render — click hàng mở modal preview lớn, nút Mở file reveal trong Explorer */
 function FileTable({ files }: { files: FileInfo[] }) {
+  const { t, tf } = useT();
   const [preview, setPreview] = useState<FileInfo | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
 
   if (files.length === 0) {
     return (
-      <EmptyState icon={FileQuestion} description="Chưa có file nào." />
+      <EmptyState icon={FileQuestion} description={t("project.no-files")} />
     );
   }
   return (
@@ -124,13 +127,15 @@ function FileTable({ files }: { files: FileInfo[] }) {
       {revealError && (
         <p className="mb-2 text-xs text-[var(--danger)]">{revealError}</p>
       )}
-      <table className="table">
+      {/* Bảng rộng hơn card trên màn nhỏ → cuộn ngang trong khối, không tràn */}
+      <div className="overflow-x-auto">
+      <table className="table min-w-[420px]">
         <thead>
           <tr>
             <th>File</th>
-            <th>Kích thước</th>
-            <th>Sửa đổi</th>
-            <th aria-label="Thao tác" />
+            <th>{t("common.size")}</th>
+            <th>{t("common.modified")}</th>
+            <th aria-label={t("project.actions-aria")} />
           </tr>
         </thead>
         <tbody>
@@ -148,7 +153,7 @@ function FileTable({ files }: { files: FileInfo[] }) {
                     {f.name}
                     {isRecentFile(f.mtime) && (
                       <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-                        mới
+                        {t("common.new")}
                       </span>
                     )}
                   </span>
@@ -167,6 +172,7 @@ function FileTable({ files }: { files: FileInfo[] }) {
           })}
         </tbody>
       </table>
+      </div>
       <MediaPreviewModal file={preview} onClose={() => setPreview(null)} />
     </>
   );
@@ -197,6 +203,7 @@ function VideoOutputCard({
   /** Gọi sau khi tạo thumbnail xong để reload project */
   onChanged: () => void;
 }) {
+  const { t, tf } = useT();
   const fileName = output ? output.split(/[\\/]/).pop() : null;
   const outputUrl = output
     ? mediaUrl(output) + (version ? `?v=${encodeURIComponent(version)}` : "")
@@ -265,17 +272,17 @@ function VideoOutputCard({
   }, [zoomed]);
 
   return (
-    <Card title="Video output">
+    <Card title={t("project.video-output")}>
       {aiRunning && (
         <div
           className={`flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3 ${
             output ? "mb-3" : ""
           }`}
         >
-          <div className="progress-indeterminate" aria-label="AI đang tạo video" />
+          <div className="progress-indeterminate" aria-label={t("project.ai-making")} />
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-[var(--text-muted)]">
-              AI đang tạo video…
+              {t("project.ai-making-ellipsis")}
             </span>
             <SessionStatusBadge status="running" />
           </div>
@@ -299,7 +306,7 @@ function VideoOutputCard({
                 className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
               >
                 <Maximize2 size={13} strokeWidth={2} />
-                Phóng to
+                {t("common.zoom")}
               </button>
               <a
                 href={outputUrl}
@@ -308,13 +315,13 @@ function VideoOutputCard({
                 className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
               >
                 <ExternalLink size={13} strokeWidth={2} />
-                Mở file
+                {t("common.open-file")}
               </a>
             </span>
           </div>
         </div>
       ) : !aiRunning ? (
-        <EmptyState icon={MonitorPlay} description="Chưa có video output." />
+        <EmptyState icon={MonitorPlay} description={t("project.no-output")} />
       ) : null}
 
       {/* Khu Thumbnail — ảnh bìa của video (POST /api/projects/:id/thumbnail) */}
@@ -326,7 +333,7 @@ function VideoOutputCard({
             </span>
             <Button variant="secondary" small onClick={openThumbModal}>
               <ImageIcon size={13} strokeWidth={2} />
-              Tạo thumbnail
+              {t("project.create-thumb")}
             </Button>
           </div>
           {thumbRevealError && (
@@ -337,13 +344,13 @@ function VideoOutputCard({
               <button
                 type="button"
                 onClick={() => setThumbPreview(true)}
-                title="Xem thumbnail lớn"
+                title={t("project.view-thumb")}
                 className="shrink-0"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={thumbUrl}
-                  alt="Thumbnail của video"
+                  alt={t("project.thumb-alt")}
                   className="h-24 w-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] object-contain transition-opacity duration-150 hover:opacity-85"
                 />
               </button>
@@ -354,7 +361,7 @@ function VideoOutputCard({
             </div>
           ) : (
             <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Chưa có thumbnail.
+              {t("project.no-thumb")}
             </p>
           )}
         </div>
@@ -368,7 +375,7 @@ function VideoOutputCard({
 
       {/* Modal "Tạo thumbnail" — chạy đồng bộ ~1 phút */}
       <Modal
-        title="Tạo thumbnail"
+        title={t("project.create-thumb")}
         open={thumbOpen}
         onClose={() => {
           if (!thumbBusy) setThumbOpen(false);
@@ -380,7 +387,7 @@ function VideoOutputCard({
               onClick={() => setThumbOpen(false)}
               disabled={thumbBusy}
             >
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={onCreateThumb}
@@ -389,12 +396,12 @@ function VideoOutputCard({
               {thumbBusy ? (
                 <>
                   <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                  Đang tạo (~1 phút)…
+                  {t("project.thumb-creating")}
                 </>
               ) : (
                 <>
                   <ImageIcon size={14} strokeWidth={2} />
-                  Tạo thumbnail
+                  {t("project.create-thumb")}
                 </>
               )}
             </Button>
@@ -402,16 +409,16 @@ function VideoOutputCard({
         }
       >
         <label className="flex flex-col gap-1 text-sm">
-          Title trên thumbnail
+          {t("project.thumb-title")}
           <input
             className="input"
             value={thumbTitle}
             onChange={(e) => setThumbTitle(e.target.value)}
-            placeholder="Cụm giật tít 4–8 từ"
+            placeholder={t("project.thumb-title-placeholder")}
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          Cắt frame tại giây
+          {t("project.thumb-frame")}
           <input
             className="input"
             type="number"
@@ -422,21 +429,20 @@ function VideoOutputCard({
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          Prompt nền (tùy chọn)
+          {t("project.thumb-bg-prompt")}
           <input
             className="input"
             value={thumbPrompt}
             onChange={(e) => setThumbPrompt(e.target.value)}
-            placeholder="Bỏ trống = tự sinh từ title, nền vẽ bằng Gemini theo Style Design"
+            placeholder={t("project.thumb-bg-placeholder")}
           />
         </label>
         <p className="text-xs text-[var(--text-muted)]">
-          Hệ thống cắt frame từ video final, Gemini vẽ nền theo Style Design rồi
-          Remotion ghép title — chạy khoảng 1 phút.
+          {t("project.thumb-desc")}
         </p>
         {thumbError && (
           <p className="text-xs text-[var(--danger)]">
-            Không tạo được thumbnail: {thumbError}
+            {tf("project.thumb-error", { error: thumbError })}
           </p>
         )}
       </Modal>
@@ -447,11 +453,11 @@ function VideoOutputCard({
           className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--text)]/80 p-6"
           onClick={() => setZoomed(false)}
           role="dialog"
-          aria-label="Xem video phóng to"
+          aria-label={t("project.zoom-video-aria")}
         >
           <button
             type="button"
-            aria-label="Đóng"
+            aria-label={t("common.close")}
             onClick={() => setZoomed(false)}
             className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg)] text-[var(--text)] shadow-[var(--shadow-card)] transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
           >
@@ -486,13 +492,14 @@ function BriefSummaryRow({
 }
 
 function YesNo({ value }: { value: boolean }) {
+  const { t } = useT();
   return value ? (
     <span className="inline-flex items-center gap-1 text-[var(--success)]">
-      <Check size={14} strokeWidth={2} /> Có
+      <Check size={14} strokeWidth={2} /> {t("common.yes")}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
-      <Minus size={14} strokeWidth={2} /> Không
+      <Minus size={14} strokeWidth={2} /> {t("common.no")}
     </span>
   );
 }
@@ -501,6 +508,7 @@ export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
   const router = useRouter();
+  const { t, tf } = useT();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   // Jobs của project — nguồn suy giai đoạn cho PipelineTimeline; seed từ
@@ -666,10 +674,12 @@ export default function ProjectDetailPage() {
     setJobNotice(null);
     try {
       const job = await createJob({ projectId, type, sceneId });
-      setJobNotice(`Đã đưa job ${job.id} (${type}) vào hàng đợi.`);
+      setJobNotice(tf("project.job-queued", { id: job.id, type }));
     } catch (e) {
       setJobError(
-        `Không tạo được job: ${e instanceof Error ? e.message : String(e)}`
+        tf("project.job-error", {
+          error: e instanceof Error ? e.message : String(e),
+        })
       );
     } finally {
       setSubmitting(false);
@@ -687,24 +697,31 @@ export default function ProjectDetailPage() {
     try {
       const junk = await getProjectJunk(projectId);
       if (junk.items.length === 0) {
-        setJobNotice("Không có file rác nào để xóa.");
+        setJobNotice(t("junk.none"));
         return;
       }
       if (
         !window.confirm(
-          `Xóa ${junk.items.length} mục file rác, giải phóng ${formatBytes(junk.totalBytes)}?\n` +
-            "File nguồn của project và video final được giữ nguyên."
+          tf("project.junk-confirm", {
+            items: junk.items.length,
+            size: formatBytes(junk.totalBytes),
+          })
         )
       )
         return;
       const result = await cleanProjectJunk(projectId);
       setJobNotice(
-        `Đã giải phóng ${formatBytes(result.freedBytes)} (${result.deleted} mục file rác).`
+        tf("project.junk-freed", {
+          size: formatBytes(result.freedBytes),
+          items: result.deleted,
+        })
       );
       load();
     } catch (e) {
       setJobError(
-        `Không xóa được file rác: ${e instanceof Error ? e.message : String(e)}`
+        tf("project.junk-error", {
+          error: e instanceof Error ? e.message : String(e),
+        })
       );
     } finally {
       setCleaning(false);
@@ -736,18 +753,21 @@ export default function ProjectDetailPage() {
     saveTags([...cur, tag]);
   }
 
+  // Modal xác nhận xóa project — bắt gõ DELETE (thay window.confirm)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function onDelete() {
-    if (
-      !window.confirm(
-        `Xóa project "${projectId}"? Toàn bộ folder video-projects/${projectId} sẽ bị xóa.`
-      )
-    )
-      return;
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await deleteProject(projectId);
       router.push("/projects");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setDeleteError(e instanceof Error ? e.message : String(e));
+      setDeleting(false);
     }
   }
 
@@ -806,7 +826,7 @@ export default function ProjectDetailPage() {
         title={project?.name ?? projectId}
         subtitle={
           project
-            ? `${project.width}×${project.height} · ${project.fps}fps · cập nhật ${formatRelative(project.updatedAt)}`
+            ? `${project.width}×${project.height} · ${project.fps}fps · ${tf("project.updated", { time: formatRelative(project.updatedAt) })}`
             : undefined
         }
         center={
@@ -850,15 +870,15 @@ export default function ProjectDetailPage() {
             className="h-4 w-px bg-[var(--border)]"
             aria-hidden="true"
           />
-          {(project.tags ?? []).map((t) => (
-            <span key={t} className="chip">
-              {t}
+          {(project.tags ?? []).map((tag) => (
+            <span key={tag} className="chip">
+              {tag}
               <button
                 type="button"
-                aria-label={`Xóa tag ${t}`}
+                aria-label={tf("taginput.remove-aria", { tag })}
                 className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
                 onClick={() =>
-                  saveTags((project.tags ?? []).filter((x) => x !== t))
+                  saveTags((project.tags ?? []).filter((x) => x !== tag))
                 }
               >
                 <X size={12} strokeWidth={2} />
@@ -881,8 +901,8 @@ export default function ProjectDetailPage() {
                 }
               }}
               onBlur={addTag}
-              placeholder="Tag mới…"
-              aria-label="Thêm tag"
+              placeholder={t("project.new-tag-placeholder")}
+              aria-label={t("project.add-tag-aria")}
             />
           ) : (
             <button
@@ -896,7 +916,7 @@ export default function ProjectDetailPage() {
           )}
           {tagError && (
             <span className="text-xs text-[var(--danger)]">
-              Không lưu được tags: {tagError}
+              {tf("project.tags-error", { error: tagError })}
             </span>
           )}
           <Button
@@ -906,7 +926,7 @@ export default function ProjectDetailPage() {
             onClick={() => setCloneOpen(true)}
           >
             <Copy size={14} strokeWidth={2} />
-            Nhân bản
+            {t("clone.action")}
           </Button>
           {started && (
             <Button
@@ -919,14 +939,14 @@ export default function ProjectDetailPage() {
               }}
             >
               <Sparkles size={14} strokeWidth={2} />
-              Bắt đầu Edit bằng AI với phiên mới
+              {t("project.start-edit-new-session")}
             </Button>
           )}
         </div>
       )}
 
       {error && (
-        <ErrorBanner message="Không tải được project." detail={error} />
+        <ErrorBanner message={t("project.load-error")} detail={error} />
       )}
 
       {/* Main content — panel AI ghim cố định bên phải (xl+), nội dung chính
@@ -946,7 +966,7 @@ export default function ProjectDetailPage() {
                 />
                 {assets.some((f) => f.kind === "audio") && (
                   <ProjectAssetsCard
-                    title="Sound Effect"
+                    title={t("project.sfx-title")}
                     showUpload={false}
                     projectId={projectId}
                     assets={assets.filter((f) => f.kind === "audio")}
@@ -955,7 +975,7 @@ export default function ProjectDetailPage() {
                 )}
                 {assets.some((f) => f.kind === "other") && (
                   <ProjectAssetsCard
-                    title="Khác"
+                    title={t("project.other-title")}
                     showUpload={false}
                     projectId={projectId}
                     assets={assets.filter((f) => f.kind === "other")}
@@ -984,7 +1004,7 @@ export default function ProjectDetailPage() {
               }}
             >
               <Sparkles size={18} strokeWidth={2} />
-              Bắt đầu edit bằng AI
+              {t("project.start-edit")}
             </Button>
           </>
         ) : (
@@ -1004,7 +1024,7 @@ export default function ProjectDetailPage() {
                 {assets.some((f) => f.kind === "audio") && (
                   <ProjectAssetsCard
                     compact
-                    title="Sound Effect"
+                    title={t("project.sfx-title")}
                     showUpload={false}
                     projectId={projectId}
                     assets={assets.filter((f) => f.kind === "audio")}
@@ -1014,7 +1034,7 @@ export default function ProjectDetailPage() {
                 {assets.some((f) => f.kind === "other") && (
                   <ProjectAssetsCard
                     compact
-                    title="Khác"
+                    title={t("project.other-title")}
                     showUpload={false}
                     projectId={projectId}
                     assets={assets.filter((f) => f.kind === "other")}
@@ -1055,13 +1075,13 @@ export default function ProjectDetailPage() {
                   )}
                   {scenes.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <table className="table">
+                      <table className="table min-w-[560px]">
                         <thead>
                           <tr>
                             <th>Scene</th>
-                            <th>Nguồn</th>
+                            <th>{t("project.col-source")}</th>
                             <th>Duration (frames)</th>
-                            <th>Đã render</th>
+                            <th>{t("project.col-rendered")}</th>
                             <th></th>
                           </tr>
                         </thead>
@@ -1076,7 +1096,7 @@ export default function ProjectDetailPage() {
                                     <button
                                       type="button"
                                       onClick={() => setScenePreview(renderFile)}
-                                      title={`Xem trước ${renderFile.name}`}
+                                      title={tf("common.preview-aria", { name: renderFile.name })}
                                       className="font-medium underline-offset-2 transition-colors duration-150 hover:text-[var(--primary)] hover:underline"
                                     >
                                       {s.id}
@@ -1133,7 +1153,7 @@ export default function ProjectDetailPage() {
                                           submitJob("scene-draft", s.id)
                                         }
                                       >
-                                        Draft scene này
+                                        {t("project.draft-this-scene")}
                                       </Button>
                                     )}
                                   </span>
@@ -1147,7 +1167,7 @@ export default function ProjectDetailPage() {
                   ) : (
                     <EmptyState
                       icon={Clapperboard}
-                      description="meta.json chưa khai báo scene nào. Dùng Chat để nhờ Claude dựng scene cho project này."
+                      description={t("project.no-scenes")}
                     />
                   )}
                 </Card>
@@ -1171,7 +1191,7 @@ export default function ProjectDetailPage() {
           className={`${
             panelOpen ? "flex" : "hidden xl:flex"
           } fixed inset-y-0 right-0 z-40 w-full max-w-[440px] flex-col gap-3 border-l border-[var(--border)] bg-[var(--bg)] p-4 xl:top-14 xl:bottom-0 xl:z-20 xl:h-auto xl:w-[440px] xl:max-w-none xl:p-3`}
-          aria-label="AI của project"
+          aria-label={t("project.ai-panel-aria")}
         >
           {/* Hàng nút chức năng — chuyển từ PageHeader vào (panel che mất chỗ cũ) */}
           <div className="flex flex-col gap-1.5">
@@ -1183,15 +1203,15 @@ export default function ProjectDetailPage() {
                 onClick={() => submitJob("assemble-final")}
               >
                 <Play size={14} strokeWidth={2} />
-                Render final
+                {t("project.render-final")}
               </Button>
               <Button
                 variant="destructive"
                 small
-                onClick={onDelete}
+                onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 size={14} strokeWidth={2} />
-                Xóa
+                {t("common.delete")}
               </Button>
               <div ref={moreRef} className="relative">
                 <Button
@@ -1202,7 +1222,7 @@ export default function ProjectDetailPage() {
                   aria-haspopup="menu"
                 >
                   <MoreHorizontal size={14} strokeWidth={2} />
-                  Xem thêm
+                  {t("project.more")}
                 </Button>
                 {moreOpen && (
                   <div
@@ -1224,7 +1244,7 @@ export default function ProjectDetailPage() {
                         strokeWidth={2}
                         className="shrink-0 text-[var(--text-muted)]"
                       />
-                      Render scene draft
+                      {t("project.menu-scene-draft")}
                     </button>
                     <button
                       type="button"
@@ -1241,7 +1261,7 @@ export default function ProjectDetailPage() {
                         strokeWidth={2}
                         className="shrink-0 text-[var(--text-muted)]"
                       />
-                      Lắp ráp draft
+                      {t("project.menu-assemble-draft")}
                     </button>
                     <button
                       type="button"
@@ -1258,7 +1278,7 @@ export default function ProjectDetailPage() {
                         strokeWidth={2}
                         className="shrink-0 text-[var(--text-muted)]"
                       />
-                      {cleaning ? "Đang xóa file rác…" : "Xóa file rác"}
+                      {cleaning ? t("junk.cleaning") : t("junk.clean")}
                     </button>
                   </div>
                 )}
@@ -1279,7 +1299,7 @@ export default function ProjectDetailPage() {
                 strokeWidth={2}
                 className="shrink-0 text-[var(--text-muted)]"
               />
-              AI của project
+              {t("project.ai-panel")}
             </h2>
             <div className="flex shrink-0 items-center gap-2">
               {activeSession && (
@@ -1288,7 +1308,7 @@ export default function ProjectDetailPage() {
               <button
                 type="button"
                 onClick={() => setPanelOpen(false)}
-                aria-label="Đóng panel AI"
+                aria-label={t("project.close-panel")}
                 className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] xl:hidden"
               >
                 <X size={16} strokeWidth={2} />
@@ -1301,11 +1321,11 @@ export default function ProjectDetailPage() {
               className="input"
               value={activeSessionId ?? ""}
               onChange={(e) => setActiveSessionId(e.target.value || null)}
-              aria-label="Chọn phiên AI"
+              aria-label={t("project.select-session")}
             >
               {chatSessions.map((s) => (
                 <option key={s.sessionId} value={s.sessionId}>
-                  {s.title} · {sessionStatusLabel(s.status)} ·{" "}
+                  {s.title} · {sessionStatusLabel(s.status, t)} ·{" "}
                   {formatRelative(s.updatedAt)}
                 </option>
               ))}
@@ -1318,7 +1338,7 @@ export default function ProjectDetailPage() {
             <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
               <EmptyState
                 icon={Sparkles}
-                description="Chưa có phiên AI nào — bấm Bắt đầu edit bằng AI."
+                description={t("project.no-sessions")}
                 action={
                   <Button
                     small
@@ -1329,7 +1349,7 @@ export default function ProjectDetailPage() {
                     }}
                   >
                     <Sparkles size={14} strokeWidth={2} />
-                    Bắt đầu edit bằng AI
+                    {t("project.start-edit")}
                   </Button>
                 }
               />
@@ -1356,6 +1376,27 @@ export default function ProjectDetailPage() {
         onClose={() => setScenePreview(null)}
       />
 
+      {/* Modal xác nhận xóa project — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        title={t("project.delete-title")}
+        description={
+          <>
+            {t("project.delete-desc-1")}{" "}
+            <span className="font-medium">{project?.name ?? projectId}</span>?
+            {t("project.delete-desc-2")}{" "}
+            <code className="rounded bg-[var(--bg-subtle)] px-1 text-xs">
+              video-projects/{projectId}
+            </code>{" "}
+            {t("project.delete-desc-3")}
+          </>
+        }
+        busy={deleting}
+        error={deleteError}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDelete}
+      />
+
       {/* Modal nhân bản project — thành công thì chuyển thẳng sang project mới */}
       <CloneProjectModal
         source={
@@ -1371,7 +1412,7 @@ export default function ProjectDetailPage() {
       />
 
       <Modal
-        title="Bắt đầu edit bằng AI"
+        title={t("project.start-edit")}
         open={editOpen}
         onClose={() => {
           if (!starting) setEditOpen(false);
@@ -1383,72 +1424,71 @@ export default function ProjectDetailPage() {
               disabled={starting}
               onClick={() => setEditOpen(false)}
             >
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button disabled={starting} onClick={onStartEdit}>
               <Sparkles size={15} strokeWidth={2} />
-              {starting ? "Đang khởi động…" : "Bắt đầu edit"}
+              {starting ? t("project.starting") : t("project.start-edit-short")}
             </Button>
           </>
         }
       >
         {startError && (
           <ErrorBanner
-            message="Không bắt đầu được phiên edit."
+            message={t("project.start-error")}
             detail={startError}
           />
         )}
         <p className="text-sm text-[var(--text-muted)]">
-          AI sẽ đọc brief, mô tả asset và sound effect của project rồi tự edit.
-          Kiểm tra lại tóm tắt bên dưới:
+          {t("project.edit-modal-desc")}
         </p>
         <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-          <BriefSummaryRow label="Video gốc">
+          <BriefSummaryRow label={t("project.sum-source")}>
             {brief.sourceDescription.trim() || (
-              <span className="text-[var(--text-muted)]">Chưa mô tả</span>
+              <span className="text-[var(--text-muted)]">{t("brief.not-described")}</span>
             )}
           </BriefSummaryRow>
-          <BriefSummaryRow label="Yêu cầu edit">
+          <BriefSummaryRow label={t("brief.edit-request")}>
             {brief.notes.trim() ? (
               <span className="line-clamp-3 whitespace-pre-line">
                 {brief.notes}
               </span>
             ) : (
-              <span className="text-[var(--text-muted)]">Chưa có</span>
+              <span className="text-[var(--text-muted)]">{t("brief.none")}</span>
             )}
           </BriefSummaryRow>
-          <BriefSummaryRow label="Tự động cắt">
+          <BriefSummaryRow label={t("project.sum-autocut")}>
             <YesNo value={brief.autoCut} />
           </BriefSummaryRow>
-          <BriefSummaryRow label="Phụ đề">
+          <BriefSummaryRow label={t("brief.subtitles")}>
             <YesNo value={brief.subtitles} />
           </BriefSummaryRow>
-          <BriefSummaryRow label="Làm nổi bật key chính">
+          <BriefSummaryRow label={t("brief.highlight")}>
             <YesNo value={brief.highlightEnabled} />
             {brief.highlightEnabled && brief.highlightKeywords.length > 0 && (
               <span className="ml-1 text-[var(--text-muted)]">
-                · kèm keyword: {brief.highlightKeywords.join(", ")}
+                · {t("project.sum-keywords")} {brief.highlightKeywords.join(", ")}
               </span>
             )}
           </BriefSummaryRow>
-          <BriefSummaryRow label="Bố cục Key">
+          <BriefSummaryRow label={t("brief.key-layout")}>
             {brief.keyLayoutEnabled ? (
               <>
-                Key chính:{" "}
+                {t("project.sum-main-key")}{" "}
                 {brief.mainKey.trim() || (
-                  <span className="text-[var(--text-muted)]">AI tự chọn</span>
+                  <span className="text-[var(--text-muted)]">{t("brief.ai-choose")}</span>
                 )}
                 {brief.relatedKeys.length > 0 && (
                   <span className="ml-1 text-[var(--text-muted)]">
-                    · Key liên quan: {brief.relatedKeys.join(", ")}
+                    · {t("project.sum-related-keys")} {brief.relatedKeys.join(", ")}
                   </span>
                 )}
               </>
             ) : (
-              <span className="text-[var(--text-muted)]">Tắt</span>
+              <span className="text-[var(--text-muted)]">{t("common.off")}</span>
             )}
           </BriefSummaryRow>
-          <BriefSummaryRow label="Ảnh minh họa AI">
+          <BriefSummaryRow label={t("brief.illustrations")}>
             <YesNo value={brief.autoIllustrations} />
             {brief.autoIllustrations && brief.illustrationModel && (
               <span className="ml-1 text-[var(--text-muted)]">
@@ -1457,13 +1497,13 @@ export default function ProjectDetailPage() {
             )}
           </BriefSummaryRow>
           <BriefSummaryRow label="Style Design">
-            {styleDisplayName(stylesData, brief.styleId)}
+            {styleDisplayName(stylesData, brief.styleId, t)}
           </BriefSummaryRow>
           <BriefSummaryRow label="Skill">
-            {brief.skill ?? "Để AI tự chọn"}
+            {brief.skill ?? t("brief.ai-pick-skill")}
           </BriefSummaryRow>
           <BriefSummaryRow label="Sound effect">
-            {SFX_MODE_LABEL[brief.sfxMode]}
+            {t(SFX_MODE_LABEL[brief.sfxMode])}
           </BriefSummaryRow>
         </div>
         <AiModelBlock
@@ -1475,7 +1515,7 @@ export default function ProjectDetailPage() {
         />
         <div>
           <label className="label" htmlFor="edit-extra-notes">
-            Dặn dò thêm lần này
+            {t("project.extra-notes")}
           </label>
           <textarea
             id="edit-extra-notes"
@@ -1483,7 +1523,7 @@ export default function ProjectDetailPage() {
             rows={2}
             value={extraNotes}
             onChange={(e) => setExtraNotes(e.target.value)}
-            placeholder="vd: Ưu tiên bản dưới 60 giây, mở đầu bằng câu hook mạnh…"
+            placeholder={t("projects.notes-placeholder")}
           />
         </div>
       </Modal>

@@ -9,14 +9,16 @@
 
 import { Check } from "lucide-react";
 import type { FileInfo, Job, ProjectStatus, SceneMeta } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const STEPS = [
-  "Phân tích",
-  "Dựng scene",
-  "Render draft",
-  "Lắp draft",
-  "Render final",
-  "Hoàn thành",
+  "pipeline.analyze",
+  "pipeline.build-scenes",
+  "pipeline.render-draft",
+  "pipeline.assemble-draft",
+  "pipeline.render-final",
+  "pipeline.done",
 ] as const;
 
 export interface PipelineStageInput {
@@ -92,6 +94,7 @@ export function deriveStage(input: PipelineStageInput): PipelineStage | null {
 }
 
 export function PipelineTimeline(props: PipelineStageInput) {
+  const { t, tf } = useT();
   const derived = deriveStage(props);
   if (!derived) return null;
   const { stage, active } = derived;
@@ -102,7 +105,7 @@ export function PipelineTimeline(props: PipelineStageInput) {
   return (
     <ol
       className="flex w-full min-w-0 items-start"
-      aria-label={`Tiến trình pipeline — giai đoạn ${stage}/6: ${STEPS[stage - 1]}`}
+      aria-label={tf("pipeline.aria", { stage, label: t(STEPS[stage - 1]) })}
     >
       {STEPS.flatMap((label, i) => {
         const n = i + 1;
@@ -144,7 +147,7 @@ export function PipelineTimeline(props: PipelineStageInput) {
             <span
               className={`whitespace-nowrap text-center text-[10px] leading-none ${labelCls}`}
             >
-              {label}
+              {t(label)}
             </span>
           </li>,
         );

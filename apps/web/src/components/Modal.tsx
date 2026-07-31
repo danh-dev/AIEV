@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
+import { useT } from "@/lib/i18n";
 
 export function Modal({
   title,
@@ -11,7 +12,7 @@ export function Modal({
   footer,
   wide = false,
 }: {
-  title: string;
+  title: ReactNode;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -19,6 +20,7 @@ export function Modal({
   /** true = modal rộng (lưới preview nhiều cột) — max-w 960px thay vì 640px. */
   wide?: boolean;
 }) {
+  const { t } = useT();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -50,7 +52,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Đóng"
+            aria-label={t("common.close")}
             className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
           >
             <X size={16} strokeWidth={2} />

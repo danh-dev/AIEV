@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
@@ -20,6 +21,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { TagInput } from "@/components/TagInput";
 import { refreshStyles } from "@/components/StyleSelect";
 import { formatRelative } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 /** Thứ tự 5 màu trên dải swatch — trùng thứ tự form editor. */
 const SWATCH_KEYS: (keyof StyleColors)[] = [
@@ -47,6 +49,7 @@ function SwatchStrip({ colors }: { colors: StyleColors }) {
 }
 
 export default function StylesPage() {
+  const { t, tf } = useT();
   const router = useRouter();
   const [defaultId, setDefaultId] = useState<string | null>(null);
   const [list, setList] = useState<StyleDesign[] | null>(null);
@@ -62,6 +65,7 @@ export default function StylesPage() {
 
   // Chọn nhiều style để xóa
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
 
@@ -100,14 +104,6 @@ export default function StylesPage() {
   async function onDeleteSelected() {
     if (bulkDeleting || selected.size === 0 || !list) return;
     const targets = list.filter((s) => selected.has(s.id));
-    if (
-      !window.confirm(
-        `Xóa ${targets.length} style đã chọn?\n\n${targets
-          .map((s) => `· ${s.name}`)
-          .join("\n")}\n\nSản phẩm đang trỏ vào các style này sẽ quay về style mặc định.`
-      )
-    )
-      return;
     setBulkDeleting(true);
     setBulkErrors([]);
     // Xóa TUẦN TỰ — lỗi nào (vd style cuối cùng / LAST_STYLE) gom hiện sau
@@ -122,6 +118,7 @@ export default function StylesPage() {
       }
     }
     setBulkDeleting(false);
+    setBulkDeleteOpen(false);
     setSelected(new Set());
     setBulkErrors(errors);
     refreshStyles();
@@ -151,22 +148,22 @@ export default function StylesPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Style Design"
-        subtitle="Bộ nhận diện (màu, font, logo, tone) — mọi sản phẩm tạo ra bắt buộc tuân theo style đã chọn"
+        title={t("nav.styles")}
+        subtitle={t("stylesPage.subtitle")}
         actions={
           <Button onClick={openCreate}>
             <Plus size={16} strokeWidth={2} />
-            Tạo style
+            {t("stylesPage.create")}
           </Button>
         }
       />
 
       {error && (
-        <ErrorBanner message="Không tải được danh sách style." detail={error} />
+        <ErrorBanner message={t("stylesPage.load-error")} detail={error} />
       )}
       {bulkErrors.length > 0 && (
         <ErrorBanner
-          message={`Không xóa được ${bulkErrors.length} style.`}
+          message={tf("stylesPage.delete-errors", { n: bulkErrors.length })}
           detail={bulkErrors.join("\n")}
         />
       )}
@@ -174,7 +171,7 @@ export default function StylesPage() {
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
           <span className="text-sm font-medium">
-            Đã chọn {selected.size} style
+            {tf("stylesPage.selected", { n: selected.size })}
           </span>
           <span className="flex-1" />
           <Button
@@ -183,16 +180,16 @@ export default function StylesPage() {
             disabled={bulkDeleting}
             onClick={() => setSelected(new Set())}
           >
-            Bỏ chọn
+            {t("common.deselect")}
           </Button>
           <Button
             variant="destructive"
             small
             disabled={bulkDeleting}
-            onClick={onDeleteSelected}
+            onClick={() => setBulkDeleteOpen(true)}
           >
             <Trash2 size={14} strokeWidth={2} />
-            {bulkDeleting ? "Đang xóa…" : "Xóa đã chọn"}
+            {bulkDeleting ? t("common.deleting") : t("common.delete-selected")}
           </Button>
         </div>
       )}
@@ -217,7 +214,7 @@ export default function StylesPage() {
                 <input
                   type="checkbox"
                   className="checkbox block"
-                  aria-label={`Chọn ${s.name}`}
+                  aria-label={tf("common.select-aria", { name: s.name })}
                   checked={selected.has(s.id)}
                   disabled={bulkDeleting}
                   onChange={() => toggleSelect(s.id)}
@@ -231,7 +228,7 @@ export default function StylesPage() {
                   </p>
                   {s.id === defaultId && (
                     <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-                      Mặc định
+                      {t("styles.default")}
                     </span>
                   )}
                 </div>
@@ -249,7 +246,7 @@ export default function StylesPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={mediaUrl(s.logoPath)}
-                      alt={`Logo ${s.name}`}
+                      alt={tf("stylesPage.logo-alt", { name: s.name })}
                       className="h-6 w-auto max-w-[96px] rounded-[3px] border border-[var(--border)] bg-[var(--bg-subtle)] object-contain p-0.5"
                     />
                   )}
@@ -265,11 +262,11 @@ export default function StylesPage() {
         <Card>
           <EmptyState
             icon={Palette}
-            description="Chưa có style nào. Tạo style đầu tiên — mọi ảnh và video tạo ra sẽ tuân theo bộ nhận diện này."
+            description={t("stylesPage.empty")}
             action={
               <Button onClick={openCreate}>
                 <Plus size={16} strokeWidth={2} />
-                Tạo style
+                {t("stylesPage.create")}
               </Button>
             }
           />
@@ -277,14 +274,30 @@ export default function StylesPage() {
       ) : (
         <Card>
           <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            Đang tải…
+            {t("common.loading")}
           </p>
         </Card>
       )}
 
+      {/* Modal xác nhận xóa nhiều style — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={bulkDeleteOpen}
+        title={t("stylesPage.delete-selected-title")}
+        description={
+          <p>{tf("stylesPage.delete-desc", { n: selected.size })}</p>
+        }
+        items={(list ?? [])
+          .filter((s) => selected.has(s.id))
+          .map((s) => s.name)}
+        busy={bulkDeleting}
+        confirmLabel={tf("stylesPage.delete-n", { n: selected.size })}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={onDeleteSelected}
+      />
+
       {/* Modal tạo style mới */}
       <Modal
-        title="Tạo style"
+        title={t("stylesPage.create")}
         open={createOpen}
         onClose={() => {
           if (!creating) setCreateOpen(false);
@@ -296,21 +309,21 @@ export default function StylesPage() {
               disabled={creating}
               onClick={() => setCreateOpen(false)}
             >
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button onClick={onCreate} disabled={!name.trim() || creating}>
               <Plus size={15} strokeWidth={2} />
-              {creating ? "Đang tạo…" : "Tạo style"}
+              {creating ? t("common.creating") : t("stylesPage.create")}
             </Button>
           </>
         }
       >
         {createError && (
-          <ErrorBanner message="Không tạo được style." detail={createError} />
+          <ErrorBanner message={t("stylesPage.create-error")} detail={createError} />
         )}
         <div>
           <label className="label" htmlFor="style-new-name">
-            Tên style
+            {t("stylesPage.name-label")}
           </label>
           <input
             id="style-new-name"
@@ -319,18 +332,18 @@ export default function StylesPage() {
             value={name}
             disabled={creating}
             onChange={(e) => setName(e.target.value)}
-            placeholder="vd: Noti.vn dark fintech"
+            placeholder={t("stylesPage.name-placeholder")}
           />
         </div>
         <div>
           <label className="label" htmlFor="style-new-tags">
-            Tags
+            {t("common.tags")}
           </label>
           <TagInput id="style-new-tags" tags={tags} onChange={setTags} />
         </div>
         <div>
           <label className="label" htmlFor="style-new-clone">
-            Sao chép từ
+            {t("stylesPage.clone-from")}
           </label>
           <select
             id="style-new-clone"
@@ -339,7 +352,7 @@ export default function StylesPage() {
             disabled={creating}
             onChange={(e) => setCloneFrom(e.target.value)}
           >
-            <option value="">Trống</option>
+            <option value="">{t("stylesPage.blank")}</option>
             {(list ?? []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -347,8 +360,7 @@ export default function StylesPage() {
             ))}
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Chọn một style có sẵn để sao chép toàn bộ màu, font, logo, tone và
-            guidelines.
+            {t("stylesPage.clone-hint")}
           </p>
         </div>
       </Modal>

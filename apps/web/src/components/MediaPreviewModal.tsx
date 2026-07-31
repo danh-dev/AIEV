@@ -5,6 +5,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { mediaUrl, revealFile, type FileInfo } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { Modal } from "@/components/Modal";
+import { useT } from "@/lib/i18n";
 
 /** File có xem trước được trong modal không (ảnh/video/audio). */
 export function canPreview(kind: FileInfo["kind"]): boolean {
@@ -24,6 +25,7 @@ export function RevealButton({
   onError: (message: string) => void;
   className?: string;
 }) {
+  const { t, tf } = useT();
   const [busy, setBusy] = useState(false);
   async function onClick(e: MouseEvent<HTMLButtonElement>) {
     // Nút nằm trong hàng/thumbnail clickable — không cho lan ra mở preview
@@ -34,7 +36,9 @@ export function RevealButton({
       await revealFile(relPath);
     } catch (err) {
       onError(
-        `Không mở được file trong Explorer: ${err instanceof Error ? err.message : String(err)}`
+        tf("media.reveal-error", {
+          error: err instanceof Error ? err.message : String(err),
+        })
       );
     } finally {
       setBusy(false);
@@ -47,15 +51,15 @@ export function RevealButton({
       className={`h-6 px-2 text-xs ${className}`}
       disabled={busy}
       onClick={onClick}
-      title="Mở file trong trình quản lý file"
-      aria-label={`Mở file ${relPath} trong trình quản lý file`}
+      title={t("media.reveal-title")}
+      aria-label={tf("media.reveal-aria", { path: relPath })}
     >
       {busy ? (
         <Loader2 size={12} strokeWidth={2} className="animate-spin" />
       ) : (
         <FolderOpen size={12} strokeWidth={2} />
       )}
-      Mở file
+      {t("common.open-file")}
     </Button>
   );
 }
@@ -72,6 +76,7 @@ export function MediaPreviewModal({
   file: FileInfo | null;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const [error, setError] = useState<string | null>(null);
   // Đổi sang file khác → xóa lỗi reveal cũ
   useEffect(() => {
@@ -102,7 +107,7 @@ export function MediaPreviewModal({
             className="flex items-center gap-1 self-center text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
           >
             <ExternalLink size={13} strokeWidth={2} />
-            Mở tab mới
+            {t("media.open-tab")}
           </a>
           <RevealButton relPath={file.relPath} onError={setError} />
         </>
@@ -126,7 +131,7 @@ export function MediaPreviewModal({
         <audio controls autoPlay src={url} className="w-full" />
       ) : (
         <p className="text-sm text-[var(--text-muted)]">
-          Không xem trước được loại file này.
+          {t("media.no-preview")}
         </p>
       )}
     </Modal>

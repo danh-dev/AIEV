@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { getStyles, type StyleDesign, type StylesResponse } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 // Cache module-level — style ít đổi, một lần fetch mỗi phiên UI là đủ;
 // trang /styles sửa xong sẽ gọi refreshStyles() để nơi khác nhận bản mới.
@@ -64,12 +65,15 @@ export function styleOptionLabel(s: StyleDesign): string {
 /** Tên style hiển thị cho một styleId (null = mặc định) — dùng ở tóm tắt. */
 export function styleDisplayName(
   data: StylesResponse | null,
-  styleId: string | null
+  styleId: string | null,
+  t: (key: string) => string
 ): string {
   const defaultStyle =
     data?.styles.find((s) => s.id === data.defaultId) ?? null;
   if (styleId === null) {
-    return defaultStyle ? `Mặc định (${defaultStyle.name})` : "Mặc định";
+    return defaultStyle
+      ? `${t("styles.default")} (${defaultStyle.name})`
+      : t("styles.default");
   }
   return data?.styles.find((s) => s.id === styleId)?.name ?? styleId;
 }
@@ -91,6 +95,7 @@ export function StyleSelect({
   disabled?: boolean;
   className?: string;
 }) {
+  const { t } = useT();
   const { data } = useStyles();
   const styles = data?.styles ?? [];
   const defaultStyle = styles.find((s) => s.id === data?.defaultId) ?? null;
@@ -105,7 +110,9 @@ export function StyleSelect({
       onChange={(e) => onChange(e.target.value || null)}
     >
       <option value="">
-        {defaultStyle ? `Mặc định (${defaultStyle.name})` : "Mặc định"}
+        {defaultStyle
+          ? `${t("styles.default")} (${defaultStyle.name})`
+          : t("styles.default")}
       </option>
       {missing && <option value={value!}>{value}</option>}
       {styles.map((s) => (

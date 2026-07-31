@@ -13,6 +13,7 @@ import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { SkillGenerateModal } from "@/components/SkillGenerateModal";
 import { formatBytes, formatRelative, KEBAB_RE } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 const skillTemplate = (name: string) => `---
 name: ${name}
@@ -31,6 +32,7 @@ description: Mô tả ngắn gọn skill này làm gì và khi nào Claude nên 
 `;
 
 export default function SkillsPage() {
+  const { t } = useT();
   const router = useRouter();
   const [skills, setSkills] = useState<SkillMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +80,13 @@ export default function SkillsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Skills"
-        subtitle="Know-how sản xuất của Claude — file markdown trong .claude/skills/"
+        title={t("nav.skills")}
+        subtitle={t("skills.subtitle")}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => setOpen(true)}>
               <Plus size={16} strokeWidth={2} />
-              Tạo skill mới
+              {t("skills.create")}
             </Button>
             <Button
               onClick={() => {
@@ -93,18 +95,18 @@ export default function SkillsPage() {
               }}
             >
               <Sparkles size={16} strokeWidth={2} />
-              Tạo skill bằng AI
+              {t("skills.create-ai")}
             </Button>
           </div>
         }
       />
 
       <p className="text-xs text-[var(--text-muted)]">
-        Skill mới sẽ được Claude nhận ở phiên làm việc kế tiếp.
+        {t("skills.next-session-note")}
       </p>
 
       {error && (
-        <ErrorBanner message="Không tải được danh sách skill." detail={error} />
+        <ErrorBanner message={t("skills.load-error")} detail={error} />
       )}
 
       {skills && skills.length > 0 ? (
@@ -136,32 +138,32 @@ export default function SkillsPage() {
         <Card>
           <EmptyState
             icon={BookOpen}
-            description="Chưa có skill nào. Tạo skill để tích lũy know-how sản xuất video cho Claude."
+            description={t("skills.empty")}
             action={
               <Button onClick={() => setOpen(true)}>
                 <Plus size={16} strokeWidth={2} />
-                Tạo skill mới
+                {t("skills.create")}
               </Button>
             }
           />
         </Card>
       ) : (
         <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-          Đang tải…
+          {t("common.loading")}
         </p>
       )}
 
       <Modal
-        title="Tạo skill mới"
+        title={t("skills.create")}
         open={open}
         onClose={() => setOpen(false)}
         footer={
           <>
             <Button variant="secondary" onClick={() => setOpen(false)}>
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button onClick={onCreate} disabled={!nameValid || creating}>
-              {creating ? "Đang tạo…" : "Tạo skill"}
+              {creating ? t("common.creating") : t("skills.create-short")}
             </Button>
           </>
         }
@@ -169,7 +171,7 @@ export default function SkillsPage() {
         {createError && <ErrorBanner message={createError} />}
         <div>
           <label className="label" htmlFor="skill-name">
-            Tên skill (kebab-case)
+            {t("skills.name-label")}
           </label>
           <input
             id="skill-name"
@@ -180,13 +182,12 @@ export default function SkillsPage() {
           />
           {name && !nameValid && (
             <p className="mt-1 text-xs text-[var(--danger)]">
-              Tên phải là kebab-case: chữ thường, số, gạch nối.
+              {t("skills.kebab-error")}
             </p>
           )}
         </div>
         <p className="text-xs text-[var(--text-muted)]">
-          Skill sẽ được khởi tạo với template frontmatter (name + description)
-          để bạn chỉnh sửa tiếp.
+          {t("skills.template-note")}
         </p>
       </Modal>
 

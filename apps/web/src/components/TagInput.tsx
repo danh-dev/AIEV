@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 
 /**
  * Chip input dùng chung (modal tạo project, form khác):
@@ -11,13 +12,15 @@ export function TagInput({
   tags,
   onChange,
   id,
-  placeholder = "Gõ tag rồi Enter để thêm…",
+  placeholder,
 }: {
   tags: string[];
   onChange: (tags: string[]) => void;
   id?: string;
+  /** Mặc định t("taginput.placeholder"). */
   placeholder?: string;
 }) {
+  const { t, tf } = useT();
   const [input, setInput] = useState("");
 
   function add() {
@@ -32,14 +35,14 @@ export function TagInput({
     <div>
       {tags.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {tags.map((t) => (
-            <span key={t} className="chip">
-              {t}
+          {tags.map((tag) => (
+            <span key={tag} className="chip">
+              {tag}
               <button
                 type="button"
-                aria-label={`Xóa tag ${t}`}
+                aria-label={tf("taginput.remove-aria", { tag })}
                 className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
-                onClick={() => onChange(tags.filter((x) => x !== t))}
+                onClick={() => onChange(tags.filter((x) => x !== tag))}
               >
                 <X size={12} strokeWidth={2} />
               </button>
@@ -58,7 +61,7 @@ export function TagInput({
             add();
           }
         }}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("taginput.placeholder")}
       />
     </div>
   );

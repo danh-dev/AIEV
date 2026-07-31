@@ -6,6 +6,7 @@ import { cloneProject, type ProjectSummary } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { useT } from "@/lib/i18n";
 
 /**
  * Modal "Nhân bản project" — dùng chung cho trang danh sách và trang chi tiết.
@@ -22,6 +23,7 @@ export function CloneProjectModal({
   onClose: () => void;
   onCloned: (p: ProjectSummary) => void;
 }) {
+  const { t } = useT();
   const [name, setName] = useState("");
   const [cloning, setCloning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +34,10 @@ export function CloneProjectModal({
   const sourceName = source?.name ?? null;
   useEffect(() => {
     if (sourceId !== null) {
-      setName(`${sourceName ?? sourceId} (bản sao)`);
+      setName(`${sourceName ?? sourceId} ${t("clone.copy-suffix")}`);
       setError(null);
     }
-  }, [sourceId, sourceName]);
+  }, [sourceId, sourceName, t]);
 
   async function onClone() {
     if (!source || cloning) return;
@@ -53,7 +55,7 @@ export function CloneProjectModal({
 
   return (
     <Modal
-      title="Nhân bản project"
+      title={t("clone.title")}
       open={source !== null}
       onClose={() => {
         if (!cloning) onClose();
@@ -61,25 +63,24 @@ export function CloneProjectModal({
       footer={
         <>
           <Button variant="secondary" disabled={cloning} onClick={onClose}>
-            Hủy
+            {t("common.cancel")}
           </Button>
           <Button disabled={cloning || name.trim().length === 0} onClick={onClone}>
             <Copy size={14} strokeWidth={2} />
-            {cloning ? "Đang nhân bản…" : "Nhân bản"}
+            {cloning ? t("clone.cloning") : t("clone.action")}
           </Button>
         </>
       }
     >
       {error && (
-        <ErrorBanner message="Không nhân bản được project." detail={error} />
+        <ErrorBanner message={t("clone.error")} detail={error} />
       )}
       <p className="text-sm text-[var(--text-muted)]">
-        Bản sao gồm compositions, assets (kèm mô tả), brief, tags và scenes —
-        không gồm renders và video output. Project mới ở trạng thái draft.
+        {t("clone.description")}
       </p>
       <div>
         <label className="label" htmlFor="clone-project-name">
-          Tên project mới
+          {t("clone.new-name")}
         </label>
         <input
           id="clone-project-name"
@@ -96,7 +97,7 @@ export function CloneProjectModal({
           }}
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          ID (tên folder) tự sinh từ tên này.
+          {t("clone.id-hint")}
         </p>
       </div>
     </Modal>

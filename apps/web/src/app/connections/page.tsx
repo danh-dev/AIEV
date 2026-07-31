@@ -34,16 +34,19 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { refreshProviders } from "@/components/ModelPicker";
+import { useT } from "@/lib/i18n";
 
 /** Nhãn tiếng Việt cho role provider — khớp ProviderRole của server. */
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const ROLE_LABELS: Record<string, string> = {
-  edit: "Edit video",
-  chat: "Chat",
-  image: "Tạo ảnh",
+  edit: "conn.role.edit",
+  chat: "conn.role.chat",
+  image: "conn.role.image",
 };
 
 const PROVIDER_ICONS: Record<ConnectionInfo["id"], LucideIcon> = {
@@ -59,11 +62,12 @@ const KEY_PLACEHOLDERS: Record<ConnectionInfo["id"], string> = {
 };
 
 function StatusBadge({ conn }: { conn: ConnectionInfo }) {
+  const { t } = useT();
   if (!conn.connected) {
     return (
       <span className="badge badge-muted">
         <span className="badge-dot" />
-        Chưa kết nối
+        {t("model.not-connected")}
       </span>
     );
   }
@@ -71,8 +75,8 @@ function StatusBadge({ conn }: { conn: ConnectionInfo }) {
     <span className="badge badge-success">
       <span className="badge-dot" />
       {conn.source === "oauth"
-        ? "Đã kết nối · Subscription"
-        : "Đã kết nối · API key"}
+        ? t("conn.connected-sub")
+        : t("conn.connected-key")}
     </span>
   );
 }
@@ -84,6 +88,7 @@ function ProviderCard({
   conn: ConnectionInfo;
   onUpdate: (list: ConnectionInfo[]) => void;
 }) {
+  const { t, tf } = useT();
   const Icon = PROVIDER_ICONS[conn.id] ?? Plug;
 
   // Khối API key
@@ -139,14 +144,11 @@ function ProviderCard({
     }
   }
 
+  // Modal xác nhận xóa API key — bắt gõ DELETE (thay window.confirm)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   async function onDeleteKey() {
     if (saving) return;
-    if (
-      !window.confirm(
-        `Xóa API key của ${conn.label}? Provider sẽ mất kết nối nếu không còn nguồn xác thực khác.`
-      )
-    )
-      return;
     setSaving(true);
     setActionError(null);
     setSavedNotice(false);
@@ -162,6 +164,7 @@ function ProviderCard({
       setActionError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
+      setDeleteOpen(false);
     }
   }
 
@@ -186,7 +189,7 @@ function ProviderCard({
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {conn.roles.map((r) => (
               <span key={r} className="chip">
-                {ROLE_LABELS[r] ?? r}
+                {ROLE_LABELS[r] ? t(ROLE_LABELS[r]) : r}
               </span>
             ))}
           </div>
@@ -209,7 +212,7 @@ function ProviderCard({
             rel="noreferrer"
             className="inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
           >
-            Lấy key tại đây
+            {t("conn.get-key")}
             <ExternalLink size={11} strokeWidth={2} className="shrink-0" />
           </a>
         </div>
@@ -224,7 +227,7 @@ function ProviderCard({
                 placeholder={KEY_PLACEHOLDERS[conn.id] ?? "API key"}
                 autoComplete="off"
                 spellCheck={false}
-                aria-label={`API key ${conn.label}`}
+                aria-label={tf("conn.key-aria", { name: conn.label })}
                 disabled={saving}
                 onChange={(e) => setKeyValue(e.target.value)}
                 onKeyDown={(e) => {
@@ -233,7 +236,7 @@ function ProviderCard({
               />
               <button
                 type="button"
-                aria-label={showKey ? "Ẩn key" : "Hiện key"}
+                aria-label={showKey ? t("conn.hide-key") : t("conn.show-key")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
                 onClick={() => setShowKey((v) => !v)}
               >
@@ -254,7 +257,7 @@ function ProviderCard({
               ) : (
                 <KeyRound size={13} strokeWidth={2} />
               )}
-              {saving ? "Đang lưu…" : "Lưu key"}
+              {saving ? t("common.saving") : t("conn.save-key")}
             </Button>
             {editing && (
               <Button
@@ -268,7 +271,7 @@ function ProviderCard({
                   setActionError(null);
                 }}
               >
-                Hủy
+                {t("common.cancel")}
               </Button>
             )}
           </div>
@@ -288,16 +291,16 @@ function ProviderCard({
               }}
             >
               <Pencil size={13} strokeWidth={2} />
-              Đổi key
+              {t("conn.change-key")}
             </Button>
             <Button
               variant="destructive"
               small
               disabled={saving}
-              onClick={onDeleteKey}
+              onClick={() => setDeleteOpen(true)}
             >
               <Trash2 size={13} strokeWidth={2} />
-              {saving ? "Đang xóa…" : "Xóa key"}
+              {saving ? t("common.deleting") : t("conn.delete-key")}
             </Button>
           </div>
         )}
@@ -315,7 +318,7 @@ function ProviderCard({
         {savedNotice && (
           <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
             <Check size={13} strokeWidth={2} className="shrink-0" />
-            Đã lưu — có hiệu lực ngay, không cần restart.
+            {t("conn.saved")}
           </p>
         )}
       </div>
@@ -328,7 +331,7 @@ function ProviderCard({
           ) : (
             <PlugZap size={14} strokeWidth={2} />
           )}
-          {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
+          {testing ? t("conn.testing") : t("conn.test")}
         </Button>
         {testResult && (
           <span
@@ -350,15 +353,30 @@ function ProviderCard({
 
       {conn.id === "claude" && (
         <p className="mt-3 border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
-          Khuyên dùng: đăng nhập Claude Code (VSCode) để dùng subscription —
-          không tốn phí API. API key chỉ cần khi không đăng nhập được.
+          {t("conn.claude-note")}
         </p>
       )}
+
+      {/* Modal xác nhận xóa API key — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        title={t("conn.delete-key-title")}
+        description={
+          <>
+            {t("conn.delete-desc-1")}{" "}
+            <span className="font-medium">{conn.label}</span>? {t("conn.delete-desc-2")}
+          </>
+        }
+        busy={saving}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDeleteKey}
+      />
     </Card>
   );
 }
 
 export default function ConnectionsPage() {
+  const { t } = useT();
   const [connections, setConnections] = useState<ConnectionInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -378,10 +396,10 @@ export default function ConnectionsPage() {
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <PageHeader title="Kết nối" subtitle="Quản lý AI và API key" />
+      <PageHeader title={t("nav.connections")} subtitle={t("conn.subtitle")} />
 
       {error && (
-        <ErrorBanner message="Không tải được danh sách kết nối." detail={error} />
+        <ErrorBanner message={t("conn.load-error")} detail={error} />
       )}
 
       {connections && connections.length > 0 ? (
@@ -394,7 +412,7 @@ export default function ConnectionsPage() {
         <Card>
           <EmptyState
             icon={Plug}
-            description="Server chưa cấu hình provider nào — kiểm tra backend."
+            description={t("conn.empty")}
           />
         </Card>
       ) : !error ? (

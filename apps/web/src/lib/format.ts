@@ -1,4 +1,14 @@
-/** Helpers định dạng hiển thị — tiếng Việt. */
+/** Helpers định dạng hiển thị — theo ngôn ngữ UI đang chọn (vi/en). */
+
+type FormatLang = "vi" | "en";
+
+// LanguageProvider set giá trị này mỗi render — mọi component con render sau
+// đó sẽ format đúng ngôn ngữ, không cần truyền lang qua từng call site.
+let FORMAT_LANG: FormatLang = "vi";
+
+export function setFormatLang(lang: FormatLang): void {
+  FORMAT_LANG = lang;
+}
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "—";
@@ -22,20 +32,24 @@ export function formatDateTime(iso: string | null | undefined): string {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-/** "5 phút trước", "2 giờ trước"… */
+/** "5 phút trước" / "5 minutes ago"… theo ngôn ngữ UI. */
 export function formatRelative(iso: string | null | undefined): string {
   if (!iso) return "—";
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return "—";
   const diff = Date.now() - t;
   const sec = Math.round(diff / 1000);
-  if (sec < 60) return "vừa xong";
+  const en = FORMAT_LANG === "en";
+  if (sec < 60) return en ? "just now" : "vừa xong";
   const min = Math.round(sec / 60);
-  if (min < 60) return `${min} phút trước`;
+  if (min < 60)
+    return en ? `${min} minute${min === 1 ? "" : "s"} ago` : `${min} phút trước`;
   const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr} giờ trước`;
+  if (hr < 24)
+    return en ? `${hr} hour${hr === 1 ? "" : "s"} ago` : `${hr} giờ trước`;
   const day = Math.round(hr / 24);
-  if (day < 30) return `${day} ngày trước`;
+  if (day < 30)
+    return en ? `${day} day${day === 1 ? "" : "s"} ago` : `${day} ngày trước`;
   return formatDateTime(iso);
 }
 
@@ -51,7 +65,7 @@ export function formatJobDuration(
   const sec = Math.max(0, Math.round((end - start) / 1000));
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);
-  return `${min}p ${sec % 60}s`;
+  return `${min}${FORMAT_LANG === "en" ? "m" : "p"} ${sec % 60}s`;
 }
 
 export function formatDurationMs(ms: number | null): string {
@@ -59,7 +73,7 @@ export function formatDurationMs(ms: number | null): string {
   const sec = ms / 1000;
   if (sec < 60) return `${sec.toFixed(1)}s`;
   const min = Math.floor(sec / 60);
-  return `${min}p ${Math.round(sec % 60)}s`;
+  return `${min}${FORMAT_LANG === "en" ? "m" : "p"} ${Math.round(sec % 60)}s`;
 }
 
 /** Số token gọn: 950 → "950", 1234 → "1.2K", 3400000 → "3.4M". */

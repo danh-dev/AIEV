@@ -40,6 +40,7 @@ import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
+import { useT } from "@/lib/i18n";
 
 interface UiMessage {
   role: "user" | "assistant";
@@ -62,36 +63,49 @@ function ToolChip({ name, input }: { name: string; input?: string }) {
   );
 }
 
-/** Diễn giải tool đang chạy thành hành động tiếng Việt dễ hiểu */
-export function toolActionLabel(name: string, input?: unknown): string {
+/** Diễn giải tool đang chạy thành hành động dễ hiểu — theo ngôn ngữ UI. */
+export function toolActionLabel(
+  name: string,
+  input: unknown,
+  t: (key: string) => string
+): string {
   const inp = (input ?? {}) as Record<string, unknown>;
   const file =
     typeof inp.file_path === "string"
       ? String(inp.file_path).split(/[\\/]/).pop()
       : undefined;
+  const sub = (key: string, vars: Record<string, string>) => {
+    let out = t(key);
+    for (const [k, v] of Object.entries(vars)) {
+      out = out.split(`{${k}}`).join(v);
+    }
+    return out;
+  };
   switch (name) {
     case "Bash":
       return typeof inp.description === "string" && inp.description
-        ? `Chạy lệnh: ${inp.description}`
-        : "Đang chạy lệnh…";
+        ? sub("chat.tool.bash-desc", { desc: inp.description })
+        : t("chat.tool.bash");
     case "Read":
-      return file ? `Đọc file ${file}` : "Đang đọc file…";
+      return file ? sub("chat.tool.read-file", { file }) : t("chat.tool.read");
     case "Write":
-      return file ? `Tạo file ${file}` : "Đang tạo file…";
+      return file ? sub("chat.tool.write-file", { file }) : t("chat.tool.write");
     case "Edit":
-      return file ? `Sửa file ${file}` : "Đang sửa file…";
+      return file ? sub("chat.tool.edit-file", { file }) : t("chat.tool.edit");
     case "Glob":
     case "Grep":
-      return "Đang tìm trong dự án…";
+      return t("chat.tool.search");
     case "Skill":
-      return typeof inp.skill === "string" ? `Dùng skill ${inp.skill}` : "Đang dùng skill…";
+      return typeof inp.skill === "string"
+        ? sub("chat.tool.skill-name", { skill: inp.skill })
+        : t("chat.tool.skill");
     case "TodoWrite":
-      return "Cập nhật kế hoạch làm việc";
+      return t("chat.tool.todo");
     case "WebFetch":
     case "WebSearch":
-      return "Đang tra cứu web…";
+      return t("chat.tool.web");
     default:
-      return `Đang dùng ${name}…`;
+      return sub("chat.tool.generic", { name });
   }
 }
 
@@ -136,12 +150,13 @@ function SessionEndBlock({
   finalText: string | null;
   compact: boolean;
 }) {
+  const { t } = useT();
   if (status === "done") {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--success-bg)] px-3 py-2.5">
         <p className="flex items-center gap-2 text-sm font-medium text-[var(--success)]">
           <CheckCircle2 size={15} strokeWidth={2} className="shrink-0" />
-          Hoàn thành
+          {t("chat.done")}
         </p>
         {finalText && (
           <p
@@ -160,7 +175,7 @@ function SessionEndBlock({
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--danger-bg)] px-3 py-2.5">
         <p className="flex items-center gap-2 text-sm font-medium text-[var(--danger)]">
           <AlertCircle size={15} strokeWidth={2} className="shrink-0" />
-          Phiên kết thúc do lỗi
+          {t("chat.ended-error")}
         </p>
         {finalText && (
           <p
@@ -179,7 +194,7 @@ function SessionEndBlock({
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5">
         <p className="flex items-center gap-2 text-sm font-medium text-[var(--text-muted)]">
           <PauseCircle size={15} strokeWidth={2} className="shrink-0" />
-          Phiên bị tạm dừng — gửi tin nhắn để AI làm tiếp.
+          {t("chat.interrupted")}
         </p>
       </div>
     );
@@ -210,6 +225,7 @@ export function ChatThread({
   /** Cho chọn model/mode khi tạo phiên MỚI (hàng select nhỏ phía trên input). */
   providersEnabled?: boolean;
 }) {
+  const { t, tf } = useT();
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [streamText, setStreamText] = useState("");
   const [running, setRunning] = useState(false);
@@ -232,7 +248,7 @@ export function ChatThread({
 
   // Tiến trình công việc AI: số bước tool đã chạy + hành động hiện tại + thời gian
   const [steps, setSteps] = useState(0);
-  const [currentAction, setCurrentAction] = useState("Đang suy nghĩ…");
+  const [currentAction, setCurrentAction] = useState(t("chat.thinking"));
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   // Phiên VỪA lỗi ngay trước mắt (SSE) — chỉ khi đó server mới lên lịch tự chạy tiếp;
@@ -307,7 +323,7 @@ export function ChatThread({
       setStartedAt(started);
       setElapsed(Math.max(0, Date.now() - started));
       setSteps(0);
-      setCurrentAction("Đang làm việc…");
+      setCurrentAction(t("chat.working"));
     } else {
       setRunning(false);
     }
@@ -350,9 +366,11 @@ export function ChatThread({
       if (session.status === "running" && !running) {
         setRunning(true);
         setStatus("running");
-        const t = session.runStartedAt ? Date.parse(session.runStartedAt) : NaN;
-        setStartedAt(Number.isFinite(t) ? t : Date.now());
-        setCurrentAction("Đang làm việc…");
+        const ts = session.runStartedAt
+          ? Date.parse(session.runStartedAt)
+          : NaN;
+        setStartedAt(Number.isFinite(ts) ? ts : Date.now());
+        setCurrentAction(t("chat.working"));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ phản ứng khi prop session đổi
@@ -381,7 +399,7 @@ export function ChatThread({
       case "text":
         markRunning();
         setStatus("running");
-        setCurrentAction("Đang soạn nội dung…");
+        setCurrentAction(t("dash.composing"));
         streamRef.current += e.text ?? "";
         setStreamText(streamRef.current);
         break;
@@ -389,7 +407,9 @@ export function ChatThread({
         markRunning();
         setStatus("running");
         setSteps((n) => n + 1);
-        setCurrentAction(toolActionLabel(e.tool?.name ?? "tool", e.tool?.input));
+        setCurrentAction(
+          toolActionLabel(e.tool?.name ?? "tool", e.tool?.input, t)
+        );
         // chốt phần text đang stream rồi chèn chip công cụ
         flushStream();
         setMessages((m) => [
@@ -416,7 +436,7 @@ export function ChatThread({
         break;
       case "error":
         flushStream();
-        setAgentError(e.error ?? "Agent gặp lỗi không xác định.");
+        setAgentError(e.error ?? t("chat.unknown-error"));
         setStatus("error");
         setRunning(false);
         setJustFailed(true);
@@ -448,7 +468,7 @@ export function ChatThread({
     setAgentError(null);
     setMessages((m) => [...m, { role: "user", kind: "text", content: message }]);
     setSteps(0);
-    setCurrentAction("Đang suy nghĩ…");
+    setCurrentAction(t("chat.thinking"));
     setStartedAt(Date.now());
     setElapsed(0);
     setRunning(true);
@@ -525,8 +545,8 @@ export function ChatThread({
   const runDurationLabel =
     runDurationMs !== null
       ? status === "done"
-        ? `Hoàn thành trong ${formatElapsed(runDurationMs)}`
-        : `Dừng sau ${formatElapsed(runDurationMs)}`
+        ? tf("chat.done-in", { time: formatElapsed(runDurationMs) })
+        : tf("chat.stopped-after", { time: formatElapsed(runDurationMs) })
       : null;
 
   // Chỉ phiên VỪA lỗi trước mắt mới được server lên lịch tự chạy tiếp
@@ -549,7 +569,7 @@ export function ChatThread({
       {sessionId && status && (
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
           <span className="text-xs font-medium text-[var(--text-muted)]">
-            Phiên AI
+            {t("chat.session")}
           </span>
           <div className="flex min-w-0 items-center gap-3">
             {runDurationLabel && (
@@ -560,20 +580,20 @@ export function ChatThread({
             {sessionInfo && (
               <span
                 className="flex shrink-0 items-center gap-1.5"
-                title="Phiên bị lỗi/gián đoạn sẽ tự chạy tiếp (tối đa 3 lần không tiến bộ; phiên edit: 12 — có tiến bộ thì đếm lại từ đầu)"
+                title={t("chat.auto-resume-title")}
               >
                 <button
                   type="button"
                   className="cursor-pointer text-xs text-[var(--text-muted)]"
                   onClick={onToggleAutoResume}
                 >
-                  Tự chạy tiếp
+                  {t("chat.auto-resume")}
                 </button>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={sessionInfo.autoResume}
-                  aria-label="Tự chạy tiếp khi gián đoạn"
+                  aria-label={t("chat.auto-resume-aria")}
                   className="switch scale-[0.85]"
                   onClick={onToggleAutoResume}
                 />
@@ -591,12 +611,12 @@ export function ChatThread({
         }`}
       >
         {loadError && (
-          <ErrorBanner message="Không tải được lịch sử chat." detail={loadError} />
+          <ErrorBanner message={t("chat.history-error")} detail={loadError} />
         )}
         {messages.length === 0 && !streamText && !loadError && !running && (
           <EmptyState
             icon={MessageSquare}
-            description='Nhắn cho Claude để bắt đầu, vd: "Dựng video TikTok từ clip trong imports/".'
+            description={t("chat.empty")}
           />
         )}
         {visibleMessages.map((m, i) => (
@@ -610,11 +630,11 @@ export function ChatThread({
         )}
         {running && !streamText && (
           <p className="text-xs text-[var(--text-muted)]">
-            Claude đang làm việc…
+            {t("chat.claude-working")}
           </p>
         )}
         {agentError && (
-          <ErrorBanner message="Agent gặp lỗi." detail={agentError} />
+          <ErrorBanner message={t("chat.agent-error")} detail={agentError} />
         )}
         {showEndBlock && status && (
           <SessionEndBlock
@@ -625,18 +645,18 @@ export function ChatThread({
         )}
         {willAutoResume && (
           <p className="text-xs text-[var(--text-muted)]">
-            Sẽ tự chạy tiếp…
+            {t("chat.will-resume")}
           </p>
         )}
       </div>
 
       {running && (
         <div className="flex flex-col gap-1.5 border-t border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
-          <div className="progress-indeterminate" aria-label="AI đang làm việc" />
+          <div className="progress-indeterminate" aria-label={t("dash.ai-working")} />
           <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
             <span className="truncate">{currentAction}</span>
             <span className="shrink-0 pl-3">
-              {steps > 0 && <>Bước {steps} · </>}
+              {steps > 0 && <>{tf("chat.step-n", { n: steps })} · </>}
               {formatElapsed(elapsed)}
             </span>
           </div>
@@ -668,9 +688,7 @@ export function ChatThread({
           className={`input min-h-9 flex-1 ${compact ? "text-[13px]" : ""}`}
           rows={1}
           placeholder={
-            compact
-              ? "Dặn dò thêm cho AI…"
-              : "Nhắn cho Claude… (Enter để gửi, Shift+Enter xuống dòng)"
+            compact ? t("chat.placeholder-compact") : t("chat.placeholder")
           }
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -684,12 +702,12 @@ export function ChatThread({
         {running ? (
           <Button variant="destructive" small={compact} onClick={onInterrupt}>
             <Square size={14} strokeWidth={2} />
-            Dừng
+            {t("chat.stop")}
           </Button>
         ) : (
           <Button small={compact} onClick={onSend} disabled={!input.trim()}>
             <Send size={14} strokeWidth={2} />
-            Gửi
+            {t("chat.send")}
           </Button>
         )}
       </div>

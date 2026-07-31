@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { formatBytes, formatRelative } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 type Scope = "imports" | "outputs";
 
@@ -40,6 +41,7 @@ function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
 }
 
 function Preview({ file, onClose }: { file: FileInfo; onClose: () => void }) {
+  const { t } = useT();
   const url = mediaUrl(file.relPath) + "?v=" + encodeURIComponent(file.mtime);
   return (
     <Card
@@ -48,7 +50,7 @@ function Preview({ file, onClose }: { file: FileInfo; onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          aria-label="Đóng preview"
+          aria-label={t("assetsPage.close-preview")}
           className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
         >
           <X size={16} strokeWidth={2} />
@@ -73,14 +75,14 @@ function Preview({ file, onClose }: { file: FileInfo; onClose: () => void }) {
       )}
       {file.kind === "other" && (
         <p className="text-sm text-[var(--text-muted)]">
-          Không preview được loại file này.{" "}
+          {t("assetsPage.no-preview")}{" "}
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
             className="font-medium text-[var(--primary)]"
           >
-            Mở trực tiếp
+            {t("assetsPage.open-direct")}
           </a>
         </p>
       )}
@@ -90,6 +92,7 @@ function Preview({ file, onClose }: { file: FileInfo; onClose: () => void }) {
 }
 
 export default function AssetsPage() {
+  const { t } = useT();
   const [scope, setScope] = useState<Scope>("imports");
   const [files, setFiles] = useState<FileInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -132,15 +135,15 @@ export default function AssetsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Assets"
-        subtitle="Footage, ảnh, audio trong imports/ và video final trong outputs/"
+        title={t("nav.assets")}
+        subtitle={t("assetsPage.subtitle")}
         actions={
           <Button
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
           >
             <Upload size={15} strokeWidth={2} />
-            {uploading ? "Đang tải lên…" : "Tải file lên"}
+            {uploading ? t("common.uploading") : t("assetsPage.upload")}
           </Button>
         }
       />
@@ -173,10 +176,10 @@ export default function AssetsPage() {
       </div>
 
       {error && (
-        <ErrorBanner message="Không tải được danh sách file." detail={error} />
+        <ErrorBanner message={t("assetsPage.load-error")} detail={error} />
       )}
       {uploadError && (
-        <ErrorBanner message="Tải file lên thất bại." detail={uploadError} />
+        <ErrorBanner message={t("assetsPage.upload-error")} detail={uploadError} />
       )}
 
       <div
@@ -200,8 +203,8 @@ export default function AssetsPage() {
               <thead>
                 <tr>
                   <th>File</th>
-                  <th>Kích thước</th>
-                  <th>Sửa đổi</th>
+                  <th>{t("common.size")}</th>
+                  <th>{t("common.modified")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,21 +235,21 @@ export default function AssetsPage() {
               icon={FolderOpen}
               description={
                 scope === "imports"
-                  ? "Chưa có file nào trong imports/. Kéo thả file vào đây hoặc bấm Tải file lên."
-                  : "Chưa có video final nào trong outputs/. Render final một project để thấy file ở đây."
+                  ? t("assetsPage.empty-imports")
+                  : t("assetsPage.empty-outputs")
               }
               action={
                 scope === "imports" ? (
                   <Button onClick={() => inputRef.current?.click()}>
                     <Upload size={15} strokeWidth={2} />
-                    Tải file lên
+                    {t("assetsPage.upload")}
                   </Button>
                 ) : undefined
               }
             />
           ) : (
             <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-              Đang tải…
+              {t("common.loading")}
             </p>
           )}
         </Card>

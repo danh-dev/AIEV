@@ -17,21 +17,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { getHealth, type Health } from "@/lib/api";
+import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UpdateBadge } from "@/components/UpdateBadge";
+import { useT } from "@/lib/i18n";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/projects", label: "Videos Project", icon: Clapperboard },
-  { href: "/images", label: "Images Project", icon: Images },
-  { href: "/styles", label: "Style Design", icon: Palette },
-  { href: "/queue", label: "Render Queue", icon: ListVideo },
-  { href: "/assets", label: "Assets", icon: FolderOpen },
-  { href: "/sfx", label: "Sound Effects", icon: AudioLines },
-  { href: "/prompts", label: "Prompts", icon: ScrollText },
-  { href: "/skills", label: "Skills", icon: BookOpen },
-  { href: "/config", label: "Cấu hình", icon: Settings2 },
-  { href: "/connections", label: "Kết nối", icon: Plug },
+  { href: "/", label: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/projects", label: "nav.projects", icon: Clapperboard },
+  { href: "/images", label: "nav.images", icon: Images },
+  { href: "/styles", label: "nav.styles", icon: Palette },
+  { href: "/queue", label: "nav.queue", icon: ListVideo },
+  { href: "/assets", label: "nav.assets", icon: FolderOpen },
+  { href: "/sfx", label: "nav.sfx", icon: AudioLines },
+  { href: "/prompts", label: "nav.prompts", icon: ScrollText },
+  { href: "/skills", label: "nav.skills", icon: BookOpen },
+  { href: "/config", label: "nav.config", icon: Settings2 },
+  { href: "/connections", label: "nav.connections", icon: Plug },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
@@ -43,12 +45,13 @@ function pageTitle(pathname: string): string {
   const item = NAV.filter((n) => isActive(pathname, n.href)).sort(
     (a, b) => b.href.length - a.href.length
   )[0];
-  return item?.label ?? "Dashboard";
+  return item?.label ?? "nav.dashboard";
 }
 
 const HEALTH_POLL_MS = 30_000;
 
 function BackendStatus() {
+  const { t } = useT();
   const [health, setHealth] = useState<Health | null>(null);
   const [reachable, setReachable] = useState<boolean | null>(null);
 
@@ -77,12 +80,12 @@ function BackendStatus() {
   const ok = reachable === true && health?.ok === true;
   const label =
     reachable === null
-      ? "Đang kiểm tra backend…"
+      ? t("shell.backend-checking")
       : ok
-        ? "Backend hoạt động"
+        ? t("shell.backend-ok")
         : reachable
-          ? "Backend thiếu thành phần"
-          : "Không kết nối được backend";
+          ? t("shell.backend-partial")
+          : t("shell.backend-unreachable");
 
   return (
     <div className="flex items-center gap-2" title={label}>
@@ -99,6 +102,7 @@ function BackendStatus() {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
+  const { t } = useT();
   const pathname = usePathname();
 
   return (
@@ -119,9 +123,10 @@ export function Shell({ children }: { children: ReactNode }) {
             className="logo-dark h-7 w-auto"
           />
         </Link>
-        <span className="text-sm font-semibold">{pageTitle(pathname)}</span>
+        <span className="text-sm font-semibold">{t(pageTitle(pathname))}</span>
         <div className="ml-auto flex items-center gap-3">
           <BackendStatus />
+          <LanguageToggle />
           <ThemeToggle />
         </div>
       </header>
@@ -136,7 +141,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 className={`nav-item ${isActive(pathname, href) ? "active" : ""}`}
               >
                 <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-                {label}
+                {t(label)}
               </Link>
             ))}
           </nav>

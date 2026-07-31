@@ -18,15 +18,18 @@ import {
 } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { formatRelative } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 /** null = đang xem danh sách; id null = tạo mới. */
 type Editor = { id: string | null; name: string; content: string };
 
 export default function PromptsPage() {
+  const { t, tf } = useT();
   const [prompts, setPrompts] = useState<PromptTemplate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +39,8 @@ export default function PromptsPage() {
 
   // Prompt đang xóa — chặn double-submit nút xóa
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Prompt đang chờ xác nhận xóa (modal gõ DELETE)
+  const [deleteTarget, setDeleteTarget] = useState<PromptTemplate | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -73,12 +78,6 @@ export default function PromptsPage() {
 
   async function onDelete(p: PromptTemplate) {
     if (deletingId) return;
-    if (
-      !window.confirm(
-        `Xóa prompt mẫu "${p.name}"? Hành động này không hoàn tác được.`
-      )
-    )
-      return;
     setDeletingId(p.id);
     try {
       await deletePrompt(p.id);
@@ -87,6 +86,7 @@ export default function PromptsPage() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setDeletingId(null);
+      setDeleteTarget(null);
     }
   }
 
@@ -96,8 +96,8 @@ export default function PromptsPage() {
     return (
       <div className="flex h-[calc(100vh-56px-40px)] w-full flex-col gap-4">
         <PageHeader
-          title={editor.id ? "Sửa prompt mẫu" : "Tạo prompt mẫu"}
-          subtitle="Prompt mẫu đổ được vào ô Yêu cầu edit trong brief của project."
+          title={editor.id ? t("prompts.edit-title") : t("prompts.create")}
+          subtitle={t("prompts.editor-subtitle")}
           actions={
             <>
               <Button
@@ -106,25 +106,25 @@ export default function PromptsPage() {
                 onClick={() => setEditor(null)}
               >
                 <ArrowLeft size={15} strokeWidth={2} />
-                Danh sách
+                {t("common.back-to-list")}
               </Button>
               <Button onClick={onSave} disabled={!valid || saving}>
                 <Save size={15} strokeWidth={2} />
-                {saving ? "Đang lưu…" : "Lưu"}
+                {saving ? t("common.saving") : t("common.save")}
               </Button>
             </>
           }
         />
 
         {saveError && (
-          <ErrorBanner message="Không lưu được prompt mẫu." detail={saveError} />
+          <ErrorBanner message={t("prompts.save-error")} detail={saveError} />
         )}
 
         <Card className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             <div>
               <label className="label" htmlFor="prompt-name">
-                Tên prompt mẫu
+                {t("prompts.name-label")}
               </label>
               <input
                 id="prompt-name"
@@ -133,12 +133,12 @@ export default function PromptsPage() {
                 onChange={(e) =>
                   setEditor((s) => (s ? { ...s, name: e.target.value } : s))
                 }
-                placeholder="vd: Noti TikTok — chuyên nghiệp, sound nhẹ nhàng"
+                placeholder={t("prompts.name-placeholder")}
               />
             </div>
             <div className="flex min-h-0 flex-1 flex-col">
               <label className="label" htmlFor="prompt-content">
-                Nội dung prompt
+                {t("prompts.content-label")}
               </label>
               <textarea
                 id="prompt-content"
@@ -147,7 +147,7 @@ export default function PromptsPage() {
                 onChange={(e) =>
                   setEditor((s) => (s ? { ...s, content: e.target.value } : s))
                 }
-                placeholder="Mô tả chi tiết bạn muốn AI edit video thế nào — phong cách, nhịp cắt, chữ động, sound effect…"
+                placeholder={t("prompts.content-placeholder")}
               />
             </div>
           </div>
@@ -160,21 +160,21 @@ export default function PromptsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Prompts"
-        subtitle="Prompt mẫu tái sử dụng — đổ vào ô Yêu cầu edit của project chỉ với một cú chọn."
+        title={t("nav.prompts")}
+        subtitle={t("prompts.subtitle")}
         actions={
           <Button
             onClick={() => setEditor({ id: null, name: "", content: "" })}
           >
             <Plus size={16} strokeWidth={2} />
-            Tạo prompt mẫu
+            {t("prompts.create")}
           </Button>
         }
       />
 
       {error && (
         <ErrorBanner
-          message="Không tải được danh sách prompt mẫu."
+          message={t("prompts.load-error")}
           detail={error}
         />
       )}
@@ -198,7 +198,7 @@ export default function PromptsPage() {
               </div>
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
                 <span className="text-xs text-[var(--text-muted)]">
-                  Sửa {formatRelative(p.updatedAt)}
+                  {tf("prompts.edited", { time: formatRelative(p.updatedAt) })}
                 </span>
                 <span className="flex items-center gap-1">
                   <Button
@@ -209,17 +209,17 @@ export default function PromptsPage() {
                     }
                   >
                     <Pencil size={13} strokeWidth={2} />
-                    Sửa
+                    {t("common.edit")}
                   </Button>
                   <Button
                     variant="destructive"
                     small
                     disabled={deletingId === p.id}
-                    onClick={() => onDelete(p)}
-                    aria-label={`Xóa prompt mẫu ${p.name}`}
+                    onClick={() => setDeleteTarget(p)}
+                    aria-label={tf("prompts.delete-aria", { name: p.name })}
                   >
                     <Trash2 size={13} strokeWidth={2} />
-                    {deletingId === p.id ? "Đang xóa…" : "Xóa"}
+                    {deletingId === p.id ? t("common.deleting") : t("common.delete")}
                   </Button>
                 </span>
               </div>
@@ -230,22 +230,41 @@ export default function PromptsPage() {
         <Card>
           <EmptyState
             icon={ScrollText}
-            description="Chưa có prompt mẫu nào. Tạo prompt để tái sử dụng cho nhiều project."
+            description={t("prompts.empty")}
             action={
               <Button
                 onClick={() => setEditor({ id: null, name: "", content: "" })}
               >
                 <Plus size={16} strokeWidth={2} />
-                Tạo prompt mẫu
+                {t("prompts.create")}
               </Button>
             }
           />
         </Card>
       ) : (
         <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-          Đang tải…
+          {t("common.loading")}
         </p>
       )}
+
+      {/* Modal xác nhận xóa prompt mẫu — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title={t("prompts.delete-title")}
+        description={
+          deleteTarget && (
+            <>
+              {t("prompts.delete-desc-1")}{" "}
+              <span className="font-medium">{deleteTarget.name}</span>? {t("common.no-undo")}
+            </>
+          )
+        }
+        busy={deleteTarget !== null && deletingId === deleteTarget.id}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) onDelete(deleteTarget);
+        }}
+      />
     </div>
   );
 }

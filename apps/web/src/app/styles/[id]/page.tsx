@@ -37,18 +37,21 @@ import {
 } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { TagInput } from "@/components/TagInput";
 import { refreshStyles } from "@/components/StyleSelect";
 import { formatRelative } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
+// label là KEY dictionary — dịch bằng t() lúc render.
 const COLOR_FIELDS: { key: keyof StyleColors; label: string }[] = [
-  { key: "primary", label: "Màu chính" },
-  { key: "secondary", label: "Màu phụ" },
-  { key: "background", label: "Màu nền" },
-  { key: "text", label: "Màu chữ" },
-  { key: "accent", label: "Màu nhấn" },
+  { key: "primary", label: "styleDetail.color.primary" },
+  { key: "secondary", label: "styleDetail.color.secondary" },
+  { key: "background", label: "styleDetail.color.background" },
+  { key: "text", label: "styleDetail.color.text" },
+  { key: "accent", label: "styleDetail.color.accent" },
 ];
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -74,8 +77,8 @@ const GOOGLE_FONT_SUGGESTIONS = [
 ];
 
 const FONT_SLOTS: { slot: StyleFontSlot; label: string }[] = [
-  { slot: "heading", label: "Font tiêu đề (heading)" },
-  { slot: "body", label: "Font nội dung (body)" },
+  { slot: "heading", label: "styleDetail.font.heading" },
+  { slot: "body", label: "styleDetail.font.body" },
 ];
 
 function ColorField({
@@ -91,6 +94,7 @@ function ColorField({
   disabled: boolean;
   onChange: (v: string) => void;
 }) {
+  const { t } = useT();
   const valid = HEX_RE.test(value);
   return (
     <div>
@@ -100,7 +104,7 @@ function ColorField({
       <div className="flex items-center gap-2">
         <input
           type="color"
-          aria-label={`${label} (bảng màu)`}
+          aria-label={`${label} ${t("styleDetail.palette-aria")}`}
           className="h-9 w-9 shrink-0 cursor-pointer rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-0.5"
           value={valid ? value : COLOR_INPUT_FALLBACK}
           disabled={disabled}
@@ -169,6 +173,7 @@ export default function StyleDetailPage() {
   const params = useParams<{ id: string }>();
   const styleId = params.id;
   const router = useRouter();
+  const { t, tf } = useT();
 
   const [style, setStyle] = useState<StyleDesign | null>(null);
   const [defaultId, setDefaultId] = useState<string | null>(null);
@@ -264,13 +269,11 @@ export default function StyleDetailPage() {
     }
   }
 
+  // Modal xác nhận xóa style — bắt gõ DELETE (thay window.confirm)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   async function onDelete() {
-    if (
-      !window.confirm(
-        `Xóa style "${style?.name ?? styleId}"? Sản phẩm đang trỏ vào style này sẽ quay về style mặc định.`
-      )
-    )
-      return;
+    if (deleting) return;
     setDeleting(true);
     setDeleteError(null);
     try {
@@ -280,6 +283,7 @@ export default function StyleDetailPage() {
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : String(e));
       setDeleting(false);
+      setDeleteOpen(false);
     }
   }
 
@@ -304,7 +308,7 @@ export default function StyleDetailPage() {
     if (!family) {
       setFontDl((m) => ({
         ...m,
-        [slot]: { error: "Nhập tên font trước khi tải." },
+        [slot]: { error: t("styleDetail.font-name-required") },
       }));
       return;
     }
@@ -363,12 +367,14 @@ export default function StyleDetailPage() {
       <PageHeader
         title={style?.name ?? styleId}
         subtitle={
-          style ? `Cập nhật ${formatRelative(style.updatedAt)}` : undefined
+          style
+            ? tf("styleDetail.updated", { time: formatRelative(style.updatedAt) })
+            : undefined
         }
         actions={
           <Button variant="secondary" onClick={() => router.push("/styles")}>
             <ArrowLeft size={15} strokeWidth={2} />
-            Style Design
+            {t("nav.styles")}
           </Button>
         }
       />
@@ -377,7 +383,7 @@ export default function StyleDetailPage() {
         <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
           {isDefault && (
             <span className="rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-              Mặc định
+              {t("styles.default")}
             </span>
           )}
           <span>ID: {style.id}</span>
@@ -385,30 +391,30 @@ export default function StyleDetailPage() {
       )}
 
       {loadError && (
-        <ErrorBanner message="Không tải được style." detail={loadError} />
+        <ErrorBanner message={t("styleDetail.load-error")} detail={loadError} />
       )}
       {notFound && (
         <ErrorBanner
-          message={`Không tìm thấy style "${styleId}".`}
-          detail="Style có thể đã bị xóa — quay lại danh sách Style Design."
+          message={tf("styleDetail.not-found", { id: styleId })}
+          detail={t("styleDetail.not-found-detail")}
         />
       )}
-      {saveError && <ErrorBanner message="Không lưu được." detail={saveError} />}
+      {saveError && <ErrorBanner message={t("common.save-error")} detail={saveError} />}
       {deleteError && (
-        <ErrorBanner message="Không xóa được style." detail={deleteError} />
+        <ErrorBanner message={t("styleDetail.delete-error")} detail={deleteError} />
       )}
 
       {style && (
         <>
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
             {/* ============ Cột trái — Nhận diện ============ */}
-            <Card title="Nhận diện">
+            <Card title={t("styleDetail.identity")}>
               <div className="flex flex-col gap-4">
                 <StylePreview style={style} />
 
                 <div>
                   <label className="label" htmlFor="style-name">
-                    Tên style
+                    {t("stylesPage.name-label")}
                   </label>
                   <input
                     id="style-name"
@@ -416,13 +422,13 @@ export default function StyleDetailPage() {
                     value={style.name}
                     disabled={busy}
                     onChange={(e) => patch({ name: e.target.value })}
-                    placeholder="vd: Noti.vn dark fintech"
+                    placeholder={t("stylesPage.name-placeholder")}
                   />
                 </div>
 
                 <div>
                   <label className="label" htmlFor="style-tags">
-                    Tags
+                    {t("common.tags")}
                   </label>
                   <TagInput
                     id="style-tags"
@@ -432,13 +438,13 @@ export default function StyleDetailPage() {
                 </div>
 
                 <div>
-                  <span className="label">Bảng màu</span>
+                  <span className="label">{t("styleDetail.palette")}</span>
                   <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
                     {COLOR_FIELDS.map(({ key, label }) => (
                       <ColorField
                         key={key}
                         id={`style-color-${key}`}
-                        label={label}
+                        label={t(label)}
                         value={style.colors[key] ?? ""}
                         disabled={busy}
                         onChange={(v) =>
@@ -450,7 +456,7 @@ export default function StyleDetailPage() {
                 </div>
 
                 <div>
-                  <span className="label">Hiệu ứng</span>
+                  <span className="label">{t("styleDetail.effects")}</span>
                   <div className="flex flex-col gap-3">
                     <label className="flex cursor-pointer items-start gap-2.5">
                       <input
@@ -469,8 +475,7 @@ export default function StyleDetailPage() {
                           Gradient
                         </span>
                         <span className="block text-xs text-[var(--text-muted)]">
-                          Chữ highlight + bề mặt dùng chuyển màu
-                          primary→secondary
+                          {t("styleDetail.gradient-hint")}
                         </span>
                       </span>
                     </label>
@@ -494,8 +499,7 @@ export default function StyleDetailPage() {
                           Liquid Glass
                         </span>
                         <span className="block text-xs text-[var(--text-muted)]">
-                          Chất liệu kính mờ: chip số liệu, phần tử 3D trong ảnh
-                          nền
+                          {t("styleDetail.liquid-hint")}
                         </span>
                       </span>
                     </label>
@@ -505,7 +509,7 @@ export default function StyleDetailPage() {
             </Card>
 
             {/* ============ Cột phải — Chữ & Logo ============ */}
-            <Card title="Chữ & Logo">
+            <Card title={t("styleDetail.type-logo")}>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3">
                   {FONT_SLOTS.map(({ slot, label }) => {
@@ -515,7 +519,7 @@ export default function StyleDetailPage() {
                     return (
                       <div key={slot}>
                         <label className="label" htmlFor={`style-font-${slot}`}>
-                          {label}
+                          {t(label)}
                         </label>
                         <div className="flex items-center gap-2">
                           <input
@@ -552,7 +556,7 @@ export default function StyleDetailPage() {
                             ) : (
                               <Download size={13} strokeWidth={2} />
                             )}
-                            {dl?.busy ? "Đang tải…" : "Tải font này"}
+                            {dl?.busy ? t("styleDetail.downloading") : t("styleDetail.download-font")}
                           </Button>
                         </div>
                         {dl?.error && (
@@ -563,12 +567,11 @@ export default function StyleDetailPage() {
                         {fileName ? (
                           <p className="mt-1 flex items-center gap-1 text-xs text-[var(--success)]">
                             <Check size={12} strokeWidth={2.5} />
-                            Đã có file font: {fileName}
+                            {t("styleDetail.font-ready")} {fileName}
                           </p>
                         ) : (
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            Chưa có file — bấm &ldquo;Tải font này&rdquo; để
-                            render đúng font.
+                            {t("styleDetail.font-missing")}
                           </p>
                         )}
                       </div>
@@ -585,7 +588,7 @@ export default function StyleDetailPage() {
                     className="self-start text-xs text-[var(--text-muted)] underline underline-offset-2 transition-colors duration-150 hover:text-[var(--text)]"
                     onClick={() => setManualFontOpen((o) => !o)}
                   >
-                    hoặc tự upload file font
+                    {t("styleDetail.manual-upload")}
                   </button>
 
                   {manualFontOpen && (
@@ -611,7 +614,7 @@ export default function StyleDetailPage() {
                               }`}
                               title={fileName ?? undefined}
                             >
-                              {fileName ?? "Chưa có — dùng font hệ thống"}
+                              {fileName ?? t("styleDetail.no-font-file")}
                             </span>
                             <Button
                               variant="secondary"
@@ -623,12 +626,12 @@ export default function StyleDetailPage() {
                               }}
                             >
                               <Upload size={13} strokeWidth={2} />
-                              {fontBusy === slot ? "Đang tải…" : "Tải file"}
+                              {fontBusy === slot ? t("styleDetail.downloading") : t("styleDetail.upload-file")}
                             </Button>
                             {fileName && (
                               <button
                                 type="button"
-                                aria-label={`Gỡ font ${label}`}
+                                aria-label={tf("styleDetail.remove-font-aria", { label })}
                                 disabled={fontBusy !== null || busy}
                                 className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg)] hover:text-[var(--danger)] disabled:opacity-50"
                                 onClick={() => onFontRemove(slot)}
@@ -661,7 +664,7 @@ export default function StyleDetailPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={mediaUrl(style.logoPath)}
-                        alt={`Logo ${style.name}`}
+                        alt={tf("stylesPage.logo-alt", { name: style.name })}
                         className="h-14 w-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
                       />
                     ) : (
@@ -680,7 +683,7 @@ export default function StyleDetailPage() {
                       onClick={() => logoInputRef.current?.click()}
                     >
                       <Upload size={14} strokeWidth={2} />
-                      {uploadingLogo ? "Đang tải lên…" : "Tải logo lên"}
+                      {uploadingLogo ? t("common.uploading") : t("styleDetail.upload-logo")}
                     </Button>
                     <input
                       ref={logoInputRef}
@@ -706,7 +709,7 @@ export default function StyleDetailPage() {
                     value={style.tone}
                     disabled={busy}
                     onChange={(e) => patch({ tone: e.target.value })}
-                    placeholder='vd: "hiện đại, tin cậy"'
+                    placeholder={t("styleDetail.tone-placeholder")}
                   />
                 </div>
 
@@ -721,7 +724,7 @@ export default function StyleDetailPage() {
                     value={style.guidelines}
                     disabled={busy}
                     onChange={(e) => patch({ guidelines: e.target.value })}
-                    placeholder="Quy tắc thêm cho AI khi tạo sản phẩm — vd: tránh nền trắng trơn, ưu tiên chiều sâu 3D…"
+                    placeholder={t("styleDetail.guidelines-placeholder")}
                   />
                 </div>
               </div>
@@ -732,7 +735,7 @@ export default function StyleDetailPage() {
           <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-4">
             <Button onClick={onSave} disabled={busy}>
               <Save size={15} strokeWidth={2} />
-              {saving ? "Đang lưu…" : "Lưu"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
             {!isDefault && (
               <Button
@@ -741,29 +744,43 @@ export default function StyleDetailPage() {
                 onClick={onSetDefault}
               >
                 <Star size={14} strokeWidth={2} />
-                {settingDefault ? "Đang đặt…" : "Đặt làm mặc định"}
+                {settingDefault ? t("styleDetail.setting-default") : t("styleDetail.set-default")}
               </Button>
             )}
             {saved && (
-              <span className="text-sm text-[var(--success)]">Đã lưu.</span>
+              <span className="text-sm text-[var(--success)]">{t("common.saved")}</span>
             )}
             <button
               type="button"
               disabled={busy}
               className="ml-auto flex items-center gap-1.5 text-xs font-medium text-[var(--danger)] transition-colors duration-150 hover:opacity-75 disabled:opacity-50"
-              onClick={onDelete}
+              onClick={() => setDeleteOpen(true)}
             >
               <Trash2 size={13} strokeWidth={2} />
-              {deleting ? "Đang xóa…" : "Xóa style"}
+              {deleting ? t("common.deleting") : t("styleDetail.delete")}
             </button>
           </div>
 
           <p className="text-xs text-[var(--text-muted)]">
-            Mọi sản phẩm (ảnh, video) chọn style này sẽ tuân theo 100% màu,
-            font, hiệu ứng, logo và tone ở đây.
+            {t("styleDetail.note")}
           </p>
         </>
       )}
+
+      {/* Modal xác nhận xóa style — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        title={t("styleDetail.delete")}
+        description={
+          <>
+            {t("styleDetail.delete-desc-1")}{" "}
+            <span className="font-medium">{style?.name ?? styleId}</span>? {t("styleDetail.delete-desc-2")}
+          </>
+        }
+        busy={deleting}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDelete}
+      />
     </div>
   );
 }

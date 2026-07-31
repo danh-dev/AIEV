@@ -17,6 +17,7 @@ import {
 import { useJobEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import {
@@ -30,10 +31,12 @@ import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressBar } from "@/components/ProgressBar";
 import { formatBytes, formatDateTime } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 // ============ Danh sách dự án ảnh ============
 
 function ImageProjectList({ onCreate }: { onCreate: () => void }) {
+  const { t, tf } = useT();
   const router = useRouter();
   const [list, setList] = useState<ImageProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
 
   // Chọn nhiều dự án ảnh
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
 
@@ -147,14 +151,6 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   async function onDeleteSelected() {
     if (bulkDeleting || junkBusy || selectedProjects.length === 0) return;
     const targets = selectedProjects;
-    if (
-      !window.confirm(
-        `Xóa ${targets.length} dự án ảnh đã chọn?\n\n${targets
-          .map((p) => `· ${p.name}`)
-          .join("\n")}\n\nToàn bộ ảnh của các dự án này sẽ bị xóa vĩnh viễn.`
-      )
-    )
-      return;
     setBulkDeleting(true);
     setBulkErrors([]);
     // Xóa TUẦN TỰ — lỗi nào gom lại hiện sau
@@ -169,6 +165,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
       }
     }
     setBulkDeleting(false);
+    setBulkDeleteOpen(false);
     setSelected(new Set());
     setBulkErrors(errors);
     await load();
@@ -206,15 +203,18 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
       }
       if (junks.length === 0) {
         if (errors.length > 0) setBulkActionErrors(errors);
-        else setBulkActionNotice("Không có file rác nào để xóa.");
+        else setBulkActionNotice(t("junk.none"));
         return;
       }
       const totalItems = junks.reduce((sum, j) => sum + j.items, 0);
       const totalBytes = junks.reduce((sum, j) => sum + j.bytes, 0);
       if (
         !window.confirm(
-          `Xóa ${totalItems} mục file rác của ${junks.length} dự án ảnh, giải phóng ${formatBytes(totalBytes)}?\n` +
-            "Ảnh nền, ảnh final và meta của dự án được giữ nguyên."
+          tf("imagesPage.junk-confirm", {
+            items: totalItems,
+            projects: junks.length,
+            size: formatBytes(totalBytes),
+          })
         )
       )
         return;
@@ -236,7 +236,11 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
       }
       if (cleaned > 0) {
         setBulkActionNotice(
-          `Đã giải phóng ${formatBytes(freed)} (${deleted} mục file rác, ${cleaned} dự án ảnh).`
+          tf("imagesPage.junk-freed", {
+            size: formatBytes(freed),
+            items: deleted,
+            projects: cleaned,
+          })
         );
       }
       if (errors.length > 0) setBulkActionErrors(errors);
@@ -249,11 +253,11 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   return (
     <>
       {error && (
-        <ErrorBanner message="Không tải được danh sách dự án ảnh." detail={error} />
+        <ErrorBanner message={t("imagesPage.load-error")} detail={error} />
       )}
       {bulkErrors.length > 0 && (
         <ErrorBanner
-          message={`Không xóa được ${bulkErrors.length} dự án ảnh.`}
+          message={tf("imagesPage.bulk-delete-errors", { n: bulkErrors.length })}
           detail={bulkErrors.join("\n")}
         />
       )}
@@ -265,7 +269,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
       )}
       {bulkActionErrors.length > 0 && (
         <ErrorBanner
-          message={`Không xử lý được ${bulkActionErrors.length} dự án ảnh.`}
+          message={tf("imagesPage.bulk-action-errors", { n: bulkActionErrors.length })}
           detail={bulkActionErrors.join("\n")}
         />
       )}
@@ -274,7 +278,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         {selected.size > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
             <span className="text-sm font-medium">
-              Đã chọn {selected.size} dự án ảnh
+              {tf("imagesPage.selected", { n: selected.size })}
             </span>
             <span className="flex-1" />
             <Button
@@ -283,7 +287,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
               disabled={bulkDeleting || junkBusy}
               onClick={() => setSelected(new Set())}
             >
-              Bỏ chọn
+              {t("common.deselect")}
             </Button>
             <Button
               variant="secondary"
@@ -292,16 +296,16 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
               onClick={onBulkCleanJunk}
             >
               <Trash2 size={14} strokeWidth={2} />
-              {junkBusy ? "Đang xóa file rác…" : "Xóa file rác"}
+              {junkBusy ? t("junk.cleaning") : t("junk.clean")}
             </Button>
             <Button
               variant="destructive"
               small
               disabled={bulkDeleting || junkBusy}
-              onClick={onDeleteSelected}
+              onClick={() => setBulkDeleteOpen(true)}
             >
               <Trash2 size={14} strokeWidth={2} />
-              {bulkDeleting ? "Đang xóa…" : "Xóa đã chọn"}
+              {bulkDeleting ? t("common.deleting") : t("common.delete-selected")}
             </Button>
           </div>
         )}
@@ -314,7 +318,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                   <input
                     type="checkbox"
                     className="checkbox align-middle"
-                    aria-label="Chọn tất cả dự án ảnh"
+                    aria-label={t("imagesPage.select-all")}
                     checked={allSelected}
                     ref={(el) => {
                       if (el) el.indeterminate = someSelected;
@@ -323,14 +327,14 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                   />
                 </th>
                 <th className="w-12">
-                  <span className="sr-only">Ảnh</span>
+                  <span className="sr-only">{t("imagesPage.col-image")}</span>
                 </th>
-                <th>Tên</th>
-                <th>Trạng thái</th>
-                <th>Tỉ lệ</th>
+                <th>{t("common.name")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("imagesPage.col-aspect")}</th>
                 <th>Model</th>
-                <th>Tạo lúc</th>
-                <th>Sửa cuối</th>
+                <th>{t("common.created")}</th>
+                <th>{t("common.updated")}</th>
               </tr>
             </thead>
             <tbody>
@@ -346,7 +350,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                       <input
                         type="checkbox"
                         className="checkbox align-middle"
-                        aria-label={`Chọn ${p.name}`}
+                        aria-label={tf("common.select-aria", { name: p.name })}
                         checked={selected.has(p.id)}
                         disabled={bulkDeleting}
                         onChange={() => toggleOne(p.id)}
@@ -382,7 +386,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                         <div className="mt-1 max-w-48">
                           <ProgressBar
                             progress={genProgress[p.id]?.progress ?? 0}
-                            step={genProgress[p.id]?.step || "Đang tạo"}
+                            step={genProgress[p.id]?.step || t("imagesPage.generating")}
                           />
                         </div>
                       )}
@@ -391,7 +395,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                       <AspectChip aspect={p.aspect} />
                     </td>
                     <td className="text-[var(--text-muted)]">
-                      {p.model ?? "Mặc định"}
+                      {p.model ?? t("styles.default")}
                     </td>
                     <td className="text-[var(--text-muted)]">
                       {formatDateTime(p.createdAt)}
@@ -407,20 +411,34 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         ) : list ? (
           <EmptyState
             icon={Images}
-            description="Chưa có dự án ảnh nào. Tạo ảnh đầu tiên — Gemini vẽ nền, Remotion đặt chữ theo Style Design."
+            description={t("imagesPage.empty")}
             action={
               <Button onClick={onCreate}>
                 <Plus size={16} strokeWidth={2} />
-                Tạo ảnh mới
+                {t("imagesPage.create")}
               </Button>
             }
           />
         ) : (
           <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            Đang tải…
+            {t("common.loading")}
           </p>
         )}
       </Card>
+
+      {/* Modal xác nhận xóa nhiều dự án ảnh — bắt gõ DELETE */}
+      <ConfirmDeleteModal
+        open={bulkDeleteOpen}
+        title={t("imagesPage.delete-selected-title")}
+        description={
+          <p>{tf("imagesPage.delete-desc", { n: selectedProjects.length })}</p>
+        }
+        items={selectedProjects.map((p) => p.name)}
+        busy={bulkDeleting}
+        confirmLabel={tf("imagesPage.delete-n", { n: selectedProjects.length })}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={onDeleteSelected}
+      />
     </>
   );
 }
@@ -428,6 +446,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
 // ============ Trang ============
 
 export default function ImagesPage() {
+  const { t } = useT();
   const router = useRouter();
 
   // Modal "Tạo ảnh mới" — id sinh tự động từ tên phía server (auto-ID ẩn)
@@ -472,18 +491,18 @@ export default function ImagesPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Images Project"
-        subtitle="Gemini vẽ ảnh nền · Remotion đặt chữ đồng bộ Style Design"
+        title={t("nav.images")}
+        subtitle={t("imagesPage.subtitle")}
         actions={
           <Button onClick={openCreate}>
             <Plus size={16} strokeWidth={2} />
-            Tạo ảnh mới
+            {t("imagesPage.create")}
           </Button>
         }
       />
 
       <p className="text-[13px] text-[var(--text-muted)]">
-        Ảnh tạo ra tuân theo Style Design đã chọn — quản lý tại tab{" "}
+        {t("imagesPage.style-note")}{" "}
         <Link
           href="/styles"
           className="font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
@@ -497,7 +516,7 @@ export default function ImagesPage() {
 
       {/* Modal tạo dự án ảnh mới */}
       <Modal
-        title="Tạo ảnh mới"
+        title={t("imagesPage.create")}
         open={createOpen}
         onClose={() => {
           if (!creating) setCreateOpen(false);
@@ -509,11 +528,11 @@ export default function ImagesPage() {
               disabled={creating}
               onClick={() => setCreateOpen(false)}
             >
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button onClick={onCreate} disabled={!canCreate || creating}>
               <Plus size={15} strokeWidth={2} />
-              {creating ? "Đang tạo…" : "Tạo ảnh"}
+              {creating ? t("common.creating") : t("imagesPage.create-short")}
             </Button>
           </>
         }
@@ -521,7 +540,7 @@ export default function ImagesPage() {
         {createError && <ErrorBanner message={createError} />}
         <div>
           <label className="label" htmlFor="image-name">
-            Tên
+            {t("common.name")}
           </label>
           <input
             id="image-name"
@@ -530,7 +549,7 @@ export default function ImagesPage() {
             value={name}
             disabled={creating}
             onChange={(e) => setName(e.target.value)}
-            placeholder="vd: Background chiến dịch automation"
+            placeholder={t("imagesPage.name-placeholder")}
           />
         </div>
         <ImageProjectFields

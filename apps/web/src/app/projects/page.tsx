@@ -28,6 +28,7 @@ import { Card } from "@/components/Card";
 import { ProjectBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
@@ -41,14 +42,16 @@ import {
   KEBAB_RE,
   slugify,
 } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
+// label là KEY dictionary — dịch bằng t() lúc render.
 const PRESETS = [
-  { label: "TikTok/Reels dọc", width: 1080, height: 1920, note: "9:16" },
-  { label: "YouTube ngang", width: 1920, height: 1080, note: "16:9" },
-  { label: "Vuông", width: 1080, height: 1080, note: "1:1" },
-  { label: "Dọc 4:5", width: 1080, height: 1350, note: "Instagram feed" },
-  { label: "Ngang 4K", width: 3840, height: 2160, note: "16:9" },
-  { label: "Dọc 4K", width: 2160, height: 3840, note: "9:16" },
+  { label: "projects.preset.tiktok", width: 1080, height: 1920, note: "9:16" },
+  { label: "projects.preset.youtube", width: 1920, height: 1080, note: "16:9" },
+  { label: "projects.preset.square", width: 1080, height: 1080, note: "1:1" },
+  { label: "projects.preset.portrait45", width: 1080, height: 1350, note: "Instagram feed" },
+  { label: "projects.preset.landscape4k", width: 3840, height: 2160, note: "16:9" },
+  { label: "projects.preset.portrait4k", width: 2160, height: 3840, note: "9:16" },
 ] as const;
 
 const FPS_OPTIONS = [24, 25, 30, 60] as const;
@@ -99,6 +102,7 @@ function FilterChip({
 }
 
 export default function ProjectsPage() {
+  const { t, tf } = useT();
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -299,9 +303,7 @@ export default function ProjectsPage() {
     setBulkProgress(null);
     const started = targets.length - errors.length;
     if (started > 0) {
-      setBulkNotice(
-        `Đã bắt đầu edit ${started} project — mở từng project để theo dõi.`
-      );
+      setBulkNotice(tf("projects.bulk-started", { n: started }));
       setSelected(new Set());
     }
     if (errors.length > 0) {
@@ -348,15 +350,18 @@ export default function ProjectsPage() {
       }
       if (junks.length === 0) {
         if (errors.length > 0) setBulkActionErrors(errors);
-        else setBulkActionNotice("Không có file rác nào để xóa.");
+        else setBulkActionNotice(t("junk.none"));
         return;
       }
       const totalItems = junks.reduce((sum, j) => sum + j.items, 0);
       const totalBytes = junks.reduce((sum, j) => sum + j.bytes, 0);
       if (
         !window.confirm(
-          `Xóa ${totalItems} mục file rác của ${junks.length} project, giải phóng ${formatBytes(totalBytes)}?\n` +
-            "File nguồn của project và video final được giữ nguyên."
+          tf("projects.junk-confirm", {
+            items: totalItems,
+            projects: junks.length,
+            size: formatBytes(totalBytes),
+          })
         )
       )
         return;
@@ -378,7 +383,11 @@ export default function ProjectsPage() {
       }
       if (cleaned > 0) {
         setBulkActionNotice(
-          `Đã giải phóng ${formatBytes(freed)} (${deleted} mục file rác, ${cleaned} project).`
+          tf("projects.junk-freed", {
+            size: formatBytes(freed),
+            items: deleted,
+            projects: cleaned,
+          })
         );
       }
       if (errors.length > 0) setBulkActionErrors(errors);
@@ -412,9 +421,7 @@ export default function ProjectsPage() {
     }
     setRenderBusy(false);
     if (created > 0) {
-      setBulkActionNotice(
-        `Đã đưa ${created} job render final vào hàng đợi — theo dõi ở Render Queue.`
-      );
+      setBulkActionNotice(tf("projects.render-queued", { n: created }));
     }
     if (errors.length > 0) setBulkActionErrors(errors);
     await load();
@@ -471,18 +478,18 @@ export default function ProjectsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Videos Project"
-        subtitle="Mỗi project là một video trong video-projects/"
+        title={t("nav.projects")}
+        subtitle={t("projects.subtitle")}
         actions={
           <Button onClick={openCreate}>
             <Plus size={16} strokeWidth={2} />
-            Tạo project
+            {t("projects.create")}
           </Button>
         }
       />
 
       {error && (
-        <ErrorBanner message="Không tải được danh sách project." detail={error} />
+        <ErrorBanner message={t("projects.load-error")} detail={error} />
       )}
 
       {bulkNotice && (
@@ -501,7 +508,7 @@ export default function ProjectsPage() {
 
       {bulkActionErrors.length > 0 && (
         <ErrorBanner
-          message={`Không xử lý được ${bulkActionErrors.length} project.`}
+          message={tf("projects.bulk-action-errors", { n: bulkActionErrors.length })}
           detail={bulkActionErrors.join("\n")}
         />
       )}
@@ -510,13 +517,13 @@ export default function ProjectsPage() {
         <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
           <Copy size={15} strokeWidth={2} className="shrink-0" />
           <span>
-            Đã nhân bản thành{" "}
+            {t("projects.cloned-to")}{" "}
             <span className="font-medium">{cloneNotice.name}</span> —{" "}
             <Link
               href={`/projects/${cloneNotice.id}`}
               className="font-medium underline underline-offset-2"
             >
-              mở project mới
+              {t("projects.open-new")}
             </Link>
           </span>
         </div>
@@ -526,7 +533,7 @@ export default function ProjectsPage() {
         {selected.size > 0 ? (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
             <span className="text-sm font-medium">
-              Đã chọn {selected.size} project
+              {tf("projects.selected", { n: selected.size })}
             </span>
             <span className="flex-1" />
             <Button
@@ -535,7 +542,7 @@ export default function ProjectsPage() {
               disabled={junkBusy || renderBusy}
               onClick={() => setSelected(new Set())}
             >
-              Bỏ chọn
+              {t("common.deselect")}
             </Button>
             <Button
               variant="secondary"
@@ -544,7 +551,7 @@ export default function ProjectsPage() {
               onClick={onBulkCleanJunk}
             >
               <Trash2 size={14} strokeWidth={2} />
-              {junkBusy ? "Đang xóa file rác…" : "Xóa file rác"}
+              {junkBusy ? t("junk.cleaning") : t("junk.clean")}
             </Button>
             <Button
               variant="destructive"
@@ -553,7 +560,7 @@ export default function ProjectsPage() {
               onClick={openDelete}
             >
               <Trash2 size={14} strokeWidth={2} />
-              Xóa đã chọn
+              {t("common.delete-selected")}
             </Button>
             <Button
               small
@@ -562,8 +569,8 @@ export default function ProjectsPage() {
             >
               <Play size={14} strokeWidth={2} />
               {renderBusy
-                ? "Đang tạo job…"
-                : `Render final (${selected.size})`}
+                ? t("projects.creating-jobs")
+                : tf("projects.render-final-n", { n: selected.size })}
             </Button>
             <Button
               small
@@ -571,7 +578,7 @@ export default function ProjectsPage() {
               onClick={openBulkEdit}
             >
               <Sparkles size={14} strokeWidth={2} />
-              Tạo video ({selected.size})
+              {tf("projects.make-video-n", { n: selected.size })}
             </Button>
           </div>
         ) : (
@@ -581,13 +588,13 @@ export default function ProjectsPage() {
                 size={14}
                 strokeWidth={2}
                 className="text-[var(--text-muted)]"
-                aria-label="Lọc theo tag"
+                aria-label={t("projects.filter-by-tag")}
               />
               <FilterChip
                 active={tagFilter.length === 0}
                 onClick={() => setTagFilter([])}
               >
-                Tất cả
+                {t("common.all")}
               </FilterChip>
               {tagCounts.map(([tag, count]) => (
                 <FilterChip
@@ -611,7 +618,7 @@ export default function ProjectsPage() {
                   <input
                     type="checkbox"
                     className="checkbox align-middle"
-                    aria-label="Chọn tất cả project"
+                    aria-label={t("projects.select-all")}
                     checked={allSelected}
                     ref={(el) => {
                       if (el) el.indeterminate = someSelected;
@@ -619,14 +626,14 @@ export default function ProjectsPage() {
                     onChange={toggleAll}
                   />
                 </th>
-                <th>Tên</th>
-                <th>Kích thước</th>
-                <th>Trạng thái</th>
-                <th>Token AI</th>
-                <th>Tạo lúc</th>
-                <th>Sửa cuối</th>
+                <th>{t("common.name")}</th>
+                <th>{t("common.size")}</th>
+                <th>{t("common.status")}</th>
+                <th>{t("projects.col-tokens")}</th>
+                <th>{t("common.created")}</th>
+                <th>{t("common.updated")}</th>
                 <th className="w-10">
-                  <span className="sr-only">Nhân bản</span>
+                  <span className="sr-only">{t("clone.action")}</span>
                 </th>
               </tr>
             </thead>
@@ -641,7 +648,7 @@ export default function ProjectsPage() {
                     <input
                       type="checkbox"
                       className="checkbox align-middle"
-                      aria-label={`Chọn ${p.name}`}
+                      aria-label={tf("common.select-aria", { name: p.name })}
                       checked={selected.has(p.id)}
                       onChange={() => toggleOne(p.id)}
                     />
@@ -698,8 +705,8 @@ export default function ProjectsPage() {
                   <td onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      title="Nhân bản project"
-                      aria-label={`Nhân bản ${p.name}`}
+                      title={t("clone.title")}
+                      aria-label={tf("projects.clone-aria", { name: p.name })}
                       onClick={() =>
                         setCloneSource({ id: p.id, name: p.name })
                       }
@@ -714,22 +721,22 @@ export default function ProjectsPage() {
           </table>
         ) : projects && projects.length > 0 ? (
           <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            Không có project nào khớp tag đang lọc.
+            {t("projects.no-tag-match")}
           </p>
         ) : projects ? (
           <EmptyState
             icon={Clapperboard}
-            description="Chưa có project nào. Tạo project đầu tiên để bắt đầu dựng video."
+            description={t("projects.empty")}
             action={
               <Button onClick={openCreate}>
                 <Plus size={16} strokeWidth={2} />
-                Tạo project
+                {t("projects.create")}
               </Button>
             }
           />
         ) : (
           <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            Đang tải…
+            {t("common.loading")}
           </p>
         )}
       </Card>
@@ -745,71 +752,50 @@ export default function ProjectsPage() {
         }}
       />
 
-      {/* Modal xác nhận xóa nhiều project */}
-      <Modal
-        title="Xóa project đã chọn"
+      {/* Modal xác nhận xóa nhiều project — bắt gõ DELETE */}
+      <ConfirmDeleteModal
         open={deleteOpen}
-        onClose={() => {
-          if (!deleting) setDeleteOpen(false);
-        }}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              disabled={deleting}
-              onClick={() => setDeleteOpen(false)}
-            >
-              Hủy
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleting || selectedProjects.length === 0}
-              onClick={onDeleteSelected}
-            >
-              <Trash2 size={14} strokeWidth={2} />
-              {deleting && deleteProgress
-                ? `Đang xóa ${deleteProgress.done}/${deleteProgress.total}…`
-                : `Xóa ${selectedProjects.length} project`}
-            </Button>
-          </>
-        }
-      >
-        {deleteErrors.length > 0 && (
-          <ErrorBanner
-            message={`Không xóa được ${deleteErrors.length} project.`}
-            detail={deleteErrors.join("\n")}
-          />
-        )}
-        {selectedProjects.length > 0 ? (
-          <>
-            <p className="text-sm">
-              Các project sau sẽ bị xóa. Toàn bộ folder{" "}
+        title={t("projects.delete-selected-title")}
+        description={
+          selectedProjects.length > 0 ? (
+            <p>
+              {t("projects.delete-desc-1")}{" "}
               <code className="rounded bg-[var(--bg-subtle)] px-1 text-xs">
                 video-projects/&lt;id&gt;
               </code>{" "}
-              sẽ bị xóa vĩnh viễn, không khôi phục được.
+              {t("projects.delete-desc-2")}
             </p>
-            <ul className="flex flex-col gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-              {selectedProjects.map((p) => (
-                <li key={p.id} className="text-sm">
-                  <span className="font-medium">{p.name}</span>
-                  <span className="ml-2 text-xs text-[var(--text-muted)]">
-                    video-projects/{p.id}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Không còn project nào được chọn.
-          </p>
+          ) : (
+            <p className="text-[var(--text-muted)]">
+              {t("projects.none-selected")}
+            </p>
+          )
+        }
+        items={selectedProjects.map(
+          (p) => `${p.name} — video-projects/${p.id}`
         )}
-      </Modal>
+        busy={deleting}
+        busyLabel={
+          deleteProgress
+            ? tf("projects.deleting-progress", {
+                done: deleteProgress.done,
+                total: deleteProgress.total,
+              })
+            : t("common.deleting")
+        }
+        confirmLabel={tf("projects.delete-n", { n: selectedProjects.length })}
+        error={
+          deleteErrors.length > 0
+            ? `${tf("projects.delete-errors", { n: deleteErrors.length })}\n${deleteErrors.join("\n")}`
+            : null
+        }
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDeleteSelected}
+      />
 
       {/* Modal tạo video hàng loạt bằng AI */}
       <Modal
-        title="Tạo video bằng AI"
+        title={t("projects.bulk-title")}
         open={bulkOpen}
         onClose={() => {
           if (!bulkRunning) setBulkOpen(false);
@@ -821,7 +807,7 @@ export default function ProjectsPage() {
               disabled={bulkRunning}
               onClick={() => setBulkOpen(false)}
             >
-              {bulkErrors.length > 0 ? "Đóng" : "Hủy"}
+              {bulkErrors.length > 0 ? t("common.close") : t("common.cancel")}
             </Button>
             <Button
               disabled={bulkRunning || selectedProjects.length === 0}
@@ -829,24 +815,24 @@ export default function ProjectsPage() {
             >
               <Sparkles size={15} strokeWidth={2} />
               {bulkRunning && bulkProgress
-                ? `Đang bắt đầu ${bulkProgress.done}/${bulkProgress.total}…`
-                : `Bắt đầu edit ${selectedProjects.length} project`}
+                ? tf("projects.bulk-starting", {
+                    done: bulkProgress.done,
+                    total: bulkProgress.total,
+                  })
+                : tf("projects.bulk-start", { n: selectedProjects.length })}
             </Button>
           </>
         }
       >
         {bulkErrors.length > 0 && (
           <ErrorBanner
-            message={`Không bắt đầu được ${bulkErrors.length} project.`}
+            message={tf("projects.bulk-errors", { n: bulkErrors.length })}
             detail={bulkErrors.join("\n")}
           />
         )}
         {selectedProjects.length > 0 ? (
           <>
-            <p className="text-sm">
-              AI sẽ tạo các video SONG SONG với nhau theo brief đã lưu của từng
-              project (render nặng chạy tối đa 2 việc cùng lúc). Các project:
-            </p>
+            <p className="text-sm">{t("projects.bulk-desc")}</p>
             <ul className="flex flex-col gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
               {selectedProjects.map((p) => (
                 <li key={p.id} className="text-sm">
@@ -859,7 +845,7 @@ export default function ProjectsPage() {
             </ul>
             <div>
               <label className="label" htmlFor="bulk-extra-notes">
-                Dặn dò thêm (áp dụng cho tất cả)
+                {t("projects.bulk-notes")}
               </label>
               <textarea
                 id="bulk-extra-notes"
@@ -868,29 +854,29 @@ export default function ProjectsPage() {
                 value={bulkNotes}
                 disabled={bulkRunning}
                 onChange={(e) => setBulkNotes(e.target.value)}
-                placeholder="vd: Ưu tiên bản dưới 60 giây, mở đầu bằng câu hook mạnh…"
+                placeholder={t("projects.notes-placeholder")}
               />
             </div>
           </>
         ) : (
           <p className="text-sm text-[var(--text-muted)]">
-            Không còn project nào được chọn.
+            {t("projects.none-selected")}
           </p>
         )}
       </Modal>
 
       {/* Modal tạo project */}
       <Modal
-        title="Tạo project mới"
+        title={t("projects.create-title")}
         open={open}
         onClose={() => setOpen(false)}
         footer={
           <>
             <Button variant="secondary" onClick={() => setOpen(false)}>
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button onClick={onCreate} disabled={!canCreate || creating}>
-              {creating ? "Đang tạo…" : "Tạo project"}
+              {creating ? t("common.creating") : t("projects.create")}
             </Button>
           </>
         }
@@ -898,7 +884,7 @@ export default function ProjectsPage() {
         {createError && <ErrorBanner message={createError} />}
         <div>
           <label className="label" htmlFor="project-name">
-            Tên
+            {t("common.name")}
           </label>
           <input
             id="project-name"
@@ -909,12 +895,12 @@ export default function ProjectsPage() {
               setName(e.target.value);
               if (!idDirty) setId(slugify(e.target.value));
             }}
-            placeholder="vd: Mổ xẻ paper GPT-5"
+            placeholder={t("projects.name-placeholder")}
           />
         </div>
         <div>
           <label className="label" htmlFor="project-id">
-            ID (tên folder)
+            {t("projects.id-label")}
           </label>
           <input
             id="project-id"
@@ -925,26 +911,26 @@ export default function ProjectsPage() {
               // Xóa trắng ID → bật lại auto-sync theo tên
               setIdDirty(e.target.value !== "");
             }}
-            placeholder="tự tạo từ tên…"
+            placeholder={t("projects.id-placeholder")}
           />
           {idValid ? (
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Tự tạo từ tên, sửa được.
+              {t("projects.id-hint")}
             </p>
           ) : (
             <p className="mt-1 text-xs text-[var(--danger)]">
-              ID phải là kebab-case: chữ thường, số, gạch nối (vd: my-video-1).
+              {t("projects.id-invalid")}
             </p>
           )}
         </div>
         <div>
           <label className="label" htmlFor="project-tags">
-            Tags
+            {t("common.tags")}
           </label>
           <TagInput id="project-tags" tags={tags} onChange={setTags} />
         </div>
         <div>
-          <span className="label">Định dạng video</span>
+          <span className="label">{t("projects.format")}</span>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {PRESETS.map((preset) => {
               const active =
@@ -968,7 +954,7 @@ export default function ProjectsPage() {
                 >
                   <AspectIcon width={preset.width} height={preset.height} />
                   <span className="text-[13px] leading-tight font-medium">
-                    {preset.label}
+                    {t(preset.label)}
                   </span>
                   <span
                     className={`text-[11px] ${
@@ -993,14 +979,14 @@ export default function ProjectsPage() {
                 <Ruler size={18} strokeWidth={1.5} />
               </span>
               <span className="text-[13px] leading-tight font-medium">
-                Tùy chỉnh
+                {t("projects.custom")}
               </span>
               <span
                 className={`text-[11px] ${
                   customActive ? "opacity-80" : "text-[var(--text-muted)]"
                 }`}
               >
-                {customActive ? `${width}×${height}` : "tự nhập kích thước"}
+                {customActive ? `${width}×${height}` : t("projects.custom-hint")}
               </span>
             </button>
           </div>
@@ -1008,7 +994,7 @@ export default function ProjectsPage() {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className="label" htmlFor="project-width">
-                  Rộng (px)
+                  {t("projects.width")}
                 </label>
                 <input
                   id="project-width"
@@ -1021,7 +1007,7 @@ export default function ProjectsPage() {
               </div>
               <div>
                 <label className="label" htmlFor="project-height">
-                  Cao (px)
+                  {t("projects.height")}
                 </label>
                 <input
                   id="project-height"
@@ -1067,11 +1053,11 @@ export default function ProjectsPage() {
                   : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
               }`}
             >
-              Khác
+              {t("projects.other")}
             </button>
             {customFps && (
               <input
-                aria-label="FPS tùy chỉnh"
+                aria-label={t("projects.custom-fps")}
                 className="input h-8 w-24"
                 type="number"
                 min={1}

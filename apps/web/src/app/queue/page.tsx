@@ -17,13 +17,15 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressBar } from "@/components/ProgressBar";
 import { formatJobDuration, formatRelative } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const TYPE_LABEL: Record<Job["type"], string> = {
-  "scene-draft": "Scene draft",
-  "scene-final": "Scene final",
-  "assemble-draft": "Lắp ráp draft",
-  "assemble-final": "Lắp ráp final",
-  "image-gen": "Tạo ảnh",
+  "scene-draft": "queue.type.scene-draft",
+  "scene-final": "queue.type.scene-final",
+  "assemble-draft": "queue.type.assemble-draft",
+  "assemble-final": "queue.type.assemble-final",
+  "image-gen": "queue.type.image-gen",
 };
 
 function LogPanel({
@@ -33,6 +35,7 @@ function LogPanel({
   jobId: string;
   onClose: () => void;
 }) {
+  const { t, tf } = useT();
   const [job, setJob] = useState<Job | null>(null);
   const [log, setLog] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -77,24 +80,24 @@ function LogPanel({
 
   return (
     <Card
-      title={`Log — ${jobId}`}
+      title={tf("queue.log-title", { id: jobId })}
       actions={
         <button
           type="button"
           onClick={onClose}
-          aria-label="Đóng log"
+          aria-label={t("queue.close-log")}
           className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
         >
           <X size={16} strokeWidth={2} />
         </button>
       }
     >
-      {error && <ErrorBanner message="Không tải được log job." detail={error} />}
+      {error && <ErrorBanner message={t("queue.log-error")} detail={error} />}
       {job && (
         <div className="mb-3 flex items-center gap-3 text-sm text-[var(--text-muted)]">
           <JobBadge status={job.status} />
           <span>
-            {job.projectId} · {TYPE_LABEL[job.type]}
+            {job.projectId} · {t(TYPE_LABEL[job.type])}
             {job.sceneId ? ` · ${job.sceneId}` : ""}
           </span>
           {job.status === "running" && (
@@ -108,13 +111,14 @@ function LogPanel({
         ref={preRef}
         className="max-h-96 min-h-40 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-3 font-mono text-xs whitespace-pre-wrap"
       >
-        {log || "(chưa có log)"}
+        {log || t("queue.no-log")}
       </pre>
     </Card>
   );
 }
 
 export default function QueuePage() {
+  const { t } = useT();
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -166,15 +170,15 @@ export default function QueuePage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Render Queue"
-        subtitle="Hàng đợi tuần tự — một job chạy tại một thời điểm"
+        title={t("nav.queue")}
+        subtitle={t("queue.subtitle")}
       />
 
       {error && (
-        <ErrorBanner message="Không tải được danh sách job." detail={error} />
+        <ErrorBanner message={t("queue.load-error")} detail={error} />
       )}
       {cancelError && (
-        <ErrorBanner message="Không hủy được job." detail={cancelError} />
+        <ErrorBanner message={t("queue.cancel-error")} detail={cancelError} />
       )}
 
       <Card>
@@ -184,10 +188,10 @@ export default function QueuePage() {
               <tr>
                 <th>Job</th>
                 <th>Project</th>
-                <th>Loại</th>
-                <th>Trạng thái</th>
-                <th className="w-64">Tiến độ</th>
-                <th>Thời gian</th>
+                <th>{t("queue.col-type")}</th>
+                <th>{t("common.status")}</th>
+                <th className="w-64">{t("queue.col-progress")}</th>
+                <th>{t("queue.col-time")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -208,7 +212,7 @@ export default function QueuePage() {
                     )}
                   </td>
                   <td className="text-[var(--text-muted)]">
-                    {TYPE_LABEL[j.type]}
+                    {t(TYPE_LABEL[j.type])}
                   </td>
                   <td>
                     <JobBadge status={j.status} />
@@ -236,7 +240,7 @@ export default function QueuePage() {
                         onClick={() => onCancel(j.id)}
                       >
                         <Square size={12} strokeWidth={2} />
-                        {cancelingId === j.id ? "Đang hủy…" : "Hủy"}
+                        {cancelingId === j.id ? t("queue.canceling") : t("common.cancel")}
                       </Button>
                     )}
                   </td>
@@ -247,11 +251,11 @@ export default function QueuePage() {
         ) : jobs ? (
           <EmptyState
             icon={ListVideo}
-            description="Chưa có job nào trong hàng đợi. Tạo job render từ trang project."
+            description={t("queue.empty")}
           />
         ) : (
           <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            Đang tải…
+            {t("common.loading")}
           </p>
         )}
       </Card>

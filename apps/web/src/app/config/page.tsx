@@ -21,6 +21,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
+import { useT } from "@/lib/i18n";
 
 const PLATFORM_LABELS: Record<string, string> = {
   win32: "Windows",
@@ -72,8 +73,9 @@ const QUEUE_OPTIONS: SegOption[] = [
   { value: 4, label: "4" },
 ];
 
+// label "config.keep" là KEY dictionary — SegGroup dịch bằng t() lúc render.
 const DRAFT_FPS_OPTIONS: SegOption[] = [
-  { value: null, label: "Giữ nguyên" },
+  { value: null, label: "config.keep" },
   { value: 15, label: "15 fps" },
   { value: 24, label: "24 fps" },
 ];
@@ -90,6 +92,7 @@ function SegGroup({
   onSelect: (v: SegValue) => void;
   ariaLabel: string;
 }) {
+  const { t } = useT();
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label={ariaLabel}>
       {options.map((o) => {
@@ -100,16 +103,16 @@ function SegGroup({
             type="button"
             aria-pressed={active}
             onClick={() => onSelect(o.value)}
-            title={o.recommended ? "Khuyên dùng cho máy này" : undefined}
+            title={o.recommended ? t("config.recommended-title") : undefined}
             className={`min-w-[44px] rounded-[var(--radius)] border px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
               active
                 ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
                 : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
             }`}
           >
-            {o.label}
+            {t(o.label)}
             {o.recommended && (
-              <span aria-label="khuyên dùng" className="ml-1 text-[10px] align-top">
+              <span aria-label={t("config.recommended-aria")} className="ml-1 text-[10px] align-top">
                 ★
               </span>
             )}
@@ -203,6 +206,7 @@ function ToggleRow({
 
 /** Card phần cứng — 3 khối CPU / RAM / GPU (tên + dòng chi tiết) + badges. */
 function HardwareCard({ hw }: { hw: HardwareInfo }) {
+  const { t } = useT();
   // CPU: "6 cores · 12 threads · up to 4.1 GHz" — phần nào không tra được thì bỏ
   const cpuDetail = [
     hw.cpuCores ? `${hw.cpuCores} cores` : `${hw.cpuThreads} cores`,
@@ -217,7 +221,7 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
   const blocks = [
     {
       label: "CPU",
-      name: cpuName || "Không phát hiện",
+      name: cpuName || t("config.not-detected"),
       detail: cpuDetail,
     },
     {
@@ -227,7 +231,7 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
     },
     {
       label: "GPU",
-      name: hw.gpuName || "Không phát hiện",
+      name: hw.gpuName || t("config.not-detected"),
       detail:
         [
           hw.gpuVramGb ? `${hw.gpuVramGb} GB` : null,
@@ -235,12 +239,12 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
           hw.videotoolbox ? "VideoToolbox" : null,
         ]
           .filter(Boolean)
-          .join(" · ") || (hw.gpuName ? "Không tăng tốc encode" : ""),
+          .join(" · ") || (hw.gpuName ? t("config.no-gpu-encode") : ""),
     },
   ];
   const cpuOnly = !hw.nvenc && !hw.videotoolbox;
   return (
-    <Card title="Phần cứng phát hiện được">
+    <Card title={t("config.hardware")}>
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
         {blocks.map((b) => (
           <div key={b.label} className="min-w-0">
@@ -258,13 +262,13 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
         <span className="text-xs text-[var(--text-muted)]">
-          Hệ điều hành: {PLATFORM_LABELS[hw.platform] ?? hw.platform}
+          {t("config.os")} {PLATFORM_LABELS[hw.platform] ?? hw.platform}
         </span>
         <span className="grow" />
         {hw.nvenc && (
           <span className="badge badge-success">
             <span className="badge-dot" />
-            NVENC (encode GPU NVIDIA)
+            {t("config.nvenc-badge")}
           </span>
         )}
         {hw.videotoolbox && (
@@ -276,13 +280,12 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
         {cpuOnly && (
           <span className="badge badge-muted">
             <span className="badge-dot" />
-            Chỉ CPU
+            {t("config.cpu-only")}
           </span>
         )}
       </div>
       <p className="mt-3 text-xs text-[var(--text-muted)]">
-        Mang project sang máy khác (vd MacBook) — tab này tự phát hiện và hiện
-        đúng tùy chọn cho máy đó.
+        {t("config.portable-note")}
       </p>
     </Card>
   );
@@ -291,6 +294,7 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
 const APPLIED_NOTICE_MS = 2500;
 
 export default function ConfigPage() {
+  const { t, tf } = useT();
   const [data, setData] = useState<RenderSettingsResponse | null>(null);
   const dataRef = useRef<RenderSettingsResponse | null>(null);
   dataRef.current = data;
@@ -358,41 +362,44 @@ export default function ConfigPage() {
   const workerOptions = buildWorkerOptions(rec, rec.workers);
   const remotionOptions = buildWorkerOptions(rec, rec.concurrency);
   const workerHint = hw
-    ? `Máy này: ${hw.cpuThreads} luồng CPU, ${hw.ramGb}GB RAM — khuyên dùng ${rec.workers}`
-    : `Khuyên dùng ${rec.workers}`;
+    ? tf("config.worker-hint", {
+        threads: hw.cpuThreads,
+        ram: hw.ramGb,
+        n: rec.workers,
+      })
+    : tf("config.recommend-n", { n: rec.workers });
   /** Máy không có encoder GPU nào → 2 toggle encode GPU bị khóa. */
   const gpuEncodeUnavailable = hw ? !hw.nvenc && !hw.videotoolbox : false;
-  const gpuEncodeNote =
-    "Máy này không có encoder GPU (NVENC/VideoToolbox) — dùng libx264 trên CPU.";
+  const gpuEncodeNote = t("config.gpu-note");
 
   return (
     <div className="flex w-full flex-col gap-4">
       <PageHeader
-        title="Cấu hình"
-        subtitle="Tăng tốc phần cứng và cài đặt render"
+        title={t("nav.config")}
+        subtitle={t("config.subtitle")}
       />
 
       {loadError && (
         <ErrorBanner
-          message="Không tải được cài đặt render."
+          message={t("config.load-error")}
           detail={loadError}
         />
       )}
       {saveError && (
-        <ErrorBanner message="Không lưu được cài đặt." detail={saveError} />
+        <ErrorBanner message={t("config.save-error")} detail={saveError} />
       )}
 
       {hw && <HardwareCard hw={hw} />}
 
       {settings && data && (
         <Card
-          title="Cài đặt render"
+          title={t("config.render-settings")}
           actions={
             <div className="flex items-center gap-3">
               {applied && (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
                   <Check size={13} strokeWidth={2} className="shrink-0" />
-                  Đã áp dụng — hiệu lực ngay, không cần restart
+                  {t("config.applied")}
                 </span>
               )}
               <Button
@@ -401,7 +408,7 @@ export default function ConfigPage() {
                 onClick={() => apply({ ...data.defaults })}
               >
                 <RotateCcw size={13} strokeWidth={2} />
-                Khôi phục mặc định
+                {t("config.restore-defaults")}
               </Button>
             </div>
           }
@@ -411,11 +418,11 @@ export default function ConfigPage() {
             {/* Cột trái: HyperFrames capture + encode GPU */}
             <div className="divide-y divide-[var(--border)] pb-4 md:pb-0">
               <FieldRow
-                label="Worker Chrome (HyperFrames)"
+                label={t("config.workers")}
                 hint={workerHint}
               >
                 <SegGroup
-                  ariaLabel="Số worker Chrome"
+                  ariaLabel={t("config.workers-aria")}
                   options={workerOptions}
                   value={settings.workers}
                   onSelect={(v) => apply({ workers: v ?? 0 })}
@@ -424,16 +431,16 @@ export default function ConfigPage() {
 
               <ToggleRow
                 id="acc-browser-gpu"
-                label="GPU cho capture (browser)"
-                hint="Chrome dùng GPU để dựng hình; tắt nếu gặp lỗi render"
+                label={t("config.browser-gpu")}
+                hint={t("config.browser-gpu-hint")}
                 checked={settings.browserGpu}
                 onChange={(v) => apply({ browserGpu: v })}
               />
 
               <ToggleRow
                 id="acc-gpu-draft"
-                label="Encode GPU cho bản draft"
-                hint="NVENC/VideoToolbox — nhanh, draft không cần chất lượng tối đa"
+                label={t("config.gpu-draft")}
+                hint={t("config.gpu-draft-hint")}
                 checked={settings.gpuEncodeDraft}
                 disabled={gpuEncodeUnavailable}
                 disabledNote={gpuEncodeNote}
@@ -442,8 +449,8 @@ export default function ConfigPage() {
 
               <ToggleRow
                 id="acc-gpu-final"
-                label="Encode GPU cho bản FINAL"
-                hint="Nhanh hơn nhiều nhưng chất lượng nhỉnh kém libx264 cùng dung lượng — video đăng TikTok thường khó phân biệt"
+                label={t("config.gpu-final")}
+                hint={t("config.gpu-final-hint")}
                 hintTone="danger"
                 checked={settings.gpuEncodeFinal}
                 disabled={gpuEncodeUnavailable}
@@ -457,14 +464,14 @@ export default function ConfigPage() {
               <ToggleRow
                 id="acc-fast-capture"
                 label="Fast capture (macOS)"
-                hint="~2x tốc độ capture, chỉ thực sự hoạt động trên macOS + GPU; nơi khác tự fallback vô hại"
+                hint={t("config.fast-capture-hint")}
                 checked={settings.fastCapture}
                 onChange={(v) => apply({ fastCapture: v })}
               />
 
               <FieldRow
                 label="Remotion concurrency"
-                hint={`Số tab render song song khi Remotion lắp ráp timeline — khuyên dùng ${rec.concurrency}`}
+                hint={tf("config.remotion-hint", { n: rec.concurrency })}
               >
                 <SegGroup
                   ariaLabel="Remotion concurrency"
@@ -475,11 +482,11 @@ export default function ConfigPage() {
               </FieldRow>
 
               <FieldRow
-                label="Job render đồng thời (queue)"
-                hint="Song song giữa các project khác nhau; máy yếu để 1"
+                label={t("config.queue-concurrency")}
+                hint={t("config.queue-hint")}
               >
                 <SegGroup
-                  ariaLabel="Số job render đồng thời"
+                  ariaLabel={t("config.queue-aria")}
                   options={QUEUE_OPTIONS}
                   value={settings.queueConcurrency}
                   onSelect={(v) => apply({ queueConcurrency: v ?? 1 })}
@@ -488,10 +495,10 @@ export default function ConfigPage() {
 
               <FieldRow
                 label="Draft fps"
-                hint="Draft 15fps nhanh gần gấp đôi, chỉ để duyệt nhịp; final luôn đúng fps project"
+                hint={t("config.draft-fps-hint")}
               >
                 <SegGroup
-                  ariaLabel="FPS bản draft"
+                  ariaLabel={t("config.draft-fps-aria")}
                   options={DRAFT_FPS_OPTIONS}
                   value={settings.draftFps}
                   onSelect={(v) => apply({ draftFps: v })}

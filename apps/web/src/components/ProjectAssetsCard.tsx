@@ -46,6 +46,7 @@ import {
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import {
@@ -55,13 +56,15 @@ import {
 } from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
 import { formatBytes, isRecentFile } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 
 /** Placeholder mô tả cụ thể theo loại file — gợi ý người dùng viết gì. */
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const DESCRIPTION_PLACEHOLDER: Record<FileInfo["kind"], string> = {
-  image: "vd: Ảnh bìa sách, chèn khi nhắc tới tên sách",
-  video: "vd: Video chính, talking-head giới thiệu sách",
-  audio: "vd: Nhạc nền, phát từ đầu đến cuối",
-  other: "Mô tả file này để AI biết dùng vào lúc nào…",
+  image: "assets.ph.image",
+  video: "assets.ph.video",
+  audio: "assets.ph.audio",
+  other: "assets.ph.other",
 };
 
 /** Auto-grow textarea theo nội dung, tối đa ~5 dòng. */
@@ -72,10 +75,10 @@ function autoGrow(el: HTMLTextAreaElement) {
 
 /** Thứ tự nhóm asset khi danh sách dài (>5 file). */
 const KIND_GROUPS: { kind: FileInfo["kind"]; label: string }[] = [
-  { kind: "video", label: "Video" },
-  { kind: "image", label: "Ảnh" },
-  { kind: "audio", label: "Âm thanh" },
-  { kind: "other", label: "Khác" },
+  { kind: "video", label: "assets.group.video" },
+  { kind: "image", label: "assets.group.image" },
+  { kind: "audio", label: "assets.group.audio" },
+  { kind: "other", label: "assets.group.other" },
 ];
 
 /** Icon nhỏ theo loại file — dùng cho dòng compact. */
@@ -105,6 +108,7 @@ function AssetPreview({
   /** Click thumbnail ảnh/video → mở modal preview lớn. */
   onOpenPreview?: () => void;
 }) {
+  const { t, tf } = useT();
   const base =
     "flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius)] bg-[var(--bg-subtle)] border border-[var(--border)]";
   switch (file.kind) {
@@ -113,7 +117,7 @@ function AssetPreview({
         <button
           type="button"
           onClick={onOpenPreview}
-          aria-label={`Xem trước ${file.name}`}
+          aria-label={tf("common.preview-aria", { name: file.name })}
           className={`${base} cursor-zoom-in`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -129,7 +133,7 @@ function AssetPreview({
         <button
           type="button"
           onClick={onOpenPreview}
-          aria-label={`Xem trước ${file.name}`}
+          aria-label={tf("common.preview-aria", { name: file.name })}
           className={`${base} cursor-zoom-in`}
         >
           <video
@@ -148,7 +152,7 @@ function AssetPreview({
           <button
             type="button"
             onClick={onTogglePlay}
-            aria-label={playing ? "Dừng" : "Nghe thử"}
+            aria-label={playing ? t("sfx.stop") : t("sfx.play")}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)] transition-colors duration-150 hover:bg-[var(--primary)] hover:text-[var(--primary-soft)]"
           >
             {playing ? (
@@ -178,7 +182,7 @@ export function ProjectAssetsCard({
   assets,
   onChanged,
   compact = false,
-  title = "Nguồn & Asset",
+  title,
   showUpload = true,
 }: {
   projectId: string;
@@ -191,6 +195,8 @@ export function ProjectAssetsCard({
   /** false = khối chỉ hiển thị (không dropzone/nút tải lên) — upload dồn về khối chính. */
   showUpload?: boolean;
 }) {
+  const { t, tf } = useT();
+  const cardTitle = title ?? t("assets.title");
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -231,7 +237,7 @@ export function ProjectAssetsCard({
     if (!f.colorGrade && !hasAdjust) return null;
     const base = f.colorGrade
       ? (gradeLabels[f.colorGrade] ?? f.colorGrade)
-      : "Tùy chỉnh";
+      : t("projects.custom");
     return hasAdjust && f.colorGrade ? `${base} +` : base;
   }
 
@@ -242,6 +248,8 @@ export function ProjectAssetsCard({
 
   // File đang xóa — disable nút xóa của đúng file đó
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  // File đang chờ xác nhận xóa (modal gõ DELETE)
+  const [deleteTarget, setDeleteTarget] = useState<FileInfo | null>(null);
 
   // Nghe thử audio: một element dùng chung
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -268,7 +276,7 @@ export function ProjectAssetsCard({
     audio.onended = () => setPlaying(null);
     audio.onerror = () => {
       setPlaying(null);
-      setError(`Không phát được file ${file.name}.`);
+      setError(tf("sfx.play-error", { name: file.name }));
     };
     audioRef.current = audio;
     setPlaying(file.name);
@@ -324,12 +332,6 @@ export function ProjectAssetsCard({
   }
 
   async function deleteAsset(file: FileInfo) {
-    if (
-      !window.confirm(
-        `Xóa asset "${file.name}"? File sẽ bị xóa khỏi project, không hoàn tác được.`
-      )
-    )
-      return;
     setDeletingFile(file.name);
     setError(null);
     try {
@@ -339,6 +341,7 @@ export function ProjectAssetsCard({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setDeletingFile(null);
+      setDeleteTarget(null);
     }
   }
 
@@ -365,6 +368,27 @@ export function ProjectAssetsCard({
     />
   );
 
+  // Modal xác nhận xóa asset — bắt gõ DELETE (thay window.confirm)
+  const deleteModal = (
+    <ConfirmDeleteModal
+      open={deleteTarget !== null}
+      title={t("assets.delete-title")}
+      description={
+        deleteTarget && (
+          <>
+            {t("assets.delete-desc-1")}{" "}
+            <span className="font-medium">{deleteTarget.name}</span>? {t("assets.delete-desc-2")}
+          </>
+        )
+      }
+      busy={deleteTarget !== null && deletingFile === deleteTarget.name}
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={() => {
+        if (deleteTarget) deleteAsset(deleteTarget);
+      }}
+    />
+  );
+
   const fileInput = (
     <input
       ref={inputRef}
@@ -383,7 +407,7 @@ export function ProjectAssetsCard({
     assets.length === 0 ? (
       <EmptyState
         icon={FolderUp}
-        description="Chưa có asset nào. Tải lên video source, ảnh, nhạc nền… để AI dùng khi edit."
+        description={t("assets.empty")}
       />
     ) : assets.length > 5 ? (
       // Danh sách dài → phân nhóm theo loại cho dễ nhìn (sound effect AI chép
@@ -395,7 +419,7 @@ export function ProjectAssetsCard({
           return (
             <div key={kind}>
               <p className="mb-1 text-xs font-medium uppercase tracking-[0.04em] text-[var(--text-muted)]">
-                {label} · {group.length}
+                {t(label)} · {group.length}
               </p>
               <div className="flex flex-col divide-y divide-[var(--border)]">
                 {group.map(renderItem)}
@@ -432,7 +456,7 @@ export function ProjectAssetsCard({
         }`}
       >
         <Card
-          title={title}
+          title={cardTitle}
           actions={
             showUpload ? (
               <Button
@@ -442,7 +466,7 @@ export function ProjectAssetsCard({
                 onClick={() => inputRef.current?.click()}
               >
                 <Upload size={13} strokeWidth={2} />
-                {uploading ? "Đang tải lên…" : "Tải lên"}
+                {uploading ? t("common.uploading") : t("assets.upload")}
               </Button>
             ) : undefined
           }
@@ -451,19 +475,20 @@ export function ProjectAssetsCard({
           {showUpload && fileInput}
           {dragOver && (
             <p className="mb-2 rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-medium text-[var(--primary)]">
-              Thả file vào đây để tải lên…
+              {t("assets.drop-here")}
             </p>
           )}
           {assetList}
         </Card>
         {gradeModal}
         {previewModal}
+        {deleteModal}
       </div>
     );
   }
 
   return (
-    <Card title={title}>
+    <Card title={cardTitle}>
       {error && <ErrorBanner message={error} />}
 
       {/* Vùng kéo thả + upload */}
@@ -486,7 +511,7 @@ export function ProjectAssetsCard({
           className="text-[var(--text-muted)]"
         />
         <p className="text-sm text-[var(--text-muted)]">
-          Kéo thả video, ảnh, audio vào đây — hoặc
+          {t("assets.drag-hint")}
         </p>
         <Button
           variant="secondary"
@@ -495,7 +520,7 @@ export function ProjectAssetsCard({
           onClick={() => inputRef.current?.click()}
         >
           <Upload size={14} strokeWidth={2} />
-          {uploading ? "Đang tải lên…" : "Chọn file tải lên"}
+          {uploading ? t("common.uploading") : t("assets.choose-files")}
         </Button>
         {fileInput}
       </div>
@@ -504,6 +529,7 @@ export function ProjectAssetsCard({
       {assetList}
       {gradeModal}
       {previewModal}
+      {deleteModal}
     </Card>
   );
 
@@ -520,12 +546,12 @@ export function ProjectAssetsCard({
             className="text-xs font-medium text-[var(--text-muted)]"
             htmlFor={`asset-desc-${f.relPath}`}
           >
-            Mô tả cho AI
+            {t("assets.desc-label")}
           </label>
           {savedFile === f.name && !dirty ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--success)]">
               <Check size={13} strokeWidth={2.5} />
-              Đã lưu
+              {t("assets.saved")}
             </span>
           ) : dirty ? (
             <Button
@@ -534,10 +560,10 @@ export function ProjectAssetsCard({
               className="h-6 px-2 text-xs"
               disabled={savingFile === f.name}
               onClick={() => saveDescription(f)}
-              aria-label={`Lưu mô tả ${f.name}`}
+              aria-label={tf("assets.save-desc-aria", { name: f.name })}
             >
               <Save size={12} strokeWidth={2} />
-              {savingFile === f.name ? "Đang lưu…" : "Lưu"}
+              {savingFile === f.name ? t("common.saving") : t("common.save")}
             </Button>
           ) : null}
         </div>
@@ -546,7 +572,7 @@ export function ProjectAssetsCard({
           className="input min-h-[62px] w-full resize-none overflow-hidden text-[13px] leading-relaxed"
           rows={2}
           value={value}
-          placeholder={DESCRIPTION_PLACEHOLDER[f.kind]}
+          placeholder={t(DESCRIPTION_PLACEHOLDER[f.kind])}
           ref={(el) => {
             if (el) autoGrow(el);
           }}
@@ -583,7 +609,7 @@ export function ProjectAssetsCard({
         small
         className="h-6 px-2 text-xs"
         onClick={() => setGradeFile(f)}
-        aria-label={`Chỉnh màu ${f.name}`}
+        aria-label={tf("grade.aria", { name: f.name })}
       >
         <Palette size={12} strokeWidth={2} />
         {label ? (
@@ -592,10 +618,10 @@ export function ProjectAssetsCard({
               aria-hidden
               className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
             />
-            Màu: {label}
+            {t("grade.color-prefix")} {label}
           </>
         ) : (
-          "Chỉnh màu"
+          t("grade.action")
         )}
       </Button>
     );
@@ -613,15 +639,15 @@ export function ProjectAssetsCard({
           small
           className="h-6 px-2 text-xs text-[var(--danger)]"
           disabled={deleting}
-          onClick={() => deleteAsset(f)}
-          aria-label={`Xóa ${f.name}`}
+          onClick={() => setDeleteTarget(f)}
+          aria-label={tf("assets.delete-aria", { name: f.name })}
         >
           {deleting ? (
             <Loader2 size={12} strokeWidth={2} className="animate-spin" />
           ) : (
             <Trash2 size={12} strokeWidth={2} />
           )}
-          {deleting ? "Đang xóa…" : "Xóa"}
+          {deleting ? t("common.deleting") : t("common.delete")}
         </Button>
       </div>
     );
@@ -645,7 +671,7 @@ export function ProjectAssetsCard({
               <button
                 type="button"
                 onClick={() => setPreviewFile(f)}
-                title={`Xem trước ${f.name}`}
+                title={tf("common.preview-aria", { name: f.name })}
                 className="truncate text-sm font-medium underline-offset-2 transition-colors duration-150 hover:text-[var(--primary)] hover:underline"
               >
                 {f.name}
@@ -655,14 +681,14 @@ export function ProjectAssetsCard({
             )}
             {isRecentFile(f.mtime) && (
               <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-                mới
+                {t("common.new")}
               </span>
             )}
             <span className="text-xs text-[var(--text-muted)]">
               {formatBytes(f.size)}
             </span>
             {renderGradeChip(f)}
-            {missing && <Badge tone="danger" label="Chưa mô tả" />}
+            {missing && <Badge tone="danger" label={t("brief.not-described")} />}
           </div>
         </div>
 
@@ -697,13 +723,13 @@ export function ProjectAssetsCard({
           </span>
           {isRecentFile(f.mtime) && (
             <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-              mới
+              {t("common.new")}
             </span>
           )}
           {renderGradeChip(f)}
           {missing && (
             <span className="shrink-0">
-              <Badge tone="danger" label="Chưa mô tả" />
+              <Badge tone="danger" label={t("brief.not-described")} />
             </span>
           )}
           <ChevronDown
@@ -744,7 +770,7 @@ const ADJUST_SLIDERS: {
 }[] = [
   {
     key: "brightness",
-    label: "Độ sáng",
+    label: "grade.brightness",
     min: -0.3,
     max: 0.3,
     step: 0.01,
@@ -752,7 +778,7 @@ const ADJUST_SLIDERS: {
   },
   {
     key: "contrast",
-    label: "Tương phản",
+    label: "grade.contrast",
     min: 0.7,
     max: 1.4,
     step: 0.01,
@@ -760,7 +786,7 @@ const ADJUST_SLIDERS: {
   },
   {
     key: "saturation",
-    label: "Bão hòa",
+    label: "grade.saturation",
     min: 0,
     max: 2,
     step: 0.01,
@@ -768,7 +794,7 @@ const ADJUST_SLIDERS: {
   },
   {
     key: "gamma",
-    label: "Gamma",
+    label: "grade.gamma",
     min: 0.7,
     max: 1.4,
     step: 0.01,
@@ -776,7 +802,7 @@ const ADJUST_SLIDERS: {
   },
   {
     key: "temperature",
-    label: "Nhiệt độ màu (K)",
+    label: "grade.temperature",
     min: 4000,
     max: 9500,
     step: 50,
@@ -784,7 +810,7 @@ const ADJUST_SLIDERS: {
   },
   {
     key: "vibrance",
-    label: "Vibrance",
+    label: "grade.vibrance",
     min: -0.5,
     max: 0.5,
     step: 0.01,
@@ -834,6 +860,7 @@ function GradeModal({
   /** Gọi sau khi lưu thành công — cha đóng modal + reload danh sách asset. */
   onSaved: () => void;
 }) {
+  const { t, tf } = useT();
   const [result, setResult] = useState<GradePreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Preset đang chọn: null = "Gốc" (không chỉnh màu)
@@ -933,7 +960,7 @@ function GradeModal({
     : [];
   const originalSrc = previews.find((p) => p.preset === null)?.relPath ?? null;
   const selPreview = previews.find((p) => p.preset === selected) ?? null;
-  const selLabel = selPreview?.label ?? (selected ?? "Gốc");
+  const selLabel = selPreview?.label ?? (selected ?? t("grade.original"));
   const exactCurrent = exact && exact.key === paramsKey ? exact.relPath : null;
 
   // Nguồn ảnh khung trái + CSS filter xấp xỉ (chỉ khi chưa có ảnh chính xác)
@@ -957,18 +984,18 @@ function GradeModal({
     <Modal
       wide
       open
-      title={`Chỉnh màu — ${file.name}`}
+      title={tf("grade.title", { name: file.name })}
       onClose={onClose}
       footer={
         <>
           <p className="mr-auto min-w-0 self-center text-xs text-[var(--text-muted)]">
-            AI sẽ áp đúng màu bạn chọn ở đây lên toàn bộ video khi edit.
+            {t("grade.footer-note")}
           </p>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Hủy
+            {t("common.cancel")}
           </Button>
           <Button onClick={save} disabled={saving || !result}>
-            {saving ? "Đang lưu…" : "Lưu lựa chọn"}
+            {saving ? t("common.saving") : t("grade.save")}
           </Button>
         </>
       }
@@ -977,9 +1004,9 @@ function GradeModal({
 
       {!result && !error && (
         <div className="flex flex-col gap-3 py-10">
-          <div className="progress-indeterminate" aria-label="Đang tạo preview màu" />
+          <div className="progress-indeterminate" aria-label={t("grade.creating-previews-aria")} />
           <p className="text-center text-sm text-[var(--text-muted)]">
-            Đang tạo preview… (mất vài giây)
+            {t("grade.creating-previews")}
           </p>
         </div>
       )}
@@ -993,26 +1020,28 @@ function GradeModal({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={mediaUrl(mainSrc)}
-                  alt={comparing ? "Gốc" : selLabel}
+                  alt={comparing ? t("grade.original") : selLabel}
                   style={mainFilter ? { filter: mainFilter } : undefined}
                   className="max-h-[62vh] w-full object-contain"
                 />
               )}
               {comparing && (
                 <span className="absolute left-2 top-2 rounded-full bg-[var(--surface)] px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow-[var(--shadow-card)]">
-                  Gốc
+                  {t("grade.original")}
                 </span>
               )}
               {frameLoading && !comparing && (
                 <span className="absolute right-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--surface)] px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow-[var(--shadow-card)]">
                   <Loader2 size={12} strokeWidth={2} className="animate-spin" />
-                  Đang render…
+                  {t("grade.rendering")}
                 </span>
               )}
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate text-sm font-medium">
-                {comparing ? "Gốc (đang so sánh)" : `${selLabel}${hasAdjust ? " +" : ""}`}
+                {comparing
+                  ? t("grade.original-comparing")
+                  : `${selLabel}${hasAdjust ? " +" : ""}`}
               </span>
               <Button
                 variant="secondary"
@@ -1025,10 +1054,10 @@ function GradeModal({
                 onPointerCancel={() => setComparing(false)}
                 onBlur={() => setComparing(false)}
                 onContextMenu={(e) => e.preventDefault()}
-                title="Giữ chuột để xem ảnh gốc, thả để quay lại"
+                title={t("grade.compare-title")}
               >
                 <Eye size={13} strokeWidth={2} />
-                So với gốc
+                {t("grade.compare")}
               </Button>
             </div>
           </div>
@@ -1037,15 +1066,14 @@ function GradeModal({
           <div className="flex min-w-0 flex-col gap-4 lg:max-h-[66vh] lg:w-[45%] lg:overflow-y-auto lg:pr-1">
             {result.info.needsTonemap && (
               <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-                Footage HDR/log — hệ thống sẽ tự chuẩn hóa (delog) trước khi áp
-                màu.
+                {t("grade.hdr-note")}
               </p>
             )}
 
             {/* Template màu */}
             <section className="flex flex-col gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.04em] text-[var(--text-muted)]">
-                Template màu
+                {t("grade.templates")}
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {previews.map((p) => {
@@ -1099,7 +1127,7 @@ function GradeModal({
                   aria-expanded={adjustOpen}
                   className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.04em] text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
                 >
-                  Điều chỉnh
+                  {t("grade.adjust")}
                   <ChevronDown
                     size={13}
                     strokeWidth={2}
@@ -1115,7 +1143,7 @@ function GradeModal({
                     className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
                   >
                     <RotateCcw size={11} strokeWidth={2} />
-                    Đặt lại tất cả
+                    {t("grade.reset-all")}
                   </button>
                 )}
               </div>
@@ -1133,7 +1161,7 @@ function GradeModal({
                             htmlFor={id}
                             className="text-xs font-medium text-[var(--text-muted)]"
                           >
-                            {s.label}
+                            {t(s.label)}
                           </label>
                           <span className="flex items-center gap-1.5">
                             <span
@@ -1148,7 +1176,7 @@ function GradeModal({
                             {dirty && (
                               <button
                                 type="button"
-                                aria-label={`Đặt lại ${s.label}`}
+                                aria-label={tf("grade.reset-aria", { label: t(s.label) })}
                                 onClick={() =>
                                   setAdjust((a) => ({
                                     ...a,
@@ -1179,7 +1207,7 @@ function GradeModal({
                     );
                   })}
                   <p className="text-[11px] text-[var(--text-muted)]">
-                    Ảnh xem trước chính xác sẽ cập nhật sau khi thả tay.
+                    {t("grade.preview-note")}
                   </p>
                 </div>
               )}

@@ -35,6 +35,7 @@ import {
   styleDisplayName,
   useStyles,
 } from "@/components/StyleSelect";
+import { useT } from "@/lib/i18n";
 
 export const DEFAULT_BRIEF: Brief = {
   sourceDescription: "",
@@ -56,15 +57,16 @@ export const DEFAULT_BRIEF: Brief = {
   styleId: null,
 };
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 export const SFX_MODE_LABEL: Record<SfxMode, string> = {
-  recommended: "Dùng bộ đề xuất",
-  library: "AI tự tìm trong thư viện",
-  none: "Không dùng",
+  recommended: "brief.sfx.recommended",
+  library: "brief.sfx.library",
+  none: "brief.sfx.none",
 };
 
 export const MUSIC_MODE_LABEL: Record<MusicMode, string> = {
-  auto: "AI tự chọn theo mood",
-  none: "Không dùng",
+  auto: "brief.music.auto",
+  none: "brief.music.none",
 };
 
 function Switch({
@@ -163,6 +165,7 @@ export function ProjectBriefCard({
   /** Chế độ gọn sau khi đã bắt đầu edit — tóm tắt chỉ đọc, bấm "Chỉnh sửa" mở form đầy đủ. */
   compact?: boolean;
 }) {
+  const { t, tf } = useT();
   const [form, setForm] = useState<Brief>(DEFAULT_BRIEF);
   // compact: đang mở form đầy đủ in-place hay chỉ hiện tóm tắt
   const [expandedForm, setExpandedForm] = useState(false);
@@ -241,7 +244,7 @@ export function ProjectBriefCard({
     if (!p) return;
     if (form.notes.trim() && form.notes !== p.content) {
       const ok = window.confirm(
-        `Thay nội dung "Yêu cầu edit" hiện tại bằng prompt mẫu "${p.name}"?`
+        tf("brief.apply-prompt-confirm", { name: p.name })
       );
       if (!ok) return;
     }
@@ -275,51 +278,51 @@ export function ProjectBriefCard({
   const summary = (
     <div className="flex flex-col gap-2 text-[13px]">
       <div className="flex gap-2">
-        <span className={summaryRowLabel}>Mô tả gốc</span>
+        <span className={summaryRowLabel}>{t("brief.sum-source")}</span>
         <span className="min-w-0 flex-1 truncate">
           {form.sourceDescription.trim() || (
-            <span className="text-[var(--text-muted)]">Chưa mô tả</span>
+            <span className="text-[var(--text-muted)]">{t("brief.not-described")}</span>
           )}
         </span>
       </div>
       <div className="flex gap-2">
-        <span className={summaryRowLabel}>Yêu cầu edit</span>
+        <span className={summaryRowLabel}>{t("brief.edit-request")}</span>
         <span className="min-w-0 flex-1">
           {form.notes.trim() ? (
             <span className="line-clamp-2 whitespace-pre-line">
               {form.notes}
             </span>
           ) : (
-            <span className="text-[var(--text-muted)]">Chưa có</span>
+            <span className="text-[var(--text-muted)]">{t("brief.none")}</span>
           )}
         </span>
       </div>
       <div className="flex gap-2">
-        <span className={summaryRowLabel}>Tùy chọn</span>
+        <span className={summaryRowLabel}>{t("brief.sum-options")}</span>
         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          <YesNoBadge label="Cắt" value={form.autoCut} />
-          <YesNoBadge label="Phụ đề" value={form.subtitles} />
+          <YesNoBadge label={t("brief.badge-cut")} value={form.autoCut} />
+          <YesNoBadge label={t("brief.subtitles")} value={form.subtitles} />
           <YesNoBadge label="Highlight" value={form.highlightEnabled} />
-          <YesNoBadge label="Bố cục Key" value={form.keyLayoutEnabled} />
-          <YesNoBadge label="Minh họa AI" value={form.autoIllustrations} />
+          <YesNoBadge label={t("brief.key-layout")} value={form.keyLayoutEnabled} />
+          <YesNoBadge label={t("brief.badge-illustrations")} value={form.autoIllustrations} />
         </span>
       </div>
       <div className="flex gap-2">
         <span className={summaryRowLabel}>Style Design</span>
         <span className="min-w-0 flex-1 truncate">
-          {styleDisplayName(stylesData, form.styleId)}
+          {styleDisplayName(stylesData, form.styleId, t)}
         </span>
       </div>
       <div className="flex gap-2">
         <span className={summaryRowLabel}>Skill</span>
         <span className="min-w-0 flex-1 truncate">
-          {form.skill ?? "Để AI tự chọn"}
+          {form.skill ?? t("brief.ai-pick-skill")}
         </span>
       </div>
       <div className="flex gap-2">
         <span className={summaryRowLabel}>Sound effect</span>
         <span className="min-w-0 flex-1 truncate">
-          {SFX_MODE_LABEL[form.sfxMode]}
+          {t(SFX_MODE_LABEL[form.sfxMode])}
         </span>
       </div>
     </div>
@@ -328,7 +331,7 @@ export function ProjectBriefCard({
   if (showSummary) {
     return (
       <Card
-        title="Kịch bản edit (Brief)"
+        title={t("brief.title")}
         actions={
           <Button
             variant="secondary"
@@ -336,7 +339,7 @@ export function ProjectBriefCard({
             onClick={() => setExpandedForm(true)}
           >
             <Pencil size={13} strokeWidth={2} />
-            Chỉnh sửa
+            {t("common.edit")}
           </Button>
         }
       >
@@ -347,7 +350,7 @@ export function ProjectBriefCard({
 
   return (
     <Card
-      title="Kịch bản edit (Brief)"
+      title={t("brief.title")}
       actions={
         compact ? (
           <Button
@@ -356,22 +359,22 @@ export function ProjectBriefCard({
             onClick={() => setExpandedForm(false)}
           >
             <ChevronUp size={13} strokeWidth={2} />
-            Thu gọn
+            {t("brief.collapse")}
           </Button>
         ) : undefined
       }
     >
       <div className="flex flex-col gap-5">
         {error && (
-          <ErrorBanner message="Không lưu được brief." detail={error} />
+          <ErrorBanner message={t("brief.save-error")} detail={error} />
         )}
 
         {/* 1. Mô tả video gốc */}
         <div>
           <FieldLabel
             htmlFor="brief-source"
-            label="Mô tả video gốc"
-            hint="Cho AI biết bối cảnh: video quay gì, ai nói, nói về chủ đề gì."
+            label={t("brief.source-label")}
+            hint={t("brief.source-hint")}
           />
           <textarea
             id="brief-source"
@@ -379,7 +382,7 @@ export function ProjectBriefCard({
             rows={3}
             value={form.sourceDescription}
             onChange={(e) => set("sourceDescription", e.target.value)}
-            placeholder="vd: Clip talking-head tôi nói về 3 sai lầm khi chạy quảng cáo, ~90 giây, quay dọc"
+            placeholder={t("brief.source-placeholder")}
           />
         </div>
 
@@ -387,20 +390,20 @@ export function ProjectBriefCard({
         <div>
           <FieldLabel
             htmlFor="brief-notes"
-            label="Yêu cầu edit (prompt)"
-            hint="Nội dung chính gửi cho AI — mô tả bạn muốn video được edit thế nào."
+            label={t("brief.notes-label")}
+            hint={t("brief.notes-hint")}
           />
           <div className="mb-1.5 flex items-center gap-2">
             <select
               className="input h-8 flex-1 text-[13px]"
               value=""
               onChange={(e) => applyPrompt(e.target.value)}
-              aria-label="Dùng prompt mẫu"
+              aria-label={t("brief.use-prompt-aria")}
             >
               <option value="" disabled>
                 {prompts.length > 0
-                  ? "Dùng prompt mẫu…"
-                  : "Chưa có prompt mẫu nào"}
+                  ? t("brief.use-prompt")
+                  : t("brief.no-prompts")}
               </option>
               {prompts.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -413,7 +416,7 @@ export function ProjectBriefCard({
               className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
             >
               <ScrollText size={13} strokeWidth={2} />
-              Quản lý prompt
+              {t("brief.manage-prompts")}
             </Link>
           </div>
           <textarea
@@ -422,7 +425,7 @@ export function ProjectBriefCard({
             rows={6}
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
-            placeholder="vd: Edit theo phong cách Noti TikTok — chữ động nhấn ý chính, phụ đề karaoke, giữ tông chuyên nghiệp, chèn b-roll khi nhắc tới sản phẩm…"
+            placeholder={t("brief.notes-placeholder")}
           />
         </div>
 
@@ -432,22 +435,22 @@ export function ProjectBriefCard({
             id="brief-autocut"
             checked={form.autoCut}
             onChange={(v) => set("autoCut", v)}
-            label="Tự động cắt ngắn video"
-            hint="AI cắt bỏ khoảng lặng, đoạn thừa"
+            label={t("brief.autocut-label")}
+            hint={t("brief.autocut-hint")}
           />
           <Switch
             id="brief-subtitles"
             checked={form.subtitles}
             onChange={(v) => set("subtitles", v)}
-            label="Tạo phụ đề"
-            hint="Phụ đề karaoke theo giọng nói"
+            label={t("brief.subtitles-label")}
+            hint={t("brief.subtitles-hint")}
           />
           <Switch
             id="brief-highlight"
             checked={form.highlightEnabled}
             onChange={(v) => set("highlightEnabled", v)}
-            label="Làm nổi bật key chính"
-            hint="AI tự phân tích nội dung và chọn keyword để highlight"
+            label={t("brief.highlight")}
+            hint={t("brief.highlight-hint")}
           />
           {/* Nâng cao: chỉ định thêm keyword — chỉ hiện khi toggle BẬT */}
           {form.highlightEnabled && (
@@ -459,7 +462,7 @@ export function ProjectBriefCard({
                   onClick={() => setShowKeywords(true)}
                 >
                   <Plus size={13} strokeWidth={2} />
-                  Chỉ định thêm keyword (tùy chọn)
+                  {t("brief.add-keywords")}
                 </button>
               ) : (
                 <div>
@@ -467,7 +470,7 @@ export function ProjectBriefCard({
                     className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
                     htmlFor="brief-keyword"
                   >
-                    Keyword chỉ định thêm (tùy chọn) — AI vẫn tự chọn thêm
+                    {t("brief.keywords-label")}
                   </label>
                   {form.highlightKeywords.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
@@ -476,7 +479,7 @@ export function ProjectBriefCard({
                           {kw}
                           <button
                             type="button"
-                            aria-label={`Xóa keyword ${kw}`}
+                            aria-label={tf("brief.remove-keyword-aria", { keyword: kw })}
                             className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
                             onClick={() =>
                               set(
@@ -502,7 +505,7 @@ export function ProjectBriefCard({
                         addKeyword();
                       }
                     }}
-                    placeholder="Gõ keyword rồi Enter để thêm…"
+                    placeholder={t("brief.keyword-placeholder")}
                   />
                 </div>
               )}
@@ -512,17 +515,17 @@ export function ProjectBriefCard({
             id="brief-key-layout"
             checked={form.keyLayoutEnabled}
             onChange={(v) => set("keyLayoutEnabled", v)}
-            label="Bố cục Key chính / Key liên quan"
-            hint="Key chính hiện ở vùng TRÊN video, các key liên quan hiện ở vùng DƯỚI theo nội dung đang nói"
+            label={t("brief.key-layout-label")}
+            hint={t("brief.key-layout-hint")}
           />
           {/* Chế độ chọn key — chỉ hiện khi toggle BẬT */}
           {form.keyLayoutEnabled && (
             <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-2.5">
-              <div className="flex gap-1.5" role="radiogroup" aria-label="Cách chọn key">
+              <div className="flex gap-1.5" role="radiogroup" aria-label={t("brief.key-mode-aria")}>
                 {(
                   [
-                    [false, "AI tự đề xuất & sử dụng"],
-                    [true, "Tự chỉ định key"],
+                    [false, "brief.key-auto"],
+                    [true, "brief.key-manual"],
                   ] as const
                 ).map(([manual, label]) => (
                   <button
@@ -544,14 +547,13 @@ export function ProjectBriefCard({
                       }
                     }}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>
               {!keyManual ? (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Không cần điền gì — AI tự phân tích nội dung video, đề xuất key
-                  chính + 3–6 key liên quan và tự dùng đúng thời điểm.
+                  {t("brief.key-auto-desc")}
                 </p>
               ) : (
                 <>
@@ -560,17 +562,17 @@ export function ProjectBriefCard({
                       className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
                       htmlFor="brief-main-key"
                     >
-                      Key chính
+                      {t("brief.main-key")}
                     </label>
                     <input
                       id="brief-main-key"
                       className="input h-8 text-[13px]"
                       value={form.mainKey}
                       onChange={(e) => set("mainKey", e.target.value)}
-                      placeholder="vd: MCP chính thức của TikTok"
+                      placeholder={t("brief.main-key-placeholder")}
                     />
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      AI dùng NGUYÊN VĂN key này. Bỏ trống thì AI vẫn tự chọn.
+                      {t("brief.main-key-hint")}
                     </p>
                   </div>
                   <div>
@@ -578,17 +580,16 @@ export function ProjectBriefCard({
                       className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
                       htmlFor="brief-related-keys"
                     >
-                      Key liên quan
+                      {t("brief.related-keys")}
                     </label>
                     <TagInput
                       id="brief-related-keys"
                       tags={form.relatedKeys}
                       onChange={(tags) => set("relatedKeys", tags)}
-                      placeholder="Gõ key rồi Enter để thêm…"
+                      placeholder={t("brief.related-keys-placeholder")}
                     />
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      AI bắt buộc dùng đủ các key này, đúng lúc nội dung nhắc tới.
-                      Bỏ trống thì AI tự chọn 3–6 key.
+                      {t("brief.related-keys-hint")}
                     </p>
                   </div>
                 </>
@@ -599,8 +600,8 @@ export function ProjectBriefCard({
             id="brief-illustrations"
             checked={form.autoIllustrations}
             onChange={(v) => set("autoIllustrations", v)}
-            label="Ảnh minh họa AI (Gemini)"
-            hint="Claude tự chọn ý chính trong video, Gemini vẽ minh họa đồng bộ Style Design rồi ghép vào (~$0.05/ảnh)"
+            label={t("brief.illustrations-label")}
+            hint={t("brief.illustrations-hint")}
           />
           {/* Chọn model vẽ — chỉ hiện khi toggle BẬT */}
           {form.autoIllustrations && (
@@ -609,7 +610,7 @@ export function ProjectBriefCard({
                 className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
                 htmlFor="brief-illustration-model"
               >
-                Model vẽ
+                {t("brief.illustration-model")}
               </label>
               <select
                 id="brief-illustration-model"
@@ -620,7 +621,7 @@ export function ProjectBriefCard({
                   set("illustrationModel", e.target.value || null)
                 }
               >
-                <option value="">Mặc định (Nano Banana 2)</option>
+                <option value="">{t("images.model-default")}</option>
                 {illustrationModelMissing && (
                   <option value={form.illustrationModel!}>
                     {form.illustrationModel}
@@ -639,7 +640,7 @@ export function ProjectBriefCard({
                     strokeWidth={2}
                     className="animate-spin"
                   />
-                  Đang tải model…
+                  {t("images.loading-models")}
                 </p>
               )}
               <label
@@ -654,11 +655,9 @@ export function ProjectBriefCard({
                   onChange={(e) => set("illustrationText", e.target.checked)}
                 />
                 <span>
-                  Ảnh có chữ (Gemini tự vẽ chữ vào ảnh)
+                  {t("brief.illustration-text")}
                   <span className="block text-xs font-normal text-[var(--text-muted)]">
-                    Tắt = ảnh nền sạch, chữ do hệ thống đặt (không lỗi chính
-                    tả). Bật = chữ nằm trong ảnh, bám nội dung hơn — AI sẽ tự
-                    kiểm chính tả.
+                    {t("brief.illustration-text-hint")}
                   </span>
                 </span>
               </label>
@@ -669,8 +668,7 @@ export function ProjectBriefCard({
                     strokeWidth={2}
                     className="mt-0.5 shrink-0"
                   />
-                  Cần GEMINI_API_KEY (tab Kết nối) — nếu thiếu, AI sẽ bỏ qua
-                  phần minh họa.
+                  {t("brief.gemini-warning")}
                 </p>
               )}
             </div>
@@ -682,7 +680,7 @@ export function ProjectBriefCard({
           <FieldLabel
             htmlFor="brief-style"
             label="Style Design"
-            hint="Sản phẩm bắt buộc tuân theo style này 100% — ghi đè mọi quy định màu/font trong skill/prompt."
+            hint={t("brief.style-hint")}
           />
           <StyleSelect
             id="brief-style"
@@ -695,8 +693,8 @@ export function ProjectBriefCard({
         <div>
           <FieldLabel
             htmlFor="brief-skill"
-            label="Skill dùng để edit"
-            hint="Quy trình/phong cách edit đã lưu sẵn — để trống thì AI tự chọn skill phù hợp."
+            label={t("brief.skill-label")}
+            hint={t("brief.skill-hint")}
           />
           <select
             id="brief-skill"
@@ -704,7 +702,7 @@ export function ProjectBriefCard({
             value={form.skill ?? ""}
             onChange={(e) => set("skill", e.target.value || null)}
           >
-            <option value="">Để AI tự chọn</option>
+            <option value="">{t("brief.ai-pick-skill")}</option>
             {skills.map((s) => (
               <option key={s.name} value={s.name}>
                 {s.name}
@@ -720,7 +718,7 @@ export function ProjectBriefCard({
         <div>
           <FieldLabel
             label="Sound effect"
-            hint="Âm thanh hiệu ứng (whoosh, pop…) AI chèn theo nhịp video."
+            hint={t("brief.sfx-hint")}
           />
           <div className="flex flex-col gap-1.5">
             {(Object.keys(SFX_MODE_LABEL) as SfxMode[]).map((mode) => (
@@ -735,7 +733,7 @@ export function ProjectBriefCard({
                   checked={form.sfxMode === mode}
                   onChange={() => set("sfxMode", mode)}
                 />
-                {SFX_MODE_LABEL[mode]}
+                {t(SFX_MODE_LABEL[mode])}
               </label>
             ))}
           </div>
@@ -743,13 +741,13 @@ export function ProjectBriefCard({
           {/* Nhạc nền — thư viện assets/music/, AI duck tự động khi có thoại */}
           <div className="mt-3 border-t border-[var(--border)] pt-3">
             <FieldLabel
-              label="Nhạc nền"
-              hint="AI chọn một bài trong thư viện Nhạc nền hợp mood nội dung, tự giảm âm lượng (duck) khi có thoại."
+              label={t("brief.music-label")}
+              hint={t("brief.music-hint")}
             />
             <div
               className="flex flex-col gap-1.5"
               role="radiogroup"
-              aria-label="Nhạc nền"
+              aria-label={t("brief.music-label")}
             >
               {(Object.keys(MUSIC_MODE_LABEL) as MusicMode[]).map((mode) => (
                 <label
@@ -763,7 +761,7 @@ export function ProjectBriefCard({
                     checked={form.musicMode === mode}
                     onChange={() => set("musicMode", mode)}
                   />
-                  {MUSIC_MODE_LABEL[mode]}
+                  {t(MUSIC_MODE_LABEL[mode])}
                 </label>
               ))}
             </div>
@@ -773,11 +771,11 @@ export function ProjectBriefCard({
         <div className="flex items-center gap-3">
           <Button onClick={onSave} disabled={saving || !brief}>
             <Save size={15} strokeWidth={2} />
-            {saving ? "Đang lưu…" : "Lưu brief"}
+            {saving ? t("common.saving") : t("brief.save")}
           </Button>
           {saved && (
             <span className="text-sm font-medium text-[var(--success)]">
-              Đã lưu brief.
+              {t("brief.saved")}
             </span>
           )}
         </div>

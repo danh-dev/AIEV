@@ -3,6 +3,7 @@
 import { ArrowDownCircle, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, applyUpdate, checkUpdate, type UpdateStatus } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 const CHECK_MS = 5 * 60 * 1000; // check bản mới mỗi 5 phút
 const HEALTH_POLL_MS = 5_000; // poll /api/health trong lúc update
@@ -12,6 +13,7 @@ const HEALTH_POLL_MS = 5_000; // poll /api/health trong lúc update
  * Sau khi apply: chờ server CHẾT (script update kill) rồi SỐNG lại → reload trang.
  */
 export function UpdateBadge() {
+  const { t, tf } = useT();
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [updating, setUpdating] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -80,9 +82,7 @@ export function UpdateBadge() {
   }, [updating]);
 
   async function onApply() {
-    const ok = window.confirm(
-      "Hệ thống sẽ dừng, kéo bản mới và khởi động lại (~1-3 phút). Tiếp tục?"
-    );
+    const ok = window.confirm(t("update.confirm"));
     if (!ok) return;
     setNotice(null);
     try {
@@ -90,10 +90,10 @@ export function UpdateBadge() {
       setUpdating(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === "JOB_RUNNING") {
-        setNotice("Đang có job render — chờ xong rồi cập nhật.");
+        setNotice(t("update.job-running"));
       } else {
         setNotice(
-          err instanceof ApiError ? err.message : "Không gửi được lệnh cập nhật."
+          err instanceof ApiError ? err.message : t("update.send-failed")
         );
       }
     }
@@ -102,11 +102,11 @@ export function UpdateBadge() {
   if (updating) {
     return (
       <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
-        <p className="text-xs font-medium">Đang cập nhật…</p>
+        <p className="text-xs font-medium">{t("update.updating")}</p>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Trang sẽ tự tải lại
+          {t("update.will-reload")}
         </p>
-        <div className="progress-indeterminate mt-2" aria-label="Đang cập nhật" />
+        <div className="progress-indeterminate mt-2" aria-label={t("update.updating")} />
       </div>
     );
   }
@@ -121,21 +121,21 @@ export function UpdateBadge() {
         <div className="flex items-center gap-1 px-2">
           <span
             className="text-xs text-[var(--danger)] opacity-80"
-            title={status.error ?? "Không kiểm tra được bản mới"}
+            title={status.error ?? t("update.check-failed")}
           >
-            Không kiểm tra được bản mới
+            {t("update.check-failed")}
           </span>
           <button
             type="button"
             onClick={() => check(true)}
             disabled={checking}
             className="inline-flex shrink-0 items-center gap-1 text-xs text-[var(--text-muted)] underline transition-colors hover:text-[var(--text)] disabled:opacity-60"
-            title="Kiểm tra lại ngay"
+            title={t("update.check-now")}
           >
             {checking && (
               <Loader2 size={12} strokeWidth={2} className="animate-spin" />
             )}
-            Thử lại
+            {t("common.retry")}
           </button>
         </div>
       );
@@ -145,13 +145,13 @@ export function UpdateBadge() {
         type="button"
         onClick={() => check(true)}
         disabled={checking}
-        title="Bấm để kiểm tra ngay"
+        title={t("update.click-check")}
         className="inline-flex items-center gap-1 px-2 text-left text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text)] disabled:opacity-60"
       >
         {checking && (
           <Loader2 size={12} strokeWidth={2} className="animate-spin" />
         )}
-        Bản mới nhất{status.current ? ` · ${status.current}` : ""}
+        {t("update.up-to-date")}{status.current ? ` · ${status.current}` : ""}
       </button>
     );
   }
@@ -170,10 +170,10 @@ export function UpdateBadge() {
           strokeWidth={1.75}
           className="shrink-0 text-[var(--primary)]"
         />
-        <span className="text-xs font-medium">Có bản cập nhật</span>
+        <span className="text-xs font-medium">{t("update.available")}</span>
       </div>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {status.behind} thay đổi{message ? ` — ${message}` : ""}
+        {tf("update.behind", { n: status.behind })}{message ? ` — ${message}` : ""}
       </p>
       {notice && <p className="mt-1 text-xs text-[var(--danger)]">{notice}</p>}
       <button
@@ -181,7 +181,7 @@ export function UpdateBadge() {
         onClick={onApply}
         className="btn btn-primary btn-sm mt-2 w-full"
       >
-        Cập nhật
+        {t("update.apply")}
       </button>
     </div>
   );

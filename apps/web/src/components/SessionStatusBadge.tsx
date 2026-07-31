@@ -1,4 +1,7 @@
+"use client";
+
 import type { ChatSessionStatus } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * Badge trạng thái phiên AI — dùng ở panel AI của project, header ChatThread
@@ -6,12 +9,13 @@ import type { ChatSessionStatus } from "@/lib/api";
  * phiên còn sống.
  */
 
+// Giá trị là KEY dictionary — dịch bằng t() lúc render.
 const LABEL: Record<ChatSessionStatus, string> = {
-  idle: "Chờ",
-  running: "Đang làm việc",
-  done: "Hoàn thành",
-  error: "Lỗi",
-  interrupted: "Tạm dừng",
+  idle: "badge.session.idle",
+  running: "badge.session.running",
+  done: "badge.session.done",
+  error: "badge.session.error",
+  interrupted: "badge.session.interrupted",
 };
 
 const TONE: Record<ChatSessionStatus, string> = {
@@ -22,9 +26,15 @@ const TONE: Record<ChatSessionStatus, string> = {
   interrupted: "badge-muted",
 };
 
-/** Label thuần chữ — dùng trong <option> của dropdown (không render JSX được). */
-export function sessionStatusLabel(status: ChatSessionStatus): string {
-  return LABEL[status] ?? String(status);
+/**
+ * Label thuần chữ — dùng trong <option> của dropdown (không render JSX được).
+ * Nhận t từ useT() của caller để dịch đúng ngôn ngữ.
+ */
+export function sessionStatusLabel(
+  status: ChatSessionStatus,
+  t: (key: string) => string
+): string {
+  return LABEL[status] ? t(LABEL[status]) : String(status);
 }
 
 export function SessionStatusBadge({
@@ -34,6 +44,7 @@ export function SessionStatusBadge({
   status: ChatSessionStatus;
   large?: boolean;
 }) {
+  const { t } = useT();
   const tone = TONE[status] ?? "badge-muted";
   return (
     <span
@@ -42,7 +53,7 @@ export function SessionStatusBadge({
       <span
         className={`badge-dot ${status === "running" ? "badge-dot-pulse" : ""}`}
       />
-      {sessionStatusLabel(status)}
+      {sessionStatusLabel(status, t)}
     </span>
   );
 }

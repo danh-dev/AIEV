@@ -7,6 +7,7 @@ import "@fontsource/inter/700.css";
 import "./globals.css";
 import { Shell } from "@/components/Shell";
 import { StaleChunkGuard } from "@/components/StaleChunkGuard";
+import { LanguageProvider } from "@/lib/i18n";
 import { EventsProvider } from "@/lib/useEvents";
 
 export const metadata: Metadata = {
@@ -24,9 +25,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <StaleChunkGuard />
-        <EventsProvider>
-          <Shell>{children}</Shell>
-        </EventsProvider>
+        <LanguageProvider>
+          <EventsProvider>
+            <Shell>{children}</Shell>
+          </EventsProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
