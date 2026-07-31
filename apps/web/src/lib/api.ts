@@ -1283,6 +1283,13 @@ export const generateImage = (id: string, step?: ImageGenStep) =>
 
 // ============ Media helper ============
 
+/**
+ * Mở file trong Explorer/Finder trên máy chạy server (chọn đúng file).
+ * relPath tính từ repo root — whitelist thư mục như /media, 404 nếu không tồn tại.
+ */
+export const revealFile = (relPath: string) =>
+  post<void>("/api/reveal", { relPath });
+
 /** Đường dẫn phát file qua backend, relPath tính từ repo root. Phòng thủ với dữ liệu lệch kiểu (AI ghi meta sai hợp đồng). */
 export const mediaUrl = (relPath: string) =>
   `/media/${String(relPath ?? "").replace(/\\/g, "/").replace(/^\/+/, "")}`;

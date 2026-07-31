@@ -2,7 +2,6 @@
 
 import {
   Check,
-  ChevronDown,
   Clapperboard,
   Copy,
   ExternalLink,
@@ -23,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import React, {
+import {
   useCallback,
   useEffect,
   useRef,
@@ -64,6 +63,11 @@ import {
 } from "@/components/ModelPicker";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import {
+  MediaPreviewModal,
+  RevealButton,
+  canPreview,
+} from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { PipelineTimeline } from "@/components/PipelineTimeline";
@@ -94,15 +98,19 @@ function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   }
 }
 
-function sceneRendered(scene: SceneMeta, renders: FileInfo[]): boolean {
-  return renders.some(
-    (f) => f.name === `${scene.id}.mp4` || f.name === `${scene.id}.draft.mp4`
+/** File render của một scene — ưu tiên bản final trước draft. */
+function sceneRenderFile(scene: SceneMeta, renders: FileInfo[]): FileInfo | null {
+  return (
+    renders.find((f) => f.name === `${scene.id}.mp4`) ??
+    renders.find((f) => f.name === `${scene.id}.draft.mp4`) ??
+    null
   );
 }
 
-/** Bảng file render — click hàng để mở preview chi tiết ngay tại chỗ */
+/** Bảng file render — click hàng mở modal preview lớn, nút Mở file reveal trong Explorer */
 function FileTable({ files }: { files: FileInfo[] }) {
-  const [openPath, setOpenPath] = useState<string | null>(null);
+  const [preview, setPreview] = useState<FileInfo | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
 
   if (files.length === 0) {
     return (
@@ -110,25 +118,27 @@ function FileTable({ files }: { files: FileInfo[] }) {
     );
   }
   return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>File</th>
-          <th>Kích thước</th>
-          <th>Sửa đổi</th>
-          <th aria-label="Xem" />
-        </tr>
-      </thead>
-      <tbody>
-        {files.map((f) => {
-          const open = openPath === f.relPath;
-          // Cache-bust theo mtime — file render draft ghi đè cùng tên
-          const url = mediaUrl(f.relPath) + `?v=${encodeURIComponent(f.mtime)}`;
-          return (
-            <React.Fragment key={f.relPath}>
+    <>
+      {revealError && (
+        <p className="mb-2 text-xs text-[var(--danger)]">{revealError}</p>
+      )}
+      <table className="table">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Kích thước</th>
+            <th>Sửa đổi</th>
+            <th aria-label="Thao tác" />
+          </tr>
+        </thead>
+        <tbody>
+          {files.map((f) => {
+            const previewable = canPreview(f.kind);
+            return (
               <tr
-                className="row-click"
-                onClick={() => setOpenPath(open ? null : f.relPath)}
+                key={f.relPath}
+                className={previewable ? "row-click" : undefined}
+                onClick={previewable ? () => setPreview(f) : undefined}
               >
                 <td>
                   <span className="flex items-center gap-2">
@@ -144,58 +154,19 @@ function FileTable({ files }: { files: FileInfo[] }) {
                 <td className="text-[var(--text-muted)]">{formatBytes(f.size)}</td>
                 <td className="text-[var(--text-muted)]">{formatRelative(f.mtime)}</td>
                 <td className="text-right">
-                  <ChevronDown
-                    size={15}
-                    strokeWidth={2}
-                    className={`ml-auto text-[var(--text-muted)] transition-transform duration-150 ${
-                      open ? "rotate-180" : ""
-                    }`}
+                  <RevealButton
+                    relPath={f.relPath}
+                    onError={setRevealError}
+                    className="ml-auto"
                   />
                 </td>
               </tr>
-              {open && (
-                <tr>
-                  <td colSpan={4} className="bg-[var(--bg-subtle)]">
-                    <div className="flex flex-col gap-2 py-1">
-                      {f.kind === "video" ? (
-                        <video
-                          controls
-                          src={url}
-                          className="mx-auto max-h-[320px] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
-                        />
-                      ) : f.kind === "image" ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={url}
-                          alt={f.name}
-                          className="mx-auto max-h-[320px] max-w-full rounded-[var(--radius)]"
-                        />
-                      ) : f.kind === "audio" ? (
-                        <audio controls src={url} className="w-full" />
-                      ) : (
-                        <p className="text-xs text-[var(--text-muted)]">
-                          Không xem trước được loại file này.
-                        </p>
-                      )}
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="ml-auto flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-                      >
-                        <ExternalLink size={13} strokeWidth={2} />
-                        Mở file trong tab mới
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </tbody>
-    </table>
+            );
+          })}
+        </tbody>
+      </table>
+      <MediaPreviewModal file={preview} onClose={() => setPreview(null)} />
+    </>
   );
 }
 
@@ -359,6 +330,10 @@ export default function ProjectDetailPage() {
 
   // Modal "Nhân bản project"
   const [cloneOpen, setCloneOpen] = useState(false);
+
+  // Preview file render của scene + lỗi "Mở file" trong card Scenes
+  const [scenePreview, setScenePreview] = useState<FileInfo | null>(null);
+  const [sceneRevealError, setSceneRevealError] = useState<string | null>(null);
 
   // Modal "Bắt đầu edit bằng AI"
   const [editOpen, setEditOpen] = useState(false);
@@ -881,6 +856,11 @@ export default function ProjectDetailPage() {
                   <FileTable files={renders} />
                 </Card>
                 <Card title="Scenes">
+                  {sceneRevealError && (
+                    <p className="mb-2 text-xs text-[var(--danger)]">
+                      {sceneRevealError}
+                    </p>
+                  )}
                   {scenes.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="table">
@@ -895,10 +875,24 @@ export default function ProjectDetailPage() {
                         </thead>
                         <tbody>
                           {scenes.map((s) => {
-                            const rendered = sceneRendered(s, renders);
+                            const renderFile = sceneRenderFile(s, renders);
+                            const rendered = renderFile !== null;
                             return (
                               <tr key={s.id}>
-                                <td className="font-medium">{s.id}</td>
+                                <td className="font-medium">
+                                  {renderFile ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setScenePreview(renderFile)}
+                                      title={`Xem trước ${renderFile.name}`}
+                                      className="font-medium underline-offset-2 transition-colors duration-150 hover:text-[var(--primary)] hover:underline"
+                                    >
+                                      {s.id}
+                                    </button>
+                                  ) : (
+                                    s.id
+                                  )}
+                                </td>
                                 <td className="text-[var(--text-muted)]">
                                   {s.src ? (
                                     <span className="chip">
@@ -931,18 +925,26 @@ export default function ProjectDetailPage() {
                                   )}
                                 </td>
                                 <td>
-                                  {s.src && (
-                                    <Button
-                                      variant="secondary"
-                                      small
-                                      disabled={submitting}
-                                      onClick={() =>
-                                        submitJob("scene-draft", s.id)
-                                      }
-                                    >
-                                      Draft scene này
-                                    </Button>
-                                  )}
+                                  <span className="flex items-center justify-end gap-2">
+                                    {renderFile && (
+                                      <RevealButton
+                                        relPath={renderFile.relPath}
+                                        onError={setSceneRevealError}
+                                      />
+                                    )}
+                                    {s.src && (
+                                      <Button
+                                        variant="secondary"
+                                        small
+                                        disabled={submitting}
+                                        onClick={() =>
+                                          submitJob("scene-draft", s.id)
+                                        }
+                                      >
+                                        Draft scene này
+                                      </Button>
+                                    )}
+                                  </span>
                                 </td>
                               </tr>
                             );
@@ -1155,6 +1157,12 @@ export default function ProjectDetailPage() {
             />
           )}
         </aside>
+
+      {/* Preview file render của scene (card Scenes) */}
+      <MediaPreviewModal
+        file={scenePreview}
+        onClose={() => setScenePreview(null)}
+      />
 
       {/* Modal nhân bản project — thành công thì chuyển thẳng sang project mới */}
       <CloneProjectModal

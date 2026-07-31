@@ -48,6 +48,11 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import {
+  MediaPreviewModal,
+  RevealButton,
+  canPreview,
+} from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
 import { formatBytes, isRecentFile } from "@/lib/format";
 
@@ -92,28 +97,41 @@ function AssetPreview({
   file,
   playing,
   onTogglePlay,
+  onOpenPreview,
 }: {
   file: FileInfo;
   playing: boolean;
   onTogglePlay: () => void;
+  /** Click thumbnail ảnh/video → mở modal preview lớn. */
+  onOpenPreview?: () => void;
 }) {
   const base =
     "flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius)] bg-[var(--bg-subtle)] border border-[var(--border)]";
   switch (file.kind) {
     case "image":
       return (
-        <span className={base}>
+        <button
+          type="button"
+          onClick={onOpenPreview}
+          aria-label={`Xem trước ${file.name}`}
+          className={`${base} cursor-zoom-in`}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={mediaUrl(file.relPath) + "?v=" + encodeURIComponent(file.mtime)}
             alt={file.name}
             className="h-full w-full object-cover"
           />
-        </span>
+        </button>
       );
     case "video":
       return (
-        <span className={base}>
+        <button
+          type="button"
+          onClick={onOpenPreview}
+          aria-label={`Xem trước ${file.name}`}
+          className={`${base} cursor-zoom-in`}
+        >
           <video
             src={mediaUrl(file.relPath) + "?v=" + encodeURIComponent(file.mtime)}
             className="h-full w-full object-cover"
@@ -122,7 +140,7 @@ function AssetPreview({
             preload="metadata"
             controls={false}
           />
-        </span>
+        </button>
       );
     case "audio":
       return (
@@ -183,6 +201,9 @@ export function ProjectAssetsCard({
 
   // Asset video đang mở modal duyệt chỉnh màu
   const [gradeFile, setGradeFile] = useState<FileInfo | null>(null);
+
+  // Asset đang mở modal preview lớn (ảnh/video/audio)
+  const [previewFile, setPreviewFile] = useState<FileInfo | null>(null);
 
   // Nhãn preset màu — nguồn chính: GET /api/grade-presets (GRADE_LABELS chỉ là fallback)
   const [gradeLabels, setGradeLabels] =
@@ -336,6 +357,14 @@ export function ProjectAssetsCard({
     />
   ) : null;
 
+  // Modal preview media dùng chung — cho cả hai layout
+  const previewModal = (
+    <MediaPreviewModal
+      file={previewFile}
+      onClose={() => setPreviewFile(null)}
+    />
+  );
+
   const fileInput = (
     <input
       ref={inputRef}
@@ -428,6 +457,7 @@ export function ProjectAssetsCard({
           {assetList}
         </Card>
         {gradeModal}
+        {previewModal}
       </div>
     );
   }
@@ -473,6 +503,7 @@ export function ProjectAssetsCard({
       {/* Danh sách asset */}
       {assetList}
       {gradeModal}
+      {previewModal}
     </Card>
   );
 
@@ -570,11 +601,12 @@ export function ProjectAssetsCard({
     );
   }
 
-  /** Hàng nút thao tác của một asset — Chỉnh màu (video) + Xóa (mọi loại). */
+  /** Hàng nút thao tác của một asset — Mở file + Chỉnh màu (video) + Xóa. */
   function renderActions(f: FileInfo) {
     const deleting = deletingFile === f.name;
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <RevealButton relPath={f.relPath} onError={setError} />
         {renderGradeButton(f)}
         <Button
           variant="secondary"
@@ -600,15 +632,27 @@ export function ProjectAssetsCard({
     const missing = !(f.description ?? "").trim() && !value.trim();
     return (
       <div key={f.relPath} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
-        {/* Hàng trên: thumbnail + tên + size + badge */}
+        {/* Hàng trên: thumbnail + tên + size + badge — click thumbnail/tên mở preview lớn */}
         <div className="flex items-center gap-3">
           <AssetPreview
             file={f}
             playing={playing === f.name}
             onTogglePlay={() => togglePlay(f)}
+            onOpenPreview={() => setPreviewFile(f)}
           />
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <span className="truncate text-sm font-medium">{f.name}</span>
+            {canPreview(f.kind) ? (
+              <button
+                type="button"
+                onClick={() => setPreviewFile(f)}
+                title={`Xem trước ${f.name}`}
+                className="truncate text-sm font-medium underline-offset-2 transition-colors duration-150 hover:text-[var(--primary)] hover:underline"
+              >
+                {f.name}
+              </button>
+            ) : (
+              <span className="truncate text-sm font-medium">{f.name}</span>
+            )}
             {isRecentFile(f.mtime) && (
               <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
                 mới
@@ -676,6 +720,7 @@ export function ProjectAssetsCard({
               file={f}
               playing={playing === f.name}
               onTogglePlay={() => togglePlay(f)}
+              onOpenPreview={() => setPreviewFile(f)}
             />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               {renderDescriptionEditor(f)}

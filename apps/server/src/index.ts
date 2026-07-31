@@ -27,6 +27,7 @@ import connectionsRouter from "./routes/connections.js";
 import renderSettingsRouter from "./routes/renderSettingsRoute.js";
 import illustrationsRouter from "./routes/illustrations.js";
 import updateRouter from "./routes/update.js";
+import revealRouter from "./routes/reveal.js";
 import { GRADE_PRESETS } from "./color.js";
 import mediaRouter from "./routes/media.js";
 
@@ -77,6 +78,7 @@ app.use("/api/connections", connectionsRouter);
 app.use("/api/render-settings", renderSettingsRouter);
 app.use("/api/illustrations", illustrationsRouter);
 app.use("/api/update", updateRouter);
+app.use("/api/reveal", revealRouter);
 
 // Danh sách preset màu — UI dùng làm nguồn nhãn duy nhất (đồng bộ với color.ts)
 app.get("/api/grade-presets", (_req: Request, res: Response) => {
