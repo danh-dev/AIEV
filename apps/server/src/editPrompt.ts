@@ -102,6 +102,14 @@ export function buildEditPrompt(input: {
         "styleId của style đã chọn; server trộn màu + tone + hiệu ứng của style vào prompt — KHÔNG tự thêm màu brand, " +
         "KHÔNG dùng bảng màu khác dù skill/prompt gợi ý.",
     );
+    lines.push(
+      brief.illustrationText
+        ? "  Ảnh minh họa ĐƯỢC PHÉP CÓ CHỮ: truyền allowText:true khi POST /api/illustrations và ghi RÕ NGUYÊN VĂN " +
+            "cụm chữ tiếng Việt (3–6 từ, đúng chính tả) muốn xuất hiện vào prompt; verify chữ trong ảnh đúng chính tả " +
+            "bằng cách Read ảnh — sai thì tạo lại hoặc dùng bản không chữ."
+        : "  Ảnh minh họa KHÔNG CHỮ (mặc định): không truyền allowText — ảnh là nền sạch, chữ/số liệu do " +
+            "Remotion/HyperFrames đặt lên trên.",
+    );
   }
   if (brief.notes.trim()) lines.push(`- Ghi chú: ${brief.notes.trim()}`);
   if (extraNotes) lines.push(`- Ghi chú thêm cho lần edit này: ${extraNotes}`);

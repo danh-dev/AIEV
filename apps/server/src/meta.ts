@@ -80,6 +80,8 @@ export interface Brief {
   autoIllustrations: boolean;
   /** Model Gemini cho ảnh minh họa (null = mặc định Nano Banana 2) */
   illustrationModel: string | null;
+  /** BẬT = cho phép Gemini vẽ chữ tiếng Việt vào ảnh minh họa (mặc định TẮT — chữ do Remotion/HyperFrames đặt) */
+  illustrationText: boolean;
   /** Style Design áp cho video (id trong assets/styles/styles.json) — null = style default */
   styleId: string | null;
   /** Ghi chú tự do cho AI */
@@ -101,6 +103,7 @@ export function defaultBrief(): Brief {
     musicMode: "auto",
     autoIllustrations: false,
     illustrationModel: null,
+    illustrationText: false,
     styleId: null,
     notes: "",
   };
@@ -133,6 +136,7 @@ export function briefOf(meta: ProjectMeta): Brief {
   if (typeof b.illustrationModel === "string" && b.illustrationModel.trim()) {
     base.illustrationModel = b.illustrationModel.trim();
   }
+  if (typeof b.illustrationText === "boolean") base.illustrationText = b.illustrationText;
   if (typeof b.styleId === "string" && b.styleId.trim()) base.styleId = b.styleId.trim();
   if (typeof b.notes === "string") base.notes = b.notes;
   return base;

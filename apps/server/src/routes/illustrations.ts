@@ -21,7 +21,7 @@ const ASPECTS: ImageAspect[] = ["9:16", "16:9", "1:1", "4:5"];
 
 const router = Router();
 
-// POST /api/illustrations { projectId, prompt, name?, aspect?, model?, description?, styleId? }
+// POST /api/illustrations { projectId, prompt, name?, aspect?, model?, description?, styleId?, allowText? }
 // → { file, relPath, promptUsed }
 router.post("/", async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -45,6 +45,9 @@ router.post("/", async (req, res) => {
   if (styleId && !styleExists(styleId)) {
     throw new HttpError(404, "STYLE_NOT_FOUND", `Không tìm thấy style "${styleId}"`);
   }
+  if ("allowText" in body && typeof body.allowText !== "boolean") {
+    throw new HttpError(400, "INVALID_ALLOW_TEXT", "allowText phải là boolean");
+  }
 
   // Tên file: từ name (kebab) hoặc từ prompt, dedupe
   const base =
@@ -56,8 +59,10 @@ router.post("/", async (req, res) => {
   const outFile = path.join(dir, fileName);
 
   // Cưỡng chế Style Design: body.styleId → brief.styleId của project → default
-  const briefStyleId = briefOf(readMeta(projectId)).styleId;
-  const design = getStyle(styleId || briefStyleId || null);
+  const brief = briefOf(readMeta(projectId));
+  const design = getStyle(styleId || brief.styleId || null);
+  // Cho phép chữ trong ảnh: body.allowText → brief.illustrationText của project (mặc định false)
+  const allowText = typeof body.allowText === "boolean" ? body.allowText : brief.illustrationText;
   const { promptUsed } = await generateBackground({
     prompt,
     kind: "concept",
@@ -66,6 +71,7 @@ router.post("/", async (req, res) => {
     outFile,
     usageProjectId: projectId,
     model,
+    allowText,
   });
 
   // Ghi mô tả vào assets.json để cả UI lẫn các phiên AI sau đều biết ảnh này là gì

@@ -47,7 +47,9 @@ const Cue: React.FC<{ cue: HighlightCue; raised: boolean }> = ({
   const vertical = height >= width;
   const u = vertical ? height / 1920 : height / 1080;
   // Band dưới cho tier "sub": có caption thì đẩy lên trên vùng caption.
-  const bottomBase = raised ? (vertical ? 560 : 380) : (vertical ? 300 : 240);
+  // ⚠️ raised = 560 vẫn bị thẻ caption 3 dòng (cao tới y≈626 tính từ đáy) đè lên
+  // — pill phải nằm TRÊN mép trên của caption dài nhất, nên 700.
+  const bottomBase = raised ? (vertical ? 700 : 470) : (vertical ? 300 : 240);
 
   // Vào 5 frame / ra 6 frame — bật tắt cứng trông rẻ trên footage thật.
   const opacity = interpolate(

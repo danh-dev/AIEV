@@ -69,6 +69,7 @@ Brief = {
   musicMode: "auto"|"none",                // nhạc nền: AI tự chọn bài theo mood trong assets/music/ (mặc định) / không dùng
   autoIllustrations: boolean,              // BẬT = AI tự tạo ảnh minh họa (Gemini) khi edit
   illustrationModel: string|null,          // model Gemini tạo ảnh (null = mặc định)
+  illustrationText: boolean,               // BẬT = Gemini được vẽ chữ tiếng Việt vào ảnh minh họa (mặc định TẮT — chữ do Remotion/HyperFrames đặt)
   styleId: string|null,                    // Style Design áp cho project (null = style default)
   notes: string                            // Yêu cầu edit (prompt) — nội dung chính gửi AI, đổ được từ prompt mẫu
 }
@@ -139,12 +140,14 @@ POST /api/connections/:provider/test     → { ok, message? } — gọi thử AP
 
 ```
 POST /api/illustrations
-  { projectId, prompt, name?, aspect?, model?, styleId?, description? }
+  { projectId, prompt, name?, aspect?, model?, styleId?, description?, allowText? }
   → 201 { file, relPath, promptUsed }
 ```
 Tạo ảnh minh họa bằng Gemini và lưu thẳng vào `video-projects/<projectId>/assets/`.
 Thiếu `styleId` → server tự lấy `brief.styleId` của project (rồi mới tới style default) —
 ảnh luôn đồng bộ Style Design. `promptUsed` = prompt cuối đã trộn style.
+`allowText: true` = cho phép Gemini vẽ chữ vào ảnh (ghi nguyên văn cụm chữ trong prompt);
+thiếu field → server lấy `brief.illustrationText` của project (mặc định false — cấm chữ).
 
 Chi tiết kỹ thuật (đã verify 2026-07-29):
 - Claude models cho edit/chat (options.model của Agent SDK): "claude-fable-5" (mặc định),

@@ -413,6 +413,12 @@ router.put("/:id/brief", (req, res) => {
     const m = typeof body.illustrationModel === "string" ? body.illustrationModel.trim() : "";
     brief.illustrationModel = m || null;
   }
+  if ("illustrationText" in body) {
+    if (typeof body.illustrationText !== "boolean") {
+      throw new HttpError(400, "INVALID_BRIEF", "illustrationText phải là boolean");
+    }
+    brief.illustrationText = body.illustrationText;
+  }
   if ("styleId" in body) {
     if (body.styleId !== null && typeof body.styleId !== "string") {
       throw new HttpError(400, "INVALID_BRIEF", "styleId phải là string hoặc null");

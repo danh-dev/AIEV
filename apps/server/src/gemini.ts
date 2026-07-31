@@ -66,16 +66,21 @@ export function buildImagePrompt(input: {
   kind: ImageKind;
   aspect: ImageAspect;
   design: StyleDesign;
+  /** true = cho phép Gemini vẽ chữ tiếng Việt vào ảnh (mặc định false — chữ do Remotion đặt) */
+  allowText?: boolean;
 }): string {
   const { design } = input;
   const c = design.colors;
+  const allowText = input.allowText === true;
   // Người dùng CHỦ ĐỘNG xin logo/icon trong prompt (vd "có logo meta, tiktok...") →
   // cho phép icon/logo trang trí, nhưng CHỮ thì tuyệt đối không (Remotion đặt).
   const wantsLogos = /\b(logo|icon|biểu tượng)\b/i.test(input.prompt);
 
   const parts: string[] = [
-    // Lệnh cấm chữ đặt ĐẦU TIÊN — model tuân thủ tốt hơn khi ràng buộc đứng trước nội dung
-    "Create a BACKGROUND IMAGE ONLY — it must contain ZERO typography: no text, no words, no letters, no numbers, no captions, no headlines anywhere. The headline will be added later by a design tool.",
+    // Ràng buộc chữ đặt ĐẦU TIÊN — model tuân thủ tốt hơn khi ràng buộc đứng trước nội dung
+    allowText
+      ? "Text in the image IS allowed and should reinforce the message: short Vietnamese phrase(s) (3–6 words max), spelled EXACTLY as provided in the prompt, large clean typography matching the brand style, correct Vietnamese diacritics, no lorem ipsum, no gibberish, no extra unrelated text."
+      : "Create a BACKGROUND IMAGE ONLY — it must contain ZERO typography: no text, no words, no letters, no numbers, no captions, no headlines anywhere. The headline will be added later by a design tool.",
     `A ${KIND_PHRASES[input.kind]} for the brand "${design.name}".`,
   ];
   if (input.prompt.trim()) parts.push(input.prompt.trim());
@@ -106,11 +111,13 @@ export function buildImagePrompt(input: {
       "No logos, no icons, no UI elements, no buttons, no charts — pure scenic/abstract background.",
     );
   }
-  parts.push(
-    "Nothing cropped or cut off at the edges.",
+  parts.push("Nothing cropped or cut off at the edges.");
+  if (!allowText) {
     // Nhắc lại lệnh cấm chữ ở CUỐI — chốt chặn kép
-    "FINAL RULE (most important): the image must contain absolutely NO text of any kind.",
-  );
+    parts.push(
+      "FINAL RULE (most important): the image must contain absolutely NO text of any kind.",
+    );
+  }
   return parts.join(" ");
 }
 
@@ -145,6 +152,8 @@ export async function generateBackground(input: {
   usageProjectId?: string;
   /** Model tạo ảnh người dùng chọn (IMAGE_MODELS) — mặc định Nano Banana 2 */
   model?: string;
+  /** true = cho phép Gemini vẽ chữ vào ảnh (mặc định false — giữ hành vi cũ) */
+  allowText?: boolean;
 }): Promise<{ file: string; promptUsed: string }> {
   const key = geminiApiKey();
   if (!key) {

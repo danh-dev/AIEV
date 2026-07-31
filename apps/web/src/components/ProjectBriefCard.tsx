@@ -52,6 +52,7 @@ export const DEFAULT_BRIEF: Brief = {
   notes: "",
   autoIllustrations: false,
   illustrationModel: null,
+  illustrationText: false,
   styleId: null,
 };
 
@@ -641,6 +642,26 @@ export function ProjectBriefCard({
                   Đang tải model…
                 </p>
               )}
+              <label
+                className="mt-2.5 flex cursor-pointer items-start gap-2 text-sm"
+                htmlFor="brief-illustration-text"
+              >
+                <input
+                  id="brief-illustration-text"
+                  type="checkbox"
+                  className="mt-0.5 accent-[var(--primary)]"
+                  checked={form.illustrationText}
+                  onChange={(e) => set("illustrationText", e.target.checked)}
+                />
+                <span>
+                  Ảnh có chữ (Gemini tự vẽ chữ vào ảnh)
+                  <span className="block text-xs font-normal text-[var(--text-muted)]">
+                    Tắt = ảnh nền sạch, chữ do hệ thống đặt (không lỗi chính
+                    tả). Bật = chữ nằm trong ảnh, bám nội dung hơn — AI sẽ tự
+                    kiểm chính tả.
+                  </span>
+                </span>
+              </label>
               {!geminiConnected && (
                 <p className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-[var(--danger)]">
                   <AlertTriangle

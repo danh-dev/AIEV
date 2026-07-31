@@ -38,9 +38,14 @@ const Word: React.FC<{ word: CaptionWord; frame: number }> = ({
 }) => {
   const spoken = frame >= word.start && frame <= word.end;
 
-  // Pop nhẹ khi từ vừa được đọc tới: 1 → 1.13 trong 3 frame rồi giữ.
+  // Pop nhẹ khi từ vừa được đọc tới, trong 3 frame rồi giữ.
+  // ⚠️ Hệ số CỐ ĐỊNH (1.13) làm từ DÀI ("HyperFrames") nở ra rộng hơn hộp layout
+  // nhiều hơn margin hai bên → dính vào từ kế ("dùngHyperFramesnày"). Chia biên độ
+  // theo độ dài từ để phần nở ra tính bằng PIXEL gần như không đổi (~20px), luôn
+  // nhỏ hơn margin 0.2em ở hai bên.
+  const grow = 0.1 * Math.min(1, 6 / Math.max(1, word.text.length));
   const scale = spoken
-    ? interpolate(frame, [word.start, word.start + 3], [1, 1.13], {
+    ? interpolate(frame, [word.start, word.start + 3], [1, 1 + grow], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       })
@@ -55,7 +60,7 @@ const Word: React.FC<{ word: CaptionWord; frame: number }> = ({
         // Tách từ bằng margin ĐỐI XỨNG, không trông cậy khoảng trắng hay
         // flex gap: text node chỉ-khoảng-trắng bị bỏ khi cha là flex, và gap
         // đã cho ra chữ dính nhau ("dữ liệuđơn hàng") ở draft đầu tiên.
-        margin: "0 0.14em",
+        margin: "0 0.2em",
         transform: `scale(${scale})`,
         transformOrigin: "center bottom",
         color,

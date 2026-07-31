@@ -203,6 +203,8 @@ export interface Brief {
   autoIllustrations: boolean;
   /** Model Gemini vẽ minh họa — null = mặc định của server (Nano Banana 2). */
   illustrationModel: string | null;
+  /** BẬT = Gemini được vẽ chữ vào ảnh minh họa (mặc định TẮT — chữ do hệ thống đặt). */
+  illustrationText: boolean;
   /** Style Design sản phẩm phải tuân theo — null = style mặc định. */
   styleId: string | null;
 }
