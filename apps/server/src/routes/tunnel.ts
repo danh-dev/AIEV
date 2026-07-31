@@ -1,5 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
+import { repoRoot } from "../config.js";
 import { Router } from "express";
 import { HttpError, killTree } from "../util.js";
 import { upsertEnvVar } from "./connections.js";
@@ -50,7 +52,12 @@ const CLOUDFLARED_KNOWN_PATHS =
         "C:\\Program Files (x86)\\cloudflared\\cloudflared.exe",
         "C:\\Program Files\\cloudflared\\cloudflared.exe",
       ]
-    : ["/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared", "/usr/bin/cloudflared"];
+    : [
+        path.join(repoRoot, "start", "bin", "cloudflared"), // start.sh tự tải về đây khi máy không có brew
+        "/opt/homebrew/bin/cloudflared",
+        "/usr/local/bin/cloudflared",
+        "/usr/bin/cloudflared",
+      ];
 
 export function cloudflaredBin(): string | null {
   const cmd = process.platform === "win32" ? "where" : "which";

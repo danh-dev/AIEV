@@ -73,13 +73,29 @@ if command -v claude >/dev/null 2>&1 && ! claude_authed; then
 fi
 
 # --- cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel) ---
+export PATH="$ROOT/start/bin:$PATH"
 if ! command -v cloudflared >/dev/null 2>&1; then
   if command -v brew >/dev/null 2>&1; then
     step "Chưa có cloudflared — đang cài (brew install cloudflared)..."
     brew install cloudflared && ok "Đã cài cloudflared." \
-      || err "Không cài được cloudflared — cài tay: brew install cloudflared (không bắt buộc, chỉ cần cho Tunnel)"
+      || err "Không cài được cloudflared qua brew — sẽ thử tải trực tiếp."
+  fi
+fi
+if ! command -v cloudflared >/dev/null 2>&1; then
+  # Không có brew (hoặc brew fail) → tải binary chính thức của Cloudflare về start/bin/
+  ARCH="$(uname -m)"
+  CF_PKG="cloudflared-darwin-amd64.tgz"
+  [ "$ARCH" = "arm64" ] && CF_PKG="cloudflared-darwin-arm64.tgz"
+  step "Chưa có cloudflared — đang tải trực tiếp từ Cloudflare ($CF_PKG)..."
+  mkdir -p "$ROOT/start/bin"
+  if curl -fsSL -o "$ROOT/start/bin/$CF_PKG" \
+      "https://github.com/cloudflare/cloudflared/releases/latest/download/$CF_PKG" \
+    && tar -xzf "$ROOT/start/bin/$CF_PKG" -C "$ROOT/start/bin" \
+    && chmod +x "$ROOT/start/bin/cloudflared"; then
+    rm -f "$ROOT/start/bin/$CF_PKG"
+    ok "Đã cài cloudflared vào start/bin/."
   else
-    printf '  \033[33mChưa có cloudflared (tính năng Cloudflare Tunnel). Cài Homebrew rồi: brew install cloudflared\033[0m\n'
+    err "Không tải được cloudflared — Tunnel tạm chưa dùng được (không ảnh hưởng phần còn lại)."
   fi
 fi
 

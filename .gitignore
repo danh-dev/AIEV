@@ -15,3 +15,5 @@ imports/
 
 # DB + cấu hình máy local
 apps/server/data/
+
+start/bin/
