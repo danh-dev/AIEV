@@ -57,9 +57,11 @@ function uploadOne(
     };
     xhr.onerror = () => reject(new Error("network"));
     const form = new FormData();
-    form.append("file", file);
+    // scope/projectId TRƯỚC file — server đọc projectId từ đầu stream để phát
+    // SSE `upload` progress cho trang project trên PC lọc theo đúng project
     form.append("scope", "project");
     form.append("projectId", projectId);
+    form.append("file", file);
     xhr.send(form);
   });
 }

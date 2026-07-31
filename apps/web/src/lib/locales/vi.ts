@@ -467,6 +467,11 @@ export const vi: Record<string, string> = {
   "phone.note":
     "Điện thoại phải cùng WiFi với máy này. Lần đầu Windows hỏi firewall → chọn Allow.",
 
+  // ===== Upload đang đến server (SSE kênh "upload") =====
+  "upload.receiving": "Đang nhận file… {percent}%",
+  "upload.receiving-unknown": "Đang nhận file…",
+  "upload.error": "Nhận file thất bại — thử tải lên lại.",
+
   // ===== Trang upload trên điện thoại (/m/<id>) =====
   "m.title": "Tải file vào project",
   "m.choose": "Chọn video / ảnh",

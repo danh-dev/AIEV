@@ -16,17 +16,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AgentEvent, Job, JobLogEvent } from "@/lib/api";
+import type { AgentEvent, Job, JobLogEvent, UploadEvent } from "@/lib/api";
 
 type JobHandler = (job: Job) => void;
 type JobLogHandler = (e: JobLogEvent) => void;
 type AgentHandler = (e: AgentEvent) => void;
+type UploadHandler = (e: UploadEvent) => void;
 
 interface EventsContextValue {
   connected: boolean;
   subscribeJob: (h: JobHandler) => () => void;
   subscribeJobLog: (h: JobLogHandler) => () => void;
   subscribeAgent: (h: AgentHandler) => () => void;
+  subscribeUpload: (h: UploadHandler) => () => void;
 }
 
 const EventsContext = createContext<EventsContextValue | null>(null);
@@ -38,6 +40,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const jobHandlers = useRef(new Set<JobHandler>());
   const jobLogHandlers = useRef(new Set<JobLogHandler>());
   const agentHandlers = useRef(new Set<AgentHandler>());
+  const uploadHandlers = useRef(new Set<UploadHandler>());
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -72,6 +75,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       );
       es.addEventListener("agent", (e) =>
         dispatch(agentHandlers.current, (e as MessageEvent).data)
+      );
+      es.addEventListener("upload", (e) =>
+        dispatch(uploadHandlers.current, (e as MessageEvent).data)
       );
       es.onerror = () => {
         setConnected(false);
@@ -110,9 +116,16 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const subscribeUpload = useCallback((h: UploadHandler) => {
+    uploadHandlers.current.add(h);
+    return () => {
+      uploadHandlers.current.delete(h);
+    };
+  }, []);
+
   const value = useMemo<EventsContextValue>(
-    () => ({ connected, subscribeJob, subscribeJobLog, subscribeAgent }),
-    [connected, subscribeJob, subscribeJobLog, subscribeAgent]
+    () => ({ connected, subscribeJob, subscribeJobLog, subscribeAgent, subscribeUpload }),
+    [connected, subscribeJob, subscribeJobLog, subscribeAgent, subscribeUpload]
   );
 
   return (
@@ -158,5 +171,16 @@ export function useAgentEvents(handler: AgentHandler) {
   useEffect(
     () => subscribeAgent((e) => ref.current(e)),
     [subscribeAgent]
+  );
+}
+
+/** Đăng ký nhận event `upload` — tiến trình server nhận file POST /api/assets. */
+export function useUploadEvents(handler: UploadHandler) {
+  const { subscribeUpload } = useEvents();
+  const ref = useRef(handler);
+  ref.current = handler;
+  useEffect(
+    () => subscribeUpload((e) => ref.current(e)),
+    [subscribeUpload]
   );
 }

@@ -44,6 +44,7 @@ import {
   type GradeAdjust,
   type GradePreviewResult,
 } from "@/lib/api";
+import { useUploadEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -213,6 +214,43 @@ export function ProjectAssetsCard({
   // Modal "Kết nối điện thoại" (QR upload từ điện thoại cùng WiFi)
   const [phoneOpen, setPhoneOpen] = useState(false);
 
+  // Upload đang đến server (từ điện thoại /m/<id> hoặc tab khác) — SSE kênh
+  // "upload", theo id để nhiều upload song song không đè nhau
+  const [incoming, setIncoming] = useState<
+    Record<string, { received: number; total: number; error?: boolean }>
+  >({});
+  useUploadEvents((e) => {
+    // Chỉ khối chính (showUpload) hiện tiến trình — tránh trùng ở khối SFX/Khác
+    if (!showUpload || e.projectId !== projectId) return;
+    if (e.done) {
+      if (e.error) {
+        // Dòng lỗi ngắn, tự ẩn sau 5s
+        setIncoming((m) => ({ ...m, [e.id]: { received: 0, total: 0, error: true } }));
+        setTimeout(() => {
+          setIncoming((m) => {
+            if (!(e.id in m)) return m;
+            const next = { ...m };
+            delete next[e.id];
+            return next;
+          });
+        }, 5000);
+      } else {
+        setIncoming((m) => {
+          const next = { ...m };
+          delete next[e.id];
+          return next;
+        });
+        // Video/ảnh mới hiện ngay không cần F5 (mediaUrl đã cache-bust theo mtime)
+        onChanged();
+      }
+      return;
+    }
+    setIncoming((m) => ({
+      ...m,
+      [e.id]: { received: e.received ?? 0, total: e.total ?? 0 },
+    }));
+  });
+
   // Asset đang mở modal preview lớn (ảnh/video/audio)
   const [previewFile, setPreviewFile] = useState<FileInfo | null>(null);
 
@@ -351,6 +389,58 @@ export function ProjectAssetsCard({
   }
 
   const renderItem = compact ? renderCompactRow : renderRow;
+
+  // Thanh tiến trình upload đang đến server — dùng chung cho cả hai layout
+  const incomingEntries = Object.entries(incoming);
+  const uploadBanner =
+    showUpload && incomingEntries.length > 0 ? (
+      <div className="mb-3 flex flex-col gap-2">
+        {incomingEntries.map(([id, u]) => {
+          if (u.error) {
+            return (
+              <p key={id} className="text-xs text-[var(--danger)]">
+                {t("upload.error")}
+              </p>
+            );
+          }
+          const percent =
+            u.total > 0
+              ? Math.min(100, Math.round((u.received / u.total) * 100))
+              : null;
+          return (
+            <div
+              key={id}
+              className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5"
+            >
+              {percent === null ? (
+                <div
+                  className="progress-indeterminate"
+                  aria-label={t("upload.receiving-unknown")}
+                />
+              ) : (
+                <div
+                  className="h-1 overflow-hidden rounded-full bg-[var(--border)]"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={percent}
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              )}
+              <span className="text-xs text-[var(--text-muted)]">
+                {percent === null
+                  ? t("upload.receiving-unknown")
+                  : tf("upload.receiving", { percent })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    ) : null;
 
   // Modal duyệt chỉnh màu — dùng chung cho cả hai layout (compact và đầy đủ)
   const gradeModal = gradeFile ? (
@@ -496,6 +586,7 @@ export function ProjectAssetsCard({
           }
         >
           {error && <ErrorBanner message={error} />}
+          {uploadBanner}
           {showUpload && fileInput}
           {dragOver && (
             <p className="mb-2 rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-medium text-[var(--primary)]">
@@ -515,6 +606,7 @@ export function ProjectAssetsCard({
   return (
     <Card title={cardTitle} actions={phoneButton ?? undefined}>
       {error && <ErrorBanner message={error} />}
+      {uploadBanner}
 
       {/* Vùng kéo thả + upload */}
       <div

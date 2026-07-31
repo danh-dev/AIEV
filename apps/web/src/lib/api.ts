@@ -341,6 +341,20 @@ export interface JobLogEvent {
   line: string;
 }
 
+/** Event SSE kênh "upload" — tiến trình server nhận file qua POST /api/assets. */
+export interface UploadEvent {
+  id: string;
+  /** Có khi scope=project — dùng để lọc theo trang project đang mở. */
+  projectId?: string;
+  received?: number;
+  /** 0 = không biết tổng (thiếu content-length) → hiện progress vô định. */
+  total?: number;
+  done: boolean;
+  error?: boolean;
+  /** Tên file đã lưu — đi kèm event done thành công. */
+  file?: string;
+}
+
 // ============ AI Providers ============
 
 /** Mode trên UI map sang effort của Agent SDK: Nhanh=low, Chuẩn=medium, Sâu=high. */
@@ -1061,9 +1075,11 @@ export const uploadAsset = (
   projectId?: string
 ) => {
   const form = new FormData();
-  form.append("file", file);
+  // scope/projectId TRƯỚC file — server đọc projectId từ đầu stream để phát
+  // SSE `upload` progress lọc được theo project
   form.append("scope", scope);
   if (projectId) form.append("projectId", projectId);
+  form.append("file", file);
   return request<FileInfo>(`${serverOrigin()}/api/assets`, { method: "POST", body: form });
 };
 

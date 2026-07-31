@@ -315,6 +315,7 @@ event: joblog   data: { jobId, line }                      (từng dòng log job
 event: agent    data: { sessionId, kind: "text"|"tool"|"result"|"error"|"done",
                         text?, tool?: { name, input }, error?,
                         status? }                          (status đi kèm kind "done" — trạng thái kết thúc của phiên)
+event: upload   data: { id, projectId?, received, total, done, error?, file? }  (tiến trình nhận file POST /api/assets, throttle ~400ms — event done thành công kèm `file` = tên đã lưu)
 ```
 
 ## Skills

@@ -467,6 +467,11 @@ export const en: Record<string, string> = {
   "phone.note":
     "Your phone must be on the same WiFi as this machine. The first time, Windows will ask about the firewall — choose Allow.",
 
+  // ===== Incoming upload (SSE "upload" channel) =====
+  "upload.receiving": "Receiving file… {percent}%",
+  "upload.receiving-unknown": "Receiving file…",
+  "upload.error": "Receiving the file failed — try uploading again.",
+
   // ===== Mobile upload page (/m/<id>) =====
   "m.title": "Upload files to project",
   "m.choose": "Choose videos / photos",
