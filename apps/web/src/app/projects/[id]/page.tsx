@@ -35,6 +35,7 @@ import {
   createJob,
   deleteProject,
   getChatSessions,
+  getJobs,
   getProject,
   getProjectJunk,
   mediaUrl,
@@ -45,6 +46,7 @@ import {
   type Brief,
   type ChatSession,
   type FileInfo,
+  type Job,
   type JobType,
   type ProjectDetail,
   type SceneMeta,
@@ -64,6 +66,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
+import { PipelineTimeline } from "@/components/PipelineTimeline";
 import {
   DEFAULT_BRIEF,
   ProjectBriefCard,
@@ -341,6 +344,9 @@ export default function ProjectDetailPage() {
   const router = useRouter();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  // Jobs của project — nguồn suy giai đoạn cho PipelineTimeline; seed từ
+  // /api/jobs rồi cập nhật sống qua SSE (backend là nguồn sự thật)
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobNotice, setJobNotice] = useState<string | null>(null);
@@ -462,9 +468,32 @@ export default function ProjectDetailPage() {
     }
   });
 
+  // Seed danh sách job của project (timeline giai đoạn cần cả job đã done)
+  useEffect(() => {
+    let alive = true;
+    getJobs(50)
+      .then((list) => {
+        if (alive) setJobs(list.filter((j) => j.projectId === projectId));
+      })
+      .catch(() => {
+        // không có jobs cũng không chặn trang — timeline tự ẩn/suy từ file
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
   // Refetch khi có job của project này đổi trạng thái kết thúc
+  // + upsert vào state jobs để timeline giai đoạn cập nhật sống
   useJobEvents((job) => {
     if (job.projectId !== projectId) return;
+    setJobs((prev) => {
+      const i = prev.findIndex((j) => j.id === job.id);
+      if (i === -1) return [job, ...prev];
+      const next = prev.slice();
+      next[i] = job;
+      return next;
+    });
     if (["done", "failed", "canceled"].includes(job.status)) load();
   });
 
@@ -614,6 +643,18 @@ export default function ProjectDetailPage() {
           project
             ? `${project.width}×${project.height} · ${project.fps}fps · cập nhật ${formatRelative(project.updatedAt)}`
             : undefined
+        }
+        center={
+          project ? (
+            <PipelineTimeline
+              metaStatus={project.status}
+              hasOutput={project.output != null}
+              scenes={scenes}
+              renders={renders}
+              jobs={jobs}
+              sessionRunning={aiRunning}
+            />
+          ) : undefined
         }
         actions={
           /* Nút job/Xóa đã chuyển vào panel AI (panel ghim phải che mất chỗ này)
