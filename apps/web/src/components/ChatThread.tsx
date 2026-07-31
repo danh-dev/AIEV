@@ -560,7 +560,7 @@ export function ChatThread({
             {sessionInfo && (
               <span
                 className="flex shrink-0 items-center gap-1.5"
-                title="Phiên bị lỗi/gián đoạn sẽ tự chạy tiếp (tối đa 3 lần)"
+                title="Phiên bị lỗi/gián đoạn sẽ tự chạy tiếp (tối đa 3 lần không tiến bộ; phiên edit: 12 — có tiến bộ thì đếm lại từ đầu)"
               >
                 <button
                   type="button"

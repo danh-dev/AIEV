@@ -396,16 +396,22 @@ Semantics phía server: POST /api/chat (message mới) đặt runStartedAt=now, 
 resumeAttempts=0; lượt auto-resume GIỮ NGUYÊN runStartedAt; runFinishedAt chỉ ghi khi kết thúc hẳn.
 
 **Auto-resume:** phiên kết thúc với status "error" (KHÔNG phải user bấm dừng) và autoResume bật
-→ server tự chạy tiếp sau 10s với message "Tiếp tục công việc đang dở..." (tối đa 3 lần liên tiếp,
-đếm reset khi user gửi message mới). Server khởi động lại khi phiên đang running → phiên bị đánh
-"interrupted"; những phiên đó nếu autoResume bật sẽ được tự chạy tiếp ~15s sau khi server lên
-(cần Claude auth). User chủ động interrupt thì KHÔNG BAO GIỜ auto-resume.
+→ server tự chạy tiếp sau 10s với message "Tiếp tục công việc đang dở..." (tối đa 3 lần LIÊN TIẾP
+KHÔNG CÓ TIẾN BỘ — goal 'final': 12 lần; đếm reset khi user gửi message mới HOẶC khi project có
+tiến bộ giữa hai lượt). Tiến bộ đo bằng `progressMark` lưu trong chat_sessions: số job done của
+project + số file/tổng size/mtime mới nhất trong renders/ + file output + meta.status — mark đổi
+so với lượt trước → resumeAttempts reset về 0 trước khi bump. Server khởi động lại khi phiên đang
+running → phiên bị đánh "interrupted"; những phiên đó nếu autoResume bật sẽ được tự chạy tiếp ~15s
+sau khi server lên (cần Claude auth). User chủ động interrupt thì KHÔNG BAO GIỜ auto-resume.
 
 **Goal 'final' (phiên edit project):** POST /api/projects/:id/edit tạo session với `goal: "final"`
-(chat thường: goal null). Khi agent kết thúc "done" mà video final CHƯA tồn tại thật
-(`normOutput(meta.output)` null, file không có trên đĩa, hoặc meta.status ≠ "done") → server KHÔNG
-coi là xong: giữ status "running" và tự chạy tiếp sau 10s qua hạ tầng auto-resume (tôn trọng
-autoResume + interrupt, tối đa 3 lần); hết lượt mà vẫn thiếu final → status "error" + message giải thích.
+(chat thường: goal null; phiên edit cũ tạo trước khi có cột goal được migration backfill về
+'final' theo dấu hiệu title "Edit: " + projectId). Khi agent kết thúc "done" mà video final CHƯA
+tồn tại thật (`normOutput(meta.output)` null, file không có trên đĩa, hoặc meta.status ≠ "done")
+→ server KHÔNG coi là xong: giữ status "running" và tự chạy tiếp sau 10s qua hạ tầng auto-resume
+(tôn trọng autoResume + interrupt, tối đa 12 lần liên tiếp không tiến bộ — có tiến bộ thì đếm lại
+từ 0); hết lượt mà vẫn thiếu final → status "error" + message giải thích. Phiên goal 'final' chạy
+với maxTurns 300 (phiên thường 100).
 
 Agent chạy với cwd = repo root, nạp CLAUDE.md + `.claude/skills` của workspace, được phép Edit/Write file và chạy các lệnh whitelist trong `.claude/settings.json` không cần hỏi. Nếu thiếu API key: event `agent` kind `error` với message hướng dẫn đặt `ANTHROPIC_API_KEY` trong `.env`.
 

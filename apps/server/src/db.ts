@@ -99,6 +99,19 @@ try {
 } catch {
   /* cột đã tồn tại */
 }
+// Migration: bằng chứng tiến bộ của lượt chạy gần nhất (jobs done + renders/ + output) —
+// agent.ts so sánh trước khi bump resumeAttempts: có tiến bộ thì reset đếm về 0
+try {
+  db.exec("ALTER TABLE chat_sessions ADD COLUMN progressMark TEXT");
+} catch {
+  /* cột đã tồn tại */
+}
+// Backfill: các phiên edit tạo TRƯỚC khi có cột goal bị goal=NULL → gate final không bao giờ
+// chạy cho những phiên đó (kể cả khi user gửi tiếp message). Route /edit là nơi DUY NHẤT đặt
+// title "Edit: ..." kèm projectId → đánh lại goal='final' cho đúng ngữ nghĩa.
+db.prepare(
+  "UPDATE chat_sessions SET goal = 'final' WHERE goal IS NULL AND projectId IS NOT NULL AND title LIKE 'Edit: %'",
+).run();
 
 /**
  * Phiên đang 'running' lúc server tắt (ngay dưới sẽ bị đánh 'interrupted') có autoResume bật —
@@ -300,6 +313,8 @@ export interface ChatSessionRow {
   resumeAttempts: number;
   /** Mục tiêu phiên: "final" = phiên edit project, chỉ xong khi video final tồn tại; null = chat thường */
   goal: string | null;
+  /** Bằng chứng tiến bộ của lượt chạy trước (agent.ts computeProgressMark) — so sánh để reset resumeAttempts */
+  progressMark: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -515,6 +530,28 @@ export function finishChatRun(sessionId: string): void {
   ).run(now, now, sessionId);
 }
 
+/** Reset đếm auto-resume về 0 — gọi khi phát hiện CÓ tiến bộ thật giữa hai lượt chạy */
+export function resetResumeAttempts(sessionId: string): void {
+  db.prepare(
+    "UPDATE chat_sessions SET resumeAttempts = 0, updatedAt = ? WHERE sessionId = ?",
+  ).run(nowIso(), sessionId);
+}
+
+/** Lưu bằng chứng tiến bộ mới nhất (agent.ts computeProgressMark) */
+export function setProgressMark(sessionId: string, mark: string): void {
+  db.prepare(
+    "UPDATE chat_sessions SET progressMark = ?, updatedAt = ? WHERE sessionId = ?",
+  ).run(mark, nowIso(), sessionId);
+}
+
+/** Số job done của project — một phần bằng chứng tiến bộ của phiên edit */
+export function countDoneJobsForProject(projectId: string): number {
+  const row = db
+    .prepare("SELECT COUNT(*) AS n FROM jobs WHERE projectId = ? AND status = 'done'")
+    .get(projectId) as { n: number };
+  return row.n;
+}
+
 /** +1 số lần auto-resume liên tiếp, trả về giá trị mới */
 export function bumpResumeAttempts(sessionId: string): number {
   db.prepare(
@@ -537,7 +574,7 @@ export function listChatSessions(
 ): Array<Omit<ChatSessionRow, "sdkSessionId">> {
   const base =
     "SELECT sessionId, title, projectId, status, model, effort, runStartedAt, runFinishedAt, " +
-    "autoResume, resumeAttempts, goal, createdAt, updatedAt FROM chat_sessions";
+    "autoResume, resumeAttempts, goal, progressMark, createdAt, updatedAt FROM chat_sessions";
   if (projectId) {
     return db
       .prepare(`${base} WHERE projectId = ? ORDER BY updatedAt DESC`)

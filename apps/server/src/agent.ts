@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { query, type Query } from "@anthropic-ai/claude-agent-sdk";
-import { hasClaudeAuth, repoRoot } from "./config.js";
+import { hasClaudeAuth, paths, repoRoot } from "./config.js";
 import * as db from "./db.js";
 import { broadcast } from "./events.js";
 import { normOutput, readMeta } from "./meta.js";
@@ -126,9 +126,87 @@ const ALLOWED_TOOLS = [
 const RESUME_MESSAGE =
   "Tiếp tục công việc đang dở dang. Kiểm tra trạng thái hiện tại của project (meta.json, renders/, log job) rồi làm tiếp từ chỗ dừng — KHÔNG làm lại từ đầu.";
 
-/** Tối đa số lần auto-resume liên tiếp (reset khi user gửi message mới) */
+/**
+ * Tối đa số lần auto-resume liên tiếp KHÔNG CÓ TIẾN BỘ (reset khi user gửi message mới
+ * hoặc khi refreshResumeProgress phát hiện project có tiến bộ giữa hai lượt).
+ */
 const MAX_RESUME_ATTEMPTS = 3;
+/**
+ * Phiên edit goal='final': pipeline dài (transcribe → scene → draft → verify → final),
+ * mỗi lượt agent có thể kết thúc sớm trong khi render nền còn chạy — cap rộng hơn hẳn,
+ * áp cho CẢ resume lỗi lẫn final-gate. Phiên thường giữ MAX_RESUME_ATTEMPTS.
+ */
+const FINAL_GOAL_MAX_ATTEMPTS = 12;
 const RESUME_DELAY_MS = 10_000;
+
+/** Cap resume theo loại phiên — goal='final' được nhiều lượt hơn hẳn */
+function maxResumeAttemptsFor(session: Pick<db.ChatSessionRow, "goal">): number {
+  return session.goal === "final" ? FINAL_GOAL_MAX_ATTEMPTS : MAX_RESUME_ATTEMPTS;
+}
+
+/**
+ * Bằng chứng tiến bộ của project tại thời điểm gọi: số job done + trạng thái renders/
+ * (số file, tổng size, mtime mới nhất) + file output + meta.status. Chuỗi đổi giữa hai
+ * lượt = pipeline CÓ tiến bộ (kể cả render đang chạy dở — file trong renders/ đang lớn dần).
+ */
+function computeProgressMark(projectId: string): string {
+  const parts: string[] = [];
+  try {
+    parts.push(`jobsDone=${db.countDoneJobsForProject(projectId)}`);
+  } catch {
+    parts.push("jobsDone=?");
+  }
+  try {
+    const rendersDir = path.join(paths.videoProjectsDir, projectId, "renders");
+    let count = 0;
+    let size = 0;
+    let maxMtime = 0;
+    for (const name of fs.readdirSync(rendersDir)) {
+      const st = fs.statSync(path.join(rendersDir, name));
+      if (!st.isFile()) continue;
+      count += 1;
+      size += st.size;
+      if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
+    }
+    parts.push(`renders=${count}:${size}:${Math.round(maxMtime)}`);
+  } catch {
+    parts.push("renders=none");
+  }
+  try {
+    const meta = readMeta(projectId);
+    const out = normOutput(meta.output);
+    const outAbs = out ? (path.isAbsolute(out) ? out : path.join(repoRoot, out)) : null;
+    parts.push(
+      outAbs && fs.existsSync(outAbs) ? `output=${fs.statSync(outAbs).size}` : "output=none",
+    );
+    parts.push(`metaStatus=${meta.status ?? ""}`);
+  } catch {
+    parts.push("output=?");
+  }
+  return parts.join("|");
+}
+
+/**
+ * So bằng chứng tiến bộ với lần trước TRƯỚC KHI bump resumeAttempts:
+ * có tiến bộ → reset đếm về 0 + lưu mark mới; không → giữ nguyên đếm.
+ * Trả về số attempts hiện hành sau khi xét (đem so với cap).
+ * Phiên không gắn project (chat tự do) không có bằng chứng — giữ nguyên đếm.
+ */
+function refreshResumeProgress(session: db.ChatSessionRow): number {
+  if (!session.projectId) return session.resumeAttempts;
+  let mark: string;
+  try {
+    mark = computeProgressMark(session.projectId);
+  } catch {
+    return session.resumeAttempts;
+  }
+  if (mark !== session.progressMark) {
+    db.setProgressMark(session.sessionId, mark);
+    db.resetResumeAttempts(session.sessionId);
+    return 0;
+  }
+  return session.resumeAttempts;
+}
 
 /**
  * Gate hoàn thành phiên edit (goal='final'): video final phải TỒN TẠI THẬT mới coi là xong.
@@ -151,7 +229,10 @@ function finalGateResumeMessage(sessionId: string): string | null {
     `Video final CHƯA tồn tại (outputs/${session.projectId}-vN.mp4). ` +
     "Nhiệm vụ chỉ hoàn thành khi render final xong và meta.json status=done + output trỏ file thật. " +
     "Kiểm tra trạng thái hiện tại rồi làm tiếp: render scene standard còn thiếu, assemble-final, " +
-    "verify, cập nhật meta."
+    "verify, cập nhật meta. " +
+    "Nếu job render failed — đọc log job tìm nguyên nhân, sửa rồi chạy lại job, KHÔNG bỏ qua. " +
+    "Nếu render đang chạy dở (job status running hoặc tiến trình render còn sống) — CHỜ nó chạy xong " +
+    "rồi verify tiếp, KHÔNG chạy lại từ đầu."
   );
 }
 
@@ -214,7 +295,9 @@ export async function runAgent(
     permissionMode: "acceptEdits",
     allowedTools: ALLOWED_TOOLS,
     includePartialMessages: true,
-    maxTurns: 100,
+    // Phiên edit goal='final' chạy pipeline dài (transcribe → scene → draft → verify → final)
+    // — 100 turn không đủ, lượt kết thúc với subtype != success giữa chừng
+    maxTurns: session?.goal === "final" ? 300 : 100,
     settingSources: ["project", "user"],
     systemPrompt: { type: "preset", preset: "claude_code" },
   };
@@ -346,11 +429,10 @@ export async function runAgent(
     const gateMessage = status === "done" ? finalGateResumeMessage(sessionId) : null;
     if (gateMessage) {
       const s = db.getChatSession(sessionId);
-      const canRetry =
-        s !== undefined &&
-        s.autoResume !== 0 &&
-        s.resumeAttempts < MAX_RESUME_ATTEMPTS &&
-        hasClaudeAuth();
+      // Có tiến bộ từ lượt trước (job done tăng / renders đổi / output xuất hiện) → reset đếm
+      const attempts = s ? refreshResumeProgress(s) : 0;
+      const cap = s ? maxResumeAttemptsFor(s) : MAX_RESUME_ATTEMPTS;
+      const canRetry = s !== undefined && s.autoResume !== 0 && attempts < cap && hasClaudeAuth();
       if (canRetry) {
         db.setChatSessionStatus(sessionId, "running");
         db.bumpResumeAttempts(sessionId);
@@ -367,13 +449,14 @@ export async function runAgent(
         pendingResumes.set(sessionId, timer);
         return;
       }
-      // Hết lượt thử / autoResume tắt / mất auth — video final vẫn chưa có: kết thúc với "error"
+      // Hết lượt thử liên tiếp KHÔNG tiến bộ / autoResume tắt / mất auth — kết thúc với "error"
       status = "error";
       db.addChatMessage(
         sessionId,
         "assistant",
         "text",
-        "Đã dừng sau 3 lần thử — video final vẫn chưa render xong. Xem log và bấm gửi \"tiếp tục\" để chạy tiếp.",
+        `Đã dừng sau ${cap} lượt tự chạy liên tiếp mà KHÔNG có tiến bộ — video final vẫn chưa render xong. ` +
+          'Xem log job/render tìm nguyên nhân rồi bấm gửi "tiếp tục" để chạy tiếp.',
       );
       emit({ sessionId, kind: "error", error: "Video final chưa tồn tại — phiên edit chưa hoàn thành" });
     }
@@ -383,12 +466,14 @@ export async function runAgent(
     // Auto-resume: chỉ khi lỗi KHÔNG do user bấm dừng, autoResume còn bật (đọc tươi —
     // user có thể vừa toggle), chưa quá số lượt, và còn xác thực Claude.
     const fresh = db.getChatSession(sessionId);
+    // Tiến bộ giữa hai lượt (job done tăng / renders đổi / output xuất hiện) → reset đếm về 0
+    const freshAttempts = fresh ? refreshResumeProgress(fresh) : 0;
     const shouldResume =
       status === "error" &&
       !userInterrupted &&
       fresh !== undefined &&
       fresh.autoResume !== 0 &&
-      fresh.resumeAttempts < MAX_RESUME_ATTEMPTS &&
+      freshAttempts < maxResumeAttemptsFor(fresh) &&
       hasClaudeAuth();
 
     if (shouldResume) {
