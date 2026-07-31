@@ -454,6 +454,29 @@ export const vi: Record<string, string> = {
   "assets.saved": "Đã lưu",
   "assets.save-desc-aria": "Lưu mô tả {name}",
 
+  // ===== Kết nối điện thoại (QR upload) =====
+  "phone.connect": "Kết nối điện thoại",
+  "phone.title": "Kết nối điện thoại",
+  "phone.desc":
+    "Dùng camera điện thoại quét mã QR để mở trang upload của project này — video/ảnh tải lên sẽ vào thẳng Nguồn & Asset.",
+  "phone.loading": "Đang lấy địa chỉ mạng…",
+  "phone.ip-label": "Mạng (IP máy chủ)",
+  "phone.qr-alt": "Mã QR mở trang upload trên điện thoại",
+  "phone.no-ip":
+    "Không tìm thấy địa chỉ IP LAN — kiểm tra máy đã nối WiFi/mạng dây chưa.",
+  "phone.note":
+    "Điện thoại phải cùng WiFi với máy này. Lần đầu Windows hỏi firewall → chọn Allow.",
+
+  // ===== Trang upload trên điện thoại (/m/<id>) =====
+  "m.title": "Tải file vào project",
+  "m.choose": "Chọn video / ảnh",
+  "m.capture": "Quay video / chụp ảnh mới",
+  "m.hint": "File tải lên sẽ vào thẳng mục Nguồn & Asset của project.",
+  "m.empty": "Chưa có file nào được tải lên từ điện thoại này.",
+  "m.uploading": "Đang tải lên — giữ màn hình mở đến khi xong.",
+  "m.error": "Lỗi",
+  "m.not-found": "Không tìm thấy project — kiểm tra lại link/mã QR.",
+
   // ===== Chỉnh màu =====
   "grade.aria": "Chỉnh màu {name}",
   "grade.action": "Chỉnh màu",

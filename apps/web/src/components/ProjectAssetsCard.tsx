@@ -15,6 +15,7 @@ import {
   Play,
   RotateCcw,
   Save,
+  Smartphone,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import {
   canPreview,
 } from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
+import { PhoneConnectModal } from "@/components/PhoneConnectModal";
 import { formatBytes, isRecentFile } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -207,6 +209,9 @@ export function ProjectAssetsCard({
 
   // Asset video đang mở modal duyệt chỉnh màu
   const [gradeFile, setGradeFile] = useState<FileInfo | null>(null);
+
+  // Modal "Kết nối điện thoại" (QR upload từ điện thoại cùng WiFi)
+  const [phoneOpen, setPhoneOpen] = useState(false);
 
   // Asset đang mở modal preview lớn (ảnh/video/audio)
   const [previewFile, setPreviewFile] = useState<FileInfo | null>(null);
@@ -368,6 +373,22 @@ export function ProjectAssetsCard({
     />
   );
 
+  // Modal QR kết nối điện thoại — chỉ khối chính (showUpload) mới có nút mở
+  const phoneModal = showUpload ? (
+    <PhoneConnectModal
+      projectId={projectId}
+      open={phoneOpen}
+      onClose={() => setPhoneOpen(false)}
+    />
+  ) : null;
+
+  const phoneButton = showUpload ? (
+    <Button variant="secondary" small onClick={() => setPhoneOpen(true)}>
+      <Smartphone size={13} strokeWidth={2} />
+      {t("phone.connect")}
+    </Button>
+  ) : null;
+
   // Modal xác nhận xóa asset — bắt gõ DELETE (thay window.confirm)
   const deleteModal = (
     <ConfirmDeleteModal
@@ -459,15 +480,18 @@ export function ProjectAssetsCard({
           title={cardTitle}
           actions={
             showUpload ? (
-              <Button
-                variant="secondary"
-                small
-                disabled={uploading}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload size={13} strokeWidth={2} />
-                {uploading ? t("common.uploading") : t("assets.upload")}
-              </Button>
+              <span className="flex items-center gap-2">
+                {phoneButton}
+                <Button
+                  variant="secondary"
+                  small
+                  disabled={uploading}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <Upload size={13} strokeWidth={2} />
+                  {uploading ? t("common.uploading") : t("assets.upload")}
+                </Button>
+              </span>
             ) : undefined
           }
         >
@@ -483,12 +507,13 @@ export function ProjectAssetsCard({
         {gradeModal}
         {previewModal}
         {deleteModal}
+        {phoneModal}
       </div>
     );
   }
 
   return (
-    <Card title={cardTitle}>
+    <Card title={cardTitle} actions={phoneButton ?? undefined}>
       {error && <ErrorBanner message={error} />}
 
       {/* Vùng kéo thả + upload */}
@@ -530,6 +555,7 @@ export function ProjectAssetsCard({
       {gradeModal}
       {previewModal}
       {deleteModal}
+      {phoneModal}
     </Card>
   );
 

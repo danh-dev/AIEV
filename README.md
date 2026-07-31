@@ -72,6 +72,10 @@ Script tự lo mọi thứ: kiểm tra môi trường → `npm install` (lần �
 
 Chạy dev thủ công: `npm install` rồi `npm run dev`.
 
+## Upload từ điện thoại
+
+Trong trang project, ở card **Nguồn & Asset** bấm **Kết nối điện thoại** — quét mã QR bằng camera điện thoại (cùng WiFi với máy chạy hệ thống) để mở trang upload `http://<ip-máy>:6868/m/<project>`. Video/ảnh chọn trên điện thoại sẽ tải thẳng vào asset của project. Lần đầu Windows hỏi firewall thì chọn **Allow** (script start đã tự thêm rule nếu có quyền admin).
+
 ## Cấu trúc thư mục
 
 ```

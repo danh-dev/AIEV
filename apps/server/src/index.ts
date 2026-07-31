@@ -1,3 +1,4 @@
+import os from "node:os";
 import express, {
   type NextFunction,
   type Request,
@@ -86,6 +87,21 @@ app.use("/api/reveal", revealRouter);
 // Danh sách preset màu — UI dùng làm nguồn nhãn duy nhất (đồng bộ với color.ts)
 app.get("/api/grade-presets", (_req: Request, res: Response) => {
   res.json(GRADE_PRESETS.map((p) => ({ id: p.id, label: p.label })));
+});
+
+// Thông tin LAN cho tính năng "Kết nối điện thoại" — QR trỏ http://<ip>:6868/m/<id>.
+// IPv4 non-internal, ưu tiên dải LAN quen thuộc (192.168 → 10. → 172.) lên đầu.
+app.get("/api/lan-info", (_req: Request, res: Response) => {
+  const ips: string[] = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const ni of list ?? []) {
+      if (ni.family === "IPv4" && !ni.internal) ips.push(ni.address);
+    }
+  }
+  const rank = (ip: string) =>
+    ip.startsWith("192.168.") ? 0 : ip.startsWith("10.") ? 1 : ip.startsWith("172.") ? 2 : 3;
+  ips.sort((a, b) => rank(a) - rank(b));
+  res.json({ ips, webPort: Number(process.env.WEB_PORT || 6868) });
 });
 app.use("/media", mediaRouter);
 

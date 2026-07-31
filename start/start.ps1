@@ -98,7 +98,17 @@ if (-not (Test-Path $envFile)) {
 Write-Step "Khởi động server (port 6869) + web (port 6868)..."
 Start-Process cmd -ArgumentList "/k", "title AI Edit Video - LOG && cd /d `"$root`" && npm run start" | Out-Null
 
-# 7. Đợi web sẵn sàng rồi mở trình duyệt
+# 7. Mở firewall port 6868 cho tính năng "Kết nối điện thoại" (upload từ điện thoại
+#    cùng WiFi). Không có quyền admin thì lệnh fail im lặng — Windows sẽ tự hỏi
+#    Allow khi có kết nối đầu tiên.
+try {
+    netsh advfirewall firewall show rule name="AIEV Web 6868" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        netsh advfirewall firewall add rule name="AIEV Web 6868" dir=in action=allow protocol=TCP localport=6868 2>$null | Out-Null
+    }
+} catch { }
+
+# 8. Đợi web sẵn sàng rồi mở trình duyệt
 Write-Step "Đang đợi hệ thống sẵn sàng..."
 $ready = $false
 for ($i = 0; $i -lt 60; $i++) {

@@ -105,6 +105,12 @@ export function Shell({ children }: { children: ReactNode }) {
   const { t } = useT();
   const pathname = usePathname();
 
+  // Trang mobile /m/<id> (điện thoại quét QR upload) — layout riêng tối giản,
+  // không header/sidebar của dashboard.
+  if (pathname === "/m" || pathname.startsWith("/m/")) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-4">

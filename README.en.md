@@ -72,6 +72,10 @@ The script handles everything: checks the environment → `npm install` (first r
 
 Manual dev run: `npm install` then `npm run dev`.
 
+## Upload from your phone
+
+On a project page, in the **Sources & Assets** card click **Connect phone** — scan the QR code with your phone camera (same WiFi as the machine running the system) to open the upload page `http://<machine-ip>:6868/m/<project>`. Videos/photos picked on the phone upload straight into the project's assets. The first time Windows asks about the firewall, choose **Allow** (the start script adds the rule automatically when it has admin rights).
+
 ## Folder structure
 
 ```

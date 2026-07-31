@@ -22,6 +22,17 @@ GET /api/overview
 `runningJob` = job đang chạy ĐẦU TIÊN (queue song song nên có thể nhiều job đang chạy cùng lúc).
 `recentProjects` mỗi phần tử kèm `tokensUsed, costUsd`.
 
+## Kết nối điện thoại (upload từ điện thoại cùng WiFi)
+
+```
+GET /api/lan-info
+→ { ips: string[], webPort: number }   // IPv4 non-internal của máy chạy server, ưu tiên 192.168/10.; webPort = 6868
+```
+
+Trang web `/m/<projectId>` (Next.js, không phải API) là trang upload tối giản cho điện thoại — mở qua QR
+trong modal "Kết nối điện thoại" ở card Nguồn & Asset (`http://<ip>:6868/m/<projectId>`).
+Upload từ điện thoại đi qua proxy `/api/assets` của Next (cùng origin 6868, `proxyTimeout` 10 phút) — không gọi thẳng port 6869.
+
 ## Projects
 
 ```

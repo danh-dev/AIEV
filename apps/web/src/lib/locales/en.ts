@@ -454,6 +454,29 @@ export const en: Record<string, string> = {
   "assets.saved": "Saved",
   "assets.save-desc-aria": "Save description for {name}",
 
+  // ===== Phone connect (QR upload) =====
+  "phone.connect": "Connect phone",
+  "phone.title": "Connect phone",
+  "phone.desc":
+    "Scan the QR code with your phone camera to open this project's upload page — videos/photos go straight into Sources & Assets.",
+  "phone.loading": "Getting network address…",
+  "phone.ip-label": "Network (server IP)",
+  "phone.qr-alt": "QR code opening the upload page on your phone",
+  "phone.no-ip":
+    "No LAN IP address found — check that this machine is connected to WiFi/Ethernet.",
+  "phone.note":
+    "Your phone must be on the same WiFi as this machine. The first time, Windows will ask about the firewall — choose Allow.",
+
+  // ===== Mobile upload page (/m/<id>) =====
+  "m.title": "Upload files to project",
+  "m.choose": "Choose videos / photos",
+  "m.capture": "Record video / take photo",
+  "m.hint": "Uploaded files go straight into the project's Sources & Assets.",
+  "m.empty": "No files uploaded from this phone yet.",
+  "m.uploading": "Uploading — keep this screen open until it finishes.",
+  "m.error": "Error",
+  "m.not-found": "Project not found — check the link/QR code.",
+
   // ===== Color grading =====
   "grade.aria": "Color-grade {name}",
   "grade.action": "Color grade",

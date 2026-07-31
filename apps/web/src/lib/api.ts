@@ -1297,6 +1297,17 @@ export const generateImage = (id: string, step?: ImageGenStep) =>
     step ? { step } : {}
   );
 
+// ============ Kết nối điện thoại (LAN) ============
+
+/** GET /api/lan-info — IP LAN của máy chạy server + port web, cho QR "Kết nối điện thoại". */
+export interface LanInfo {
+  /** IPv4 non-internal, đã ưu tiên dải 192.168/10. lên đầu. */
+  ips: string[];
+  webPort: number;
+}
+
+export const getLanInfo = () => request<LanInfo>("/api/lan-info");
+
 // ============ Media helper ============
 
 /**
