@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
 import { Router } from "express";
 import { HttpError, killTree } from "../util.js";
 import { upsertEnvVar } from "./connections.js";
@@ -39,17 +40,41 @@ function pushLog(chunk: string): void {
   }
 }
 
-/** cloudflared có trên PATH không (where/which — nhanh, chạy mỗi lần GET) */
-function cloudflaredInstalled(): boolean {
+/**
+ * Đường dẫn cloudflared: PATH (where/which) trước, rồi các vị trí cài chuẩn —
+ * server chạy từ .command trên macOS có PATH tối giản KHÔNG chứa /opt/homebrew/bin.
+ */
+const CLOUDFLARED_KNOWN_PATHS =
+  process.platform === "win32"
+    ? [
+        "C:\\Program Files (x86)\\cloudflared\\cloudflared.exe",
+        "C:\\Program Files\\cloudflared\\cloudflared.exe",
+      ]
+    : ["/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared", "/usr/bin/cloudflared"];
+
+export function cloudflaredBin(): string | null {
   const cmd = process.platform === "win32" ? "where" : "which";
   try {
-    return (
-      spawnSync(cmd, ["cloudflared"], { windowsHide: true, shell: true })
-        .status === 0
-    );
+    if (
+      spawnSync(cmd, ["cloudflared"], { windowsHide: true, shell: true }).status === 0
+    ) {
+      return "cloudflared";
+    }
   } catch {
-    return false;
+    /* rơi xuống check đường dẫn cứng */
   }
+  for (const p of CLOUDFLARED_KNOWN_PATHS) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {
+      /* thôi */
+    }
+  }
+  return null;
+}
+
+function cloudflaredInstalled(): boolean {
+  return cloudflaredBin() !== null;
 }
 
 /** Chuẩn hóa input người dùng thành hostname: bỏ protocol/path/khoảng trắng, lowercase */
@@ -165,7 +190,7 @@ router.post("/start", (req, res) => {
   lastLog.length = 0;
   pushLog(`$ cloudflared ${args.join(" ")}`);
 
-  const proc = spawn("cloudflared", args, { windowsHide: true });
+  const proc = spawn(cloudflaredBin() ?? "cloudflared", args, { windowsHide: true });
   child = proc;
   proc.stdout?.on("data", (c: Buffer) => pushLog(c.toString("utf8")));
   proc.stderr?.on("data", (c: Buffer) => pushLog(c.toString("utf8")));

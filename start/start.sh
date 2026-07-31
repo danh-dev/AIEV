@@ -5,6 +5,10 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# .command chạy với PATH tối giản của macOS — thêm đường Homebrew (Apple Silicon
+# /opt/homebrew, Intel /usr/local) để thấy brew/cloudflared/ffmpeg; server con kế thừa PATH này.
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 WEB_URL="http://localhost:6868"
 LOG_FILE="$ROOT/start/server.log"
 
