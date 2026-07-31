@@ -82,8 +82,9 @@ export const WEB_ORIGINS = [
  * file lớn gọi THẲNG backend 6869 nên origin dạng IP private :6868 phải được
  * phép CORS. Chỉ chấp nhận dải IP private (RFC 1918), không mở cho IP công cộng.
  */
+// Kèm dải CGNAT 100.64.0.0/10 — IP của Tailscale (điện thoại dùng 4G/5G vẫn upload được qua tailnet)
 const LAN_WEB_ORIGIN_RE =
-  /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):6868$/;
+  /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+):6868$/;
 
 /** Origin có được phép gọi trực tiếp backend không (localhost + LAN private) */
 export function isAllowedWebOrigin(origin: string): boolean {
