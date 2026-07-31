@@ -95,7 +95,10 @@ app.get("/api/grade-presets", (_req: Request, res: Response) => {
 // IPv4 non-internal, ưu tiên dải LAN quen thuộc (192.168 → 10. → 172.) lên đầu.
 app.get("/api/lan-info", (_req: Request, res: Response) => {
   const ips: string[] = [];
-  for (const list of Object.values(os.networkInterfaces())) {
+  // Bỏ adapter ảo (WSL/Hyper-V/VMware/Docker) — điện thoại không bao giờ tới được các IP đó
+  const VIRTUAL_IF_RE = /wsl|vethernet|hyper-v|virtual|vmware|docker|loopback/i;
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
+    if (VIRTUAL_IF_RE.test(name)) continue;
     for (const ni of list ?? []) {
       if (ni.family === "IPv4" && !ni.internal) ips.push(ni.address);
     }
