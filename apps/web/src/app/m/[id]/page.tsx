@@ -5,15 +5,16 @@
  * (http://<ip-máy-chủ>:6868/m/<projectId>, điện thoại cùng WiFi).
  *
  * Tối giản cho màn dọc, không Shell/sidebar (Shell tự bypass /m/*).
- * Upload đi qua PROXY /api của Next (cùng origin, port 6868) thay vì gọi thẳng
- * backend 6869: khỏi lo CORS + firewall port 6869, và next.config đã nâng
- * experimental.proxyTimeout lên 10 phút nên file video lớn không bị cắt ngang.
+ * Upload gọi THẲNG backend 6869 (serverOrigin) — không qua proxy /api của Next:
+ * request dài qua proxy dính buffering + timeout của Node server nên file video
+ * lớn hay kẹt giữa chừng. Backend đã mở CORS cho origin http://<ip-LAN>:6868
+ * và start.ps1 mở firewall port 6869.
  */
 
 import { Camera, Check, Loader2, Smartphone, Upload } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getProject } from "@/lib/api";
+import { getProject, serverOrigin } from "@/lib/api";
 import { formatBytes } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -27,7 +28,7 @@ interface UploadItem {
   error?: string;
 }
 
-/** Upload MỘT file qua proxy /api/assets — XHR để có progress từng phần. */
+/** Upload MỘT file thẳng backend 6869 (/api/assets) — XHR để có progress từng phần. */
 function uploadOne(
   projectId: string,
   file: File,
@@ -35,7 +36,7 @@ function uploadOne(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/assets");
+    xhr.open("POST", `${serverOrigin()}/api/assets`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -203,6 +204,10 @@ export default function MobileUploadPage() {
 
           <p className="text-center text-xs text-[var(--text-muted)]">
             {t("m.hint")}
+          </p>
+
+          <p className="text-center text-xs font-medium text-[var(--danger)]">
+            {t("m.keep-awake")}
           </p>
 
           {/* Danh sách file đã/đang tải lên */}

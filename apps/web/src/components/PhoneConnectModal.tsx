@@ -123,6 +123,10 @@ export function PhoneConnectModal({
       <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
         {t("phone.note")}
       </p>
+
+      <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
+        {t("phone.keep-awake")}
+      </p>
     </Modal>
   );
 }

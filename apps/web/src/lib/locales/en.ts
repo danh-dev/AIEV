@@ -466,6 +466,8 @@ export const en: Record<string, string> = {
     "No LAN IP address found — check that this machine is connected to WiFi/Ethernet.",
   "phone.note":
     "Your phone must be on the same WiFi as this machine. The first time, Windows will ask about the firewall — choose Allow.",
+  "phone.keep-awake":
+    "Keep the phone's screen on while uploading large files — once the screen turns off, the browser stops sending.",
 
   // ===== Incoming upload (SSE "upload" channel) =====
   "upload.receiving": "Receiving file… {percent}%",
@@ -479,6 +481,8 @@ export const en: Record<string, string> = {
   "m.hint": "Uploaded files go straight into the project's Sources & Assets.",
   "m.empty": "No files uploaded from this phone yet.",
   "m.uploading": "Uploading — keep this screen open until it finishes.",
+  "m.keep-awake":
+    "Keep the phone's screen on while uploading large files — once the screen turns off, the browser stops sending.",
   "m.error": "Error",
   "m.not-found": "Project not found — check the link/QR code.",
 

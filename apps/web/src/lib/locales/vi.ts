@@ -466,6 +466,8 @@ export const vi: Record<string, string> = {
     "Không tìm thấy địa chỉ IP LAN — kiểm tra máy đã nối WiFi/mạng dây chưa.",
   "phone.note":
     "Điện thoại phải cùng WiFi với máy này. Lần đầu Windows hỏi firewall → chọn Allow.",
+  "phone.keep-awake":
+    "Giữ màn hình điện thoại sáng khi đang tải file lớn — tắt màn hình là trình duyệt ngừng gửi.",
 
   // ===== Upload đang đến server (SSE kênh "upload") =====
   "upload.receiving": "Đang nhận file… {percent}%",
@@ -479,6 +481,8 @@ export const vi: Record<string, string> = {
   "m.hint": "File tải lên sẽ vào thẳng mục Nguồn & Asset của project.",
   "m.empty": "Chưa có file nào được tải lên từ điện thoại này.",
   "m.uploading": "Đang tải lên — giữ màn hình mở đến khi xong.",
+  "m.keep-awake":
+    "Giữ màn hình điện thoại sáng khi đang tải file lớn — tắt màn hình là trình duyệt ngừng gửi.",
   "m.error": "Lỗi",
   "m.not-found": "Không tìm thấy project — kiểm tra lại link/mã QR.",
 

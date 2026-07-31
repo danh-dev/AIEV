@@ -77,6 +77,19 @@ export const WEB_ORIGINS = [
   "http://127.0.0.1:6868",
 ];
 
+/**
+ * Web UI mở qua LAN (điện thoại/tablet vào http://<ip-máy-chủ>:6868) — upload
+ * file lớn gọi THẲNG backend 6869 nên origin dạng IP private :6868 phải được
+ * phép CORS. Chỉ chấp nhận dải IP private (RFC 1918), không mở cho IP công cộng.
+ */
+const LAN_WEB_ORIGIN_RE =
+  /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):6868$/;
+
+/** Origin có được phép gọi trực tiếp backend không (localhost + LAN private) */
+export function isAllowedWebOrigin(origin: string): boolean {
+  return WEB_ORIGINS.includes(origin) || LAN_WEB_ORIGIN_RE.test(origin);
+}
+
 const serverDir = path.join(repoRoot, "apps", "server");
 
 export const paths = {

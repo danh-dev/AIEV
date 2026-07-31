@@ -47,6 +47,8 @@ const uploadTrackers = new WeakMap<Request, UploadTracker>();
 const UPLOAD_THROTTLE_MS = 400;
 /** Chỉ soi ~64KB đầu stream để tìm field projectId (client gửi field trước file). */
 const HEAD_SNIFF_LIMIT = 65536;
+/** Quá lâu không nhận thêm byte nào (điện thoại tắt màn hình, WiFi rớt ngầm) → coi là stall. */
+const UPLOAD_STALL_MS = 45_000;
 
 /**
  * Middleware ĐẶT TRƯỚC multer: đếm bytes nhận được của request multipart và
@@ -67,10 +69,32 @@ function uploadProgress(req: Request, res: Response, next: NextFunction): void {
   let settled = false;
   let lastSent = 0;
 
+  // Stall watchdog: timer reset mỗi chunk — hết UPLOAD_STALL_MS mà không nhận
+  // thêm data thì phát event lỗi (PC không kẹt thanh tiến trình) + hủy request
+  // (điện thoại nhận lỗi thay vì treo). Node requestTimeout đã tắt cho upload
+  // dài nên đây là lưới duy nhất bắt kết nối chết ngầm.
+  let stallTimer: NodeJS.Timeout | null = null;
+  const clearStall = () => {
+    if (stallTimer) {
+      clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+  };
+  const armStall = () => {
+    clearStall();
+    stallTimer = setTimeout(() => {
+      if (settled || req.complete) return;
+      uploadTrackers.get(req)?.fail();
+      req.destroy(new Error("Upload stall: 45s không nhận thêm dữ liệu"));
+    }, UPLOAD_STALL_MS);
+  };
+  armStall();
+
   uploadTrackers.set(req, {
     done(finalProjectId, file) {
       if (settled) return;
       settled = true;
+      clearStall();
       broadcast("upload", {
         id,
         projectId: finalProjectId ?? projectId,
@@ -83,6 +107,7 @@ function uploadProgress(req: Request, res: Response, next: NextFunction): void {
     fail(finalProjectId) {
       if (settled) return;
       settled = true;
+      clearStall();
       broadcast("upload", {
         id,
         projectId: finalProjectId ?? projectId,
@@ -93,6 +118,7 @@ function uploadProgress(req: Request, res: Response, next: NextFunction): void {
   });
 
   req.on("data", (chunk: Buffer) => {
+    armStall();
     received += chunk.length;
     if (!projectId && head.length < HEAD_SNIFF_LIMIT) {
       head += chunk.toString("latin1", 0, Math.min(chunk.length, HEAD_SNIFF_LIMIT));
@@ -108,6 +134,7 @@ function uploadProgress(req: Request, res: Response, next: NextFunction): void {
 
   // Client rớt mạng giữa chừng — body chưa nhận đủ mà socket đã đóng
   req.on("close", () => {
+    clearStall();
     if (!settled && !req.complete) uploadTrackers.get(req)?.fail();
   });
 

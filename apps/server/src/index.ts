@@ -4,7 +4,7 @@ import express, {
   type Request,
   type Response,
 } from "express";
-import { SERVER_PORT, WEB_ORIGINS, ensureBaseDirs, repoRoot } from "./config.js";
+import { SERVER_PORT, ensureBaseDirs, isAllowedWebOrigin, repoRoot } from "./config.js";
 import { autoResumeStartup } from "./agent.js";
 import { failStaleRunningJobs } from "./db.js";
 import { addSseClient } from "./events.js";
@@ -40,11 +40,11 @@ failStaleRunningJobs();
 const app = express();
 app.disable("x-powered-by");
 
-// CORS cho web UI localhost:6868 (bình thường Next.js rewrite nên không cần,
-// nhưng cho phép gọi thẳng khi dev/debug)
+// CORS cho web UI :6868 — localhost (dev/debug) + IP LAN private (trang /m
+// trên điện thoại upload file lớn gọi thẳng backend, không qua proxy Next)
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
-  if (origin && WEB_ORIGINS.includes(origin)) {
+  if (origin && isAllowedWebOrigin(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
@@ -132,7 +132,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: { code: "INTERNAL", message } });
 });
 
-app.listen(SERVER_PORT, () => {
+const server = app.listen(SERVER_PORT, () => {
   console.log(`[server] AI Edit Video backend chạy tại http://localhost:${SERVER_PORT}`);
   console.log(`[server] Repo root: ${repoRoot}`);
   // Phiên bị 'interrupted' do restart (autoResume bật) → tự chạy tiếp sau khi server ổn định
@@ -140,3 +140,10 @@ app.listen(SERVER_PORT, () => {
     void autoResumeStartup();
   }, 15_000);
 });
+
+// Upload video lớn qua WiFi có thể kéo dài hơn requestTimeout mặc định ~300s
+// của Node → request bị cắt giữa chừng. Bỏ giới hạn cho toàn server; stall
+// thật sự đã có middleware uploadProgress (45s không nhận byte nào) xử lý.
+server.requestTimeout = 0;
+server.headersTimeout = 65_000;
+server.keepAliveTimeout = 61_000;
