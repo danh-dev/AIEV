@@ -405,7 +405,7 @@ export interface RenderSettings {
   gpuEncodeFinal: boolean;
   /** Fast capture — chỉ thực sự hoạt động trên macOS + GPU, nơi khác fallback vô hại. */
   fastCapture: boolean;
-  /** Concurrency render của Remotion (0 = auto, 0-12). */
+  /** Concurrency render của Remotion (0 = auto; trần = số luồng CPU của máy). */
   remotionConcurrency: number;
   /** Số job render chạy đồng thời trong queue (1-4). */
   queueConcurrency: number;
@@ -441,10 +441,21 @@ export interface HardwareInfo {
   gpuVramGb: number | null;
 }
 
+/** Khuyến nghị theo máy thật — UI dựng option worker/concurrency từ đây. */
+export interface RenderRecommended {
+  /** Số worker Chrome khuyên dùng (= min(số luồng CPU, 8)). */
+  workers: number;
+  /** Remotion concurrency khuyên dùng. */
+  concurrency: number;
+  /** Trần chọn được (= max(số luồng CPU, 4)). */
+  maxWorkers: number;
+}
+
 export interface RenderSettingsResponse {
   settings: RenderSettings;
   defaults: RenderSettings;
   hardware: HardwareInfo;
+  recommended: RenderRecommended;
 }
 
 export const getRenderSettings = () =>

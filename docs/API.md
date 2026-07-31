@@ -267,8 +267,9 @@ GET  /api/jobs/:id              → Job & { log: string }
 POST /api/jobs                  { projectId, type, sceneId? } → Job (201)
 POST /api/jobs/:id/cancel       → Job (kill process nếu đang chạy)
 
-GET  /api/render-settings       → { queueConcurrency, ... }   (cấu hình render — tab Cấu hình)
-PUT  /api/render-settings       partial → 200 (queueConcurrency clamp 1–4)
+GET  /api/render-settings       → { settings, defaults, hardware, recommended: { workers, concurrency, maxWorkers } }
+                                  (cấu hình render — tab Cấu hình; recommended theo máy thật: min(luồng CPU, 8), trần max(luồng CPU, 4))
+PUT  /api/render-settings       partial → 200 (queueConcurrency clamp 1–4; workers/remotionConcurrency clamp 0–max(luồng CPU, 4))
 ```
 
 Thực thi (cwd trong ngoặc):

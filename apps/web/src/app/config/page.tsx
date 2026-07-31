@@ -13,6 +13,7 @@ import {
   getRenderSettings,
   updateRenderSettings,
   type HardwareInfo,
+  type RenderRecommended,
   type RenderSettings,
   type RenderSettingsResponse,
 } from "@/lib/api";
@@ -33,17 +34,36 @@ type SegValue = number | null;
 interface SegOption {
   value: SegValue;
   label: string;
+  /** Mốc khuyên dùng theo máy thật — hiển thị suffix ★. */
+  recommended?: boolean;
 }
 
-const WORKER_OPTIONS: SegOption[] = [
-  { value: 0, label: "Auto" },
-  { value: 4, label: "4" },
-  { value: 6, label: "6" },
-  { value: 8, label: "8" },
-  { value: 12, label: "12" },
-];
+/** Các mốc worker/concurrency chuẩn — chỉ giữ mốc ≤ số luồng CPU của máy. */
+const WORKER_STEPS = [2, 4, 6, 8, 12, 16, 24];
 
-const REMOTION_OPTIONS: SegOption[] = WORKER_OPTIONS;
+/** Sinh option ĐỘNG theo máy: Auto + mốc chuẩn ≤ maxWorkers (+ chính maxWorkers). */
+function buildWorkerOptions(rec: RenderRecommended, recommendedValue: number): SegOption[] {
+  const values = WORKER_STEPS.filter((v) => v <= rec.maxWorkers);
+  if (!values.includes(rec.maxWorkers)) {
+    values.push(rec.maxWorkers);
+    values.sort((a, b) => a - b);
+  }
+  return [
+    { value: 0, label: "Auto" },
+    ...values.map((v) => ({
+      value: v,
+      label: String(v),
+      recommended: v === recommendedValue,
+    })),
+  ];
+}
+
+/** Fallback khi server cũ chưa trả recommended — giữ hành vi như trước. */
+const RECOMMENDED_FALLBACK: RenderRecommended = {
+  workers: 8,
+  concurrency: 8,
+  maxWorkers: 12,
+};
 
 const QUEUE_OPTIONS: SegOption[] = [
   { value: 1, label: "1" },
@@ -80,6 +100,7 @@ function SegGroup({
             type="button"
             aria-pressed={active}
             onClick={() => onSelect(o.value)}
+            title={o.recommended ? "Khuyên dùng cho máy này" : undefined}
             className={`min-w-[44px] rounded-[var(--radius)] border px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
               active
                 ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
@@ -87,6 +108,11 @@ function SegGroup({
             }`}
           >
             {o.label}
+            {o.recommended && (
+              <span aria-label="khuyên dùng" className="ml-1 text-[10px] align-top">
+                ★
+              </span>
+            )}
           </button>
         );
       })}
@@ -327,6 +353,13 @@ export default function ConfigPage() {
 
   const settings = data?.settings ?? null;
   const hw = data?.hardware ?? null;
+  /** Khuyến nghị theo máy thật — fallback giữ mốc cũ nếu server chưa trả. */
+  const rec = data?.recommended ?? RECOMMENDED_FALLBACK;
+  const workerOptions = buildWorkerOptions(rec, rec.workers);
+  const remotionOptions = buildWorkerOptions(rec, rec.concurrency);
+  const workerHint = hw
+    ? `Máy này: ${hw.cpuThreads} luồng CPU, ${hw.ramGb}GB RAM — khuyên dùng ${rec.workers}`
+    : `Khuyên dùng ${rec.workers}`;
   /** Máy không có encoder GPU nào → 2 toggle encode GPU bị khóa. */
   const gpuEncodeUnavailable = hw ? !hw.nvenc && !hw.videotoolbox : false;
   const gpuEncodeNote =
@@ -379,11 +412,11 @@ export default function ConfigPage() {
             <div className="divide-y divide-[var(--border)] pb-4 md:pb-0">
               <FieldRow
                 label="Worker Chrome (HyperFrames)"
-                hint="Mỗi worker ~256MB RAM — máy 64GB thoải mái 8-12"
+                hint={workerHint}
               >
                 <SegGroup
                   ariaLabel="Số worker Chrome"
-                  options={WORKER_OPTIONS}
+                  options={workerOptions}
                   value={settings.workers}
                   onSelect={(v) => apply({ workers: v ?? 0 })}
                 />
@@ -431,11 +464,11 @@ export default function ConfigPage() {
 
               <FieldRow
                 label="Remotion concurrency"
-                hint="Số tab render song song khi Remotion lắp ráp timeline"
+                hint={`Số tab render song song khi Remotion lắp ráp timeline — khuyên dùng ${rec.concurrency}`}
               >
                 <SegGroup
                   ariaLabel="Remotion concurrency"
-                  options={REMOTION_OPTIONS}
+                  options={remotionOptions}
                   value={settings.remotionConcurrency}
                   onSelect={(v) => apply({ remotionConcurrency: v ?? 0 })}
                 />

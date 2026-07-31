@@ -2,7 +2,9 @@ import { Router } from "express";
 import {
   DEFAULT_RENDER_SETTINGS,
   detectHardware,
+  maxWorkers,
   readRenderSettings,
+  recommendedWorkers,
   writeRenderSettings,
   type RenderSettings,
 } from "../renderSettings.js";
@@ -11,12 +13,18 @@ import { HttpError } from "../util.js";
 /** Tab "Tăng tốc" — xem phần cứng + chỉnh cài đặt render. Đổi là hiệu lực ngay (job đọc mỗi lần chạy). */
 const router = Router();
 
-// GET /api/render-settings → { settings, defaults, hardware }
+// GET /api/render-settings → { settings, defaults, hardware, recommended }
 router.get("/", async (_req, res) => {
   res.json({
     settings: readRenderSettings(),
     defaults: DEFAULT_RENDER_SETTINGS,
     hardware: await detectHardware(),
+    // Theo máy thật — UI dựng option worker/concurrency từ đây, không hardcode
+    recommended: {
+      workers: recommendedWorkers,
+      concurrency: recommendedWorkers,
+      maxWorkers,
+    },
   });
 });
 

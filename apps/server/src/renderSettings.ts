@@ -33,13 +33,20 @@ export interface RenderSettings {
   draftFps: number | null;
 }
 
+/** Số luồng CPU thật của máy — nguồn cho default + trần của workers/concurrency */
+const cpuThreads = os.cpus().length;
+/** Số worker khuyên dùng: theo máy thật, trần 8 (nhiều hơn hiếm khi nhanh hơn đáng kể) */
+export const recommendedWorkers = Math.min(cpuThreads, 8);
+/** Trần chọn được trên UI: máy nhiều luồng được chọn tới đúng số luồng (tối thiểu 4) */
+export const maxWorkers = Math.max(cpuThreads, 4);
+
 export const DEFAULT_RENDER_SETTINGS: RenderSettings = {
-  workers: 8,
+  workers: recommendedWorkers,
   browserGpu: true,
   gpuEncodeDraft: true,
   gpuEncodeFinal: false,
   fastCapture: false,
-  remotionConcurrency: 8,
+  remotionConcurrency: recommendedWorkers,
   queueConcurrency: 2,
   draftFps: null,
 };
@@ -51,13 +58,13 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
 /** Kẹp range + ép kiểu một object bất kỳ về RenderSettings hợp lệ — dùng cho cả read lẫn write */
 function normalizeSettings(raw: Record<string, unknown>): RenderSettings {
   const base = { ...DEFAULT_RENDER_SETTINGS };
-  if (typeof raw.workers === "number") base.workers = clamp(Math.round(raw.workers), 0, 12);
+  if (typeof raw.workers === "number") base.workers = clamp(Math.round(raw.workers), 0, maxWorkers);
   if (typeof raw.browserGpu === "boolean") base.browserGpu = raw.browserGpu;
   if (typeof raw.gpuEncodeDraft === "boolean") base.gpuEncodeDraft = raw.gpuEncodeDraft;
   if (typeof raw.gpuEncodeFinal === "boolean") base.gpuEncodeFinal = raw.gpuEncodeFinal;
   if (typeof raw.fastCapture === "boolean") base.fastCapture = raw.fastCapture;
   if (typeof raw.remotionConcurrency === "number") {
-    base.remotionConcurrency = clamp(Math.round(raw.remotionConcurrency), 0, 12);
+    base.remotionConcurrency = clamp(Math.round(raw.remotionConcurrency), 0, maxWorkers);
   }
   if (typeof raw.queueConcurrency === "number") {
     base.queueConcurrency = clamp(Math.round(raw.queueConcurrency), 1, 4);
