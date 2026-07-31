@@ -30,8 +30,8 @@ function maskKey(key: string): string {
   return `${key.slice(0, 6)}…${key.slice(-4)}`;
 }
 
-/** Upsert/xóa một biến trong .env — giữ nguyên comment và các dòng khác */
-function upsertEnvVar(name: string, value: string | null): void {
+/** Upsert/xóa một biến trong .env — giữ nguyên comment và các dòng khác (dùng chung với tunnel.ts) */
+export function upsertEnvVar(name: string, value: string | null): void {
   let lines: string[] = [];
   if (fs.existsSync(ENV_FILE)) {
     lines = fs.readFileSync(ENV_FILE, "utf8").split(/\r?\n/);

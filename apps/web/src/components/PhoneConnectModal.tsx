@@ -11,7 +11,12 @@ import { useT } from "@/lib/i18n";
  * Modal "Kết nối điện thoại" — hiện QR code mở trang upload mobile
  * http://<ip-LAN>:6868/m/<projectId>. Điện thoại cùng WiFi quét QR là
  * upload video/ảnh thẳng vào assets của project (đường proxy /api, port 6868).
+ * Nếu .env có TUNNEL_DOMAIN (Cloudflare Tunnel) thì option mặc định là
+ * https://<domain>/m/<projectId> — dùng được qua 4G/5G, không cần cùng WiFi.
  */
+
+/** Giá trị option "đi qua Cloudflare Tunnel" trong select Mạng (IP không bao giờ trùng). */
+const TUNNEL_OPTION = "__tunnel__";
 export function PhoneConnectModal({
   projectId,
   open,
@@ -23,7 +28,8 @@ export function PhoneConnectModal({
 }) {
   const { t } = useT();
   const [lan, setLan] = useState<LanInfo | null>(null);
-  const [ip, setIp] = useState<string | null>(null);
+  // Lựa chọn mạng: TUNNEL_OPTION (domain Cloudflare Tunnel) hoặc một IP LAN
+  const [sel, setSel] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,13 +38,14 @@ export function PhoneConnectModal({
     if (!open) return;
     let alive = true;
     setLan(null);
-    setIp(null);
+    setSel(null);
     setError(null);
     getLanInfo()
       .then((info) => {
         if (!alive) return;
         setLan(info);
-        setIp(info.ips[0] ?? null);
+        // Có Cloudflare Tunnel → mặc định đi đường Internet (dùng được 4G/5G)
+        setSel(info.tunnelDomain ? TUNNEL_OPTION : info.ips[0] ?? null);
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : String(e));
@@ -48,7 +55,13 @@ export function PhoneConnectModal({
     };
   }, [open]);
 
-  const url = lan && ip ? `http://${ip}:${lan.webPort}/m/${projectId}` : null;
+  const viaTunnel = sel === TUNNEL_OPTION && !!lan?.tunnelDomain;
+  const url =
+    lan && sel
+      ? viaTunnel
+        ? `https://${lan.tunnelDomain}/m/${projectId}`
+        : `http://${sel}:${lan.webPort}/m/${projectId}`
+      : null;
 
   // Render QR client-side thành dataURL — không gọi service ngoài
   useEffect(() => {
@@ -81,20 +94,25 @@ export function PhoneConnectModal({
         </p>
       )}
 
-      {lan && lan.ips.length === 0 && (
+      {lan && lan.ips.length === 0 && !lan.tunnelDomain && (
         <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">
           {t("phone.no-ip")}
         </p>
       )}
 
-      {lan && lan.ips.length > 1 && (
+      {lan && lan.ips.length + (lan.tunnelDomain ? 1 : 0) > 1 && (
         <label className="flex flex-col gap-1 text-xs font-medium text-[var(--text-muted)]">
           {t("phone.ip-label")}
           <select
             className="input"
-            value={ip ?? ""}
-            onChange={(e) => setIp(e.target.value)}
+            value={sel ?? ""}
+            onChange={(e) => setSel(e.target.value)}
           >
+            {lan.tunnelDomain && (
+              <option value={TUNNEL_OPTION}>
+                {`🌐 ${lan.tunnelDomain} (Internet)`}
+              </option>
+            )}
             {lan.ips.map((addr) => (
               <option key={addr} value={addr}>
                 {addr}
@@ -120,12 +138,21 @@ export function PhoneConnectModal({
         </div>
       )}
 
-      <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-        {t("phone.note")}
-      </p>
+      {viaTunnel ? (
+        // Đang đi đường Internet qua Cloudflare Tunnel — không cần cùng WiFi
+        <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
+          {t("phone.tunnel-active")}
+        </p>
+      ) : (
+        <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
+          {t("phone.note")}
+        </p>
+      )}
 
       {/* Ghi chú dùng từ xa: Tailscale / Cloudflare Tunnel — trang /m tự chọn endpoint upload */}
-      <p className="text-xs text-[var(--text-muted)]">{t("phone.tunnel-note")}</p>
+      {!viaTunnel && (
+        <p className="text-xs text-[var(--text-muted)]">{t("phone.tunnel-note")}</p>
+      )}
 
       <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
         {t("phone.keep-awake")}

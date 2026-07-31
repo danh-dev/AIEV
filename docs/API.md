@@ -26,8 +26,10 @@ GET /api/overview
 
 ```
 GET /api/lan-info
-→ { ips: string[], webPort: number }   // IPv4 non-internal của máy chạy server, ưu tiên 192.168/10.; webPort = 6868
+→ { ips: string[], webPort: number, tunnelDomain: string|null }   // IPv4 non-internal của máy chạy server, ưu tiên 192.168/10.; webPort = 6868
 ```
+
+`tunnelDomain`: hostname Quick Tunnel đang chạy (ưu tiên) hoặc `TUNNEL_DOMAIN` trong .env — QR "Kết nối điện thoại" tự dùng.
 
 Trang web `/m/<projectId>` (Next.js, không phải API) là trang upload tối giản cho điện thoại — mở qua QR
 trong modal "Kết nối điện thoại" ở card Nguồn & Asset (`http://<ip>:6868/m/<projectId>`).
@@ -147,6 +149,17 @@ GET  /api/connections                    → trạng thái kết nối từng pr
 PUT  /api/connections/:provider/key      { apiKey } → 200 — lưu API key vào .env
 POST /api/connections/:provider/test     → { ok, message? } — gọi thử API để kiểm tra key
 ```
+
+## Cloudflare Tunnel (card trên trang /connections)
+
+```
+GET  /api/tunnel          → { installed, running, mode: "named"|"quick"|null, url, domain, lastLog: string[] }
+PUT  /api/tunnel/domain   { domain } → 200 — validate hostname, ghi TUNNEL_DOMAIN vào .env (rỗng/null = xóa)
+POST /api/tunnel/start    → 202 { mode } — có domain: named tunnel; không: Quick Tunnel (*.trycloudflare.com). 409 NOT_INSTALLED / đang chạy
+POST /api/tunnel/stop     → 204 — kill cả cây process cloudflared
+```
+
+Quick Tunnel đang chạy → `/api/lan-info.tunnelDomain` trả hostname URL đó (ưu tiên hơn env) để QR điện thoại tự dùng.
 
 ## Ảnh minh họa AI (POST /api/illustrations)
 

@@ -10,17 +10,22 @@
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  Copy,
   ExternalLink,
   Eye,
   EyeOff,
+  Globe,
   Image as ImageIcon,
   KeyRound,
   Bot,
   Loader2,
   Pencil,
+  Play,
   Plug,
   PlugZap,
   Sparkles,
+  Square,
   Trash2,
   X,
   type LucideIcon,
@@ -28,9 +33,14 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   getConnections,
+  getTunnelStatus,
   setConnectionKey,
+  setTunnelDomain,
+  startTunnel,
+  stopTunnel,
   testConnection,
   type ConnectionInfo,
+  type TunnelStatus,
 } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -375,6 +385,299 @@ function ProviderCard({
   );
 }
 
+/** URL tải cloudflared (trang downloads chính thức của Cloudflare). */
+const CLOUDFLARED_DL_URL =
+  "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/";
+
+/**
+ * Card Cloudflare Tunnel — bật/tắt tunnel public cho dashboard ngay trên UI.
+ * Poll GET /api/tunnel: 4s khi đang chạy (chờ URL quick tunnel), 10s khi tắt.
+ */
+function TunnelCard() {
+  const { t } = useT();
+  const [status, setStatus] = useState<TunnelStatus | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Domain input — chỉ đồng bộ từ server khi user chưa gõ dở (dirty)
+  const [domainValue, setDomainValue] = useState("");
+  const [domainDirty, setDomainDirty] = useState(false);
+  const [savingDomain, setSavingDomain] = useState(false);
+  const [domainSaved, setDomainSaved] = useState(false);
+
+  const [busy, setBusy] = useState(false); // start/stop đang gửi
+  const [copied, setCopied] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const s = await getTunnelStatus();
+      setStatus(s);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Poll: 4s khi tunnel chạy (URL quick tunnel xuất hiện trong log sau vài giây), 10s khi tắt
+  useEffect(() => {
+    const iv = setInterval(load, status?.running ? 4000 : 10000);
+    return () => clearInterval(iv);
+  }, [load, status?.running]);
+
+  // Điền domain từ server vào input (trừ lúc user đang gõ)
+  useEffect(() => {
+    if (status && !domainDirty) setDomainValue(status.domain ?? "");
+  }, [status, domainDirty]);
+
+  async function onSaveDomain() {
+    if (savingDomain) return;
+    setSavingDomain(true);
+    setActionError(null);
+    setDomainSaved(false);
+    try {
+      const s = await setTunnelDomain(domainValue.trim() || null);
+      setStatus(s);
+      setDomainDirty(false);
+      setDomainSaved(true);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingDomain(false);
+    }
+  }
+
+  async function onToggle() {
+    if (!status || busy) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      if (status.running) await stopTunnel();
+      else await startTunnel();
+      await load();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onCopy(url: string) {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  const running = !!status?.running;
+
+  return (
+    <Card>
+      {/* Header: icon + tên + badge trạng thái + chip mode */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] bg-[var(--bg-subtle)]">
+          <Globe size={18} strokeWidth={1.75} className="text-[var(--primary)]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold">{t("tunnel.title")}</h2>
+            {status && (
+              <span className={`badge ${running ? "badge-success" : "badge-muted"}`}>
+                <span className="badge-dot" />
+                {running ? t("tunnel.running") : t("tunnel.stopped")}
+              </span>
+            )}
+            {running && status?.mode && (
+              <span className="chip">
+                {status.mode === "named"
+                  ? t("tunnel.mode-named")
+                  : t("tunnel.mode-quick")}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{t("tunnel.desc")}</p>
+        </div>
+      </div>
+
+      {loadError && (
+        <p className="mt-3 flex items-start gap-1.5 text-xs font-medium text-[var(--danger)]">
+          <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
+          {t("tunnel.load-error")} {loadError}
+        </p>
+      )}
+
+      {/* Chưa cài cloudflared → hướng dẫn cài */}
+      {status && !status.installed && (
+        <div className="mt-3 rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+          <p className="font-medium">{t("tunnel.not-installed")}</p>
+          <p className="mt-1">
+            {t("tunnel.install-cmd")}{" "}
+            <code className="select-all font-mono">
+              winget install --id Cloudflare.cloudflared
+            </code>
+          </p>
+          <a
+            href={CLOUDFLARED_DL_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex items-center gap-1 font-medium hover:underline"
+          >
+            {t("tunnel.install-link")}
+            <ExternalLink size={11} strokeWidth={2} className="shrink-0" />
+          </a>
+        </div>
+      )}
+
+      {/* Domain riêng (TUNNEL_DOMAIN) */}
+      <div className="mt-4 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+        <span className="text-xs font-medium text-[var(--text-muted)]">
+          {t("tunnel.domain-label")}
+        </span>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            className="input min-w-[220px] flex-1"
+            type="text"
+            value={domainValue}
+            placeholder="aiev.example.com"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={t("tunnel.domain-label")}
+            disabled={savingDomain}
+            onChange={(e) => {
+              setDomainValue(e.target.value);
+              setDomainDirty(true);
+              setDomainSaved(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSaveDomain();
+            }}
+          />
+          <Button
+            small
+            variant="secondary"
+            onClick={onSaveDomain}
+            disabled={savingDomain || !domainDirty}
+          >
+            {savingDomain ? (
+              <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+            ) : (
+              <Check size={13} strokeWidth={2} />
+            )}
+            {savingDomain ? t("common.saving") : t("common.save")}
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-[var(--text-muted)]">{t("tunnel.domain-hint")}</p>
+        {domainSaved && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
+            <Check size={13} strokeWidth={2} className="shrink-0" />
+            {t("tunnel.domain-saved")}
+          </p>
+        )}
+      </div>
+
+      {/* Bật / Tắt */}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          small
+          variant={running ? "destructive" : "primary"}
+          onClick={onToggle}
+          disabled={busy || !status || (!running && !status.installed)}
+        >
+          {busy ? (
+            <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+          ) : running ? (
+            <Square size={13} strokeWidth={2} />
+          ) : (
+            <Play size={13} strokeWidth={2} />
+          )}
+          {busy
+            ? running
+              ? t("tunnel.stopping")
+              : t("tunnel.starting")
+            : running
+              ? t("tunnel.stop")
+              : t("tunnel.start")}
+        </Button>
+        {running && !status?.url && (
+          <span className="text-xs text-[var(--text-muted)]">
+            {t("tunnel.url-pending")}
+          </span>
+        )}
+      </div>
+
+      {/* URL đang hoạt động — QR "Kết nối điện thoại" tự dùng địa chỉ này */}
+      {running && status?.url && (
+        <div className="mt-3">
+          <span className="text-xs font-medium text-[var(--text-muted)]">
+            {t("tunnel.url-label")}
+          </span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <code className="select-all break-all rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-2.5 py-1 font-mono text-xs">
+              {status.url}
+            </code>
+            <Button
+              variant="secondary"
+              small
+              onClick={() => onCopy(status.url as string)}
+            >
+              {copied ? (
+                <Check size={13} strokeWidth={2} />
+              ) : (
+                <Copy size={13} strokeWidth={2} />
+              )}
+              {copied ? t("tunnel.copied") : t("tunnel.copy")}
+            </Button>
+          </div>
+          <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+            {t("tunnel.qr-note")}
+          </p>
+        </div>
+      )}
+
+      {actionError && (
+        <p className="mt-3 flex items-start gap-1.5 text-xs font-medium text-[var(--danger)]">
+          <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
+          {actionError}
+        </p>
+      )}
+
+      {/* Log cloudflared — collapse */}
+      {status && status.lastLog.length > 0 && (
+        <div className="mt-3 border-t border-[var(--border)] pt-3">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+            onClick={() => setLogOpen((v) => !v)}
+          >
+            <ChevronDown
+              size={13}
+              strokeWidth={2}
+              className={`shrink-0 transition-transform ${logOpen ? "" : "-rotate-90"}`}
+            />
+            {t("tunnel.log")}
+          </button>
+          {logOpen && (
+            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-muted)]">
+              {status.lastLog.join("\n")}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {/* Cảnh báo: dashboard chưa có đăng nhập */}
+      <p className="mt-3 flex items-start gap-1.5 rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
+        <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
+        {t("tunnel.warn-public")}
+      </p>
+    </Card>
+  );
+}
+
 export default function ConnectionsPage() {
   const { t } = useT();
   const [connections, setConnections] = useState<ConnectionInfo[] | null>(null);
@@ -426,6 +729,11 @@ export default function ConnectionsPage() {
           ))}
         </div>
       ) : null}
+
+      {/* Cloudflare Tunnel — public dashboard ra Internet, cuối trang */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <TunnelCard />
+      </div>
     </div>
   );
 }

@@ -1341,9 +1341,41 @@ export interface LanInfo {
   /** IPv4 non-internal, đã ưu tiên dải 192.168/10. lên đầu. */
   ips: string[];
   webPort: number;
+  /** Domain Cloudflare Tunnel (TUNNEL_DOMAIN trong .env, đã bỏ protocol) — null nếu chưa cấu hình. */
+  tunnelDomain: string | null;
 }
 
 export const getLanInfo = () => request<LanInfo>("/api/lan-info");
+
+// ============ Cloudflare Tunnel (trang Kết nối) ============
+
+/** GET /api/tunnel — trạng thái cloudflared + tunnel đang chạy. */
+export interface TunnelStatus {
+  /** cloudflared có trên PATH của máy chạy server không. */
+  installed: boolean;
+  running: boolean;
+  /** named = có TUNNEL_DOMAIN; quick = URL ngẫu nhiên trycloudflare.com. Null khi không chạy. */
+  mode: "named" | "quick" | null;
+  /** URL public đang hoạt động (https://…) — null khi không chạy / quick chưa parse được. */
+  url: string | null;
+  /** TUNNEL_DOMAIN trong .env (đã chuẩn hóa) — null nếu chưa cấu hình. */
+  domain: string | null;
+  /** ≤20 dòng log cloudflared cuối cùng. */
+  lastLog: string[];
+}
+
+export const getTunnelStatus = () => request<TunnelStatus>("/api/tunnel");
+
+/** PUT domain (rỗng/null = xóa TUNNEL_DOMAIN). Ghi .env, hiệu lực ngay. */
+export const setTunnelDomain = (domain: string | null) =>
+  jsonBody<TunnelStatus>("/api/tunnel/domain", "PUT", { domain });
+
+/** Bật tunnel — 409 NOT_INSTALLED nếu chưa cài cloudflared, 409 nếu đang chạy. */
+export const startTunnel = () =>
+  post<{ mode: "named" | "quick" }>("/api/tunnel/start");
+
+/** Tắt tunnel (kill cả cây cloudflared) → 204. */
+export const stopTunnel = () => post<void>("/api/tunnel/stop");
 
 // ============ Media helper ============
 

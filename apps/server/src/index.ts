@@ -30,6 +30,7 @@ import illustrationsRouter from "./routes/illustrations.js";
 import thumbnailsRouter from "./routes/thumbnails.js";
 import updateRouter from "./routes/update.js";
 import revealRouter from "./routes/reveal.js";
+import tunnelRouter, { quickTunnelHostname } from "./routes/tunnel.js";
 import { GRADE_PRESETS } from "./color.js";
 import mediaRouter from "./routes/media.js";
 
@@ -83,6 +84,7 @@ app.use("/api/render-settings", renderSettingsRouter);
 app.use("/api/illustrations", illustrationsRouter);
 app.use("/api/update", updateRouter);
 app.use("/api/reveal", revealRouter);
+app.use("/api/tunnel", tunnelRouter);
 
 // Danh sách preset màu — UI dùng làm nguồn nhãn duy nhất (đồng bộ với color.ts)
 app.get("/api/grade-presets", (_req: Request, res: Response) => {
@@ -101,7 +103,13 @@ app.get("/api/lan-info", (_req: Request, res: Response) => {
   const rank = (ip: string) =>
     ip.startsWith("192.168.") ? 0 : ip.startsWith("10.") ? 1 : ip.startsWith("172.") ? 2 : 3;
   ips.sort((a, b) => rank(a) - rank(b));
-  res.json({ ips, webPort: Number(process.env.WEB_PORT || 6868) });
+  // Domain Cloudflare Tunnel — Quick Tunnel đang chạy (URL sống) ưu tiên hơn
+  // TUNNEL_DOMAIN trong .env; env thì bỏ protocol/path nếu user lỡ dán kèm
+  const rawTunnel = (process.env.TUNNEL_DOMAIN ?? "").trim();
+  const tunnelDomain =
+    quickTunnelHostname() ??
+    (rawTunnel.replace(/^[a-z]+:\/\//i, "").replace(/[/?#].*$/, "").trim() || null);
+  res.json({ ips, webPort: Number(process.env.WEB_PORT || 6868), tunnelDomain });
 });
 app.use("/media", mediaRouter);
 

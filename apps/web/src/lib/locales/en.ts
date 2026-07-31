@@ -470,6 +470,8 @@ export const en: Record<string, string> = {
     "Keep the phone's screen on while uploading large files — once the screen turns off, the browser stops sending.",
   "phone.tunnel-note":
     "Remote over 4G/5G: Tailscale (pick the 100.x IP) or a Cloudflare Tunnel pointing a domain at port 6868 — the upload page adapts automatically.",
+  "phone.tunnel-active":
+    "Internet route via Cloudflare Tunnel — works over 4G/5G. Remember to keep cloudflared running on this machine.",
 
   // ===== Incoming upload (SSE "upload" channel) =====
   "upload.receiving": "Receiving file… {percent}%",
@@ -898,4 +900,33 @@ export const en: Record<string, string> = {
   "conn.delete-desc-2": "The provider loses its connection if no other auth source remains.",
   "conn.load-error": "Could not load the connection list.",
   "conn.empty": "The server has no providers configured — check the backend.",
+
+  // ===== Cloudflare Tunnel (Connections page) =====
+  "tunnel.title": "Cloudflare Tunnel",
+  "tunnel.desc":
+    "Expose the dashboard to the Internet — use it remotely over 4G/5G, no shared WiFi needed.",
+  "tunnel.not-installed": "cloudflared is not installed on the server machine.",
+  "tunnel.install-cmd": "Install with:",
+  "tunnel.install-link": "Or download cloudflared here",
+  "tunnel.domain-label": "Custom domain (TUNNEL_DOMAIN)",
+  "tunnel.domain-hint":
+    "Leave empty → Quick Tunnel with a random *.trycloudflare.com URL. A custom domain requires a one-time setup: cloudflared tunnel login / create / route dns.",
+  "tunnel.domain-saved": "Domain saved — effective immediately.",
+  "tunnel.start": "Start tunnel",
+  "tunnel.stop": "Stop tunnel",
+  "tunnel.starting": "Starting…",
+  "tunnel.stopping": "Stopping…",
+  "tunnel.running": "Running",
+  "tunnel.stopped": "Not running",
+  "tunnel.mode-named": "Custom domain",
+  "tunnel.mode-quick": "Quick Tunnel",
+  "tunnel.url-label": "Active URL",
+  "tunnel.url-pending": "Waiting for the URL from Cloudflare…",
+  "tunnel.qr-note": "The phone-connect QR will use this address automatically.",
+  "tunnel.copy": "Copy",
+  "tunnel.copied": "Copied",
+  "tunnel.log": "cloudflared log",
+  "tunnel.warn-public":
+    "The dashboard has no login yet — when going public, wrap it with Cloudflare Access.",
+  "tunnel.load-error": "Could not load the tunnel status.",
 };

@@ -470,6 +470,8 @@ export const vi: Record<string, string> = {
     "Giữ màn hình điện thoại sáng khi đang tải file lớn — tắt màn hình là trình duyệt ngừng gửi.",
   "phone.tunnel-note":
     "Dùng từ xa qua 4G/5G: Tailscale (chọn IP 100.x) hoặc Cloudflare Tunnel trỏ domain về cổng 6868 — trang upload tự thích ứng.",
+  "phone.tunnel-active":
+    "Đường Internet qua Cloudflare Tunnel — dùng được với 4G/5G. Nhớ bật cloudflared trên máy này.",
 
   // ===== Upload đang đến server (SSE kênh "upload") =====
   "upload.receiving": "Đang nhận file… {percent}%",
@@ -898,4 +900,33 @@ export const vi: Record<string, string> = {
   "conn.delete-desc-2": "Provider sẽ mất kết nối nếu không còn nguồn xác thực khác.",
   "conn.load-error": "Không tải được danh sách kết nối.",
   "conn.empty": "Server chưa cấu hình provider nào — kiểm tra backend.",
+
+  // ===== Cloudflare Tunnel (trang Kết nối) =====
+  "tunnel.title": "Cloudflare Tunnel",
+  "tunnel.desc":
+    "Đưa dashboard ra Internet — dùng từ xa qua 4G/5G, không cần cùng WiFi.",
+  "tunnel.not-installed": "Chưa cài cloudflared trên máy chạy server.",
+  "tunnel.install-cmd": "Cài bằng lệnh:",
+  "tunnel.install-link": "Hoặc tải cloudflared tại đây",
+  "tunnel.domain-label": "Domain riêng (TUNNEL_DOMAIN)",
+  "tunnel.domain-hint":
+    "Bỏ trống → Quick Tunnel với URL ngẫu nhiên *.trycloudflare.com. Dùng domain riêng cần chạy trước (một lần): cloudflared tunnel login / create / route dns.",
+  "tunnel.domain-saved": "Đã lưu domain — có hiệu lực ngay.",
+  "tunnel.start": "Bật tunnel",
+  "tunnel.stop": "Tắt tunnel",
+  "tunnel.starting": "Đang bật…",
+  "tunnel.stopping": "Đang tắt…",
+  "tunnel.running": "Đang chạy",
+  "tunnel.stopped": "Chưa chạy",
+  "tunnel.mode-named": "Domain riêng",
+  "tunnel.mode-quick": "Quick Tunnel",
+  "tunnel.url-label": "URL đang hoạt động",
+  "tunnel.url-pending": "Đang chờ URL từ Cloudflare…",
+  "tunnel.qr-note": "QR Kết nối điện thoại sẽ tự dùng địa chỉ này.",
+  "tunnel.copy": "Copy",
+  "tunnel.copied": "Đã copy",
+  "tunnel.log": "Log cloudflared",
+  "tunnel.warn-public":
+    "Dashboard chưa có đăng nhập — bật public nên bọc thêm Cloudflare Access.",
+  "tunnel.load-error": "Không tải được trạng thái tunnel.",
 };

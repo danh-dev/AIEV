@@ -78,7 +78,8 @@ On a project page, in the **Sources & Assets** card click **Connect phone** — 
 
 **Remote over 4G/5G** (not on the same WiFi):
 - **Tailscale** — install it on the machine running the system + your phone, then pick the `100.x` IP in the Connect phone modal; the QR works exactly like on the LAN.
-- **Cloudflare Tunnel** — `cloudflared tunnel --url http://localhost:6868` (or point your own subdomain at port 6868), then open `https://<domain>/m/<project>` on the phone — the upload page adapts automatically.
+- **Cloudflare Tunnel** (recommended) — fill `TUNNEL_DOMAIN=<your-domain>` (e.g. `aiev.noti.vn`) into `.env`, then the Connect phone QR automatically uses `https://<domain>/m/<project>` — works over 4G/5G.
+- Start the tunnel with `start\tunnel.bat` (Windows) / `./start/tunnel.sh` (macOS) — no `TUNNEL_DOMAIN` yet and it falls back to a quick tunnel with a random `trycloudflare.com` URL.
 - ⚠️ **Warning**: the dashboard has no login yet — only expose it publicly behind Cloudflare Access, or never share the link.
 
 ## Folder structure

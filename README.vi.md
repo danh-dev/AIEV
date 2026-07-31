@@ -78,7 +78,8 @@ Trong trang project, ở card **Nguồn & Asset** bấm **Kết nối điện th
 
 **Dùng từ xa qua 4G/5G** (không cùng WiFi):
 - **Tailscale** — cài trên máy chạy hệ thống + điện thoại, rồi chọn IP `100.x` trong modal Kết nối điện thoại; QR hoạt động y như trên LAN.
-- **Cloudflare Tunnel** — `cloudflared tunnel --url http://localhost:6868` (hoặc trỏ subdomain riêng về cổng 6868), mở `https://<domain>/m/<project>` trên điện thoại — trang upload tự thích ứng đường truyền.
+- **Cloudflare Tunnel** (khuyên dùng) — điền `TUNNEL_DOMAIN=<domain-của-bạn>` (vd `aiev.noti.vn`) vào `.env`, QR trong modal Kết nối điện thoại sẽ tự dùng `https://<domain>/m/<project>` — chạy được qua 4G/5G.
+- Bật tunnel bằng `start\tunnel.bat` (Windows) / `./start/tunnel.sh` (macOS) — chưa điền `TUNNEL_DOMAIN` thì script tự chạy quick tunnel với URL ngẫu nhiên `trycloudflare.com`.
 - ⚠️ **Cảnh báo**: dashboard chưa có đăng nhập — chỉ mở public khi đã bọc Cloudflare Access, hoặc tuyệt đối không chia sẻ link.
 
 ## Cấu trúc thư mục
