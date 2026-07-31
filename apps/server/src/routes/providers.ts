@@ -79,10 +79,10 @@ async function fetchLiveImageModels(): Promise<{
         return methods.length === 0 || methods.includes("generateContent");
       })
       .sort()
-      // Hiện id thô cho dễ dùng; model đã biết thì kèm tên thân thiện
+      // Model đã biết → nhãn tĩnh (đã kèm sẵn id gốc); model mới → id thô
       .map((id) => ({
         id,
-        label: staticLabels.has(id) ? `${id} — ${staticLabels.get(id)}` : id,
+        label: staticLabels.get(id) ?? id,
       }));
     if (list.length > 0) {
       liveImageModelsCache = { at: Date.now(), list };

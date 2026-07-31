@@ -13,9 +13,9 @@ import { ensureDir } from "./util.js";
 
 /** Các model tạo ảnh khả dụng — UI cho chọn, meta.model lưu lựa chọn */
 export const IMAGE_MODELS = [
-  { id: "gemini-3.1-flash-image", label: "Nano Banana 2 (khuyên dùng)" },
-  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite (rẻ, nhanh)" },
-  { id: "gemini-3-pro-image", label: "Nano Banana Pro (cao cấp, 4K)" },
+  { id: "gemini-3.1-flash-image", label: "Nano Banana 2 (khuyên dùng) — gemini-3.1-flash-image" },
+  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite (rẻ, nhanh) — gemini-3.1-flash-lite-image" },
+  { id: "gemini-3-pro-image", label: "Nano Banana Pro (cao cấp, 4K) — gemini-3-pro-image" },
 ] as const;
 
 export const DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image";
