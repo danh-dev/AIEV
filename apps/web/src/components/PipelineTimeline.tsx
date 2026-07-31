@@ -95,9 +95,10 @@ export function PipelineTimeline(props: PipelineStageInput) {
   if (!derived) return null;
   const { stage, active } = derived;
 
+  // Label nằm DƯỚI chấm (mỗi bước là cột dọc) — gọn ngang để căn giữa được trong header
   return (
     <ol
-      className="flex min-w-0 flex-wrap items-center gap-y-1"
+      className="flex min-w-0 items-start"
       aria-label={`Tiến trình pipeline — giai đoạn ${stage}/6: ${STEPS[stage - 1]}`}
     >
       {STEPS.map((label, i) => {
@@ -117,23 +118,25 @@ export function PipelineTimeline(props: PipelineStageInput) {
             ? "text-[var(--text-muted)]"
             : "text-[var(--text-muted)] opacity-60";
         return (
-          <li key={label} className="flex items-center">
+          <li key={label} className="flex items-start">
             {i > 0 && (
               <span
                 aria-hidden="true"
-                className={`mx-1.5 h-px w-3 shrink-0 ${
+                className={`-mx-7 mt-[3.5px] h-px w-14 shrink-0 ${
                   n <= stage ? "bg-[var(--primary)]" : "bg-[var(--border)]"
                 }`}
               />
             )}
-            <span
-              aria-hidden="true"
-              className={`h-2 w-2 shrink-0 rounded-full ${dotCls}`}
-            />
-            <span
-              className={`ml-1.5 whitespace-nowrap text-[11px] leading-none ${labelCls}`}
-            >
-              {label}
+            <span className="flex w-16 flex-col items-center gap-1">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 shrink-0 rounded-full ${dotCls}`}
+              />
+              <span
+                className={`whitespace-nowrap text-center text-[10px] leading-none ${labelCls}`}
+              >
+                {label}
+              </span>
             </span>
           </li>
         );
