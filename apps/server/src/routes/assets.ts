@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { paths } from "../config.js";
 import { broadcast } from "../events.js";
 import { listProjectAssets, projectDirOf, projectExists } from "../meta.js";
+import { isValidUploadToken } from "./uploadSession.js";
 import {
   HttpError,
   ensureDir,
@@ -30,6 +31,18 @@ const upload = multer({
 
 function qs(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * Request đến từ CHÍNH máy chủ (PC upload trên dashboard localhost)?
+ * Loopback + KHÔNG có x-forwarded-for — request đi qua proxy (Next rewrite
+ * khi upload qua Cloudflare Tunnel) tới backend từ 127.0.0.1 nhưng mang
+ * x-forwarded-for của client thật → không được coi là local.
+ */
+function isLocalRequest(req: Request): boolean {
+  if (req.headers["x-forwarded-for"]) return false;
+  const addr = req.ip || req.socket.remoteAddress || "";
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
 }
 
 // ============ Tiến trình upload → SSE kênh "upload" ============
@@ -193,6 +206,23 @@ router.post("/", uploadProgress, upload.single("file"), (req, res) => {
   try {
     const scope = qs(body.scope);
     const dir = resolveScopeDir(scope, projectId ?? "", true);
+
+    // Bảo mật "Kết nối điện thoại": upload vào project từ máy KHÁC máy chủ
+    // (điện thoại LAN/tunnel) bắt buộc kèm token phiên upload còn hiệu lực
+    // (field `token` — client append TRƯỚC file; validate ở đây, SAU multer,
+    // là đủ vì req.body đã đầy đủ). Token do modal QR tạo, ĐÓNG modal là
+    // token bị thu hồi ngay → link hết hiệu lực. Sai/thiếu → 403, file tạm
+    // đã nhận bị xóa ở catch bên dưới.
+    if (scope === "project" && !isLocalRequest(req)) {
+      const token = qs(body.token);
+      if (!isValidUploadToken(token, projectId ?? "")) {
+        throw new HttpError(
+          403,
+          "UPLOAD_TOKEN_INVALID",
+          "Link upload đã hết hạn — mở lại mã QR trên máy tính."
+        );
+      }
+    }
 
     ensureDir(dir);
     const safeName = sanitizeFileName(uploaded.originalname);

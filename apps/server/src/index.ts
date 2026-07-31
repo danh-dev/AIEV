@@ -31,6 +31,7 @@ import thumbnailsRouter from "./routes/thumbnails.js";
 import updateRouter from "./routes/update.js";
 import revealRouter from "./routes/reveal.js";
 import tunnelRouter, { quickTunnelHostname } from "./routes/tunnel.js";
+import uploadSessionRouter from "./routes/uploadSession.js";
 import { GRADE_PRESETS } from "./color.js";
 import mediaRouter from "./routes/media.js";
 
@@ -85,6 +86,7 @@ app.use("/api/illustrations", illustrationsRouter);
 app.use("/api/update", updateRouter);
 app.use("/api/reveal", revealRouter);
 app.use("/api/tunnel", tunnelRouter);
+app.use("/api/upload-session", uploadSessionRouter);
 
 // Danh sách preset màu — UI dùng làm nguồn nhãn duy nhất (đồng bộ với color.ts)
 app.get("/api/grade-presets", (_req: Request, res: Response) => {

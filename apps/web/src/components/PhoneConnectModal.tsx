@@ -2,7 +2,12 @@
 
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
-import { getLanInfo, type LanInfo } from "@/lib/api";
+import {
+  createUploadSession,
+  getLanInfo,
+  revokeUploadSession,
+  type LanInfo,
+} from "@/lib/api";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
@@ -32,6 +37,8 @@ export function PhoneConnectModal({
   const [sel, setSel] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Token phiên upload — link/QR chỉ sống khi modal đang mở (bảo mật)
+  const [token, setToken] = useState<string | null>(null);
 
   // Lấy IP LAN mỗi lần mở modal (đổi mạng WiFi thì IP đổi theo)
   useEffect(() => {
@@ -55,12 +62,36 @@ export function PhoneConnectModal({
     };
   }, [open]);
 
+  // Phiên upload: MỞ modal → tạo token (URL/QR mang ?k=); ĐÓNG modal
+  // (onClose/unmount) → thu hồi ngay — link trên điện thoại hết hiệu lực.
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    let created: string | null = null;
+    setToken(null);
+    createUploadSession(projectId)
+      .then((s) => {
+        created = s.token;
+        if (alive) setToken(s.token);
+        // Modal đã đóng trước khi server trả lời → thu hồi luôn
+        else void revokeUploadSession(s.token).catch(() => {});
+      })
+      .catch((e) => {
+        if (alive) setError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      alive = false;
+      setToken(null);
+      if (created) void revokeUploadSession(created).catch(() => {});
+    };
+  }, [open, projectId]);
+
   const viaTunnel = sel === TUNNEL_OPTION && !!lan?.tunnelDomain;
   const url =
-    lan && sel
+    lan && sel && token
       ? viaTunnel
-        ? `https://${lan.tunnelDomain}/m/${projectId}`
-        : `http://${sel}:${lan.webPort}/m/${projectId}`
+        ? `https://${lan.tunnelDomain}/m/${projectId}?k=${token}`
+        : `http://${sel}:${lan.webPort}/m/${projectId}?k=${token}`
       : null;
 
   // Render QR client-side thành dataURL — không gọi service ngoài
@@ -137,6 +168,11 @@ export function PhoneConnectModal({
           </code>
         </div>
       )}
+
+      {/* Bảo mật: token upload bị thu hồi ngay khi đóng modal */}
+      <p className="text-xs font-medium text-[var(--text-muted)]">
+        {t("phone.session-note")}
+      </p>
 
       {viaTunnel ? (
         // Đang đi đường Internet qua Cloudflare Tunnel — không cần cùng WiFi

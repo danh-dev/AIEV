@@ -1347,6 +1347,27 @@ export interface LanInfo {
 
 export const getLanInfo = () => request<LanInfo>("/api/lan-info");
 
+/**
+ * Phiên upload cho QR "Kết nối điện thoại" — token gắn vào URL (?k=) và
+ * field `token` của FormData upload. Đóng modal → revoke → link hết hiệu lực.
+ */
+export interface UploadSession {
+  /** Token dạng ut_<nanoid> — server giữ trong RAM, TTL 60 phút. */
+  token: string;
+  /** ISO — hạn của token (server tự dọn khi quá hạn). */
+  expiresAt: string;
+}
+
+/** POST /api/upload-session — tạo token upload cho project (mở modal QR). */
+export const createUploadSession = (projectId: string) =>
+  post<UploadSession>("/api/upload-session", { projectId });
+
+/** DELETE /api/upload-session/:token — thu hồi ngay (đóng modal QR). Idempotent. */
+export const revokeUploadSession = (token: string) =>
+  request<void>(`/api/upload-session/${encodeURIComponent(token)}`, {
+    method: "DELETE",
+  });
+
 // ============ Cloudflare Tunnel (trang Kết nối) ============
 
 /** GET /api/tunnel — trạng thái cloudflared + tunnel đang chạy. */

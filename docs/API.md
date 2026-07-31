@@ -36,6 +36,15 @@ trong modal "Kết nối điện thoại" ở card Nguồn & Asset (`http://<ip>
 Upload từ điện thoại gọi THẲNG backend `http://<ip>:6869/api/assets` (không qua proxy Next — request dài qua proxy dễ kẹt). Server tắt `requestTimeout` cho upload dài và tự hủy request nếu 45s không nhận thêm dữ liệu (stall → SSE `upload` báo `error`).
 CORS của backend chấp nhận origin web UI trên LAN: `http://<ip-private>:6868` (localhost/127.0.0.1/192.168.x.x/10.x.x.x/172.16–31.x.x); start.ps1 mở firewall rule "AIEV API 6869".
 
+### Upload session (bảo mật link QR)
+
+```
+POST   /api/upload-session          { projectId } → 201 { token: "ut_…", expiresAt }   // mở modal QR — token TTL 60 phút, lưu RAM
+DELETE /api/upload-session/:token   → 204                                              // đóng modal QR — thu hồi ngay, idempotent
+```
+
+URL/QR mang token qua query `?k=`; trang `/m` gửi lại qua field `token` (append TRƯỚC `file`). POST `/api/assets` scope `project` từ máy KHÁC máy chủ (điện thoại LAN/tunnel — không phải loopback, hoặc có `x-forwarded-for`) bắt buộc token hợp lệ đúng project — sai/thiếu → `403 UPLOAD_TOKEN_INVALID` ("Link upload đã hết hạn — mở lại mã QR trên máy tính.").
+
 ## Projects
 
 ```

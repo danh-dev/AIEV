@@ -473,6 +473,8 @@ export const vi: Record<string, string> = {
     "Dùng từ xa qua 4G/5G: Tailscale (chọn IP 100.x) hoặc Cloudflare Tunnel trỏ domain về cổng 6868 — trang upload tự thích ứng.",
   "phone.tunnel-active":
     "Đường Internet qua Cloudflare Tunnel — dùng được với 4G/5G. Nhớ bật cloudflared trên máy này.",
+  "phone.session-note":
+    "Link chỉ dùng được khi cửa sổ này đang mở — đóng là khóa.",
 
   // ===== Upload đang đến server (SSE kênh "upload") =====
   "upload.receiving": "Đang nhận file… {percent}%",
@@ -490,6 +492,7 @@ export const vi: Record<string, string> = {
     "Giữ màn hình điện thoại sáng khi đang tải file lớn — tắt màn hình là trình duyệt ngừng gửi.",
   "m.error": "Lỗi",
   "m.not-found": "Không tìm thấy project — kiểm tra lại link/mã QR.",
+  "m.expired": "Link đã hết hạn — mở lại mã QR trên máy tính.",
 
   // ===== Chỉnh màu =====
   "grade.aria": "Chỉnh màu {name}",

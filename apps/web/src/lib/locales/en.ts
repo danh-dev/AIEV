@@ -473,6 +473,8 @@ export const en: Record<string, string> = {
     "Remote over 4G/5G: Tailscale (pick the 100.x IP) or a Cloudflare Tunnel pointing a domain at port 6868 — the upload page adapts automatically.",
   "phone.tunnel-active":
     "Internet route via Cloudflare Tunnel — works over 4G/5G. Remember to keep cloudflared running on this machine.",
+  "phone.session-note":
+    "The link only works while this window is open — closing it locks the link.",
 
   // ===== Incoming upload (SSE "upload" channel) =====
   "upload.receiving": "Receiving file… {percent}%",
@@ -490,6 +492,7 @@ export const en: Record<string, string> = {
     "Keep the phone's screen on while uploading large files — once the screen turns off, the browser stops sending.",
   "m.error": "Error",
   "m.not-found": "Project not found — check the link/QR code.",
+  "m.expired": "The link has expired — reopen the QR code on the computer.",
 
   // ===== Color grading =====
   "grade.aria": "Color-grade {name}",

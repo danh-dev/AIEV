@@ -32,9 +32,21 @@ interface UploadItem {
   error?: string;
 }
 
+/** Lỗi upload kèm code từ server — bắt UPLOAD_TOKEN_INVALID để hiện thông báo riêng. */
+class UploadError extends Error {
+  code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "UploadError";
+    this.code = code;
+  }
+}
+
 /** Upload MỘT file lên /api/assets (origin theo uploadOrigin) — XHR để có progress từng phần. */
 function uploadOne(
   projectId: string,
+  token: string,
   file: File,
   onProgress: (pct: number) => void
 ): Promise<void> {
@@ -50,22 +62,25 @@ function uploadOne(
         return;
       }
       let message = `HTTP ${xhr.status}`;
+      let code = String(xhr.status);
       try {
         const body = JSON.parse(xhr.responseText) as {
-          error?: { message?: string };
+          error?: { code?: string; message?: string };
         };
         if (body?.error?.message) message = body.error.message;
+        if (body?.error?.code) code = body.error.code;
       } catch {
         // body không phải JSON — giữ message mặc định
       }
-      reject(new Error(message));
+      reject(new UploadError(message, code));
     };
     xhr.onerror = () => reject(new Error("network"));
     const form = new FormData();
-    // scope/projectId TRƯỚC file — server đọc projectId từ đầu stream để phát
-    // SSE `upload` progress cho trang project trên PC lọc theo đúng project
+    // scope/projectId/token TRƯỚC file — server đọc projectId từ đầu stream để
+    // phát SSE `upload` progress, và field phải parse xong trước khi file tới
     form.append("scope", "project");
     form.append("projectId", projectId);
+    if (token) form.append("token", token);
     form.append("file", file);
     xhr.send(form);
   });
@@ -75,6 +90,14 @@ export default function MobileUploadPage() {
   const { t } = useT();
   const params = useParams<{ id: string }>();
   const projectId = params?.id ?? "";
+  // Token phiên upload từ query ?k= (QR trên PC gắn vào) — server yêu cầu khi
+  // upload không phải từ chính máy chủ; đóng modal QR là token bị thu hồi.
+  // Đọc từ window.location (client component) — né yêu cầu Suspense của useSearchParams.
+  const [uploadToken] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("k") ?? ""
+  );
 
   const [projectName, setProjectName] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -122,18 +145,25 @@ export default function MobileUploadPage() {
           },
         ]);
         queueRef.current = queueRef.current.then(() =>
-          uploadOne(projectId, file, (pct) => updateItem(key, { progress: pct }))
+          uploadOne(projectId, uploadToken, file, (pct) =>
+            updateItem(key, { progress: pct })
+          )
             .then(() => updateItem(key, { progress: 100, status: "done" }))
             .catch((e: unknown) =>
               updateItem(key, {
                 status: "error",
-                error: e instanceof Error ? e.message : String(e),
+                error:
+                  e instanceof UploadError && e.code === "UPLOAD_TOKEN_INVALID"
+                    ? t("m.expired")
+                    : e instanceof Error
+                      ? e.message
+                      : String(e),
               })
             )
         );
       }
     },
-    [projectId, updateItem]
+    [projectId, uploadToken, updateItem, t]
   );
 
   const uploadingCount = items.filter((i) => i.status === "uploading").length;
