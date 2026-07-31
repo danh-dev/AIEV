@@ -3,10 +3,10 @@
 ## Chạy hệ thống
 
 **Windows** — nhấp đúp **`start.bat`**.
-**macOS / Linux** — mở Terminal ở thư mục gốc:
+**macOS** — nhấp đúp **`start.command`** trong Finder (file `.sh` KHÔNG double-click được trên macOS — nó chỉ mở bằng trình soạn thảo). Lần đầu nếu macOS chặn "from an unidentified developer": chuột phải file → **Open** → Open. Hoặc chạy bằng Terminal:
 
 ```bash
-chmod +x start/start.sh start/stop.sh   # chỉ cần lần đầu
+chmod +x start/*.sh start/*.command   # chỉ cần lần đầu (tải ZIP mới cần; git clone thì đã sẵn)
 ./start/start.sh
 ```
 

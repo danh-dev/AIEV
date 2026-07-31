@@ -12,6 +12,12 @@ import {
   posterSchema,
   type PosterProps,
 } from "./posterManifest";
+import { Thumbnail } from "./Thumbnail";
+import {
+  THUMBNAIL_DIMENSIONS,
+  thumbnailSchema,
+  type ThumbnailProps,
+} from "./thumbnailManifest";
 
 /**
  * Manifest demo tối thiểu — chỉ để mở `remotion studio` mà không cần props.
@@ -91,6 +97,28 @@ const calculatePosterMetadata: CalculateMetadataFunction<PosterProps> = ({
   };
 };
 
+/**
+ * Thumbnail demo — background/portrait null nên mở studio được mà không cần
+ * file trong public/staging. Render thật luôn --props=<file>.
+ */
+const demoThumbnail: ThumbnailProps = thumbnailSchema.parse({
+  aspect: "9:16",
+  background: null,
+  portrait: null,
+  title: "Video này Edit",
+  highlight: "bằng AI",
+  brandName: "Noti.vn",
+});
+
+/** Still 1 frame — width/height suy từ props.aspect (giống Poster). */
+const calculateThumbnailMetadata: CalculateMetadataFunction<ThumbnailProps> = ({
+  props,
+}) => {
+  const thumb = thumbnailSchema.parse(props);
+  const { width, height } = THUMBNAIL_DIMENSIONS[thumb.aspect];
+  return { props: thumb, width, height, fps: 30, durationInFrames: 1 };
+};
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
@@ -115,6 +143,17 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={1}
         defaultProps={demoPoster}
         calculateMetadata={calculatePosterMetadata}
+      />
+      <Composition
+        id="Thumbnail"
+        component={Thumbnail}
+        // Fallback — calculateMetadata ghi đè theo props.aspect.
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={1}
+        defaultProps={demoThumbnail}
+        calculateMetadata={calculateThumbnailMetadata}
       />
     </>
   );
