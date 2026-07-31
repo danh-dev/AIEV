@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { getHealth, type Health } from "@/lib/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UpdateBadge } from "@/components/UpdateBadge";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -126,7 +127,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-[220px] shrink-0 overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+        <aside className="flex w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-subtle)] p-3">
           <nav className="flex flex-col gap-1">
             {NAV.map(({ href, label, icon: Icon }) => (
               <Link
@@ -139,6 +140,9 @@ export function Shell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
+          <div className="mt-auto pt-3">
+            <UpdateBadge />
+          </div>
         </aside>
 
         {/* FULL WIDTH — không max-width, dùng tối đa không gian màn hình */}

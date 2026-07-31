@@ -638,6 +638,26 @@ function jsonBody<T>(
 export const getHealth = () => request<Health>("/api/health");
 export const getOverview = () => request<Overview>("/api/overview");
 
+// ============ Update (cập nhật hệ thống từ GitHub) ============
+
+export interface UpdateStatus {
+  /** Short hash HEAD hiện tại ("" nếu server check lỗi). */
+  current: string;
+  /** Số commit đang thua origin/main. */
+  behind: number;
+  upToDate: boolean;
+  latestMessage: string | null;
+  checkedAt: string;
+  /** Lỗi ngắn khi check thất bại (offline…) — server không bao giờ 500. */
+  error?: string;
+}
+
+export const checkUpdate = (force = false) =>
+  request<UpdateStatus>(`/api/update/check${force ? "?force=1" : ""}`);
+
+/** 202 khi đã spawn script update; 409 JOB_RUNNING khi đang có job render. */
+export const applyUpdate = () => post<{ ok: true }>("/api/update/apply");
+
 // ============ Usage (token AI) ============
 
 export const getUsageSummary = () =>

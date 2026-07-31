@@ -436,6 +436,20 @@ GET /api/usage/timeline?days=30&scope=all|video|image
 - `days` clamp 1–365. UI Dashboard có bộ lọc 7/30/90 ngày + loại project (Tất cả/Video/Ảnh)
   và hiển thị chi tiết token in / token out.
 
+## Update (cập nhật hệ thống từ GitHub — badge cuối sidebar)
+
+```
+GET  /api/update/check[?force=1]
+→ { current: "<short-hash>", behind, upToDate, latestMessage, checkedAt, error? }
+POST /api/update/apply  → 202 { ok: true } | 409 JOB_RUNNING (đang có job render)
+```
+
+- Check `git fetch origin` + so HEAD vs origin/main, cache 10 phút (`force=1` bỏ cache);
+  lỗi (offline, không có git) trả `upToDate: true` + `error` ngắn — không bao giờ 500.
+- Apply spawn script `update/update.bat` (win32) / `update/update.sh` detached — script
+  dừng server, `git pull --ff-only`, `npm install` rồi khởi động lại; UI poll `/api/health`
+  chờ server chết → sống lại rồi tự reload.
+
 ## Ghi chú cho render Remotion
 
 - Composition duy nhất `Assemble`, data-driven từ props (schema = meta.json, xem skill `remotion-assemble`).
