@@ -17,6 +17,8 @@ export interface UpdateStatus {
   /** Message commit mới nhất trên origin/main (null khi đã mới nhất). */
   latestMessage: string | null;
   checkedAt: string;
+  /** false khi `git fetch origin` thất bại (offline…) — behind tính theo refs cũ. */
+  fetchOk: boolean;
   /** Lỗi ngắn khi check thất bại (offline, không có git…) — không bao giờ 500. */
   error?: string;
 }
@@ -30,37 +32,68 @@ async function git(args: string[]): Promise<string> {
   return stdout.trim();
 }
 
+function shortError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  return raw.split("\n")[0].slice(0, 200);
+}
+
 async function checkUpdate(): Promise<UpdateStatus> {
   const checkedAt = nowIso();
+
+  // Fetch best-effort: offline thì vẫn so được với refs origin/main đã biết
+  // từ lần fetch trước — máy mất mạng vẫn báo đúng "có bản mới" nếu đã biết.
+  let fetchOk = true;
+  let error: string | undefined;
   try {
     await git(["fetch", "origin"]);
-    const current = await git(["rev-parse", "--short", "HEAD"]);
+  } catch (err) {
+    fetchOk = false;
+    error = shortError(err);
+  }
+
+  // current độc lập với fetch — luôn cố lấy.
+  let current = "";
+  try {
+    current = await git(["rev-parse", "--short", "HEAD"]);
+  } catch (err) {
+    error = error ?? shortError(err);
+  }
+
+  try {
+    await git(["rev-parse", "--verify", "origin/main"]);
     const behind =
       Number(await git(["rev-list", "HEAD..origin/main", "--count"])) || 0;
     const latestMessage =
       behind > 0 ? await git(["log", "origin/main", "-1", "--format=%s"]) : null;
-    return { current, behind, upToDate: behind === 0, latestMessage, checkedAt };
-  } catch (err) {
-    // Offline / không có git → coi như mới nhất, sidebar không được vỡ
-    const raw = err instanceof Error ? err.message : String(err);
-    const error = raw.split("\n")[0].slice(0, 200);
     return {
-      current: "",
+      current,
+      behind,
+      upToDate: behind === 0,
+      latestMessage,
+      checkedAt,
+      fetchOk,
+      ...(error ? { error } : {}),
+    };
+  } catch (err) {
+    // rev-parse/rev-list cũng fail (không có git, chưa từng fetch…) → báo lỗi thật
+    return {
+      current,
       behind: 0,
       upToDate: true,
       latestMessage: null,
       checkedAt,
-      error,
+      fetchOk,
+      error: error ?? shortError(err),
     };
   }
 }
 
-const CACHE_MS = 10 * 60 * 1000;
+const CACHE_MS = 3 * 60 * 1000;
 let cached: { at: number; status: UpdateStatus } | null = null;
 
 const router = Router();
 
-// GET /api/update/check — cache 10 phút, ?force=1 bỏ cache
+// GET /api/update/check — cache 3 phút, ?force=1 bỏ cache
 router.get("/check", async (req, res) => {
   const force = req.query.force === "1";
   if (!force && cached && Date.now() - cached.at < CACHE_MS) {

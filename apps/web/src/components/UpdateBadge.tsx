@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowDownCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowDownCircle, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, applyUpdate, checkUpdate, type UpdateStatus } from "@/lib/api";
 
-const CHECK_MS = 30 * 60 * 1000; // check bản mới mỗi 30 phút
+const CHECK_MS = 5 * 60 * 1000; // check bản mới mỗi 5 phút
 const HEALTH_POLL_MS = 5_000; // poll /api/health trong lúc update
 
 /**
@@ -14,25 +14,44 @@ const HEALTH_POLL_MS = 5_000; // poll /api/health trong lúc update
 export function UpdateBadge() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const aliveRef = useRef(true);
 
   useEffect(() => {
-    let alive = true;
-    async function check() {
-      try {
-        const s = await checkUpdate();
-        if (alive) setStatus(s);
-      } catch {
-        // Không kết nối được backend — im lặng, sidebar không được vỡ
-      }
-    }
-    check();
-    const timer = setInterval(check, CHECK_MS);
+    aliveRef.current = true;
     return () => {
-      alive = false;
-      clearInterval(timer);
+      aliveRef.current = false;
     };
   }, []);
+
+  const check = useCallback(async (force = false) => {
+    if (aliveRef.current) setChecking(true);
+    try {
+      const s = await checkUpdate(force);
+      if (aliveRef.current) setStatus(s);
+    } catch {
+      // Không kết nối được backend — im lặng, sidebar không được vỡ
+    } finally {
+      if (aliveRef.current) setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    check();
+    const timer = setInterval(() => check(), CHECK_MS);
+    // Tab được focus lại → check ngay (dùng cache server, không force)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [check]);
 
   // Đang update: chờ health chết trước rồi sống lại → reload
   useEffect(() => {
@@ -94,11 +113,46 @@ export function UpdateBadge() {
 
   if (!status) return null;
 
+  // Ưu tiên card cập nhật: dù fetch lỗi, refs cũ vẫn có thể biết behind > 0
   if (status.upToDate) {
+    const checkFailed = Boolean(status.error) || status.fetchOk === false;
+    if (checkFailed) {
+      return (
+        <div className="flex items-center gap-1 px-2">
+          <span
+            className="text-xs text-[var(--danger)] opacity-80"
+            title={status.error ?? "Không kiểm tra được bản mới"}
+          >
+            Không kiểm tra được bản mới
+          </span>
+          <button
+            type="button"
+            onClick={() => check(true)}
+            disabled={checking}
+            className="inline-flex shrink-0 items-center gap-1 text-xs text-[var(--text-muted)] underline transition-colors hover:text-[var(--text)] disabled:opacity-60"
+            title="Kiểm tra lại ngay"
+          >
+            {checking && (
+              <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+            )}
+            Thử lại
+          </button>
+        </div>
+      );
+    }
     return (
-      <p className="px-2 text-xs text-[var(--text-muted)]">
+      <button
+        type="button"
+        onClick={() => check(true)}
+        disabled={checking}
+        title="Bấm để kiểm tra ngay"
+        className="inline-flex items-center gap-1 px-2 text-left text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text)] disabled:opacity-60"
+      >
+        {checking && (
+          <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+        )}
         Bản mới nhất{status.current ? ` · ${status.current}` : ""}
-      </p>
+      </button>
     );
   }
 

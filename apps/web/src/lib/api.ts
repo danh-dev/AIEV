@@ -659,6 +659,8 @@ export interface UpdateStatus {
   upToDate: boolean;
   latestMessage: string | null;
   checkedAt: string;
+  /** false khi `git fetch origin` thất bại — behind tính theo refs cũ. */
+  fetchOk?: boolean;
   /** Lỗi ngắn khi check thất bại (offline…) — server không bao giờ 500. */
   error?: string;
 }
