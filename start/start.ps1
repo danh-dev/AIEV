@@ -86,6 +86,17 @@ if (-not (Test-Path $webNext) -or
     if ($LASTEXITCODE -ne 0) { Write-Err "Build web thất bại."; exit 1 }
 }
 
+# 4b. cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel — không bắt buộc)
+if (-not (Get-Command cloudflared -ErrorAction SilentlyContinue)) {
+    Write-Step "Chưa có cloudflared — đang thử cài (winget)..."
+    try {
+        winget install --id Cloudflare.cloudflared --silent --accept-source-agreements --accept-package-agreements | Out-Null
+        Write-Ok "Đã cài cloudflared."
+    } catch {
+        Write-Host "  [!] Không tự cài được cloudflared — cài tay: winget install --id Cloudflare.cloudflared (chỉ cần cho Tunnel)" -ForegroundColor Yellow
+    }
+}
+
 # 5. Tạo .env nếu chưa có
 $envFile = Join-Path $root ".env"
 if (-not (Test-Path $envFile)) {

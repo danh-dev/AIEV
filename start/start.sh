@@ -68,6 +68,17 @@ if command -v claude >/dev/null 2>&1 && ! claude_authed; then
   fi
 fi
 
+# --- cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel) ---
+if ! command -v cloudflared >/dev/null 2>&1; then
+  if command -v brew >/dev/null 2>&1; then
+    step "Chưa có cloudflared — đang cài (brew install cloudflared)..."
+    brew install cloudflared && ok "Đã cài cloudflared." \
+      || err "Không cài được cloudflared — cài tay: brew install cloudflared (không bắt buộc, chỉ cần cho Tunnel)"
+  else
+    printf '  \033[33mChưa có cloudflared (tính năng Cloudflare Tunnel). Cài Homebrew rồi: brew install cloudflared\033[0m\n'
+  fi
+fi
+
 open_browser() {
   if command -v open >/dev/null 2>&1; then open "$WEB_URL"; # macOS
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$WEB_URL"; fi
