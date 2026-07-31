@@ -7,6 +7,7 @@
  * nguồn sự thật về job, component chỉ đọc.
  */
 
+import { Check } from "lucide-react";
 import type { FileInfo, Job, ProjectStatus, SceneMeta } from "@/lib/api";
 
 const STEPS = [
@@ -95,51 +96,59 @@ export function PipelineTimeline(props: PipelineStageInput) {
   if (!derived) return null;
   const { stage, active } = derived;
 
-  // Label nằm DƯỚI chấm (mỗi bước là cột dọc) — gọn ngang để căn giữa được trong header
+  // Kéo giãn hết bề ngang container (connector flex-1); label dưới marker.
+  // Giai đoạn XONG = tick ✓ xanh; đang chạy = chấm primary pulse; chưa tới = chấm mờ.
+  const done = stage === 6 && !active;
   return (
     <ol
-      className="flex min-w-0 items-start"
+      className="flex w-full min-w-0 items-start"
       aria-label={`Tiến trình pipeline — giai đoạn ${stage}/6: ${STEPS[stage - 1]}`}
     >
-      {STEPS.map((label, i) => {
+      {STEPS.flatMap((label, i) => {
         const n = i + 1;
-        const passed = n < stage;
-        const current = n === stage;
-        const dotCls = passed
-          ? "bg-[var(--primary)]"
-          : current
-            ? `bg-[var(--primary)] ring-[3px] ring-[var(--primary-soft)]${
-                active ? " animate-pulse" : ""
-              }`
-            : "border border-[var(--border)]";
+        const passed = n < stage || (n === stage && done);
+        const current = n === stage && !done;
         const labelCls = current
           ? "font-semibold text-[var(--text)]"
           : passed
             ? "text-[var(--text-muted)]"
             : "text-[var(--text-muted)] opacity-60";
-        return (
-          <li key={label} className="flex items-start">
-            {i > 0 && (
-              <span
-                aria-hidden="true"
-                className={`-mx-7 mt-[3.5px] h-px w-14 shrink-0 ${
-                  n <= stage ? "bg-[var(--primary)]" : "bg-[var(--border)]"
-                }`}
-              />
-            )}
-            <span className="flex w-16 flex-col items-center gap-1">
-              <span
-                aria-hidden="true"
-                className={`h-2 w-2 shrink-0 rounded-full ${dotCls}`}
-              />
-              <span
-                className={`whitespace-nowrap text-center text-[10px] leading-none ${labelCls}`}
-              >
-                {label}
-              </span>
+        const items = [];
+        if (i > 0) {
+          // Connector là item riêng flex-1 → hút đúng phần dư, các bước shrink-0 không bao giờ tràn
+          items.push(
+            <li
+              key={`c-${i}`}
+              aria-hidden="true"
+              className={`mx-1 mt-[5.5px] h-px min-w-2 flex-1 ${
+                n <= stage ? "bg-[var(--success)]" : "bg-[var(--border)]"
+              }`}
+            />,
+          );
+        }
+        items.push(
+          <li key={label} className="flex shrink-0 flex-col items-center gap-1">
+            <span aria-hidden="true" className="flex h-3 items-center justify-center">
+              {passed ? (
+                <Check size={13} strokeWidth={3.5} className="text-[var(--success)]" />
+              ) : current ? (
+                <span
+                  className={`h-2.5 w-2.5 rounded-full bg-[var(--primary)] ring-[3px] ring-[var(--primary-soft)]${
+                    active ? " animate-pulse" : ""
+                  }`}
+                />
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-[var(--border)]" />
+              )}
             </span>
-          </li>
+            <span
+              className={`whitespace-nowrap text-center text-[10px] leading-none ${labelCls}`}
+            >
+              {label}
+            </span>
+          </li>,
         );
+        return items;
       })}
     </ol>
   );

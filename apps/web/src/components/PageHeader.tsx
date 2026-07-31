@@ -13,21 +13,28 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="relative mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{title}</h1>
-        {subtitle && (
-          <p className="mt-0.5 text-sm text-[var(--text-muted)]">{subtitle}</p>
-        )}
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
-      {/* Màn rộng: căn giữa TUYỆT ĐỐI theo hàng (đúng giữa màn hình nội dung);
-          màn hẹp: xuống hàng bình thường nhờ flex-wrap */}
-      {center && (
-        <div className="min-w-0 lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2">
-          {center}
+      {/* Hàng 2: subtitle (kích thước/fps) bên trái + center (timeline) kéo dài
+          phần còn lại của hàng — tới lề phải vùng nội dung */}
+      {(subtitle || center) && (
+        <div className="mt-0.5 flex flex-wrap items-center gap-y-2">
+          {subtitle && (
+            <p
+              className={`shrink-0 text-sm text-[var(--text-muted)] ${
+                center ? "xl:basis-[calc(100%/3)]" : ""
+              }`}
+            >
+              {subtitle}
+            </p>
+          )}
+          {/* Timeline chiếm phần còn lại — mép trái ≈ cột Kịch bản edit, mép phải = hết vùng nội dung */}
+          {center && <div className="min-w-64 max-w-full flex-1">{center}</div>}
         </div>
       )}
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   );
 }

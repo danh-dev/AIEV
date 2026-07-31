@@ -637,6 +637,8 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Header chừa chỗ panel AI ghim phải như vùng nội dung — không thì timeline chui xuống dưới panel */}
+      <div className="xl:pr-[452px]">
       <PageHeader
         title={project?.name ?? projectId}
         subtitle={
@@ -675,6 +677,7 @@ export default function ProjectDetailPage() {
           </Button>
         }
       />
+      </div>
 
       {project && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)] xl:pr-[452px]">
