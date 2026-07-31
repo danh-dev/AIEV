@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,7 +47,28 @@ export function hasClaudeAuth(): boolean {
   const configDir =
     process.env.CLAUDE_CONFIG_DIR ||
     path.join(process.env.USERPROFILE || process.env.HOME || "", ".claude");
-  return fs.existsSync(path.join(configDir, ".credentials.json"));
+  if (fs.existsSync(path.join(configDir, ".credentials.json"))) return true;
+  // macOS: Claude Code lưu OAuth trong Keychain, KHÔNG có .credentials.json
+  return darwinKeychainHasClaudeCreds();
+}
+
+// Cache kết quả tra Keychain 60s — health poll mỗi 30s, không spawn security liên tục
+let keychainCache: { at: number; ok: boolean } | null = null;
+function darwinKeychainHasClaudeCreds(): boolean {
+  if (process.platform !== "darwin") return false;
+  if (keychainCache && Date.now() - keychainCache.at < 60_000) return keychainCache.ok;
+  let ok = false;
+  try {
+    execFileSync("security", ["find-generic-password", "-s", "Claude Code-credentials"], {
+      stdio: "ignore",
+      timeout: 3000,
+    });
+    ok = true;
+  } catch {
+    /* không có item trong Keychain */
+  }
+  keychainCache = { at: Date.now(), ok };
+  return ok;
 }
 
 /** Origin của web UI được phép gọi trực tiếp (Next.js dev có thể bỏ rewrite) */
