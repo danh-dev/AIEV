@@ -135,7 +135,11 @@ router.post("/start", (req, res) => {
     throw new HttpError(
       409,
       "NOT_INSTALLED",
-      "Chưa cài cloudflared. Cài bằng: winget install --id Cloudflare.cloudflared — hoặc tải tại https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/",
+      `Chưa cài cloudflared. Cài bằng: ${
+        process.platform === "darwin"
+          ? "brew install cloudflared"
+          : "winget install --id Cloudflare.cloudflared"
+      } — hoặc tải tại https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/`,
     );
   }
   if (child) {
