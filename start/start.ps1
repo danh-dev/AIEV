@@ -40,9 +40,26 @@ try {
 } catch { }
 
 if ($webUp -and $apiUp) {
-    Write-Ok "Hệ thống đang chạy sẵn — mở trình duyệt."
-    Start-Process $WebUrl
-    exit 0
+    # Đang chạy NHƯNG code mới hơn bản build (vừa git pull) → phải build + khởi động lại
+    $stale = $false
+    $srvSrc = Get-ChildItem (Join-Path $root "apps\server\src") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $srvDist = Get-ChildItem (Join-Path $root "apps\server\dist") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($srvSrc -and (-not $srvDist -or $srvSrc.LastWriteTime -gt $srvDist.LastWriteTime)) { $stale = $true }
+    $webSrc = Get-ChildItem (Join-Path $root "apps\web\src") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $webNext = Get-ChildItem (Join-Path $root "apps\web\.next") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($webSrc -and (-not $webNext -or $webSrc.LastWriteTime -gt $webNext.LastWriteTime)) { $stale = $true }
+    if (-not $stale) {
+        Write-Ok "Hệ thống đang chạy sẵn — mở trình duyệt."
+        Start-Process $WebUrl
+        exit 0
+    }
+    Write-Step "Có code mới chưa build — dừng hệ thống để build lại..."
+    foreach ($port in 6868, 6869) {
+        Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique |
+            ForEach-Object { taskkill /pid $_ /t /f 2>$null | Out-Null }
+    }
+    Start-Sleep -Seconds 1
 }
 if ($webUp -or $apiUp) {
     # Trạng thái nửa vời (vd web sống nhưng backend chết) → dọn sạch rồi khởi động lại

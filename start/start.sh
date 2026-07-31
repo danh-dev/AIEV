@@ -112,9 +112,20 @@ WEB_UP=false; API_UP=false
 [ "$(probe "$WEB_URL/api/health")" = "200" ] && API_UP=true
 
 if $WEB_UP && $API_UP; then
-  ok "Hệ thống đang chạy sẵn — mở trình duyệt."
-  open_browser
-  exit 0
+  # Đang chạy NHƯNG code mới hơn bản build (vừa git pull) → phải build + khởi động lại
+  STALE=false
+  [ -n "$(find "$ROOT/apps/server/src" -type f -newer "$ROOT/apps/server/dist" -print -quit 2>/dev/null)" ] && STALE=true
+  [ -n "$(find "$ROOT/apps/web/src" -type f -newer "$ROOT/apps/web/.next" -print -quit 2>/dev/null)" ] && STALE=true
+  if ! $STALE; then
+    ok "Hệ thống đang chạy sẵn — mở trình duyệt."
+    open_browser
+    exit 0
+  fi
+  step "Có code mới chưa build — dừng hệ thống để build lại..."
+  for port in 6868 6869; do
+    lsof -ti tcp:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
+  done
+  sleep 1
 fi
 if $WEB_UP || $API_UP; then
   step "Phát hiện hệ thống chạy dở dang — khởi động lại cho sạch..."
