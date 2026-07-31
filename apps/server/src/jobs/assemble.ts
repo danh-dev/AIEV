@@ -4,8 +4,8 @@ import { paths } from "../config.js";
 import { updateJob } from "../db.js";
 import type { JobCtx } from "../queue.js";
 import { projectDirOf, readMeta, writeMeta, type ProjectMeta } from "../meta.js";
-import { ensureDir } from "../util.js";
-import { remotionSpeedFlags } from "../renderSettings.js";
+import { ensureDir, remotionCli } from "../util.js";
+import { remotionSpeedArgs } from "../renderSettings.js";
 import { parseProgressLine, shortenStep } from "./progress.js";
 
 /**
@@ -120,10 +120,16 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
   ctx.progress(0, "Remotion render Assemble");
   // Concurrency + --gl angle (GPU) lấy từ tab Cấu hình — Remotion mặc định render bằng CPU thuần
   // Draft: CRF cao + x264 veryfast — encode CPU nhẹ đi nhiều, chất lượng draft không quan trọng
-  const command =
-    `npx remotion render Assemble --props="${propsAbs}" --output="${outAbs}"${remotionSpeedFlags()}` +
-    (draft ? " --crf 28 --x264-preset veryfast" : "");
-  await ctx.exec(command, paths.remotionDir, (line) => {
+  const args = [
+    remotionCli(),
+    "render",
+    "Assemble",
+    `--props=${propsAbs}`,
+    `--output=${outAbs}`,
+    ...remotionSpeedArgs(),
+    ...(draft ? ["--crf", "28", "--x264-preset", "veryfast"] : []),
+  ];
+  await ctx.exec(process.execPath, args, paths.remotionDir, (line) => {
     const pct = parseProgressLine(line);
     if (pct !== null) ctx.progress(pct, shortenStep(line));
   });

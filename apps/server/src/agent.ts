@@ -109,6 +109,13 @@ export async function interruptAgent(sessionId: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Tool agent được tự chạy KHÔNG cần hỏi. Pipeline video chạy hoàn toàn cục bộ
+ * (ffmpeg/HyperFrames/Remotion) nên KHÔNG có WebFetch/WebSearch: prompt luôn
+ * chứa nội dung do người dùng/asset cung cấp (brief, mô tả file, transcript) —
+ * để cả Bash lẫn kênh ra mạng là mở đường rò rỉ .env/credentials nếu bị chèn
+ * chỉ thị độc (prompt injection). Cần tra cứu web thì làm ở phiên riêng.
+ */
 const ALLOWED_TOOLS = [
   "Read",
   "Write",
@@ -117,8 +124,6 @@ const ALLOWED_TOOLS = [
   "Grep",
   "Bash",
   "TodoWrite",
-  "WebFetch",
-  "WebSearch",
   "Skill",
 ];
 

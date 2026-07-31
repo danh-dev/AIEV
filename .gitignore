@@ -17,3 +17,4 @@ imports/
 apps/server/data/
 
 start/bin/
+start/backup-*/

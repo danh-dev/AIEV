@@ -24,8 +24,16 @@ export interface JobCtx {
   log(line: string): void;
   /** Cập nhật progress/step: lưu DB + đẩy SSE `job` khi có thay đổi */
   progress(progress: number | null, step: string): void;
-  /** Spawn CLI qua shell (npx hoạt động trên Windows); reject nếu exit != 0 */
-  exec(command: string, cwd: string, onLine?: (line: string) => void): Promise<void>;
+  /**
+   * Spawn CLI bằng argv array — KHÔNG qua shell (đường dẫn/tham số chứa ký tự
+   * đặc biệt không thể thoát thành lệnh khác); reject nếu exit != 0.
+   */
+  exec(
+    file: string,
+    args: string[],
+    cwd: string,
+    onLine?: (line: string) => void,
+  ): Promise<void>;
   isCanceled(): boolean;
 }
 
@@ -190,19 +198,19 @@ class RenderQueue {
         db.updateJob(jobId, { ...(p !== null ? { progress: p } : {}), step });
         broadcastJob(jobId);
       },
-      exec: (command: string, cwd: string, onLine?: (line: string) => void) =>
+      exec: (file: string, args: string[], cwd: string, onLine?: (line: string) => void) =>
         new Promise<void>((resolve, reject) => {
           if (current.canceled) {
             reject(new Error("Job đã bị hủy"));
             return;
           }
+          const command = `${file} ${args.join(" ")}`;
           addLogLine(`[cmd] ${command}`);
           broadcast("joblog", { jobId, line: `[cmd] ${command}` });
 
-          // shell: true để npx/npx.cmd chạy được trên Windows
-          const child = spawn(command, {
+          // KHÔNG shell — argv array; CLI node chạy bằng process.execPath (xem util.cliJsPath)
+          const child = spawn(file, args, {
             cwd,
-            shell: true,
             windowsHide: true,
             env: process.env,
           });

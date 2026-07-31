@@ -11,9 +11,9 @@ import {
   projectExists,
   readMeta,
 } from "../meta.js";
-import { remotionGlFlag } from "../renderSettings.js";
+import { remotionGlArgs } from "../renderSettings.js";
 import { getStyle, styleExists } from "../styles.js";
-import { HttpError, ensureDir, execCapture } from "../util.js";
+import { HttpError, ensureDir, execFileCapture, remotionCli } from "../util.js";
 import type { ImageAspect } from "../imageMeta.js";
 
 /**
@@ -102,8 +102,9 @@ router.post("/:id/thumbnail", async (req, res) => {
   ensureDir(rendersDir);
   const frameAbs = path.join(rendersDir, "thumb-frame.png");
   try {
-    await execCapture(
-      `ffmpeg -y -ss ${frameAt} -i "${videoAbs}" -frames:v 1 -q:v 2 "${frameAbs}"`,
+    await execFileCapture(
+      "ffmpeg",
+      ["-y", "-ss", String(frameAt), "-i", videoAbs, "-frames:v", "1", "-q:v", "2", frameAbs],
       { timeoutMs: 60_000 },
     );
   } catch (err) {
@@ -196,8 +197,16 @@ router.post("/:id/thumbnail", async (req, res) => {
 
   const outAbs = path.join(projectDir, "thumbnail.png");
   try {
-    await execCapture(
-      `npx remotion still Thumbnail --props="${propsAbs}" --output="${outAbs}"${remotionGlFlag()}`,
+    await execFileCapture(
+      process.execPath,
+      [
+        remotionCli(),
+        "still",
+        "Thumbnail",
+        `--props=${propsAbs}`,
+        `--output=${outAbs}`,
+        ...remotionGlArgs(),
+      ],
       { cwd: paths.remotionDir, timeoutMs: 300_000 },
     );
   } catch (err) {

@@ -4,11 +4,18 @@ import express, {
   type Request,
   type Response,
 } from "express";
-import { SERVER_PORT, ensureBaseDirs, isAllowedWebOrigin, repoRoot } from "./config.js";
+import {
+  SERVER_PORT,
+  apiToken,
+  ensureBaseDirs,
+  isAllowedWebOrigin,
+  repoRoot,
+} from "./config.js";
 import { autoResumeStartup } from "./agent.js";
 import { failStaleRunningJobs } from "./db.js";
 import { addSseClient } from "./events.js";
-import { HttpError } from "./util.js";
+import { HttpError, isLocalRequest, secretEquals } from "./util.js";
+import { isKnownUploadToken } from "./routes/uploadSession.js";
 
 import healthRouter from "./routes/health.js";
 import overviewRouter from "./routes/overview.js";
@@ -50,13 +57,101 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-aiev-token");
   }
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
   }
   next();
+});
+
+// ============ Xác thực (đặt TRƯỚC mọi router) ============
+
+/** Lấy cookie theo tên từ header Cookie (không kéo thêm dependency cookie-parser) */
+function cookieValue(req: Request, name: string): string {
+  const raw = req.headers.cookie;
+  if (!raw) return "";
+  for (const part of raw.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    return decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return "";
+}
+
+function queryString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+/**
+ * Đường được phép đi bằng TOKEN PHIÊN QR (`?k=`) — chỉ đủ cho trang /m trên
+ * điện thoại: xem tên project, xem media, và upload file vào project.
+ */
+function allowedForUploadToken(req: Request): boolean {
+  const p = req.path;
+  if (req.method === "GET") {
+    return (
+      p.startsWith("/media/") ||
+      p.startsWith("/api/projects/") ||
+      p === "/api/lan-info"
+    );
+  }
+  if (req.method === "POST") return p === "/api/assets";
+  return false;
+}
+
+/**
+ * Chặn mọi truy cập không xác thực. Trước đây backend 6869 mở cho cả LAN
+ * (upload từ điện thoại) nên bất kỳ ai trong mạng cũng gọi được API — kể cả
+ * chạy agent, đọc .env qua /media, xóa project.
+ *
+ * Cho qua khi:
+ *  (a) preflight OPTIONS (đã trả 204 ở trên, để chắc chắn)
+ *  (b) /api/health — endpoint public, trả token cho loopback
+ *  (c) request TRỰC TIẾP từ máy chủ (loopback, không qua proxy) — dashboard
+ *      trên máy này, agent Claude, curl, script start
+ *  (d) header `x-aiev-token` khớp AIEV_API_TOKEN (fetch của web dashboard)
+ *  (e) cookie `aiev_token` khớp (img/video/EventSource — không set được header)
+ *  (f) query `?t=` khớp (mở dashboard qua tunnel bằng link có token)
+ *  (g) query `?k=` là token phiên upload QR còn hiệu lực (trang /m)
+ */
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.method === "OPTIONS") {
+    next();
+    return;
+  }
+  if (req.path === "/api/health" || req.path.startsWith("/api/health/")) {
+    next();
+    return;
+  }
+  if (isLocalRequest(req)) {
+    next();
+    return;
+  }
+  const token = apiToken();
+  const header = req.headers["x-aiev-token"];
+  if (typeof header === "string" && secretEquals(header, token)) {
+    next();
+    return;
+  }
+  if (secretEquals(cookieValue(req, "aiev_token"), token)) {
+    next();
+    return;
+  }
+  if (secretEquals(queryString(req.query.t), token)) {
+    next();
+    return;
+  }
+  const k = queryString(req.query.k);
+  if (k && isKnownUploadToken(k) && allowedForUploadToken(req)) {
+    next();
+    return;
+  }
+  res.status(401).json({
+    error: { code: "UNAUTHORIZED", message: "Thiếu hoặc sai token truy cập" },
+  });
 });
 
 app.use(express.json({ limit: "20mb" }));
@@ -140,9 +235,12 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     res.status(400).json({ error: { code: "UPLOAD_ERROR", message: err.message } });
     return;
   }
-  const message = err instanceof Error ? err.message : String(err);
+  // Lỗi không lường trước: chi tiết CHỈ vào log server (có thể chứa đường dẫn
+  // tuyệt đối, tên biến env, stack) — client chỉ nhận thông báo chung.
   console.error("[server] Unhandled error:", err);
-  res.status(500).json({ error: { code: "INTERNAL", message } });
+  res
+    .status(500)
+    .json({ error: { code: "INTERNAL", message: "Lỗi máy chủ nội bộ" } });
 });
 
 const server = app.listen(SERVER_PORT, () => {

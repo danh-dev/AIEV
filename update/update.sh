@@ -24,7 +24,14 @@ if ! git fetch origin; then
 fi
 if ! git pull --ff-only; then
   # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) — stash rồi pull lại
-  printf '  \033[33m-> Pull thất bại — đã stash thay đổi cục bộ (git stash: aiev-auto-stash), thử pull lại...\033[0m\n'
+  # Backup dữ liệu người dùng TRƯỚC khi stash — skill tự tạo là file untracked,
+  # `git stash -u` sẽ gom mất; styles/library.json là file tracked bị server ghi đè.
+  BK="$ROOT/start/backup-$(date '+%Y%m%d-%H%M%S')"
+  mkdir -p "$BK"
+  for p in ".claude/skills" "assets/styles" "assets/sound-effects/library.json" "assets/music/library.json" "assets/prompts"; do
+    [ -e "$ROOT/$p" ] && mkdir -p "$BK/$(dirname "$p")" && cp -R "$ROOT/$p" "$BK/$(dirname "$p")/" 2>/dev/null || true
+  done
+  printf '  \033[33m-> Pull thất bại — đã backup dữ liệu vào %s rồi stash thay đổi cục bộ...\033[0m\n' "$BK"
   git stash push -u -m "aiev-auto-stash" || true
   if ! git pull --ff-only; then
     printf '  \033[31m[LOI] Vẫn không pull được — xem chi tiết trong start/update.log. Hệ thống cũ vẫn chạy bình thường.\033[0m\n'

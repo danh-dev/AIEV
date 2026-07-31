@@ -624,10 +624,114 @@ export class ApiError extends Error {
   }
 }
 
+// ============ Token truy cập backend ============
+
+/**
+ * Backend (6869) mở cho cả LAN để điện thoại upload được, nên nó đòi token cho
+ * MỌI request không đến trực tiếp từ chính máy chủ. Dashboard lấy token thế này:
+ *
+ * 1. `?t=<token>` trên URL (mở dashboard từ xa qua Cloudflare Tunnel) → lưu lại.
+ * 2. localStorage (đã lấy được ở lần trước).
+ * 3. Gọi THẲNG `${serverOrigin()}/api/health` — request loopback trực tiếp
+ *    (không qua proxy Next) nên backend trả kèm `apiToken`. Chỉ trình duyệt
+ *    chạy trên chính máy chủ mới lấy được.
+ *
+ * Token được gắn vào: header `x-aiev-token` (mọi fetch) VÀ cookie `aiev_token`
+ * (để <img>/<video>/EventSource — thứ không set được header — vẫn qua được).
+ *
+ * Trang /m trên điện thoại KHÔNG dùng token này: nó đi bằng token phiên QR
+ * (`?k=`) mà backend chỉ cho xem project + upload asset.
+ */
+const TOKEN_KEY = "aiev_api_token";
+/** Tên cookie PHẢI khớp với middleware xác thực của backend (index.ts) */
+const TOKEN_COOKIE = "aiev_token";
+
+let apiToken: string | null = null;
+let tokenPromise: Promise<string | null> | null = null;
+
+/** Token phiên upload QR trên URL (trang /m) — "" nếu không có. */
+function uploadTokenFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("k") ?? "";
+}
+
+function persistToken(token: string): void {
+  apiToken = token;
+  try {
+    window.localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // Safari private mode… — vẫn dùng được token trong phiên này
+  }
+  // Cookie để img/video/EventSource (không set header được) qua được middleware
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TOKEN_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+}
+
+async function ensureToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  if (apiToken) return apiToken;
+  // Trang mobile /m: dùng ?k=, không có quyền lấy token chung
+  if (uploadTokenFromUrl()) return null;
+  if (tokenPromise) return tokenPromise;
+
+  tokenPromise = (async () => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("t");
+    if (fromUrl) {
+      persistToken(fromUrl);
+      // Bỏ token khỏi thanh địa chỉ sau khi đã lưu (tránh lộ qua ảnh chụp/referrer)
+      params.delete("t");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash
+      );
+      return fromUrl;
+    }
+    try {
+      const stored = window.localStorage.getItem(TOKEN_KEY);
+      if (stored) {
+        persistToken(stored); // set lại cookie (có thể đã hết hạn/bị xóa)
+        return stored;
+      }
+    } catch {
+      /* bỏ qua */
+    }
+    try {
+      const res = await fetch(`${serverOrigin()}/api/health`, { cache: "no-store" });
+      if (res.ok) {
+        const body = (await res.json()) as { apiToken?: string };
+        if (body?.apiToken) {
+          persistToken(body.apiToken);
+          return body.apiToken;
+        }
+      }
+    } catch {
+      // Không gọi thẳng backend được (mở dashboard qua tunnel) — cần ?t=
+    }
+    tokenPromise = null; // cho phép thử lại ở request sau
+    return null;
+  })();
+
+  return tokenPromise;
+}
+
+/** Thêm `k=<token QR>` vào URL khi đang ở trang /m (mọi request phải mang token). */
+function withUploadToken(path: string): string {
+  const k = uploadTokenFromUrl();
+  if (!k) return path;
+  return path + (path.includes("?") ? "&" : "?") + `k=${encodeURIComponent(k)}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await ensureToken();
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("x-aiev-token", token);
+
   let res: Response;
   try {
-    res = await fetch(path, init);
+    res = await fetch(withUploadToken(path), { ...init, headers });
   } catch {
     throw new ApiError(
       "network",
@@ -980,10 +1084,14 @@ export async function generateSkill(
   input: SkillGenerateInput
 ): Promise<SkillGenerateResult> {
   let res: Response;
+  const token = await ensureToken();
   try {
     res = await fetch(`${serverOrigin()}/api/skills/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "x-aiev-token": token } : {}),
+      },
       body: JSON.stringify(input),
     });
   } catch {
@@ -1407,9 +1515,16 @@ export const stopTunnel = () => post<void>("/api/tunnel/stop");
 export const revealFile = (relPath: string) =>
   post<void>("/api/reveal", { relPath });
 
-/** Đường dẫn phát file qua backend, relPath tính từ repo root. Phòng thủ với dữ liệu lệch kiểu (AI ghi meta sai hợp đồng). */
+/**
+ * Đường dẫn phát file qua backend, relPath tính từ repo root. Phòng thủ với dữ
+ * liệu lệch kiểu (AI ghi meta sai hợp đồng).
+ * Xác thực: dashboard đi bằng cookie `aiev_token` (ensureToken đã set trước khi
+ * dữ liệu về); trang /m trên điện thoại gắn thêm `?k=` của phiên QR.
+ */
 export const mediaUrl = (relPath: string) =>
-  `/media/${String(relPath ?? "").replace(/\\/g, "/").replace(/^\/+/, "")}`;
+  withUploadToken(
+    `/media/${String(relPath ?? "").replace(/\\/g, "/").replace(/^\/+/, "")}`
+  );
 
 /**
  * URL ảnh của image project — meta lưu TÊN FILE trần (background.png/final.png),

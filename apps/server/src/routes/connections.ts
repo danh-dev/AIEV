@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Router } from "express";
-import { hasClaudeAuth, repoRoot } from "../config.js";
+import { hasClaudeAuth, upsertEnvVar } from "../config.js";
 import { HttpError } from "../util.js";
 
 /**
@@ -9,8 +9,6 @@ import { HttpError } from "../util.js";
  * Key ghi vào .env ở repo root VÀ cập nhật process.env ngay (không cần restart).
  * Bảo mật: không bao giờ trả full key về client — chỉ bản che (6 đầu + 4 cuối).
  */
-
-const ENV_FILE = path.join(repoRoot, ".env");
 
 interface ConnectionInfo {
   id: "claude" | "gemini" | "openai";
@@ -28,20 +26,6 @@ interface ConnectionInfo {
 function maskKey(key: string): string {
   if (key.length <= 12) return `${key.slice(0, 3)}…`;
   return `${key.slice(0, 6)}…${key.slice(-4)}`;
-}
-
-/** Upsert/xóa một biến trong .env — giữ nguyên comment và các dòng khác (dùng chung với tunnel.ts) */
-export function upsertEnvVar(name: string, value: string | null): void {
-  let lines: string[] = [];
-  if (fs.existsSync(ENV_FILE)) {
-    lines = fs.readFileSync(ENV_FILE, "utf8").split(/\r?\n/);
-  }
-  const re = new RegExp(`^\\s*#?\\s*${name}\\s*=`);
-  const filtered = lines.filter((l) => !re.test(l));
-  // Bỏ dòng trống cuối để nối gọn
-  while (filtered.length > 0 && filtered[filtered.length - 1].trim() === "") filtered.pop();
-  if (value !== null) filtered.push(`${name}=${value}`);
-  fs.writeFileSync(ENV_FILE, filtered.join("\n") + "\n", "utf8");
 }
 
 function claudeOauthPresent(): boolean {
@@ -164,6 +148,14 @@ router.put("/:provider/key", (req, res) => {
   }
   if (trimmed !== null && trimmed.length < 10) {
     throw new HttpError(400, "INVALID_KEY", "API key quá ngắn — kiểm tra lại (copy thiếu?)");
+  }
+  // Xuống dòng trong value sẽ ghi đè biến khác khi lưu .env (env injection)
+  if (trimmed !== null && /[\r\n]/.test(trimmed)) {
+    throw new HttpError(
+      400,
+      "INVALID_VALUE",
+      "API key không được chứa xuống dòng — dán lại đúng một dòng key.",
+    );
   }
   // KHÔNG chặn theo prefix nữa — định dạng key có thể thay đổi theo hãng.
   // Trọng tài thật là nút "Kiểm tra kết nối" (gọi API của hãng).

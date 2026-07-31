@@ -1,10 +1,9 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { repoRoot } from "../config.js";
+import { repoRoot, upsertEnvVar } from "../config.js";
 import { Router } from "express";
 import { HttpError, killTree } from "../util.js";
-import { upsertEnvVar } from "./connections.js";
 
 /**
  * Quản lý Cloudflare Tunnel ngay trên web UI (trang Kết nối).

@@ -3,8 +3,8 @@ import path from "node:path";
 import { updateJob } from "../db.js";
 import type { JobCtx } from "../queue.js";
 import { projectDirOf, readMeta, type SceneMeta } from "../meta.js";
-import { ensureDir } from "../util.js";
-import { hyperframesSpeedFlags } from "../renderSettings.js";
+import { ensureDir, hyperframesCli } from "../util.js";
+import { hyperframesSpeedArgs } from "../renderSettings.js";
 import { parseProgressLine } from "./progress.js";
 
 /**
@@ -54,9 +54,19 @@ export async function runSceneRender(ctx: JobCtx): Promise<void> {
 
     // CLI thật (v0.7.x): render 1 composition bằng cờ -c, không phải positional.
     // Flags tăng tốc lấy từ tab "Tăng tốc" (data/render-settings.json) — đọc mỗi lần chạy.
-    const speedFlags = hyperframesSpeedFlags(draft);
-    const command = `npx hyperframes render -c "${scene.src}" --quality ${quality}${speedFlags ? ` ${speedFlags}` : ""} --output "${outRel}"`;
-    await ctx.exec(command, projectDir, (line) => {
+    // Chạy CLI bằng node + file bin (không npx, không shell) — xem util.cliJsPath.
+    const args = [
+      hyperframesCli(),
+      "render",
+      "-c",
+      String(scene.src),
+      "--quality",
+      quality,
+      ...hyperframesSpeedArgs(draft),
+      "--output",
+      outRel,
+    ];
+    await ctx.exec(process.execPath, args, projectDir, (line) => {
       const pct = parseProgressLine(line);
       if (pct !== null) {
         // Tiến độ tổng = scene đã xong + phần trăm scene hiện tại

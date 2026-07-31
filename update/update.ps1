@@ -27,7 +27,19 @@ if ($LASTEXITCODE -ne 0) {
 git pull --ff-only
 if ($LASTEXITCODE -ne 0) {
     # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) — stash rồi pull lại
-    Write-Host "  -> Pull thất bại — đã stash thay đổi cục bộ (git stash: aiev-auto-stash), thử pull lại..." -ForegroundColor Yellow
+    # Backup dữ liệu người dùng TRƯỚC khi stash — skill tự tạo là file untracked,
+    # `git stash -u` sẽ gom mất; styles/library.json bị server ghi đè nên cũng dirty.
+    $bk = Join-Path $root ("start\backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+    New-Item -ItemType Directory -Force $bk | Out-Null
+    foreach ($p in @(".claude\skills", "assets\styles", "assets\sound-effects\library.json", "assets\music\library.json", "assets\prompts")) {
+        $src = Join-Path $root $p
+        if (Test-Path $src) {
+            $dst = Join-Path $bk (Split-Path $p -Parent)
+            New-Item -ItemType Directory -Force $dst | Out-Null
+            Copy-Item $src $dst -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host "  -> Pull thất bại — đã backup dữ liệu vào $bk rồi stash thay đổi cục bộ..." -ForegroundColor Yellow
     git stash push -u -m "aiev-auto-stash"
     git pull --ff-only
     if ($LASTEXITCODE -ne 0) {

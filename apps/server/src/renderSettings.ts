@@ -241,36 +241,36 @@ export async function detectHardware(): Promise<HardwareInfo> {
 
 // ---------------------------------------------------------------- Flags builder
 
-/** Chuỗi flags tăng tốc cho `hyperframes render` — job đọc mỗi lần chạy */
-export function hyperframesSpeedFlags(draft: boolean): string {
+/** Argv flags tăng tốc cho `hyperframes render` — job đọc mỗi lần chạy */
+export function hyperframesSpeedArgs(draft: boolean): string[] {
   const s = readRenderSettings();
   const parts: string[] = [];
-  if (s.workers > 0) parts.push(`-w ${s.workers}`);
+  if (s.workers > 0) parts.push("-w", String(s.workers));
   if (s.browserGpu) parts.push("--browser-gpu");
   if (s.fastCapture) parts.push("--experimental-fast-capture");
   if (draft ? s.gpuEncodeDraft : s.gpuEncodeFinal) parts.push("--gpu");
-  if (draft && s.draftFps) parts.push(`-f ${s.draftFps}`);
-  return parts.join(" ");
+  if (draft && s.draftFps) parts.push("-f", String(s.draftFps));
+  return parts;
 }
 
-/** Flag --concurrency cho `remotion render/still` ("" nếu để mặc định Remotion) */
-export function remotionConcurrencyFlag(): string {
+/** Argv --concurrency cho `remotion render/still` ([] nếu để mặc định Remotion) */
+export function remotionConcurrencyArgs(): string[] {
   const c = readRenderSettings().remotionConcurrency;
-  return c > 0 ? ` --concurrency ${c}` : "";
+  return c > 0 ? ["--concurrency", String(c)] : [];
 }
 
 /**
- * Flag --gl cho Chrome của Remotion — mặc định Remotion dùng SwANGLE (software, CPU thuần).
+ * Argv --gl cho Chrome của Remotion — mặc định Remotion dùng SwANGLE (software, CPU thuần).
  * Bật "GPU cho capture" → angle (Windows/macOS) / angle-egl (Linux) để dựng hình bằng GPU thật.
  */
-export function remotionGlFlag(): string {
-  if (!readRenderSettings().browserGpu) return "";
-  return process.platform === "linux" ? " --gl angle-egl" : " --gl angle";
+export function remotionGlArgs(): string[] {
+  if (!readRenderSettings().browserGpu) return [];
+  return process.platform === "linux" ? ["--gl", "angle-egl"] : ["--gl", "angle"];
 }
 
-/** Bộ flags tăng tốc đầy đủ cho `remotion render` */
-export function remotionSpeedFlags(): string {
-  return `${remotionConcurrencyFlag()}${remotionGlFlag()}`;
+/** Bộ argv tăng tốc đầy đủ cho `remotion render` */
+export function remotionSpeedArgs(): string[] {
+  return [...remotionConcurrencyArgs(), ...remotionGlArgs()];
 }
 
 /** Số job queue chạy đồng thời — queue đọc mỗi tick nên đổi là ăn ngay */

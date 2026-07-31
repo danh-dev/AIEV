@@ -6,7 +6,24 @@ import type { Request, Response } from "express";
  */
 const clients = new Set<Response>();
 
+/**
+ * Trần số client SSE đồng thời — mỗi client là một socket giữ mãi; không giới
+ * hạn thì một vòng lặp mở stream sẽ nuốt hết file descriptor của server.
+ * Dashboard thật chỉ dùng 1 stream mỗi tab.
+ */
+const MAX_SSE_CLIENTS = 50;
+
 export function addSseClient(req: Request, res: Response): void {
+  // Dọn client đã chết trước khi tính trần (tab đóng đột ngột)
+  for (const c of clients) {
+    if (c.writableEnded || c.destroyed) clients.delete(c);
+  }
+  if (clients.size >= MAX_SSE_CLIENTS) {
+    res.status(503).json({
+      error: { code: "TOO_MANY_STREAMS", message: "Quá nhiều kết nối realtime" },
+    });
+    return;
+  }
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
     "Cache-Control": "no-cache, no-transform",

@@ -1,3 +1,4 @@
+import path from "node:path";
 import express, { Router } from "express";
 import { paths } from "../config.js";
 
@@ -16,6 +17,9 @@ const whitelist: Record<string, string> = {
   imports: paths.importsDir,
 };
 
+/** Đuôi file KHÔNG bao giờ được trình duyệt render như tài liệu same-origin */
+const FORCE_DOWNLOAD_EXT = new Set([".html", ".htm", ".xhtml", ".xml", ".svgz"]);
+
 for (const [prefix, dir] of Object.entries(whitelist)) {
   router.use(
     `/${prefix}`,
@@ -23,6 +27,23 @@ for (const [prefix, dir] of Object.entries(whitelist)) {
       dotfiles: "deny",
       index: false,
       fallthrough: true,
+      setHeaders: (res, filePath) => {
+        // Không cho trình duyệt tự đoán kiểu file (MIME sniffing → XSS)
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        const ext = path.extname(filePath).toLowerCase();
+        if (FORCE_DOWNLOAD_EXT.has(ext)) {
+          // index.html của composition, XML… — tải về, không chạy như trang web
+          res.setHeader("Content-Type", "application/octet-stream");
+          res.setHeader("Content-Disposition", "attachment");
+        } else if (ext === ".svg") {
+          // SVG vẫn phải hiển thị được trong <img> (logo Style Design) nên giữ
+          // đúng MIME, nhưng khóa mọi script/nhúng khi bị mở trực tiếp.
+          res.setHeader(
+            "Content-Security-Policy",
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+          );
+        }
+      },
     }),
   );
 }

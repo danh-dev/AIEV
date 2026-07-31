@@ -11,9 +11,9 @@ import {
   type ImageGenStep,
 } from "../imageMeta.js";
 import type { JobCtx } from "../queue.js";
-import { remotionGlFlag } from "../renderSettings.js";
+import { remotionGlArgs } from "../renderSettings.js";
 import { getStyle } from "../styles.js";
-import { ensureDir } from "../util.js";
+import { ensureDir, remotionCli } from "../util.js";
 import { parseProgressLine, shortenStep } from "./progress.js";
 
 /**
@@ -172,8 +172,15 @@ async function stepCompose(ctx: JobCtx, id: string): Promise<void> {
   // 3. Remotion still
   const outAbs = path.join(imageDirOf(id), "final.png");
   ctx.progress(50, "Remotion render Poster");
-  const command = `npx remotion still Poster --props="${propsAbs}" --output="${outAbs}"${remotionGlFlag()}`;
-  await ctx.exec(command, paths.remotionDir, (line) => {
+  const args = [
+    remotionCli(),
+    "still",
+    "Poster",
+    `--props=${propsAbs}`,
+    `--output=${outAbs}`,
+    ...remotionGlArgs(),
+  ];
+  await ctx.exec(process.execPath, args, paths.remotionDir, (line) => {
     const pct = parseProgressLine(line);
     if (pct !== null) ctx.progress(50 + pct / 2, shortenStep(line));
   });

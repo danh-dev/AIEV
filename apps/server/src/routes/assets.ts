@@ -6,11 +6,12 @@ import { nanoid } from "nanoid";
 import { paths } from "../config.js";
 import { broadcast } from "../events.js";
 import { listProjectAssets, projectDirOf, projectExists } from "../meta.js";
-import { isValidUploadToken } from "./uploadSession.js";
+import { isKnownUploadToken, isValidUploadToken } from "./uploadSession.js";
 import {
   HttpError,
   ensureDir,
   fileInfoOf,
+  isLocalRequest,
   listFilesRecursive,
   moveFile,
   sanitizeFileName,
@@ -34,16 +35,22 @@ function qs(value: unknown): string {
 }
 
 /**
- * Request đến từ CHÍNH máy chủ (PC upload trên dashboard localhost)?
- * Loopback + KHÔNG có x-forwarded-for — request đi qua proxy (Next rewrite
- * khi upload qua Cloudflare Tunnel) tới backend từ 127.0.0.1 nhưng mang
- * x-forwarded-for của client thật → không được coi là local.
+ * Đuôi file được phép upload — chặn .exe/.bat/.ps1/.lnk… lọt vào thư mục
+ * mà agent hoặc người dùng sẽ mở sau này. Tên file đã bị ép ASCII kebab-case
+ * (sanitizeFileName) nên chỉ cần soi phần mở rộng.
  */
-function isLocalRequest(req: Request): boolean {
-  if (req.headers["x-forwarded-for"]) return false;
-  const addr = req.ip || req.socket.remoteAddress || "";
-  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
-}
+const ALLOWED_UPLOAD_EXT = new Set([
+  // video
+  ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v",
+  // audio
+  ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac",
+  // ảnh
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif",
+  // font
+  ".ttf", ".otf", ".woff", ".woff2",
+  // dữ liệu / phụ đề / ghi chú
+  ".json", ".srt", ".vtt", ".txt", ".md", ".csv",
+]);
 
 // ============ Tiến trình upload → SSE kênh "upload" ============
 
@@ -207,15 +214,21 @@ router.post("/", uploadProgress, upload.single("file"), (req, res) => {
     const scope = qs(body.scope);
     const dir = resolveScopeDir(scope, projectId ?? "", true);
 
-    // Bảo mật "Kết nối điện thoại": upload vào project từ máy KHÁC máy chủ
-    // (điện thoại LAN/tunnel) bắt buộc kèm token phiên upload còn hiệu lực
-    // (field `token` — client append TRƯỚC file; validate ở đây, SAU multer,
-    // là đủ vì req.body đã đầy đủ). Token do modal QR tạo, ĐÓNG modal là
-    // token bị thu hồi ngay → link hết hiệu lực. Sai/thiếu → 403, file tạm
-    // đã nhận bị xóa ở catch bên dưới.
-    if (scope === "project" && !isLocalRequest(req)) {
-      const token = qs(body.token);
-      if (!isValidUploadToken(token, projectId ?? "")) {
+    // Bảo mật "Kết nối điện thoại": upload từ máy KHÁC máy chủ (điện thoại
+    // LAN/tunnel) bắt buộc kèm token phiên upload còn hiệu lực — áp cho MỌI
+    // scope, không riêng "project" (imports cũng là ghi file vào repo).
+    // Token lấy từ field `token` (client append TRƯỚC file) hoặc query `?k=`;
+    // do modal QR tạo, ĐÓNG modal là thu hồi ngay → link hết hiệu lực.
+    // Sai/thiếu → 403, file tạm đã nhận bị xóa ở catch bên dưới.
+    if (!isLocalRequest(req)) {
+      const token = qs(body.token) || qs(req.query.k);
+      // Token gắn với đúng project khi scope=project; scope khác chỉ cần token
+      // của một phiên còn hiệu lực (phiên nào cũng do người dùng vừa mở QR).
+      const ok =
+        scope === "project"
+          ? isValidUploadToken(token, projectId ?? "")
+          : isKnownUploadToken(token);
+      if (!ok) {
         throw new HttpError(
           403,
           "UPLOAD_TOKEN_INVALID",
@@ -226,8 +239,15 @@ router.post("/", uploadProgress, upload.single("file"), (req, res) => {
 
     ensureDir(dir);
     const safeName = sanitizeFileName(uploaded.originalname);
+    const ext = path.extname(safeName).toLowerCase();
+    if (!ALLOWED_UPLOAD_EXT.has(ext)) {
+      throw new HttpError(
+        400,
+        "FILE_TYPE_NOT_ALLOWED",
+        `Không hỗ trợ định dạng "${ext || "(không có đuôi)"}" — chỉ nhận video, audio, ảnh, font, srt/vtt/txt/md/json.`
+      );
+    }
     let finalName = safeName;
-    const ext = path.extname(safeName);
     const base = path.basename(safeName, ext);
     for (let n = 2; fs.existsSync(path.join(dir, finalName)); n++) {
       finalName = `${base}-${n}${ext}`;

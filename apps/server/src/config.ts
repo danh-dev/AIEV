@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { nanoid } from "nanoid";
 
 /**
  * Tìm repo root bằng cách đi ngược lên đến khi gặp file CLAUDE.md.
@@ -30,6 +31,66 @@ export const repoRoot = findRepoRoot();
 dotenv.config({ path: path.join(repoRoot, ".env"), quiet: true });
 
 export const SERVER_PORT = Number(process.env.SERVER_PORT || 6869);
+
+const ENV_FILE = path.join(repoRoot, ".env");
+
+/**
+ * Upsert/xóa một biến trong .env — giữ nguyên comment và các dòng khác.
+ * Dùng chung cho connections.ts (API key), tunnel.ts (TUNNEL_DOMAIN) và
+ * apiToken() bên dưới. Đặt ở config.ts (nơi đã có repoRoot) để không tạo
+ * vòng import config → routes/connections → config.
+ *
+ * Bảo mật: value KHÔNG được chứa xuống dòng — nếu không, một chuỗi kiểu
+ * "abc\nANTHROPIC_API_KEY=xxx" sẽ ghi đè biến khác trong .env (env injection).
+ */
+export function upsertEnvVar(name: string, value: string | null): void {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    throw new Error(`Tên biến .env không hợp lệ: ${name}`);
+  }
+  if (value !== null && /[\r\n]/.test(value)) {
+    throw new Error("Giá trị .env không được chứa ký tự xuống dòng");
+  }
+  let lines: string[] = [];
+  if (fs.existsSync(ENV_FILE)) {
+    lines = fs.readFileSync(ENV_FILE, "utf8").split(/\r?\n/);
+  }
+  const re = new RegExp(`^\\s*#?\\s*${name}\\s*=`);
+  const filtered = lines.filter((l) => !re.test(l));
+  // Bỏ dòng trống cuối để nối gọn
+  while (filtered.length > 0 && filtered[filtered.length - 1].trim() === "") filtered.pop();
+  if (value !== null) filtered.push(`${name}=${value}`);
+  fs.writeFileSync(ENV_FILE, filtered.join("\n") + "\n", "utf8");
+}
+
+let cachedApiToken: string | null = null;
+
+/**
+ * Token xác thực API dùng chung (AIEV_API_TOKEN trong .env).
+ * Chưa có → tự sinh và ghi vào .env ngay lần gọi đầu, nên máy mới clone repo
+ * không phải cấu hình gì. Mọi request KHÔNG phải loopback trực tiếp đều phải
+ * kèm token này (header `x-aiev-token`, query `?t=`, hoặc cookie `aiev_token`),
+ * trừ đường upload từ điện thoại dùng token phiên QR (`?k=`).
+ */
+export function apiToken(): string {
+  if (cachedApiToken) return cachedApiToken;
+  const fromEnv = (process.env.AIEV_API_TOKEN ?? "").trim();
+  if (fromEnv) {
+    cachedApiToken = fromEnv;
+    return cachedApiToken;
+  }
+  const generated = nanoid(32);
+  try {
+    upsertEnvVar("AIEV_API_TOKEN", generated);
+  } catch (err) {
+    // Không ghi được .env (read-only) — vẫn chạy được trong phiên này
+    console.warn(
+      `[config] Không ghi được AIEV_API_TOKEN vào .env: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  process.env.AIEV_API_TOKEN = generated;
+  cachedApiToken = generated;
+  return generated;
+}
 
 /**
  * Có xác thực Claude cho Agent SDK không — theo thứ tự SDK tự nhận:

@@ -1,6 +1,8 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
+import type { Request } from "express";
 import { repoRoot } from "./config.js";
 
 /** Lỗi HTTP có mã — error handler ở index.ts sẽ trả { error: { code, message } } */
@@ -17,6 +19,41 @@ export class HttpError extends Error {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
+/**
+ * Request đến TRỰC TIẾP từ chính máy chủ (dashboard/agent/CLI trên localhost)?
+ *
+ * Điều kiện: socket là loopback VÀ không có bất kỳ header `x-forwarded-*` nào.
+ * Next.js (proxy /api, /media của web 6868) LUÔN set x-forwarded-host /
+ * x-forwarded-port / x-forwarded-for cho mọi request nó chuyển tiếp
+ * (base-server.js: `req.headers['x-forwarded-host'] ??= ...`), và client không
+ * gỡ được các header đó — nên mọi request đi qua proxy (kể cả từ LAN hay
+ * Cloudflare Tunnel) đều KHÔNG được coi là local, dù socket là 127.0.0.1.
+ */
+export function isLocalRequest(req: Request): boolean {
+  if (
+    req.headers["x-forwarded-for"] ||
+    req.headers["x-forwarded-host"] ||
+    req.headers["x-forwarded-port"] ||
+    req.headers["x-forwarded-proto"] ||
+    req.headers["cf-connecting-ip"]
+  ) {
+    return false;
+  }
+  const addr = req.ip || req.socket.remoteAddress || "";
+  return LOOPBACK.has(addr);
+}
+
+/** So sánh chuỗi bí mật theo thời gian hằng — tránh timing attack đoán token */
+export function secretEquals(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -118,7 +155,6 @@ export function killTree(child: ChildProcess): void {
   if (!child.pid) return;
   if (process.platform === "win32") {
     spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
-      shell: true,
       windowsHide: true,
     });
   } else {
@@ -130,15 +166,20 @@ export function killTree(child: ChildProcess): void {
   }
 }
 
-/** Chạy một lệnh (shell) lấy stdout; reject nếu exit != 0 hoặc quá timeout */
-export function execCapture(
-  command: string,
+/**
+ * Chạy một lệnh lấy stdout — KHÔNG qua shell (argv array), nên tên file/tham số
+ * chứa ký tự đặc biệt (`&`, `|`, `"`, `$(...)`) không thể thoát ra thành lệnh khác.
+ * reject nếu exit != 0 hoặc quá timeout.
+ */
+export function execFileCapture(
+  file: string,
+  args: string[],
   opts: { cwd?: string; timeoutMs?: number } = {},
 ): Promise<string> {
+  const command = `${file} ${args.join(" ")}`;
   return new Promise((resolve, reject) => {
-    const child = spawn(command, {
+    const child = spawn(file, args, {
       cwd: opts.cwd ?? repoRoot,
-      shell: true,
       windowsHide: true,
     });
     let out = "";
@@ -146,7 +187,7 @@ export function execCapture(
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      // shell:true → child là shell; kill cả cây để không rò ffprobe/npx mồ côi trên Windows
+      // Kill cả cây để không rò process con (chromium/ffprobe) mồ côi trên Windows
       killTree(child);
       reject(new Error(`Lệnh quá thời gian: ${command}`));
     }, opts.timeoutMs ?? 10_000);
@@ -170,11 +211,43 @@ export function execCapture(
   });
 }
 
+/**
+ * Đường dẫn file JS của một CLI trong node_modules (đọc field `bin` của package).
+ *
+ * Dùng thay cho `npx <cli>`: chạy `process.execPath <binJs> ...` bằng execFile
+ * KHÔNG shell. Trên Windows không thể spawn `npx.cmd` khi shell:false (Node
+ * chặn .cmd/.bat từ bản vá CVE-2024-27980), nên gọi thẳng file .js/.mjs là
+ * cách duy nhất vừa không shell vừa chạy được — lại nhanh hơn vì bỏ qua npx.
+ */
+export function cliJsPath(pkg: string, binName: string): string {
+  const pkgJson = path.join(repoRoot, "node_modules", ...pkg.split("/"), "package.json");
+  if (!fs.existsSync(pkgJson)) {
+    throw new Error(`Chưa cài package "${pkg}" — chạy npm install ở repo root`);
+  }
+  const raw = JSON.parse(fs.readFileSync(pkgJson, "utf8")) as {
+    bin?: string | Record<string, string>;
+  };
+  const rel = typeof raw.bin === "string" ? raw.bin : raw.bin?.[binName];
+  if (!rel) throw new Error(`Package "${pkg}" không khai báo bin "${binName}"`);
+  return path.join(path.dirname(pkgJson), rel);
+}
+
+/** CLI HyperFrames (thay cho `npx hyperframes`) */
+export function hyperframesCli(): string {
+  return cliJsPath("hyperframes", "hyperframes");
+}
+
+/** CLI Remotion (thay cho `npx remotion`) */
+export function remotionCli(): string {
+  return cliJsPath("@remotion/cli", "remotion");
+}
+
 /** Đo thời lượng file media bằng ffprobe → ms, null nếu ffprobe fail */
 export async function ffprobeDurationMs(absFile: string): Promise<number | null> {
   try {
-    const out = await execCapture(
-      `ffprobe -v error -show_entries format=duration -of csv=p=0 "${absFile}"`,
+    const out = await execFileCapture(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", absFile],
       { timeoutMs: 15_000 },
     );
     const sec = parseFloat(out.trim());

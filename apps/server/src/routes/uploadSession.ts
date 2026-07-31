@@ -33,6 +33,22 @@ function prune(): void {
   }
 }
 
+/**
+ * Token phiên upload có tồn tại và còn hạn không (KHÔNG gắn với project cụ thể)?
+ * Middleware xác thực ở index.ts dùng hàm này để cho trang /m trên điện thoại
+ * đi qua; ràng buộc đúng project vẫn do isValidUploadToken kiểm ở POST /api/assets.
+ */
+export function isKnownUploadToken(token: string): boolean {
+  if (!token) return false;
+  const s = sessions.get(token);
+  if (!s) return false;
+  if (s.expiresAt <= Date.now()) {
+    sessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
 /** Token còn hiệu lực cho đúng project (chưa hết hạn, chưa bị thu hồi)? */
 export function isValidUploadToken(token: string, projectId: string): boolean {
   if (!token || !projectId) return false;

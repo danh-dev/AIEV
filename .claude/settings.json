@@ -8,8 +8,18 @@
       "Bash(ffmpeg:*)",
       "Bash(ffprobe:*)",
       "Bash(node:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python:*)"
     ],
-    "deny": []
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(~/.claude/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Edit(./.env)",
+      "Write(./.env)"
+    ]
   }
 }
