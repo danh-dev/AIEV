@@ -35,6 +35,39 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
 fi
 ok "ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}')"
 
+# --- Claude Code: tự cài nếu thiếu, kiểm tra đăng nhập, dẫn vào /login nếu chưa ---
+claude_authed() {
+  [ -n "${ANTHROPIC_API_KEY:-}" ] && return 0
+  [ -f "$HOME/.claude/.credentials.json" ] && return 0
+  # macOS: Claude Code lưu OAuth trong Keychain
+  if command -v security >/dev/null 2>&1; then
+    security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
+if ! command -v claude >/dev/null 2>&1; then
+  step "Chưa có Claude Code — đang cài (npm install -g @anthropic-ai/claude-code)..."
+  npm install -g @anthropic-ai/claude-code --no-audit --no-fund \
+    && ok "Đã cài Claude Code." \
+    || err "Không cài được Claude Code tự động — cài tay: npm install -g @anthropic-ai/claude-code"
+fi
+
+if command -v claude >/dev/null 2>&1 && ! claude_authed; then
+  echo ""
+  printf '  \033[33mChưa đăng nhập Claude (subscription) — tính năng edit AI sẽ chưa dùng được.\033[0m\n'
+  printf '  Đăng nhập ngay? Claude Code sẽ mở — gõ \033[1m/login\033[0m trong đó, đăng nhập xong thoát (Ctrl+C 2 lần). [Y/n] '
+  read -r REPLY_LOGIN || REPLY_LOGIN="n"
+  if [ "$REPLY_LOGIN" != "n" ] && [ "$REPLY_LOGIN" != "N" ]; then
+    claude || true
+    if claude_authed; then ok "Đã đăng nhập Claude."; else
+      printf '  \033[33mVẫn chưa thấy đăng nhập — hệ thống vẫn chạy, đăng nhập sau bằng: claude → /login\033[0m\n'
+    fi
+  else
+    printf '  \033[33mBỏ qua — đăng nhập sau bằng: claude → /login (hoặc điền ANTHROPIC_API_KEY vào .env)\033[0m\n'
+  fi
+fi
+
 open_browser() {
   if command -v open >/dev/null 2>&1; then open "$WEB_URL"; # macOS
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$WEB_URL"; fi

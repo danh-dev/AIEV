@@ -26,6 +26,9 @@ Nếu hệ thống đang chạy sẵn, script chỉ mở lại trình duyệt; �
 - Windows: nhấp đúp **`stop.bat`** (hoặc đóng cửa sổ "AI Edit Video - LOG")
 - macOS / Linux: `./start/stop.sh`
 
+> macOS: `start.command` tự kiểm tra & cài Claude Code nếu thiếu; chưa đăng nhập thì hỏi và mở
+> sẵn Claude Code để bạn gõ `/login` (bước đăng nhập là OAuth qua trình duyệt nên cần bạn xác nhận).
+
 ## Bật tính năng Chat / Edit AI
 
 Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy — chạy `claude` trong terminal rồi `/login` — hệ thống tự dùng gói subscription.
