@@ -296,7 +296,7 @@ function VideoOutputCard({
           }`}
         >
           <div className="progress-indeterminate" aria-label={t("project.ai-making")} />
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-[var(--text-muted)]">
               {t("project.ai-making-ellipsis")}
             </span>
@@ -311,8 +311,8 @@ function VideoOutputCard({
             src={outputUrl}
             className="mx-auto max-h-[300px] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
           />
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
               {fileName}
             </span>
             <span className="flex shrink-0 items-center gap-3">
@@ -343,7 +343,7 @@ function VideoOutputCard({
       {/* Khu Thumbnail - ảnh bìa của video (POST /api/projects/:id/thumbnail) */}
       {(output || thumbnail) && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-medium text-[var(--text-muted)]">
               Thumbnail
             </span>
@@ -1379,7 +1379,7 @@ export default function ProjectDetailPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
               <MessageSquare
                 size={15}

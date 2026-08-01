@@ -95,7 +95,7 @@ function PlatformBlock({ item }: { item: PublishItem }) {
   const hashtagLine = item.hashtags.join(" ");
   return (
     <div className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="chip">
           {PLATFORM_LABEL[item.platform] ?? item.platform}
         </span>
@@ -104,7 +104,7 @@ function PlatformBlock({ item }: { item: PublishItem }) {
 
       <p className="text-sm font-semibold">{item.title}</p>
 
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         {/* Mô tả YouTube có danh sách chương xuống dòng - phải giữ nguyên */}
         <p className="min-w-0 flex-1 whitespace-pre-wrap text-xs text-[var(--text-muted)]">
           {item.description}
@@ -113,7 +113,7 @@ function PlatformBlock({ item }: { item: PublishItem }) {
       </div>
 
       {item.hashtags.length > 0 && (
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap gap-1">
             {item.hashtags.map((tag) => (
               <span

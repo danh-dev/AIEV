@@ -499,7 +499,11 @@ export function ProjectReviewCard({
                 ? t("review.need-open")
                 : ""}
           </span>
+          {/* .btn có white-space: nowrap nên nhãn dài không co được. Ở cột hẹp
+              (bố cục 4 cột, ~190px) nút này rộng hơn cả cột -> cho nhãn xuống
+              dòng và bỏ chiều cao cố định thay vì để nút tràn khỏi card. */}
           <Button
+            className="h-auto max-w-full whitespace-normal py-2"
             disabled={sending || openCount === 0 || sendBlocked}
             onClick={onSend}
           >

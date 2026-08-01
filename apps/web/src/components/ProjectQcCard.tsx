@@ -149,8 +149,10 @@ export function ProjectQcCard({
           <InfoHint titleKey="help.qc.title" bodyKey="help.qc.body" size={14} />
         </span>
       }
+      // Không shrink-0: ở cột hẹp (bố cục 4 cột) badge + nút không đủ chỗ trên
+      // một hàng, cho wrap để nút xuống dòng thay vì tràn khỏi card.
       actions={
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {report && (
             <Badge
               tone={STATUS_TONE[report.status] ?? "muted"}

@@ -585,7 +585,7 @@ export function ProjectAssetsCard({
           title={cardTitle}
           actions={
             showUpload ? (
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center justify-end gap-2">
                 {phoneButton}
                 <Button
                   variant="secondary"
