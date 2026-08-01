@@ -229,8 +229,24 @@ export function execFileCapture(
 export function execFileCaptureAll(
   file: string,
   args: string[],
-  opts: { cwd?: string; timeoutMs?: number } = {},
-): Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }> {
+  opts: {
+    cwd?: string;
+    timeoutMs?: number;
+    /**
+     * Hủy giữa chừng. BẮT BUỘC truyền khi gọi từ trong một job của hàng đợi:
+     * queue chỉ giết được process nó tự spawn qua `ctx.exec`, còn process spawn
+     * ở đây thì nó không biết. Đã gặp thật: hủy job auto-cut lúc đang transcribe
+     * thì job báo "đã hủy" nhưng tiến trình whisper vẫn chạy tiếp, ăn GPU.
+     */
+    isCanceled?: () => boolean;
+  } = {},
+): Promise<{
+  code: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  canceled: boolean;
+}> {
   const command = `${file} ${args.join(" ")}`;
   return new Promise((resolve, reject) => {
     const child = spawn(file, args, { cwd: opts.cwd ?? repoRoot, windowsHide: true });
@@ -238,24 +254,38 @@ export function execFileCaptureAll(
     let stderr = "";
     let settled = false;
     let timedOut = false;
+    let canceled = false;
     const timer = setTimeout(() => {
       if (settled) return;
       timedOut = true;
       killTree(child);
     }, opts.timeoutMs ?? 120_000);
+    // Poll thay vì signal: JobCtx chỉ phơi ra hàm isCanceled(), không có AbortSignal
+    const cancelTimer = opts.isCanceled
+      ? setInterval(() => {
+          if (settled || !opts.isCanceled?.()) return;
+          canceled = true;
+          killTree(child);
+        }, 1_000)
+      : null;
+    cancelTimer?.unref?.();
+    const clearAll = (): void => {
+      clearTimeout(timer);
+      if (cancelTimer) clearInterval(cancelTimer);
+    };
     child.stdout.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
     child.stderr.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
     child.on("error", (err) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearAll();
       reject(new Error(`Không chạy được lệnh (${command}): ${err.message}`));
     });
     child.on("close", (code) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
-      resolve({ code, stdout, stderr, timedOut });
+      clearAll();
+      resolve({ code, stdout, stderr, timedOut, canceled });
     });
   });
 }

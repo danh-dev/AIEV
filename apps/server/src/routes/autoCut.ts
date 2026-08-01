@@ -11,6 +11,7 @@ import {
   AUTO_CUT_LAYOUTS,
   AUTO_CUT_MODES,
   autoCutDirOf,
+  briefOfAutoCut,
   readAutoCut,
   scanAutoCuts,
   writeAutoCut,
@@ -24,6 +25,7 @@ import {
   type AutoCutSegment,
   type AutoCutSource,
 } from "../autoCutMeta.js";
+import { applyBriefPatch, defaultBrief, type Brief } from "../meta.js";
 import { queue } from "../queue.js";
 import { styleExists } from "../styles.js";
 import {
@@ -92,6 +94,20 @@ function resolveInRepo(rel: string, what: string): string {
     throw new HttpError(400, "PATH_OUTSIDE_REPO", `${what} "${rel}" nằm ngoài repo`);
   }
   return abs;
+}
+
+/**
+ * Validate patch Brief gửi từ UI. Dùng đúng `applyBriefPatch` của Videos Project
+ * nên hai nơi không bao giờ lệch luật; `styleId` bỏ qua ở đây vì phiên cắt lấy
+ * style từ `output.styleId` (một nguồn sự thật duy nhất).
+ */
+function parseBriefPatch(raw: unknown, base: Brief): Brief {
+  if (raw === undefined || raw === null) return base;
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new HttpError(400, "INVALID_BRIEF", "brief phải là object");
+  }
+  const { styleId: _ignored, ...rest } = raw as Record<string, unknown>;
+  return applyBriefPatch(base, rest);
 }
 
 /** Id kebab-case duy nhất, không trùng thư mục có sẵn trong auto-cut/ */
@@ -517,6 +533,8 @@ router.post("/", async (req, res) => {
   const output = parseOutput(body.output, defaultOutput);
   const transcribe = parseTranscribe(mode, body.transcribe, true);
   const autoEdit = parseBool(body.autoEdit, false, "autoEdit");
+  // Cấu hình edit áp cho mọi project con - cùng bộ luật với PUT /projects/:id/brief
+  const brief = parseBriefPatch(body.brief, defaultBrief());
 
   const source: AutoCutSource = {
     // Chuẩn hóa lại relPath từ đường dẫn tuyệt đối - client có thể gửi "\" hoặc "./"
@@ -538,6 +556,7 @@ router.post("/", async (req, res) => {
     mode,
     params,
     output,
+    brief,
     transcribe,
     autoEdit,
     transcriptRel: null,
@@ -577,6 +596,9 @@ router.patch("/:id", (req, res) => {
     meta.name = body.name.trim();
   }
   meta.autoEdit = parseBool(body.autoEdit, meta.autoEdit, "autoEdit");
+  // Cấu hình edit KHÔNG làm kế hoạch cắt hết đúng (chỉ ảnh hưởng khâu dựng project
+  // con) nên sửa lúc nào cũng được, không reset segments.
+  if ("brief" in body) meta.brief = parseBriefPatch(body.brief, briefOfAutoCut(meta));
 
   // ---- Thay đổi làm KẾ HOẠCH CŨ HẾT ĐÚNG: params, transcribe, và mọi field
   // output trừ styleId (styleId chỉ ảnh hưởng khâu dựng project con, không đổi

@@ -142,6 +142,90 @@ export function briefOf(meta: ProjectMeta): Brief {
   return base;
 }
 
+/**
+ * Áp một patch Brief (body JSON thô, không tin kiểu) lên brief nền và trả bản mới.
+ *
+ * Dùng chung cho `PUT /api/projects/:id/brief` và cấu hình edit của một phiên
+ * Auto cut - hai nơi phải theo CÙNG một bộ luật, nếu tách ra viết lại thì sớm
+ * muộn cũng lệch nhau.
+ *
+ * `checkStyle` được tiêm vào (thay vì import styles.ts) để meta.ts không phụ
+ * thuộc ngược vào tầng trên.
+ */
+export function applyBriefPatch(
+  base: Brief,
+  body: Record<string, unknown>,
+  checkStyle?: (id: string) => boolean,
+): Brief {
+  const brief: Brief = { ...base };
+  const bad = (msg: string): never => {
+    throw new HttpError(400, "INVALID_BRIEF", msg);
+  };
+
+  const str = (key: keyof Brief, trim = false): void => {
+    if (!(key in body)) return;
+    if (typeof body[key] !== "string") bad(`${key} phải là string`);
+    const v = body[key] as string;
+    (brief as unknown as Record<string, unknown>)[key] = trim ? v.trim() : v;
+  };
+  const bool = (key: keyof Brief): void => {
+    if (!(key in body)) return;
+    if (typeof body[key] !== "boolean") bad(`${key} phải là boolean`);
+    (brief as unknown as Record<string, unknown>)[key] = body[key];
+  };
+  const strList = (key: keyof Brief): void => {
+    if (!(key in body)) return;
+    const raw = body[key];
+    if (!Array.isArray(raw) || raw.some((k) => typeof k !== "string")) {
+      bad(`${key} phải là mảng string`);
+    }
+    (brief as unknown as Record<string, unknown>)[key] = (raw as string[])
+      .map((k) => k.trim())
+      .filter(Boolean);
+  };
+  /** string hoặc null; chuỗi rỗng quy về null */
+  const nullableStr = (key: keyof Brief): string | null | undefined => {
+    if (!(key in body)) return undefined;
+    if (body[key] !== null && typeof body[key] !== "string") {
+      bad(`${key} phải là string hoặc null`);
+    }
+    const v = typeof body[key] === "string" ? (body[key] as string).trim() : "";
+    (brief as unknown as Record<string, unknown>)[key] = v || null;
+    return v || null;
+  };
+
+  str("sourceDescription");
+  bool("autoCut");
+  bool("subtitles");
+  bool("highlightEnabled");
+  strList("highlightKeywords");
+  bool("keyLayoutEnabled");
+  str("mainKey", true);
+  strList("relatedKeys");
+  nullableStr("skill");
+  bool("autoIllustrations");
+  nullableStr("illustrationModel");
+  bool("illustrationText");
+  str("notes");
+
+  if ("sfxMode" in body && !SFX_MODES.includes(body.sfxMode as SfxMode)) {
+    bad(`sfxMode phải là một trong: ${SFX_MODES.join(" | ")}`);
+  }
+  if ("sfxMode" in body) brief.sfxMode = body.sfxMode as SfxMode;
+
+  if ("musicMode" in body && !MUSIC_MODES.includes(body.musicMode as MusicMode)) {
+    bad(`musicMode phải là một trong: ${MUSIC_MODES.join(" | ")}`);
+  }
+  if ("musicMode" in body) brief.musicMode = body.musicMode as MusicMode;
+
+  const styleId = nullableStr("styleId");
+  if (styleId && checkStyle && !checkStyle(styleId)) {
+    throw new HttpError(400, "STYLE_NOT_FOUND", `Không tìm thấy style "${styleId}"`);
+  }
+
+  return brief;
+}
+
 export interface ProjectMeta {
   id: string;
   name: string;

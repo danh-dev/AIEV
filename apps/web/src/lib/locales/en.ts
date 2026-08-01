@@ -1156,6 +1156,15 @@ export const en: Record<string, string> = {
   "autocut.auto-edit": "Start AI edit right after cutting",
   "autocut.auto-edit-hint":
     "At most 3 projects start right away - the rest are created and wait for you to hit edit.",
+  "autocut.brief-title": "Edit setup for the clips you cut",
+  "autocut.brief-card": "Edit setup",
+  "autocut.brief-hint":
+    "Set it once for the whole session - every clip you cut uses it, so you never have to open each project to redo it.",
+  "autocut.brief-autosave": "Changes are saved automatically.",
+  "autocut.brief-locked":
+    "The session is running - you can edit this once the current step finishes.",
+  "autocut.brief-applies-next":
+    "This setup only applies to segments cut FROM NOW ON. For projects already created, edit the brief inside that project.",
   "autocut.create": "Create session & analyze",
   "autocut.creating": "Creating…",
   "autocut.create-error": "Could not create the cutting session.",
@@ -1166,7 +1175,7 @@ export const en: Record<string, string> = {
   "autocut.back": "All sessions",
   "autocut.not-found": "This cutting session was not found.",
   "autocut.action-error": "Could not run this step.",
-  "autocut.save-error": "Could not save the segment changes.",
+  "autocut.save-error": "Could not save the changes to this session.",
   "autocut.step-plan": "Analyzing the video",
   "autocut.step-cut": "Cutting and creating projects",
   "autocut.planning-hint":

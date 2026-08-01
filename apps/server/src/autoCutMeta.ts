@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { paths } from "./config.js";
+import { defaultBrief, type Brief } from "./meta.js";
 import { HttpError, ensureDir, isKebabCase, nowIso } from "./util.js";
 
 /**
@@ -123,6 +124,17 @@ export interface AutoCutMeta {
   mode: AutoCutMode;
   params: AutoCutParams;
   output: AutoCutOutput;
+  /**
+   * Cấu hình edit áp cho MỌI project con cắt ra (đúng bộ field như Kịch bản edit
+   * của Videos Project). Nhờ vậy video cắt xong là edit được ngay, không phải vào
+   * từng project chỉnh lại.
+   *
+   * Ba field bị job ghi đè vì phụ thuộc từng đoạn: `sourceDescription` (mô tả đoạn),
+   * `mainKey` (lấy tiêu đề đoạn khi user để trống), `notes` (hướng dẫn bắt buộc về
+   * file đã cắt sẵn, ghi TRƯỚC rồi mới nối ghi chú của user).
+   * `styleId` lấy từ `output.styleId` để chỉ có một nguồn sự thật.
+   */
+  brief: Brief;
   /** Có transcribe video nguồn không (mode ai/prompt luôn cần; mode time tùy chọn) */
   transcribe: boolean;
   /** Chạy phiên edit AI ngay sau khi tạo project con */
@@ -151,6 +163,16 @@ export function autoCutExists(id: string): boolean {
 }
 
 // ------------------------------------------------------------------ Đọc/ghi
+
+/**
+ * Phiên tạo trước khi có field `brief` (hoặc file bị sửa tay) sẽ thiếu nó -
+ * trả về defaultBrief để job không phải kiểm null ở mọi chỗ dùng.
+ */
+export function briefOfAutoCut(meta: AutoCutMeta): Brief {
+  const raw = meta.brief as unknown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return defaultBrief();
+  return { ...defaultBrief(), ...(raw as Partial<Brief>) };
+}
 
 export function readAutoCut(id: string): AutoCutMeta {
   if (!isKebabCase(id)) {

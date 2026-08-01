@@ -217,6 +217,8 @@ AutoCutMeta = { id, name, status: "draft"|"planning"|"planned"|"cutting"|"done"|
   params: { minutes?, overlapSec?, count?, minSec?, maxSec?, request? },
   output: { aspect: "keep"|"9:16"|"16:9"|"1:1"|"4:5", layout: "auto"|"crop"|"fit",
             background: "gemini"|"blur"|"style", styleId, fps },
+  brief: Brief,          // cấu hình edit áp cho MỌI project con (đúng bộ field
+                         // Kịch bản edit của Videos Project)
   transcribe, autoEdit, transcriptRel?,
   segments: [{ index, start, end, title, hook?, reason?, score?, selected,
                projectId?, appliedLayout? }],
@@ -225,14 +227,21 @@ AutoCutMeta = { id, name, status: "draft"|"planning"|"planned"|"cutting"|"done"|
 GET    /api/auto-cut/sources   -> { files: FileInfo[] }   // video trong imports/
 GET    /api/auto-cut           -> { sessions: AutoCutMeta[] }
 GET    /api/auto-cut/:id       -> { session }
-POST   /api/auto-cut           { name?, sourceRel, mode, params?, output?, transcribe?, autoEdit? } -> 201
-PATCH  /api/auto-cut/:id       { name?, params?, output?, transcribe?, autoEdit?, segments? } -> 200
+POST   /api/auto-cut           { name?, sourceRel, mode, params?, output?, brief?, transcribe?, autoEdit? } -> 201
+PATCH  /api/auto-cut/:id       { name?, params?, output?, brief?, transcribe?, autoEdit?, segments? } -> 200
 POST   /api/auto-cut/:id/plan  -> 202 { job }   // job auto-cut step "plan"
 POST   /api/auto-cut/:id/cut   -> 202 { job }   // job auto-cut step "cut"
 DELETE /api/auto-cut/:id?force=true -> 204      // KHÔNG xóa các project con đã tạo
 ```
 
 Upload nguồn dùng lại `POST /api/assets` với `scope=imports` (có sẵn thanh tiến độ + QR điện thoại).
+
+**Cấu hình edit của phiên (`brief`)**: validate bằng đúng `applyBriefPatch` của
+`PUT /api/projects/:id/brief` (hàm dùng chung trong `meta.ts`) nên hai nơi không lệch luật.
+Sửa `brief` KHÔNG reset danh sách đoạn (chỉ ảnh hưởng khâu dựng project con). Khi cắt, job
+áp `brief` cho mọi project con, chỉ ghi đè 4 field phụ thuộc từng đoạn: `styleId` (lấy từ
+`output.styleId` - một nguồn sự thật), `sourceDescription`, `mainKey` (dùng tiêu đề đoạn khi
+user để trống) và `notes` (hướng dẫn bắt buộc về file đã cắt sẵn đứng TRƯỚC, ghi chú của user nối sau).
 
 **Job `auto-cut`**: `projectId` là id phiên cắt, `sceneId` mang step. Hai bước tách rời để người
 dùng DUYỆT danh sách đoạn trước khi tốn thời gian encode.

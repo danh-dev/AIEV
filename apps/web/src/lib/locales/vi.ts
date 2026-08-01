@@ -1151,6 +1151,15 @@ export const vi: Record<string, string> = {
   "autocut.auto-edit": "Chạy AI edit luôn sau khi cắt",
   "autocut.auto-edit-hint":
     "Tối đa 3 project được chạy ngay - số còn lại tạo xong để đó, bấm edit sau.",
+  "autocut.brief-title": "Cấu hình edit cho các video cắt ra",
+  "autocut.brief-card": "Cấu hình edit",
+  "autocut.brief-hint":
+    "Cấu hình một lần cho cả phiên - mọi video cắt ra dùng chung, không phải vào từng project chỉnh lại.",
+  "autocut.brief-autosave": "Thay đổi tự lưu.",
+  "autocut.brief-locked":
+    "Phiên đang chạy - sửa được cấu hình khi bước này xong.",
+  "autocut.brief-applies-next":
+    "Cấu hình này chỉ áp cho các đoạn cắt SAU. Project đã tạo rồi thì sửa kịch bản edit trong chính project đó.",
   "autocut.create": "Tạo phiên & phân tích",
   "autocut.creating": "Đang tạo…",
   "autocut.create-error": "Không tạo được phiên cắt.",
@@ -1161,7 +1170,7 @@ export const vi: Record<string, string> = {
   "autocut.back": "Danh sách phiên",
   "autocut.not-found": "Không tìm thấy phiên cắt này.",
   "autocut.action-error": "Không chạy được bước này.",
-  "autocut.save-error": "Không lưu được thay đổi của các đoạn.",
+  "autocut.save-error": "Không lưu được thay đổi của phiên cắt.",
   "autocut.step-plan": "Phân tích video",
   "autocut.step-cut": "Cắt và tạo project",
   "autocut.planning-hint":

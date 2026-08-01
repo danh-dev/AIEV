@@ -1896,6 +1896,8 @@ export interface AutoCutMeta {
   output: AutoCutOutput;
   transcribe: boolean;
   autoEdit: boolean;
+  /** Kịch bản edit áp cho MỌI project con cắt ra - cấu hình một lần cho cả phiên. */
+  brief: Brief;
   transcriptRel?: string | null;
   segments: AutoCutSegment[];
   error?: string | null;
@@ -1969,6 +1971,8 @@ export const createAutoCut = (input: {
   output?: Partial<AutoCutOutput>;
   transcribe?: boolean;
   autoEdit?: boolean;
+  /** styleId trong brief bị server bỏ qua - style của phiên lấy từ output.styleId. */
+  brief?: Partial<Brief>;
 }) => post<{ session: AutoCutMeta }>("/api/auto-cut", input).then((r) => r.session);
 
 /** PATCH partial - field không gửi thì server giữ nguyên. */
@@ -1980,6 +1984,8 @@ export const updateAutoCut = (
     output?: Partial<AutoCutOutput>;
     transcribe?: boolean;
     autoEdit?: boolean;
+    /** Sửa brief KHÔNG reset danh sách đoạn - gửi được cả khi phiên đã planned. */
+    brief?: Partial<Brief>;
     segments?: AutoCutSegmentPatch[];
   }
 ) =>

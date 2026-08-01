@@ -30,6 +30,7 @@ import {
   type AutoCutMeta,
   type AutoCutSegment,
   type AutoCutSegmentPatch,
+  type Brief,
   type Job,
 } from "@/lib/api";
 import { useJobEvents } from "@/lib/useEvents";
@@ -48,6 +49,7 @@ import {
   clock,
   duration,
 } from "@/components/AutoCutCommon";
+import { BriefFields, DEFAULT_BRIEF } from "@/components/BriefFields";
 import { formatDateTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -79,6 +81,11 @@ export default function AutoCutDetailPage() {
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Kịch bản edit của cả phiên - cùng cơ chế nháp + debounce như các đoạn, và đi
+  // chung một PATCH để hai thứ sửa cùng lúc không đè nhau.
+  const [brief, setBrief] = useState<Brief | null>(null);
+  const pendingBrief = useRef<Partial<Brief> | null>(null);
+
   // Job auto-cut mới nhất của phiên - nguồn hiển thị % và tên bước
   const [job, setJob] = useState<Job | null>(null);
 
@@ -91,6 +98,8 @@ export default function AutoCutDetailPage() {
       const s = await getAutoCutSession(sessionId);
       setSession(s);
       if (pending.current.size === 0) setSegments(s.segments);
+      // Phiên tạo trước khi backend có brief → thiếu field, lấp bằng default
+      if (!pendingBrief.current) setBrief({ ...DEFAULT_BRIEF, ...(s.brief ?? {}) });
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
@@ -130,11 +139,16 @@ export default function AutoCutDetailPage() {
       clearTimeout(flushTimer.current);
       flushTimer.current = null;
     }
-    if (pending.current.size === 0) return;
+    if (pending.current.size === 0 && !pendingBrief.current) return;
     const patches = [...pending.current.values()];
+    const briefPatch = pendingBrief.current;
     pending.current.clear();
+    pendingBrief.current = null;
     try {
-      const s = await updateAutoCut(sessionId, { segments: patches });
+      const s = await updateAutoCut(sessionId, {
+        ...(patches.length > 0 ? { segments: patches } : {}),
+        ...(briefPatch ? { brief: briefPatch } : {}),
+      });
       setSession(s);
       setSaveError(null);
     } catch (e) {
@@ -146,10 +160,15 @@ export default function AutoCutDetailPage() {
   useEffect(() => {
     return () => {
       if (flushTimer.current) clearTimeout(flushTimer.current);
-      if (pending.current.size > 0) {
+      if (pending.current.size > 0 || pendingBrief.current) {
         const patches = [...pending.current.values()];
+        const briefPatch = pendingBrief.current;
         pending.current.clear();
-        updateAutoCut(sessionId, { segments: patches }).catch(() => {
+        pendingBrief.current = null;
+        updateAutoCut(sessionId, {
+          ...(patches.length > 0 ? { segments: patches } : {}),
+          ...(briefPatch ? { brief: briefPatch } : {}),
+        }).catch(() => {
           // trang đã đóng - không còn chỗ hiện lỗi
         });
       }
@@ -183,6 +202,14 @@ export default function AutoCutDetailPage() {
     );
     // Tích/bỏ tích là một hành động dứt khoát - gửi ngay, không chờ debounce
     queuePatch({ index, selected }, true);
+  }
+
+  /** Sửa kịch bản edit - gộp các patch rồi gửi chung một lần như phần đoạn. */
+  function patchBrief(p: Partial<Brief>) {
+    setBrief((b) => (b ? { ...b, ...p } : b));
+    pendingBrief.current = { ...(pendingBrief.current ?? {}), ...p };
+    if (flushTimer.current) clearTimeout(flushTimer.current);
+    flushTimer.current = setTimeout(flush, PATCH_DEBOUNCE_MS);
   }
 
   function toggleAll(next: boolean) {
@@ -338,6 +365,25 @@ export default function AutoCutDetailPage() {
               {retryStep === "plan" ? t("autocut.replan") : t("autocut.cut")}
             </Button>
           </div>
+        </Card>
+      )}
+
+      {/* Kịch bản edit của cả phiên - đặt TRÊN danh sách đoạn vì nó quyết định
+          mọi project con sẽ được edit thế nào */}
+      {brief && (
+        <Card title={t("autocut.brief-card")}>
+          <div className="mb-3 flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            <p>{running ? t("autocut.brief-locked") : t("autocut.brief-hint")}</p>
+            {createdCount > 0 && <p>{t("autocut.brief-applies-next")}</p>}
+            {!running && <p>{t("autocut.brief-autosave")}</p>}
+          </div>
+          <BriefFields
+            value={brief}
+            onChange={patchBrief}
+            // Style của phiên nằm ở cấu hình đầu ra; mô tả từng đoạn do server tự viết
+            show={{ styleId: false, sourceDescription: false }}
+            disabled={running}
+          />
         </Card>
       )}
 

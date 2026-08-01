@@ -3,6 +3,7 @@ import path from "node:path";
 import { runAgent } from "../agent.js";
 import {
   autoCutDirOf,
+  briefOfAutoCut,
   patchAutoCut,
   readAutoCut,
   targetSizeOf,
@@ -50,7 +51,17 @@ export async function runAutoCut(ctx: JobCtx): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     try {
-      patchAutoCut(id, { status: "failed", error: message });
+      // Người dùng tự bấm hủy KHÔNG phải lỗi: đưa phiên về trạng thái chạy lại
+      // được (chưa có đoạn -> draft, có rồi -> planned) và không hiện banner đỏ.
+      if (ctx.isCanceled()) {
+        const cur = readAutoCut(id);
+        patchAutoCut(id, {
+          status: cur.segments.length > 0 ? "planned" : "draft",
+          error: null,
+        });
+      } else {
+        patchAutoCut(id, { status: "failed", error: message });
+      }
     } catch {
       /* phiên cắt có thể đã bị xóa giữa chừng - vẫn phải ném lỗi gốc ra queue */
     }
@@ -84,6 +95,8 @@ async function stepPlan(ctx: JobCtx, id: string): Promise<void> {
         outJsonAbs: outJson,
         language: "vi",
         onLog: (line) => ctx.log(line),
+        // Không truyền thì hủy job xong whisper vẫn chạy tiếp và ăn GPU
+        isCanceled: () => ctx.isCanceled(),
       });
       transcriptAbs = outJson;
       ctx.log(
@@ -138,6 +151,8 @@ async function stepCut(ctx: JobCtx, id: string): Promise<void> {
   const videoAbs = sourceVideoAbs(meta);
   const target = targetSizeOf(meta.output.aspect, meta.source);
   const outFps = pickFps(meta);
+  // Cấu hình edit chung của phiên - phiên cũ chưa có field này thì về default
+  const sessionBrief = briefOfAutoCut(meta);
 
   // Chỉ cắt đoạn được tích chọn và CHƯA có project con (chạy lại là cắt tiếp phần dở)
   const todo = meta.segments.filter((s) => s.selected !== false && !s.projectId);
@@ -258,6 +273,11 @@ async function stepCut(ctx: JobCtx, id: string): Promise<void> {
       // KHÔNG đặt from/to: file đã cắt sẵn đúng khoảng, đặt thêm sẽ cắt chồng lần hai
       scenes: [{ id: "src", srcVideo: sceneAssetPath(fileName) }],
       brief: {
+        // Cấu hình edit người dùng đặt cho cả phiên (phụ đề, highlight, bố cục key,
+        // sound effect, nhạc nền, ảnh minh họa, skill...) - nhờ vậy project con
+        // edit được ngay, không phải vào từng cái chỉnh lại.
+        ...sessionBrief,
+        // Ba field dưới đây phụ thuộc TỪNG ĐOẠN nên luôn ghi đè cấu hình chung
         styleId: meta.output.styleId,
         sourceDescription:
           `Đoạn ${fmt(seg.start)}-${fmt(seg.end)} giây cắt ra từ video nguồn ` +
@@ -265,8 +285,12 @@ async function stepCut(ctx: JobCtx, id: string): Promise<void> {
           `File trong assets/ ĐÃ được cắt sẵn đúng khoảng này và đã đổi khung về ` +
           `${target.width}x${target.height} (${layout === "crop" ? "cúp bám chủ thể" : "thu nhỏ + nền"}).` +
           (seg.reason ? ` Lý do chọn: ${seg.reason}` : ""),
-        mainKey: seg.title,
-        notes: childNotes(seg, fileName, target, layout),
+        // User đặt key chung cho cả loạt thì tôn trọng, để trống thì lấy tiêu đề đoạn
+        mainKey: sessionBrief.mainKey.trim() || seg.title,
+        // Hướng dẫn bắt buộc về file đã cắt sẵn phải đứng TRƯỚC, ghi chú của user nối sau
+        notes: [childNotes(seg, fileName, target, layout), sessionBrief.notes.trim()]
+          .filter(Boolean)
+          .join("\n\n"),
       },
     });
     createdIds.push(child.id);

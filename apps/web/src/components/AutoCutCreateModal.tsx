@@ -9,7 +9,7 @@
  * giá trị gì với người dùng, họ tạo là để hệ thống đọc video ngay.
  */
 
-import { Loader2, Scissors, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Scissors, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AUTO_CUT_DEFAULT_PARAMS,
@@ -22,6 +22,7 @@ import {
   type AutoCutLayout,
   type AutoCutMode,
   type AutoCutParams,
+  type Brief,
   type FileInfo,
 } from "@/lib/api";
 import { useUploadEvents } from "@/lib/useEvents";
@@ -30,6 +31,12 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StyleSelect } from "@/components/StyleSelect";
+import {
+  BriefFields,
+  DEFAULT_BRIEF,
+  MUSIC_MODE_LABEL,
+  SFX_MODE_LABEL,
+} from "@/components/BriefFields";
 import {
   BACKGROUND_DESC,
   BACKGROUND_LABEL,
@@ -47,6 +54,17 @@ const MODES: AutoCutMode[] = ["time", "ai", "prompt"];
 const ASPECTS: AutoCutAspect[] = ["keep", "9:16", "16:9", "1:1", "4:5"];
 const LAYOUTS: AutoCutLayout[] = ["auto", "crop", "fit"];
 const BACKGROUNDS: AutoCutBackground[] = ["gemini", "blur", "style"];
+
+/**
+ * Brief gửi lên khi tạo phiên. Bỏ `styleId` vì style của phiên đã lấy từ
+ * output.styleId (ô Style Design phía trên) - gửi thêm chỉ gây hiểu nhầm là có
+ * hai chỗ chọn style.
+ */
+function briefPayload(brief: Brief): Partial<Brief> {
+  const payload: Partial<Brief> = { ...brief };
+  delete payload.styleId;
+  return payload;
+}
 
 /** Thẻ chọn được (mode / layout / nền): tiêu đề + một dòng giải thích. */
 function OptionCard({
@@ -162,6 +180,9 @@ export function AutoCutCreateModal({
   // ---- Tùy chọn ----
   const [transcribe, setTranscribe] = useState(true);
   const [autoEdit, setAutoEdit] = useState(false);
+  // Kịch bản edit áp cho MỌI video cắt ra - modal đã dài nên mặc định thu gọn
+  const [brief, setBrief] = useState<Brief>(DEFAULT_BRIEF);
+  const [briefOpen, setBriefOpen] = useState(false);
 
   // ---- Gửi ----
   const [creating, setCreating] = useState(false);
@@ -258,6 +279,7 @@ export function AutoCutCreateModal({
           output: { aspect, layout, background, styleId },
           transcribe,
           autoEdit,
+          brief: briefPayload(brief),
         });
         sessionId = session.id;
         setCreatedId(sessionId);
@@ -277,6 +299,15 @@ export function AutoCutCreateModal({
   const reframing = aspect !== "keep";
   // crop cắt cúp bám nhân vật, không có vùng trống nào để lấp nền
   const needBackground = reframing && layout !== "crop";
+
+  // Một dòng cho biết kịch bản edit đang đặt gì - đủ để không cần mở khối ra xem
+  const yesNo = (v: boolean) => (v ? t("common.yes") : t("common.no"));
+  const briefSummary = [
+    `${t("brief.subtitles")}: ${yesNo(brief.subtitles)}`,
+    `${t("brief.key-layout")}: ${yesNo(brief.keyLayoutEnabled)}`,
+    `Sound effect: ${t(SFX_MODE_LABEL[brief.sfxMode])}`,
+    `${t("brief.music-label")}: ${t(MUSIC_MODE_LABEL[brief.musicMode])}`,
+  ].join(" · ");
 
   return (
     <Modal
@@ -594,6 +625,50 @@ export function AutoCutCreateModal({
             </span>
           </span>
         </label>
+
+        {/* Kịch bản edit dùng chung cho cả phiên - cấu hình một lần, mọi video
+            cắt ra edit được ngay, khỏi vào từng project chỉnh lại */}
+        <div className="mt-3 rounded-[var(--radius)] border border-[var(--border)]">
+          <button
+            type="button"
+            aria-expanded={briefOpen}
+            onClick={() => setBriefOpen((v) => !v)}
+            className="flex w-full items-start gap-2 rounded-[var(--radius)] p-3 text-left transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
+          >
+            {briefOpen ? (
+              <ChevronDown
+                size={15}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0 text-[var(--text-muted)]"
+              />
+            ) : (
+              <ChevronRight
+                size={15}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0 text-[var(--text-muted)]"
+              />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium text-[var(--text)]">
+                {t("autocut.brief-title")}
+              </span>
+              <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
+                {briefOpen ? t("autocut.brief-hint") : briefSummary}
+              </span>
+            </span>
+          </button>
+          {briefOpen && (
+            <div className="border-t border-[var(--border)] p-3">
+              <BriefFields
+                value={brief}
+                onChange={(p) => setBrief((b) => ({ ...b, ...p }))}
+                // Style Design đã có ô riêng phía trên; mô tả từng đoạn do server tự viết
+                show={{ styleId: false, sourceDescription: false }}
+                disabled={creating}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {selectedSource?.relPath && mode === "time" && (

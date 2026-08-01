@@ -245,8 +245,13 @@ export async function transcribeVideo(input: {
   /** Mã ngôn ngữ whisper - mặc định "vi" */
   language?: string;
   onLog?: (line: string) => void;
+  /**
+   * Job bị hủy chưa. Truyền từ JobCtx.isCanceled - không truyền thì hủy job xong
+   * tiến trình whisper vẫn chạy tiếp và tiếp tục ăn GPU (đã gặp thật).
+   */
+  isCanceled?: () => boolean;
 }): Promise<TranscribeResult> {
-  const { videoAbs, outJsonAbs, onLog } = input;
+  const { videoAbs, outJsonAbs, onLog, isCanceled } = input;
   const language = (input.language ?? "vi").trim() || "vi";
   const log = (line: string): void => onLog?.(line);
 
@@ -297,7 +302,7 @@ export async function transcribeVideo(input: {
       wav = await execFileCaptureAll(
         "ffmpeg",
         ["-y", "-i", videoAbs, "-vn", "-ac", "1", "-ar", "16000", wavAbs],
-        { timeoutMs: wavTimeout },
+        { timeoutMs: wavTimeout, isCanceled },
       );
     } catch (err) {
       throw new HttpError(
@@ -311,6 +316,7 @@ export async function transcribeVideo(input: {
     if (wav.timedOut) {
       throw new Error(`Tách audio quá ${Math.round(wavTimeout / 60_000)} phút chưa xong - đã hủy`);
     }
+    if (wav.canceled) throw new Error("Job đã bị hủy");
     if (wav.code !== 0 || !fs.existsSync(wavAbs)) {
       throw new Error(`Tách audio thất bại (ffmpeg thoát mã ${wav.code}):\n${tail(wav.stderr)}`);
     }
@@ -335,12 +341,14 @@ export async function transcribeVideo(input: {
       run = await execFileCaptureAll(
         python,
         [pyAbs, wavAbs, tmpJsonAbs, language, String(durationSec), logAbs],
-        { timeoutMs: whisperTimeout },
+        { timeoutMs: whisperTimeout, isCanceled },
       );
     } finally {
       stopTail();
     }
 
+    // Hủy trước mọi phép đoán lỗi khác: tiến trình bị giết nên exit code là rác
+    if (run.canceled) throw new Error("Job đã bị hủy");
     if (run.code === EXIT_NO_MODULE) {
       throw new HttpError(
         503,

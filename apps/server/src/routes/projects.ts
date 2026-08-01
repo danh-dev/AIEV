@@ -19,6 +19,7 @@ import * as db from "../db.js";
 import {
   MUSIC_MODES,
   SFX_MODES,
+  applyBriefPatch,
   briefOf,
   defaultBrief,
   listProjectAssets,
@@ -291,127 +292,7 @@ router.put("/:id/brief", (req, res) => {
   const id = req.params.id;
   const meta = readMeta(id); // ném 404 nếu không có
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const brief: Brief = briefOf(meta);
-
-  if ("sourceDescription" in body) {
-    if (typeof body.sourceDescription !== "string") {
-      throw new HttpError(400, "INVALID_BRIEF", "sourceDescription phải là string");
-    }
-    brief.sourceDescription = body.sourceDescription;
-  }
-  if ("autoCut" in body) {
-    if (typeof body.autoCut !== "boolean") {
-      throw new HttpError(400, "INVALID_BRIEF", "autoCut phải là boolean");
-    }
-    brief.autoCut = body.autoCut;
-  }
-  if ("subtitles" in body) {
-    if (typeof body.subtitles !== "boolean") {
-      throw new HttpError(400, "INVALID_BRIEF", "subtitles phải là boolean");
-    }
-    brief.subtitles = body.subtitles;
-  }
-  if ("highlightEnabled" in body) {
-    if (typeof body.highlightEnabled !== "boolean") {
-      throw new HttpError(400, "INVALID_BRIEF", "highlightEnabled phải là boolean");
-    }
-    brief.highlightEnabled = body.highlightEnabled;
-  }
-  if ("highlightKeywords" in body) {
-    if (
-      !Array.isArray(body.highlightKeywords) ||
-      body.highlightKeywords.some((k) => typeof k !== "string")
-    ) {
-      throw new HttpError(400, "INVALID_BRIEF", "highlightKeywords phải là mảng string");
-    }
-    brief.highlightKeywords = (body.highlightKeywords as string[])
-      .map((k) => k.trim())
-      .filter(Boolean);
-  }
-  if ("keyLayoutEnabled" in body) {
-    if (typeof body.keyLayoutEnabled !== "boolean") {
-      throw new HttpError(400, "INVALID_BRIEF", "keyLayoutEnabled phải là boolean");
-    }
-    brief.keyLayoutEnabled = body.keyLayoutEnabled;
-  }
-  if ("mainKey" in body) {
-    if (typeof body.mainKey !== "string") {
-      throw new HttpError(400, "INVALID_BRIEF", "mainKey phải là string");
-    }
-    brief.mainKey = body.mainKey.trim();
-  }
-  if ("relatedKeys" in body) {
-    if (
-      !Array.isArray(body.relatedKeys) ||
-      body.relatedKeys.some((k) => typeof k !== "string")
-    ) {
-      throw new HttpError(400, "INVALID_BRIEF", "relatedKeys phải là mảng string");
-    }
-    brief.relatedKeys = (body.relatedKeys as string[]).map((k) => k.trim()).filter(Boolean);
-  }
-  if ("skill" in body) {
-    if (body.skill !== null && typeof body.skill !== "string") {
-      throw new HttpError(400, "INVALID_BRIEF", "skill phải là string hoặc null");
-    }
-    const skill = typeof body.skill === "string" ? body.skill.trim() : "";
-    brief.skill = skill || null;
-  }
-  if ("sfxMode" in body) {
-    if (!SFX_MODES.includes(body.sfxMode as SfxMode)) {
-      throw new HttpError(
-        400,
-        "INVALID_BRIEF",
-        `sfxMode phải là một trong: ${SFX_MODES.join(" | ")}`,
-      );
-    }
-    brief.sfxMode = body.sfxMode as SfxMode;
-  }
-  if ("musicMode" in body) {
-    if (!MUSIC_MODES.includes(body.musicMode as MusicMode)) {
-      throw new HttpError(
-        400,
-        "INVALID_BRIEF",
-        `musicMode phải là một trong: ${MUSIC_MODES.join(" | ")}`,
-      );
-    }
-    brief.musicMode = body.musicMode as MusicMode;
-  }
-  if ("autoIllustrations" in body) {
-    if (typeof body.autoIllustrations !== "boolean") {
-      throw new HttpError(400, "INVALID_BRIEF", "autoIllustrations phải là boolean");
-    }
-    brief.autoIllustrations = body.autoIllustrations;
-  }
-  if ("illustrationModel" in body) {
-    if (body.illustrationModel !== null && typeof body.illustrationModel !== "string") {
-      throw new HttpError(400, "INVALID_BRIEF", "illustrationModel phải là string hoặc null");
-    }
-    const m = typeof body.illustrationModel === "string" ? body.illustrationModel.trim() : "";
-    brief.illustrationModel = m || null;
-  }
-  if ("illustrationText" in body) {
-    if (typeof body.illustrationText !== "boolean") {
-      throw new HttpError(400, "INVALID_BRIEF", "illustrationText phải là boolean");
-    }
-    brief.illustrationText = body.illustrationText;
-  }
-  if ("styleId" in body) {
-    if (body.styleId !== null && typeof body.styleId !== "string") {
-      throw new HttpError(400, "INVALID_BRIEF", "styleId phải là string hoặc null");
-    }
-    const styleId = typeof body.styleId === "string" ? body.styleId.trim() : "";
-    if (styleId && !styleExists(styleId)) {
-      throw new HttpError(400, "STYLE_NOT_FOUND", `Không tìm thấy style "${styleId}"`);
-    }
-    brief.styleId = styleId || null;
-  }
-  if ("notes" in body) {
-    if (typeof body.notes !== "string") {
-      throw new HttpError(400, "INVALID_BRIEF", "notes phải là string");
-    }
-    brief.notes = body.notes;
-  }
-
+  const brief: Brief = applyBriefPatch(briefOf(meta), body, styleExists);
   meta.brief = brief;
   writeMeta(id, meta);
   res.json(brief);
