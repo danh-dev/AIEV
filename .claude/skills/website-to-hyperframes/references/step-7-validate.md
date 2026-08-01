@@ -9,7 +9,7 @@ npx hyperframes lint
 npx hyperframes validate
 ```
 
-`lint` checks HTML structure statically — missing attributes, timeline registration, tween conflicts, CSS transform + GSAP conflicts (including inline styles).
+`lint` checks HTML structure statically - missing attributes, timeline registration, tween conflicts, CSS transform + GSAP conflicts (including inline styles).
 `validate` loads the composition in headless Chrome and catches runtime JS errors, missing assets, and failed network requests.
 
 ## Visual Verification (snapshot)
@@ -32,7 +32,7 @@ Calculate the midpoint of each beat from your STORYBOARD.md timings. For a 4-bea
 npx hyperframes snapshot <project-dir> --at 2.9,10.4,18.7,23.9
 ```
 
-This renders one frame per beat at the moment when content is most visible. Use timestamps where the most content is on screen — usually 60-70% into each beat, after entrances finish but before exits start.
+This renders one frame per beat at the moment when content is most visible. Use timestamps where the most content is on screen - usually 60-70% into each beat, after entrances finish but before exits start.
 
 **View every snapshot image carefully.** Don't glance and move on. For each frame, check:
 
@@ -57,9 +57,9 @@ This renders one frame per beat at the moment when content is most visible. Use 
 
 **Code vs. rendered verification:**
 
-- For each beat, check: does the snapshot show the assets you referenced in the HTML? If a composition has `<img src="...wave.png">` but the snapshot shows no wave — the image isn't loading, the path is wrong, or it's hidden behind another element.
+- For each beat, check: does the snapshot show the assets you referenced in the HTML? If a composition has `<img src="...wave.png">` but the snapshot shows no wave - the image isn't loading, the path is wrong, or it's hidden behind another element.
 - If a snapshot shows nothing at a timestamp, try a slightly different time (1-2 seconds later). Compositions may still be in entrance animations.
-- The snapshot command is fast — run it multiple times at different timestamps if needed.
+- The snapshot command is fast - run it multiple times at different timestamps if needed.
 
 If any frame has issues, go back to Step 6 and fix that composition before proceeding.
 
@@ -76,7 +76,7 @@ Open the studio in a browser. Scrub through every beat.
 Write a `HANDOFF.md` for multi-session continuity:
 
 ```markdown
-# Handoff — [Project Name]
+# Handoff - [Project Name]
 
 **Date:** [today]
 **Preview:** `npx hyperframes preview`

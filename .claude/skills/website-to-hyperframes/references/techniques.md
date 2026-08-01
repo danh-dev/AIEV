@@ -2,7 +2,7 @@
 
 10 proven techniques from production HyperFrames videos. Use these in your storyboard and compositions to create visually rich, professional output. Each technique includes a minimal code pattern you can adapt.
 
-These are NOT advanced — they're standard motion design patterns that every composition should use at least 2-3 of.
+These are NOT advanced - they're standard motion design patterns that every composition should use at least 2-3 of.
 
 ---
 
@@ -38,7 +38,7 @@ Use `path.getTotalLength()` to calculate the dasharray value dynamically.
 
 ## 2. Canvas 2D Procedural Art
 
-Animated noise, particle fields, data visualizations — anything that evolves frame-by-frame. Drive it with a GSAP proxy.
+Animated noise, particle fields, data visualizations - anything that evolves frame-by-frame. Drive it with a GSAP proxy.
 
 ```html
 <canvas id="proc-canvas" width="1920" height="1080"></canvas>
@@ -82,7 +82,7 @@ Animated noise, particle fields, data visualizations — anything that evolves f
 </script>
 ```
 
-The `hash()` function is deterministic — same frame renders identically every time.
+The `hash()` function is deterministic - same frame renders identically every time.
 
 ---
 
@@ -146,7 +146,7 @@ Words appear one-by-one, synced to transcript.json timestamps. The core techniqu
 </script>
 ```
 
-The slide distance DECAYS per word (80→12px) — mimics a camera settling.
+The slide distance DECAYS per word (80→12px) - mimics a camera settling.
 
 ---
 
@@ -200,7 +200,7 @@ Embed real video footage inside compositions. Videos must be `muted` with `plays
   ></video>
 </div>
 <script>
-  // Video playback is controlled by the framework — don't call play() manually
+  // Video playback is controlled by the framework - don't call play() manually
   tl.from(".video-frame", { scale: 0.9, opacity: 0, duration: 0.3, ease: "power2.out" }, 0);
 </script>
 ```
@@ -241,7 +241,7 @@ Terminal typing effect using `tl.call()` to update text content character by cha
 </script>
 ```
 
-Use `ease: "steps(1)"` for cursor blink — creates discrete on/off.
+Use `ease: "steps(1)"` for cursor blink - creates discrete on/off.
 
 ---
 
@@ -267,7 +267,7 @@ Animate font-variation-settings to reshape glyphs in real-time. Works with varia
 </script>
 ```
 
-The glyph subtly reshapes as axes animate — optical size adjusts detail, weight changes thickness.
+The glyph subtly reshapes as axes animate - optical size adjusts detail, weight changes thickness.
 
 ---
 
@@ -296,7 +296,7 @@ Animate an element along an arbitrary SVG path. Use for sliders following curves
 
 ## 10. Velocity-Matched Transitions
 
-Exit one beat and enter the next with matched velocities — creates perceived continuous motion.
+Exit one beat and enter the next with matched velocities - creates perceived continuous motion.
 
 ```javascript
 // EXIT (in outgoing composition): accelerating with blur
@@ -326,7 +326,7 @@ tl.to(
 );
 ```
 
-The fastest point of both curves meets at the cut — the viewer perceives smooth camera motion. Match ease families: `.in` for exits, `.out` for entries.
+The fastest point of both curves meets at the cut - the viewer perceives smooth camera motion. Match ease families: `.in` for exits, `.out` for entries.
 
 ---
 

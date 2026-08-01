@@ -1,10 +1,10 @@
-# Build Checklist — Preflight + Pre-Delivery
+# Build Checklist - Preflight + Pre-Delivery
 
 Used by `/make-a-video` Gates 7 and 8. Run before any render and before telling the user "it's done."
 
 ---
 
-## Preflight — structural (before PREVIEW GATE 1)
+## Preflight - structural (before PREVIEW GATE 1)
 
 - [ ] Root `<div>` in `index.html` has `id`, `data-composition-id`, `data-start="0"`, `data-width`, `data-height`
 - [ ] Every sub-composition `.html` has a root `<div>` with `data-composition-id`, `data-start`, `data-duration`
@@ -17,14 +17,14 @@ Used by `/make-a-video` Gates 7 and 8. Run before any render and before telling 
 - [ ] Captions are body-level siblings in `index.html` (not inside sub-compositions), each with `data-track-index ≥ 20`
 - [ ] No `Math.random()`, no `Date.now()`, no render-time `fetch()`
 - [ ] Catalog block CSS is scoped under `[data-composition-id="..."]` (no leaked `html, body { ... }`)
-- [ ] `npx hyperframes lint` — all errors fixed, warnings triaged
+- [ ] `npx hyperframes lint` - all errors fixed, warnings triaged
 
 ---
 
-## Preflight — aesthetic
+## Preflight - aesthetic
 
-- [ ] Palette on-brief — no rogue colors, ≤5 symbolic hues
-- [ ] Typography on-brief — only the fonts declared in `assets/style-profile.md`
+- [ ] Palette on-brief - no rogue colors, ≤5 symbolic hues
+- [ ] Typography on-brief - only the fonts declared in `assets/style-profile.md`
 - [ ] Grid / vignette / grain texture present on every scene (or on the full-composition background)
 - [ ] Ambient background composition on `data-track-index="0"` for full duration
 - [ ] Every scene transition is a *motion* transition (whip · morph · blur · recolor), not a hard fade
@@ -34,13 +34,13 @@ Used by `/make-a-video` Gates 7 and 8. Run before any render and before telling 
 
 ---
 
-## PREVIEW GATE 1 — Studio
+## PREVIEW GATE 1 - Studio
 
 - [ ] `npx hyperframes preview` running (background)
 - [ ] User given `http://localhost:3002`
 - [ ] If the project has shader blocks, user also given individual composition URLs (`http://localhost:3002/?comp=<id>`)
 - [ ] Hot-reload edits show up correctly
-- [ ] **Explicit "looks good, render a draft" captured** — silence is not approval
+- [ ] **Explicit "looks good, render a draft" captured** - silence is not approval
 
 ---
 
@@ -60,7 +60,7 @@ Used by `/make-a-video` Gates 7 and 8. Run before any render and before telling 
       ffmpeg -y -ss <t> -i renders/<slug>-draft.mp4 -frames:v 1 -q:v 2 renders/frames/t<t>.png
       ```
 - [ ] Frame extracted at each transition moment (the mid-streak / mid-morph timestamp)
-- [ ] **Every PNG opened via the `Read` tool** — not just listed by filename
+- [ ] **Every PNG opened via the `Read` tool** - not just listed by filename
 - [ ] For each frame confirmed:
   - [ ] No cropped faces
   - [ ] Face-mode correct per scene (full-screen vs. corner as storyboarded)
@@ -71,9 +71,9 @@ Used by `/make-a-video` Gates 7 and 8. Run before any render and before telling 
 
 ---
 
-## PREVIEW GATE 2 — Rendered MP4
+## PREVIEW GATE 2 - Rendered MP4
 
-- [ ] `npx serve renders -p 8080 -n` running (NOT Python's `http.server` — no Range support breaks scrubbing)
+- [ ] `npx serve renders -p 8080 -n` running (NOT Python's `http.server` - no Range support breaks scrubbing)
 - [ ] User given `http://localhost:8080/<slug>-draft.mp4`
 - [ ] Playback scrubs cleanly end-to-end
 - [ ] Audio syncs with visuals (voiceover · SFX · music bed)
@@ -93,7 +93,7 @@ Used by `/make-a-video` Gates 7 and 8. Run before any render and before telling 
 ## After delivery
 
 - [ ] Update `BRIEF.md` with a `## Delivery` section: final render path, render command used, any post-delivery notes
-- [ ] Offer one round of revisions — the user almost always has one
+- [ ] Offer one round of revisions - the user almost always has one
 - [ ] If the user wants a different format (e.g. 1:1 crop from 16:9), plan that as a new pass through Gates 1–8 with the original `BRIEF.md` as the starting point
 
 ---

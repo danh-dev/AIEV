@@ -1,19 +1,19 @@
 ---
 name: webui-design
-description: Design system của web dashboard AI Edit Video (noti.vn) — token màu light/dark, font Inter, icon SVG, layout kiểu Shopify Admin. Bắt buộc đọc trước khi viết hoặc sửa bất kỳ UI nào trong apps/web.
+description: Design system for the AI Edit Video web dashboard (noti.vn) - light/dark color tokens, Inter font, SVG icons, Shopify Admin style layout. MUST read before writing or modifying any UI in apps/web.
 ---
 
-# Web UI Design System — AI Edit Video by noti.vn
+# Web UI Design System - AI Edit Video by noti.vn
 
-Web UI là **dashboard giám sát và quản lý**, không phải video editor. Chuẩn thẩm mỹ: Shopify Admin — tối giản, mật độ thông tin cao nhưng thoáng, mọi thứ đều có lý do tồn tại.
+The web UI is a **monitoring and management dashboard**, not a video editor. Aesthetic standard: Shopify Admin - minimal, high information density but still airy, every element has a reason to exist.
 
-## 1. Nguyên tắc chung
+## 1. General principles
 
-1. **Token trước, hex sau**: mọi màu đi qua CSS custom properties khai báo ở `:root` và `[data-theme="dark"]`. Component không bao giờ chứa mã hex.
-2. **Sáng là mặc định**, tối là lựa chọn. Toggle lưu vào `localStorage`, áp bằng thuộc tính `data-theme` trên `<html>`.
-3. **Icon 100% SVG inline** — bộ Lucide, stroke 1.5–2px, `currentColor` để tự ăn theo màu chữ. Không icon font, không PNG, không emoji làm icon chức năng.
-4. **Font Inter**, self-host tại `apps/web/public/fonts/` (woff2, weight 400/500/600/700). Không load font từ CDN lúc runtime.
-5. Metadata cố định: title `AI Edit Video by: noti.vn`, description `Edit video tự động bằng AI`, favicon từ `public/brand/favicon.png`.
+1. **Tokens first, hex never**: every color goes through CSS custom properties declared in `:root` and `[data-theme="dark"]`. Components never contain hex codes.
+2. **Light is the default**, dark is opt-in. The toggle persists to `localStorage` and is applied via the `data-theme` attribute on `<html>`.
+3. **Icons are 100% inline SVG** - Lucide set, stroke 1.5-2px, `currentColor` so they inherit text color. No icon fonts, no PNGs, no emoji as functional icons.
+4. **Inter font**, self-hosted at `apps/web/public/fonts/` (woff2, weights 400/500/600/700). Never load fonts from a CDN at runtime.
+5. Fixed metadata: title `AI Edit Video by: noti.vn`, description `Edit video tự động bằng AI`, favicon from `public/brand/favicon.png`.
 
 ## 2. Design tokens
 
@@ -26,8 +26,8 @@ Web UI là **dashboard giám sát và quản lý**, không phải video editor. 
   --secondary: #ff7849;
 
   /* Surface */
-  --bg: #ffffff;          /* nền trang */
-  --bg-subtle: #f6f6f7;   /* sidebar, khối lồng nhau, zebra row */
+  --bg: #ffffff;          /* page background */
+  --bg-subtle: #f6f6f7;   /* sidebar, nested blocks, zebra rows */
   --surface: #ffffff;     /* card */
   --border: #e7e7ea;
 
@@ -49,8 +49,8 @@ Web UI là **dashboard giám sát và quản lý**, không phải video editor. 
 }
 
 [data-theme="dark"] {
-  --primary: #ed3c47;          /* brand giữ nguyên */
-  --primary-hover: #f25560;    /* dark thì hover SÁNG hơn, không đậm hơn */
+  --primary: #ed3c47;          /* brand color stays the same */
+  --primary-hover: #f25560;    /* in dark, hover goes LIGHTER, not darker */
   --primary-soft: #3a1d20;
   --secondary: #ff7849;
 
@@ -71,67 +71,67 @@ Web UI là **dashboard giám sát và quản lý**, không phải video editor. 
 }
 ```
 
-Quy tắc dark mode: chỉ đổi **giá trị** token, không bao giờ thêm token riêng cho dark. Component viết một lần, chạy hai theme.
+Dark mode rule: only change token **values**, NEVER add dark-only tokens. Write the component once, it runs in both themes.
 
 ## 3. Brand assets
 
-| File tại `apps/web/public/brand/` | Nguồn tải | Dùng khi |
+| File in `apps/web/public/brand/` | Download source | Used when |
 |---|---|---|
-| `logo-duong-ban.png` | https://noti.vn/image/new/logo-duong-ban.png | Header khi theme light |
-| `logo-am-ban.png` | https://noti.vn/image/new/logo-am-ban.png | Header khi theme dark |
+| `logo-duong-ban.png` | https://noti.vn/image/new/logo-duong-ban.png | Header in light theme |
+| `logo-am-ban.png` | https://noti.vn/image/new/logo-am-ban.png | Header in dark theme |
 | `favicon.png` | https://noti.vn/image/new/favicon.png | `<link rel="icon">` |
 
-Logo đổi theo theme cùng lúc với token (cùng listener với `data-theme`).
+The logo swaps with the theme at the same moment as the tokens (same `data-theme` listener).
 
-## 4. Layout khung (kiểu Shopify Admin)
+## 4. Frame layout (Shopify Admin style)
 
 ```
 ┌────────────────────────────────────────────────┐
-│ Topbar 56px: logo · tên trang · theme toggle · │
-│ trạng thái backend (chấm xanh/đỏ)              │
+│ Topbar 56px: logo · page name · theme toggle · │
+│ backend status (green/red dot)                 │
 ├─────────┬──────────────────────────────────────┤
 │ Sidebar │  Content: FULL WIDTH, padding 20px,  │
-│ 220px   │  các card cách 12-16px               │
-│ bg-     │  KHÔNG max-width — dùng tối đa không │
-│ subtle  │  gian; trang nhiều cột thì chia grid │
+│ 220px   │  cards spaced 12-16px apart          │
+│ bg-     │  NO max-width - use all the space;   │
+│ subtle  │  multi-column pages use a grid       │
 └─────────┴──────────────────────────────────────┘
 ```
 
-**Quy tắc không gian (quan trọng):** không để khoảng trống chết. Trang làm việc chính (project detail)
-là workspace nhiều cột chiếm toàn bộ chiều rộng; danh sách/bảng giãn theo màn hình. Chỉ form đơn lẻ
-(tạo project, sửa skill) mới được giới hạn chiều rộng cho dễ đọc (~640px).
+**Space rule (important):** never leave dead whitespace. The main working page (project detail)
+is a multi-column workspace filling the full width; lists and tables stretch with the screen. Only
+standalone forms (create project, edit skill) may cap their width for readability (~640px).
 
-Sidebar (icon SVG + label, mục active có nền `--primary-soft` + chữ `--primary`) — 11 mục:
-- **Dashboard** — tổng quan: job đang chạy, project gần đây, lỗi mới
-- **Videos Project** — danh sách video project + trạng thái + preview output
-- **Images Project** — project tạo ảnh (Gemini)
-- **Style Design** — quản lý style (màu, font, effects) áp cho video/ảnh
-- **Render Queue** — hàng đợi job, progress bar, log, nút hủy
-- **Assets** — imports, footage, ảnh, transcript
-- **Sound Effects** — thư viện, nghe thử inline
-- **Prompts** — thư viện prompt mẫu
-- **Skills** — CRUD skill markdown
-- **Cấu hình** (`/config`) — render settings, concurrency
-- **Kết nối** (`/connections`) — API key các provider (Claude, Gemini…)
+Sidebar (SVG icon + label, the active item gets `--primary-soft` background + `--primary` text) - 11 items:
+- **Dashboard** - overview: running jobs, recent projects, new errors
+- **Videos Project** - list of video projects + status + output preview
+- **Images Project** - image generation projects (Gemini)
+- **Style Design** - manage styles (color, font, effects) applied to videos/images
+- **Render Queue** - job queue, progress bar, log, cancel button
+- **Assets** - imports, footage, images, transcripts
+- **Sound Effects** - library, inline preview playback
+- **Prompts** - library of prompt templates
+- **Skills** - CRUD for skill markdown
+- **Cấu hình** (`/config`) - render settings, concurrency
+- **Kết nối** (`/connections`) - API keys for each provider (Claude, Gemini...)
 
-## 5. Component chuẩn
+## 5. Standard components
 
-- **Button primary**: nền `--primary`, chữ trắng, radius `--radius`, hover `--primary-hover`, height 36px, padding ngang 16px. Secondary: nền `--surface`, viền `--border`, chữ `--text`. Destructive: chữ `--danger`, nền `--danger-bg` khi hover.
-- **Card**: nền `--surface`, viền 1px `--border`, radius `--radius-lg`, shadow `--shadow-card`, padding 20px. Tiêu đề card 14px/600, không dùng heading to.
-- **Badge trạng thái** (job/project): nền `--success-bg` chữ `--success` (hoàn thành), `--primary-soft`/`--primary` (đang chạy), `--danger-bg`/`--danger` (lỗi), `--bg-subtle`/`--text-muted` (chờ). Radius full, 12px font, kèm chấm tròn 6px.
-- **Bảng**: header chữ `--text-muted` 12px uppercase, row hover `--bg-subtle`, viền ngang `--border`, không viền dọc.
-- **Progress bar** (render job): track `--bg-subtle`, fill `--primary`, height 6px, radius full; kèm % và tên bước bên phải bằng `--text-muted`.
-- **Typography**: body 14px/1.5; tiêu đề trang 20px/600; số liệu lớn 28px/700. Không dùng quá 2 cấp heading trong một trang.
+- **Primary button**: `--primary` background, white text, radius `--radius`, hover `--primary-hover`, height 36px, horizontal padding 16px. Secondary: `--surface` background, `--border` outline, `--text` label. Destructive: `--danger` text, `--danger-bg` background on hover.
+- **Card**: `--surface` background, 1px `--border`, radius `--radius-lg`, shadow `--shadow-card`, padding 20px. Card title 14px/600 - do not use large headings.
+- **Status badge** (job/project): `--success-bg` background with `--success` text (completed), `--primary-soft`/`--primary` (running), `--danger-bg`/`--danger` (error), `--bg-subtle`/`--text-muted` (queued). Full radius, 12px font, with a 6px dot.
+- **Table**: header in `--text-muted` 12px uppercase, row hover `--bg-subtle`, horizontal `--border` rules, no vertical borders.
+- **Progress bar** (render job): track `--bg-subtle`, fill `--primary`, height 6px, full radius; percentage and current step name on the right in `--text-muted`.
+- **Typography**: body 14px/1.5; page title 20px/600; large figures 28px/700. Never use more than 2 heading levels on one page.
 
-## 6. Realtime & trạng thái
+## 6. Realtime & state
 
-- Trạng thái job/agent stream qua SSE — UI cập nhật trực tiếp, không polling quá 1 lần/5s cho dữ liệu tĩnh.
-- Mọi danh sách đều có empty state tử tế: icon SVG mờ + một câu mô tả + nút hành động chính.
-- Lỗi hiển thị bằng banner `--danger-bg` viền trái 3px `--danger`, kèm nội dung log gốc (collapsible), không nuốt lỗi.
+- Job/agent state streams over SSE - the UI updates live, and never polls more than once per 5s for static data.
+- Every list needs a decent empty state: muted SVG icon + one descriptive sentence + the primary action button.
+- Errors render as a `--danger-bg` banner with a 3px `--danger` left border, including the raw log content (collapsible). NEVER swallow errors.
 
-## 7. Những điều KHÔNG làm
+## 7. What NOT to do
 
-- Không gradient màu mè, không glassmorphism, không animation trang trí — chuyển động duy nhất là transition 150ms và progress bar.
-- Không dùng màu ngoài bảng token (kể cả gray của Tailwind — map về token).
-- Không viết CSS hex trong JSX/TSX.
-- Không thêm tính năng editor video vào web UI — mọi xử lý video nằm ở backend/engine.
+- No flashy gradients, no glassmorphism, no decorative animation - the only motion allowed is the 150ms transition and the progress bar.
+- Never use a color outside the token table (including Tailwind grays - map them to tokens).
+- Never write hex CSS values in JSX/TSX.
+- Never add video editor features to the web UI - all video processing lives in the backend/engine.

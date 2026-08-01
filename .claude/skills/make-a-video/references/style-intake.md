@@ -1,4 +1,4 @@
-# Style Intake — How to Interview Without Imposing a Brand
+# Style Intake - How to Interview Without Imposing a Brand
 
 Used by `/make-a-video` Gate 3. The goal: extract the user's visual identity (or fall back cleanly when they don't have one) without ever picking a brand *for* them.
 
@@ -21,7 +21,7 @@ Does the user have a style guide, brand doc, or explicit palette?
 | Chrome text gradient | `linear-gradient(180deg, #ffffff 0%, #999999 60%, #cccccc 100%)` with `-webkit-background-clip: text; color: transparent;` |
 | Grid lines | `rgba(255, 255, 255, 0.05)` |
 | Vignette | `radial-gradient(ellipse at center, transparent 30%, black 100%)` |
-| Accent | ONE hex picked for symbolic meaning — ask the user "what's the ONE emotion of this video?" and map it |
+| Accent | ONE hex picked for symbolic meaning - ask the user "what's the ONE emotion of this video?" and map it |
 
 Keep accent discipline tight. MOTION_PHILOSOPHY §0 Law 7: ≤5 symbolic colors across the whole video, each with a named meaning.
 
@@ -50,11 +50,11 @@ Variations allowed: Space Grotesk or Geist for a tech feel, Instrument Serif for
    - Secondary accent (the "emotion" color)
    - (Optional: surface · border · warn)
 
-2. **Enforce the ≤5 symbolic colors rule.** If they give you 8 colors, ask which three carry narrative work and which five are decorative — drop the decorative.
+2. **Enforce the ≤5 symbolic colors rule.** If they give you 8 colors, ask which three carry narrative work and which five are decorative - drop the decorative.
 
 3. **Assign meaning to each color.** One sentence per color, e.g. "cyan = action, orange = warning, white = brand voice." Save the mapping in the project's `style-profile.md`.
 
-4. **Check contrast.** If accent hex on background hex is below 4.5:1 for text-sized elements, flag it to the user. Text on a dark background often needs a `text-shadow` halo to read well — MOTION_PHILOSOPHY §2.2 covers the recipe.
+4. **Check contrast.** If accent hex on background hex is below 4.5:1 for text-sized elements, flag it to the user. Text on a dark background often needs a `text-shadow` halo to read well - MOTION_PHILOSOPHY §2.2 covers the recipe.
 
 ## When the user supplies fonts
 
@@ -80,10 +80,10 @@ Variations allowed: Space Grotesk or Geist for a tech feel, Instrument Serif for
 
 ---
 
-## `<project-folder>/assets/style-profile.md` — what it contains
+## `<project-folder>/assets/style-profile.md` - what it contains
 
 ```markdown
-# Style Profile — <project-slug>
+# Style Profile - <project-slug>
 
 ## Palette
 - bg: #...              (role: background)
@@ -123,7 +123,7 @@ Even when the user chooses a fully custom palette, keep these MOTION_PHILOSOPHY 
 - One idea per beat
 - ≤5 symbolic colors, each with a named meaning
 - Grid / vignette / grain texture on every scene
-- Motion-blur transitions (whip-pans, morphs) — never hard cuts
+- Motion-blur transitions (whip-pans, morphs) - never hard cuts
 - Hold the outro 4–6 seconds
 - At least one visual callback (element that returns later)
 

@@ -1,59 +1,59 @@
 ---
 name: remotion-assemble
-description: Cách dùng Remotion làm tầng lắp ráp (assembler) — đọc meta.json của project, ghép scene HyperFrames đã render + footage + voice + sound effect thành video hoàn chỉnh. Đọc khi viết/sửa code trong engines/remotion hoặc khi lắp timeline cho một video.
+description: How to use Remotion as the assembly layer - read the project's meta.json and stitch the rendered HyperFrames scenes + footage + voice + sound effects into the finished video. Read this when writing/editing code in engines/remotion or when assembling the timeline for a video.
 ---
 
-# Remotion Assemble — lắp ráp timeline từ meta.json
+# Remotion Assemble - building the timeline from meta.json
 
-Remotion trong hệ thống này **chỉ làm một việc**: lắp các mảnh đã có (scene MP4 do HyperFrames render, footage gốc, voice, sound effect) thành video cuối. Không dựng motion-graphics trong Remotion — việc đó của HyperFrames.
+In this system Remotion **does exactly one thing**: assemble the pieces that already exist (scene MP4s rendered by HyperFrames, source footage, voice, sound effects) into the final video. Do not build motion graphics in Remotion - that is HyperFrames' job.
 
-## Cấu trúc engines/remotion
+## Structure of engines/remotion
 
 ```
 engines/remotion/
 ├── package.json          ← remotion, @remotion/cli, @remotion/renderer
 ├── remotion.config.ts
 └── src/
-    ├── Root.tsx               ← đăng ký 2 composition: "Assemble" + "Poster"
-    ├── Assemble.tsx           ← composition tổng: đọc manifest → dựng timeline
-    ├── Poster.tsx             ← composition poster/thumbnail tĩnh
-    ├── manifest.ts            ← load + validate props video (zod)
-    ├── posterManifest.ts      ← load + validate props poster (zod)
-    ├── brandFonts.ts          ← load font brand qua staticFile (offline)
-    ├── index.ts               ← entry đăng ký Root
+    ├── Root.tsx               ← registers 2 compositions: "Assemble" + "Poster"
+    ├── Assemble.tsx           ← master composition: read manifest → build timeline
+    ├── Poster.tsx             ← static poster/thumbnail composition
+    ├── manifest.ts            ← load + validate video props (zod)
+    ├── posterManifest.ts      ← load + validate poster props (zod)
+    ├── brandFonts.ts          ← load brand fonts via staticFile (offline)
+    ├── index.ts               ← entry point registering Root
     └── components/
-        ├── SceneClip.tsx      ← <OffthreadVideo>/<Img> một scene/footage
-        ├── Transition.tsx     ← cắt thẳng / crossfade (fade) — chỉ 2 loại
-        ├── SfxTrack.tsx       ← đặt <Audio> theo sfx[].atFrame
-        ├── CaptionTrack.tsx   ← caption karaoke theo word timestamp
-        ├── HighlightTrack.tsx ← band key chính/key liên quan (key-layout)
-        └── vietnameseFont.ts  ← @font-face Inter subset vietnamese
+        ├── SceneClip.tsx      ← <OffthreadVideo>/<Img> for one scene/footage clip
+        ├── Transition.tsx     ← hard cut / crossfade (fade) - only these 2
+        ├── SfxTrack.tsx       ← places <Audio> at sfx[].atFrame
+        ├── CaptionTrack.tsx   ← karaoke captions from word timestamps
+        ├── HighlightTrack.tsx ← main/related key bands (key-layout)
+        └── vietnameseFont.ts  ← @font-face Inter vietnamese subset
 ```
 
-## Nguyên tắc cốt lõi
+## Core principles
 
-1. **Một composition `Assemble` duy nhất, data-driven.** Mọi thứ đến từ `meta.json` của project, truyền qua `defaultProps`/`inputProps`. Thêm video mới = không sửa code Remotion, chỉ thêm manifest.
+1. **A single data-driven `Assemble` composition.** Everything comes from the project's `meta.json`, passed through `defaultProps`/`inputProps`. Adding a new video means no Remotion code changes, only a new manifest.
 
 ```bash
 npx remotion render Assemble \
-  --props="<abs>/video-projects/<ten>/props.resolved.json" \
-  --output="../../outputs/<ten>-v1.mp4" \
+  --props="<abs>/video-projects/<name>/props.resolved.json" \
+  --output="../../outputs/<name>-v1.mp4" \
   --concurrency 8 --gl angle
 ```
 
-> ⚠️ Đường dẫn asset trong props phải là `staging/...` — backend stage asset vào
-> `engines/remotion/public/staging/` bằng hardlink rồi ghi `props.resolved.json`.
-> **KHÔNG render thẳng từ `meta.json`** (đường dẫn trong đó là tương đối theo folder
-> project, Remotion không đọc được qua `staticFile`).
+> ⚠️ Asset paths in the props must be `staging/...` - the backend stages assets into
+> `engines/remotion/public/staging/` via hardlinks and then writes `props.resolved.json`.
+> **NEVER render straight from `meta.json`** (its paths are relative to the project
+> folder, and Remotion cannot resolve those through `staticFile`).
 >
-> `--gl angle` BẮT BUỘC trên máy có GPU — thiếu nó Remotion dựng hình bằng software renderer,
-> CPU 100% còn GPU 5%. Draft thêm `--crf 28 --x264-preset veryfast`. (Queue của backend tự thêm các flag này.)
+> `--gl angle` is MANDATORY on a machine with a GPU - without it Remotion renders with the software renderer,
+> CPU at 100% and GPU at 5%. For drafts add `--crf 28 --x264-preset veryfast`. (The backend queue adds these flags automatically.)
 
-2. **Kích thước/fps lấy từ manifest** — dùng `calculateMetadata` để set `width/height/fps/durationInFrames` động từ props, không hardcode trong `Root.tsx`.
+2. **Dimensions/fps come from the manifest** - use `calculateMetadata` to set `width/height/fps/durationInFrames` dynamically from the props, never hardcode them in `Root.tsx`.
 
-3. **Video nhúng dùng `<OffthreadVideo>`**, không `<Video>` — render server-side ổn định và đúng frame hơn. Scene HyperFrames render ra fps nào thì manifest phải khai đúng fps đó; lệch fps giữa scene và composition là nguồn giật hình số một.
+3. **Embedded video uses `<OffthreadVideo>`**, not `<Video>` - it is more stable server-side and lands on the right frame. Whatever fps a HyperFrames scene was rendered at, the manifest must declare that exact fps; an fps mismatch between scene and composition is the number one source of stuttering.
 
-4. **Timeline = cộng dồn `durationInFrames`:**
+4. **Timeline = accumulating `durationInFrames`:**
 
 ```tsx
 let from = 0;
@@ -68,32 +68,32 @@ scenes.map((s) => {
 });
 ```
 
-Transition có overlap thì trừ overlap khi cộng dồn — quên trừ là hở khoảng đen giữa scene.
+When a transition has an overlap, subtract that overlap while accumulating - forgetting to subtract leaves a black gap between scenes.
 
 5. **Audio:**
-   - Voice: một `<Audio src={voice}>` chạy suốt từ frame 0 — voice là xương sống sync, scene phải khớp theo voice chứ không ngược lại.
-   - Sound effect: mỗi entry `sfx[]` một `<Sequence from={atFrame}><Audio volume={0.3}/></Sequence>`. Volume sfx mặc định 0.3 (thấp hơn voice ~10dB), chỉnh trong manifest bằng field `volume` nếu cần.
-   - Không normalize/mix bằng FFmpeg thủ công sau render — mix trong Remotion để draft nghe giống final.
+   - Voice: one `<Audio src={voice}>` running from frame 0 - the voice is the sync backbone, scenes follow the voice and never the other way round.
+   - Sound effects: each `sfx[]` entry becomes one `<Sequence from={atFrame}><Audio volume={0.3}/></Sequence>`. Default sfx volume is 0.3 (~10dB below the voice); override it in the manifest with the `volume` field if needed.
+   - Do not normalize/mix manually with FFmpeg after rendering - mix inside Remotion so the draft sounds like the final.
 
-6. **Đường dẫn asset**: code Remotion chỉ load qua `staticFile()` — backend stage asset vào `engines/remotion/public/staging/<project>/` (hardlink) và ghi đường dẫn `staging/...` vào `props.resolved.json`; Remotion không bao giờ đọc đường dẫn tuyệt đối. Chạy trên Windows — luôn `path.join` phía backend, không nối chuỗi.
+6. **Asset paths**: Remotion code only loads through `staticFile()` - the backend stages assets into `engines/remotion/public/staging/<project>/` (hardlink) and writes the `staging/...` path into `props.resolved.json`; Remotion never reads an absolute path. This runs on Windows - always use `path.join` on the backend, never string concatenation.
 
 ## Draft vs Final
 
 | | Draft | Final |
 |---|---|---|
-| Lệnh | `--crf 28 --x264-preset veryfast` (+ `--concurrency 8 --gl angle`) | mặc định (crf 18) |
+| Command | `--crf 28 --x264-preset veryfast` (+ `--concurrency 8 --gl angle`) | defaults (crf 18) |
 | Scene input | `renders/*.draft.mp4` | `renders/*.mp4` (quality standard) |
-| Mục đích | duyệt nhịp, sync, transition | xuất bản |
+| Purpose | review pacing, sync, transitions | publishing |
 
-Backend chọn bộ scene input theo type của job — code Remotion không phân biệt draft/final, chỉ nhận đường dẫn từ manifest.
+The backend picks the scene input set based on the job type - the Remotion code does not distinguish draft from final, it only takes the paths from the manifest.
 
-## Lỗi đã biết & cách né
+## Known issues & how to avoid them
 
-- **Giật/đơ hình ở ranh giới scene**: fps scene ≠ fps composition, hoặc `durationInFrames` trong manifest lệch với độ dài thật của MP4. Kiểm bằng `ffprobe -show_streams <file>` trước khi lắp.
-- **Âm thanh lệch dần về cuối**: voice mp3 VBR → convert sang CBR/WAV trước khi đưa vào manifest (`ffmpeg -i voice.mp3 -ar 48000 voice.wav`).
-- **Màu lệch giữa scene HyperFrames và footage**: cả hai engine render qua Chromium nên thường khớp; nếu lệch, kiểm footage có tag color space lạ (`bt709` là chuẩn) — transcode footage về bt709 trước.
-- **Render treo trên Windows**: thường do đường dẫn có ký tự tiếng Việt/khoảng trắng trong tên file asset — đặt tên file asset ASCII kebab-case ngay từ khâu import.
+- **Stutter/freeze at a scene boundary**: the scene fps differs from the composition fps, or `durationInFrames` in the manifest does not match the real length of the MP4. Check with `ffprobe -show_streams <file>` before assembling.
+- **Audio drifting out of sync toward the end**: a VBR voice mp3 -> convert it to CBR/WAV before putting it in the manifest (`ffmpeg -i voice.mp3 -ar 48000 voice.wav`).
+- **Color mismatch between HyperFrames scenes and footage**: both engines render through Chromium so they usually match; if they do not, check whether the footage has an unusual color space tag (`bt709` is the standard) - transcode the footage to bt709 first.
+- **Render hanging on Windows**: usually caused by Vietnamese characters/spaces in an asset file path - name asset files in ASCII kebab-case right from the import step.
 
-## Giấy phép Remotion (nhớ khi triển khai)
+## Remotion license (keep in mind when scaling up)
 
-Remotion miễn phí cho cá nhân và công ty ≤ 3 người; vượt mức cần Company License. Ghi chú này để cân nhắc khi mở rộng — không ảnh hưởng giai đoạn hiện tại.
+Remotion is free for individuals and companies of <= 3 people; beyond that you need a Company License. This note is for planning growth - it does not affect the current stage.

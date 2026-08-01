@@ -7,8 +7,8 @@ description: Install and wire registry blocks and components into HyperFrames co
 
 The registry provides reusable blocks and components installable via `hyperframes add <name>`.
 
-- **Blocks** — standalone sub-compositions (own dimensions, duration, timeline). Included via `data-composition-src` in a host composition.
-- **Components** — effect snippets (no own dimensions). Pasted directly into a host composition's HTML.
+- **Blocks** - standalone sub-compositions (own dimensions, duration, timeline). Included via `data-composition-src` in a host composition.
+- **Components** - effect snippets (no own dimensions). Pasted directly into a host composition's HTML.
 
 ## When to use this skill
 
@@ -27,7 +27,7 @@ hyperframes add data-chart --json       # machine-readable output
 hyperframes add data-chart --no-clipboard  # skip clipboard (CI/headless)
 ```
 
-After install, the CLI prints which files were written and a snippet to paste into your host composition. The snippet is a starting point — you'll need to add `data-composition-id` (must match the block's internal composition ID), `data-start`, and `data-track-index` attributes when wiring blocks.
+After install, the CLI prints which files were written and a snippet to paste into your host composition. The snippet is a starting point - you'll need to add `data-composition-id` (must match the block's internal composition ID), `data-start`, and `data-track-index` attributes when wiring blocks.
 
 Note: `hyperframes add` only works for blocks and components. For examples, use `hyperframes init <dir> --example <name>` instead.
 
@@ -53,7 +53,7 @@ See [install-locations.md](./references/install-locations.md) for full details.
 
 ## Wiring blocks
 
-Blocks are standalone compositions — include them via `data-composition-src` in your host `index.html`:
+Blocks are standalone compositions - include them via `data-composition-src` in your host `index.html`:
 
 ```html
 <div
@@ -69,18 +69,18 @@ Blocks are standalone compositions — include them via `data-composition-src` i
 
 Key attributes:
 
-- `data-composition-src` — path to the block HTML file
-- `data-composition-id` — must match the block's internal ID
-- `data-start` — when the block appears in the host timeline (seconds)
-- `data-duration` — how long the block plays
-- `data-width` / `data-height` — block canvas dimensions
-- `data-track-index` — layer ordering (higher = in front)
+- `data-composition-src` - path to the block HTML file
+- `data-composition-id` - must match the block's internal ID
+- `data-start` - when the block appears in the host timeline (seconds)
+- `data-duration` - how long the block plays
+- `data-width` / `data-height` - block canvas dimensions
+- `data-track-index` - layer ordering (higher = in front)
 
 See [wiring-blocks.md](./references/wiring-blocks.md) for full details.
 
 ## Wiring components
 
-Components are snippets — paste their HTML into your composition's markup, their CSS into your style block, and their JS into your script (if any):
+Components are snippets - paste their HTML into your composition's markup, their CSS into your style block, and their JS into your script (if any):
 
 1. Read the installed file (e.g., `compositions/components/grain-overlay.html`)
 2. Copy the HTML elements into your composition's `<div data-composition-id="...">`

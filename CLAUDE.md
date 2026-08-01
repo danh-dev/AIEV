@@ -165,5 +165,5 @@ Tải về `apps/web/public/brand/` khi scaffold web UI — không hotlink lúc 
 - TypeScript cho toàn bộ `apps/`; JavaScript thuần + GSAP cho composition HyperFrames (đúng chuẩn framework — không React trong scene).
 - Tên project video: kebab-case (`tiktok-paper-gpt5`, `promo-noti-t8`).
 - Backend là nguồn sự thật về trạng thái job; web UI không tự suy diễn trạng thái.
-- Commit message tiếng Anh, ngắn gọn; nội dung video và tài liệu tiếng Việt.
+- Ngôn ngữ: commit message **tiếng Anh**, ngắn gọn. Toàn bộ `.claude/skills/` viết **tiếng Anh** (chuỗi ví dụ đặc thù tiếng Việt như chữ có dấu minh họa lỗi font, filler "ừm/à/kiểu" thì giữ nguyên tiếng Việt vì dịch đi là mất ý nghĩa minh họa). Nội dung video, web UI và tài liệu cho người dùng vẫn **tiếng Việt**.
 - Không commit: `renders/`, `outputs/`, `imports/`, `image-projects/`, `props.resolved.json`, `node_modules/`, `.env`.

@@ -1,60 +1,61 @@
 ---
 name: color-grading
-description: Chỉnh màu video trong hệ thống AI Edit Video — delog/tonemap footage HDR-HLG-log, áp preset màu người dùng đã duyệt trên UI, và quy trình verify màu bằng mắt. Đọc khi edit prompt có mục "Chỉnh màu", khi footage nguồn là HDR/log, hoặc khi người dùng yêu cầu chỉnh màu/delog.
+description: Color grading video in the AI Edit Video system - delog/tonemap HDR-HLG-log footage, apply the color preset the user approved in the UI, and the visual verification workflow. Read when the edit prompt has a "Chỉnh màu" (color grading) section, when the source footage is HDR/log, or when the user asks for grading/delog.
 ---
 
-# Color Grading — chỉnh màu video
+# Color Grading - grading video footage
 
-## Nguyên tắc số 1: preview = kết quả cuối
+## Rule #1: the preview IS the final result
 
-Người dùng đã DUYỆT màu trên web UI dựa trên preview sinh từ các filter chain chuẩn trong
-`apps/server/src/color.ts` (`GRADE_PRESETS`). Khi áp lên video thật, PHẢI dùng **đúng chuỗi filter đó**
-— không tự chế, không "cải thiện thêm". Sai chuỗi = màu lệch so với cái người dùng đã chọn.
+The user already APPROVED the color in the web UI based on a preview generated from the canonical filter chains in
+`apps/server/src/color.ts` (`GRADE_PRESETS`). When applying it to the real video you MUST use **that exact filter chain**
+- do not invent your own, do not "improve it further". A different chain = a color that no longer matches what the user picked.
 
-## Nguồn sự thật của preset + chỉnh tay
+## Source of truth for presets + manual adjustments
 
-Đọc `apps/server/src/color.ts`:
-- `GRADE_PRESETS` — 14 template màu (tu-nhien, tuoi-sang, vivid, cinematic, teal-orange,
-  film-vintage, mau-phim, golden-hour, am, lanh, dem-xanh, moody, pastel, den-trang) kèm chuỗi -vf.
-- `GradeAdjust` — thông số chỉnh tay người dùng cộng CHỒNG lên preset (brightness/contrast/
-  saturation/gamma qua `eq`, `colortemperature`, `vibrance`); hàm `buildFilterChain(preset, tonemap, adjust)`
-  ghép đúng thứ tự: tonemap → preset → chỉnh tay.
-- Prompt edit đã in sẵn chuỗi -vf hoàn chỉnh cho từng asset — CHỈ VIỆC DÙNG NGUYÊN VĂN.
+Read `apps/server/src/color.ts`:
+- `GRADE_PRESETS` - 14 color templates (tu-nhien, tuoi-sang, vivid, cinematic, teal-orange,
+  film-vintage, mau-phim, golden-hour, am, lanh, dem-xanh, moody, pastel, den-trang) with their -vf chains.
+- `GradeAdjust` - the user's manual tweaks stacked ON TOP of the preset (brightness/contrast/
+  saturation/gamma via `eq`, `colortemperature`, `vibrance`); the `buildFilterChain(preset, tonemap, adjust)` function
+  assembles them in the correct order: tonemap -> preset -> manual adjustments.
+- The edit prompt already prints the complete -vf chain for each asset - JUST USE IT VERBATIM.
 
-## Delog / tonemap HDR (chèn TRƯỚC preset)
+## Delog / HDR tonemap (insert BEFORE the preset)
 
-Kiểm tra footage bằng ffprobe:
+Inspect the footage with ffprobe:
 ```bash
 ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer,color_primaries -of csv=p=0 input.mp4
 ```
-Nếu `color_transfer` là `arib-std-b67` (HLG — iPhone/Android quay HDR) hoặc `smpte2084` (HDR10),
-hoặc `color_primaries` là `bt2020` → chèn tonemap TRƯỚC preset:
+If `color_transfer` is `arib-std-b67` (HLG - iPhone/Android HDR capture) or `smpte2084` (HDR10),
+or `color_primaries` is `bt2020` -> insert the tonemap BEFORE the preset:
 
 ```
 zscale=t=linear:npl=100,tonemap=hable:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p
 ```
 
-Log máy quay chuyên (S-Log3, D-Log, V-Log...) mà metadata không khai HDR: cần LUT `.cube` của hãng —
-nếu chưa có LUT trong hệ thống, báo người dùng thay vì đoán mò.
+Professional camera log (S-Log3, D-Log, V-Log...) whose metadata does not declare HDR needs the vendor's `.cube` LUT -
+if that LUT is not in the system, tell the user instead of guessing.
 
-## Quy trình áp màu cho một video
+## Workflow for grading one video
 
-1. Probe màu (lệnh trên) → xác định có cần tonemap không.
-2. Tạo bản đã chỉnh màu (encode chất lượng cao, giữ audio nguyên):
+1. Probe the color (command above) -> decide whether a tonemap is needed.
+2. Produce the graded version (high quality encode, audio untouched):
 ```bash
-ffmpeg -y -i assets/source.mp4 -vf "<tonemap-nếu-cần>,<chuỗi-preset>" -c:v libx264 -crf 16 -preset medium -c:a copy assets/source.graded.mp4
+ffmpeg -y -i assets/source.mp4 -vf "<tonemap-if-needed>,<preset-chain>" -c:v libx264 -crf 16 -preset medium -c:a copy assets/source.graded.mp4
 ```
-3. **Verify bằng mắt (bắt buộc)**: trích 3 frame (đầu / giữa / cuối) của bản graded, NHÌN từng ảnh:
-   da người tự nhiên không cam cháy? highlight không bệt? đen không nát? Có vấn đề → báo lại,
-   đừng lặng lẽ đổi filter (người dùng đã chốt preset).
-4. Dùng bản `.graded.mp4` trong TOÀN BỘ pipeline thay bản gốc (meta.json srcVideo, transcribe vẫn
-   dùng audio nào cũng được vì audio copy nguyên).
-5. Ghi vào mô tả asset (assets.json) là đã grade bằng preset nào để lần sau không grade lặp 2 lần.
+3. **Visual verification (mandatory)**: extract 3 frames (start / middle / end) of the graded version and LOOK at each one:
+   are skin tones natural and not blown out orange? are highlights not clipped? are blacks not crushed? If something is
+   wrong -> report back, do NOT silently change the filter (the user locked in the preset).
+4. Use the `.graded.mp4` version throughout the ENTIRE pipeline instead of the original (meta.json srcVideo; transcription
+   can use either file since the audio is copied unchanged).
+5. Record in the asset description (assets.json) which preset was used to grade it, so it does not get graded twice later.
 
-## Lỗi đã biết
+## Known issues
 
-- **Grade 2 lần**: bản `.graded.mp4` bị áp preset lần nữa ở phiên sau → màu gắt. Luôn kiểm tra tên file
-  và assets.json trước khi grade.
-- **Chỉ grade video chính, quên b-roll/ảnh chèn**: ảnh chèn thường không cần grade (đồ họa), nhưng
-  b-roll quay cùng máy thì cần cùng preset — hỏi mô tả asset để biết file nào là footage máy quay.
-- **tonemap thiếu `format=yuv420p` cuối chuỗi** → file ra 10-bit, HyperFrames/trình duyệt có thể không phát được.
+- **Grading twice**: the `.graded.mp4` gets the preset applied again in a later session -> harsh color. ALWAYS check the
+  filename and assets.json before grading.
+- **Grading only the main video and forgetting b-roll/inserted images**: inserted images usually do not need grading
+  (they are graphics), but b-roll shot on the same camera needs the same preset - check the asset descriptions to know
+  which files came from the camera.
+- **Missing `format=yuv420p` at the end of the tonemap chain** -> the output is 10-bit and HyperFrames/browsers may not play it.

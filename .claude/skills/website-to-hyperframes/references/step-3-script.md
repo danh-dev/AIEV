@@ -1,8 +1,8 @@
 # Step 3: Write the Narration Script
 
-**Before writing, re-read DESIGN.md** — specifically the Overview and Components sections. The script should reference real product features, real stats, and real components that the website highlights. Use exact numbers from `extracted/visible-text.txt`.
+**Before writing, re-read DESIGN.md** - specifically the Overview and Components sections. The script should reference real product features, real stats, and real components that the website highlights. Use exact numbers from `extracted/visible-text.txt`.
 
-The script is the backbone. Everything downstream — scene durations, animation timing, beat pacing — comes from the narration. Write it before the storyboard.
+The script is the backbone. Everything downstream - scene durations, animation timing, beat pacing - comes from the narration. Write it before the storyboard.
 
 Save as `SCRIPT.md` in the project directory.
 
@@ -11,14 +11,14 @@ Save as `SCRIPT.md` in the project directory.
 - **2.5 words per second** is natural speaking pace
 - 15s = ~37 words. 30s = ~75 words. 60s = ~150 words
 - Leave room for pauses. Silence between sentences is a feature, not dead air
-- The script should feel SHORTER than the video — visual breathing room matters
+- The script should feel SHORTER than the video - visual breathing room matters
 
 ## Tone
 
 Write like a person, not a brochure:
 
 - Use contractions: "it's", "you'll", "that's", "we've"
-- Vary sentence length — short punchy phrases mixed with longer flowing ones
+- Vary sentence length - short punchy phrases mixed with longer flowing ones
 - Read it out loud. If it sounds robotic, rewrite it
 - Avoid jargon unless the audience expects it
 
@@ -42,10 +42,10 @@ The visual can show the exact figure while the voice rounds it.
 
 For product videos from a website capture:
 
-1. **Hook** — what's surprising or impressive about this product? A bold claim, a provocative question, a contrast, or a striking number. This is the opening line. **Vary the hook type** — don't default to a stat every time.
-2. **Story** — what does the product do? Who uses it? Keep it concrete.
-3. **Proof** — stats, customer names, social proof. Real numbers from the website.
-4. **CTA** — what should the viewer do? "Start building at stripe dot com."
+1. **Hook** - what's surprising or impressive about this product? A bold claim, a provocative question, a contrast, or a striking number. This is the opening line. **Vary the hook type** - don't default to a stat every time.
+2. **Story** - what does the product do? Who uses it? Keep it concrete.
+3. **Proof** - stats, customer names, social proof. Real numbers from the website.
+4. **CTA** - what should the viewer do? "Start building at stripe dot com."
 
 Not every video needs all four. A 15-second social ad might be Hook + Proof + CTA. A 60-second product tour uses all four with more Story.
 
@@ -58,7 +58,7 @@ Patterns that work:
 - **A bold claim**: "The financial infrastructure that powers the internet economy."
 - **A question that provokes**: "What if your database could think?"
 - **A contrast**: "Your AI agent already knows how to make videos. It just needs the right format."
-- **A number that shocks**: "Nearly two trillion dollars." (Use sparingly — not every video should open with a stat.)
+- **A number that shocks**: "Nearly two trillion dollars." (Use sparingly - not every video should open with a stat.)
 
 If the opening is generic ("Welcome to Stripe" / "Introducing our product"), start over.
 
@@ -79,7 +79,7 @@ Anything a browser can render can be a frame in your video.
 
 CSS animations. G-Sap. Lottie. Shaders. Three.js.
 
-Drop in music, sound effects, footage — it all composes together.
+Drop in music, sound effects, footage - it all composes together.
 
 No new framework for the agent to learn.
 Just HTML.
@@ -93,4 +93,4 @@ Watch it build.
 Hyperframes. Go make something.
 ```
 
-Note: ~140 words for 62 seconds — that's 2.3 words/sec, leaving room for pauses and visual breathing.
+Note: ~140 words for 62 seconds - that's 2.3 words/sec, leaving room for pauses and visual breathing.

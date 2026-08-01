@@ -1,20 +1,20 @@
-# Composition Scaffold — Scoped Styles + IIFE GSAP Pattern
+# Composition Scaffold - Scoped Styles + IIFE GSAP Pattern
 
 Used by `/make-a-video` Gate 6. Every sub-composition follows this pattern.
 
 ## Why this pattern
 
 - **Scoped styles** (`[data-composition-id="..."] { ... }`) prevent CSS bleed between compositions and from catalog blocks.
-- **IIFE** keeps GSAP variables out of the global namespace — multiple sub-compositions won't collide.
+- **IIFE** keeps GSAP variables out of the global namespace - multiple sub-compositions won't collide.
 - **Anchor tween** (`tl.to({}, { duration: SLOT_DURATION }, 0)`) guarantees `timeline.duration() ≥ data-duration`, preventing the black-frame flash HyperFrames emits when a timeline ends short. MOTION_PHILOSOPHY Law 11.
 
 ---
 
-## Boilerplate — one sub-composition file
+## Boilerplate - one sub-composition file
 
 ```html
 <div data-composition-id="scene-01-hook" data-start="0" data-duration="1.5">
-  <!-- Scoped styles — every selector under the [data-composition-id] -->
+  <!-- Scoped styles - every selector under the [data-composition-id] -->
   <style>
     [data-composition-id="scene-01-hook"] {
       position: absolute;
@@ -32,7 +32,7 @@ Used by `/make-a-video` Gate 6. Every sub-composition follows this pattern.
     }
   </style>
 
-  <!-- DOM — timed elements get class="clip" + data-start/duration/track -->
+  <!-- DOM - timed elements get class="clip" + data-start/duration/track -->
   <span class="word w1 clip" data-start="0.0" data-duration="0.8" data-track-index="2">Why</span>
   <span class="word w2 clip" data-start="0.2" data-duration="0.8" data-track-index="2">is</span>
   <span class="word w3 clip" data-start="0.4" data-duration="0.8" data-track-index="2">this</span>
@@ -61,10 +61,10 @@ Used by `/make-a-video` Gate 6. Every sub-composition follows this pattern.
       tl.to('[data-composition-id="scene-01-hook"] .w5',
         { scale: 8, opacity: 0, duration: 0.4, ease: 'power2.in' }, 1.1);
 
-      // ANCHOR — keeps timeline.duration() >= SLOT_DURATION. Non-negotiable.
+      // ANCHOR - keeps timeline.duration() >= SLOT_DURATION. Non-negotiable.
       tl.to({}, { duration: SLOT_DURATION }, 0);
 
-      // Register — key MUST exactly match data-composition-id
+      // Register - key MUST exactly match data-composition-id
       window.__timelines['scene-01-hook'] = tl;
     })();
   </script>
@@ -75,14 +75,14 @@ Used by `/make-a-video` Gate 6. Every sub-composition follows this pattern.
 
 ## Hard rules the scaffold enforces
 
-1. **Root composition `<div>` in `index.html`** has `id`, `data-composition-id`, `data-start="0"`, `data-width`, `data-height`. Sub-composition roots have `data-composition-id`, `data-start`, `data-duration` — no width/height.
-2. **Every timed visible element** has `class="clip"`, `data-start`, `data-duration`, `data-track-index`. **Exceptions:** `<video>` and `<audio>` do NOT get `class="clip"` — it breaks them.
+1. **Root composition `<div>` in `index.html`** has `id`, `data-composition-id`, `data-start="0"`, `data-width`, `data-height`. Sub-composition roots have `data-composition-id`, `data-start`, `data-duration` - no width/height.
+2. **Every timed visible element** has `class="clip"`, `data-start`, `data-duration`, `data-track-index`. **Exceptions:** `<video>` and `<audio>` do NOT get `class="clip"` - it breaks them.
 3. **CSS is scoped.** No top-level rules inside a sub-composition file. Every selector lives under `[data-composition-id="..."]`.
 4. **Timeline registered** on `window.__timelines['<id>']` with key exactly matching `data-composition-id`.
 5. **Anchor tween** at the end of every timeline: `tl.to({}, { duration: SLOT_DURATION }, 0)`.
-6. **Never** `masterTL.add(child)` — HyperFrames auto-links sub-composition timelines to the parent.
+6. **Never** `masterTL.add(child)` - HyperFrames auto-links sub-composition timelines to the parent.
 7. **Never** call `.play()` / `.pause()` / set `.currentTime` on media. The framework owns playback.
-8. **Never animate** `width` · `height` · `top` · `left` directly on a `<video>` — browsers freeze frames. Wrap in a `<div>` and animate the wrapper.
+8. **Never animate** `width` · `height` · `top` · `left` directly on a `<video>` - browsers freeze frames. Wrap in a `<div>` and animate the wrapper.
 9. **Same-track clips never overlap** (same `data-track-index`). Use separate track indices for overlapping elements.
 
 ---
@@ -100,7 +100,7 @@ In `index.html`:
   data-track-index="0"></template>
 ```
 
-`compositions/ambient-bg.html` is its own sub-composition: grid + vignette + grain + slow drifts (breathing vignette, parallax grid). Uses the same scaffold pattern — scoped styles, IIFE, anchor tween.
+`compositions/ambient-bg.html` is its own sub-composition: grid + vignette + grain + slow drifts (breathing vignette, parallax grid). Uses the same scaffold pattern - scoped styles, IIFE, anchor tween.
 
 ---
 
@@ -152,7 +152,7 @@ Useful for small offsets around a named beat without hard-coding seconds.
 
 ---
 
-## Diagnostic — every timeline fills its slot
+## Diagnostic - every timeline fills its slot
 
 Before shipping, open Studio devtools and run:
 

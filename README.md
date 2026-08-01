@@ -104,7 +104,13 @@ On a project page, in the **Sources & Assets** card click **Connect phone** - sc
 
 Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk) · [HyperFrames](https://www.npmjs.com/package/hyperframes) · [Remotion](https://remotion.dev) · Gemini API · faster-whisper · FFmpeg
 
-> License note: Remotion is free for individuals and companies of up to 3 people - beyond that you need a [Company License](https://remotion.pro).
+## License
+
+[MIT](LICENSE) - free to use, modify and distribute, including commercially.
+
+> Note on dependencies: this project's own license is MIT, but bundled tools keep their own.
+> Remotion in particular is free for individuals and companies of up to 3 people; beyond that you
+> need a [Company License](https://remotion.pro). Claude and Gemini usage is billed to your own account.
 
 ---
 

@@ -1,21 +1,21 @@
 ---
 name: short-form-video
-description: Build and iterate short-form vertical (9:16) videos in Hyperframes — TikTok/Reels/Shorts style. Use when Nate says "short-form video", "vertical video", "TikTok/Reels/Shorts", "make a short", "talking-head + motion graphics", or when the target is a 1080x1920 composition with face video + synced scene overlays + karaoke captions. Encodes the full May Shorts 19 playbook: face-mode choreography, audio-synced scene timing, karaoke captions, and the 10-rule quality checklist.
+description: Build and iterate short-form vertical (9:16) videos in Hyperframes - TikTok/Reels/Shorts style. Use when Nate says "short-form video", "vertical video", "TikTok/Reels/Shorts", "make a short", "talking-head + motion graphics", or when the target is a 1080x1920 composition with face video + synced scene overlays + karaoke captions. Encodes the full May Shorts 19 playbook: face-mode choreography, audio-synced scene timing, karaoke captions, and the 10-rule quality checklist.
 ---
 
 # Short-Form Vertical Video (Hyperframes)
 
-## ⚖️ STYLE DESIGN — LUẬT ƯU TIÊN (đọc trước tiên)
+## ⚖️ STYLE DESIGN - HIGHEST PRIORITY RULE (read this first)
 
-Nếu edit prompt có mục **"STYLE DESIGN (BẮT BUỘC TUÂN THỦ 100%)"**: bảng màu, font, tone
-trong mục đó **THAY THẾ HOÀN TOÀN** mọi quy định màu/font/branding trong skill này
-(kể cả "dark fintech xanh", hex GĐT, gradient mặc định...). Chỉ giữ lại: kỹ thuật animation,
-layout, nhịp cắt, quy trình render, các fix lỗi. Ảnh minh họa tạo qua /api/illustrations
-phải truyền đúng styleId trong prompt. KHÔNG có mục Style Design → dùng branding mặc định của skill.
+If the edit prompt contains a **"STYLE DESIGN (BẮT BUỘC TUÂN THỦ 100%)"** section: the palette, fonts and tone
+in that section **COMPLETELY REPLACE** every color/font/branding rule in this skill
+(including "dark fintech blue", the GĐT hex codes, the default gradients...). Keep only: animation technique,
+layout, cut rhythm, render workflow, and the bug fixes. Illustrations generated via /api/illustrations
+MUST pass the correct styleId in the prompt. NO Style Design section -> use this skill's default branding.
 
 Short-form = 1080x1920 vertical, 10–30s, talking-head face + motion-graphic scene overlays + karaoke captions. Everything in this skill is distilled from the May Shorts 19 iteration autopsy (v1 → v4) and should be applied on every new short.
 
-**Always invoke `/hyperframes` first.** This skill sits on top of it — it does not replace the framework rules (`data-*` attributes, `window.__timelines`, composition structure). Those are non-negotiable regardless of the format.
+**Always invoke `/hyperframes` first.** This skill sits on top of it - it does not replace the framework rules (`data-*` attributes, `window.__timelines`, composition structure). Those are non-negotiable regardless of the format.
 
 ## When this skill fires
 
@@ -26,10 +26,10 @@ Short-form = 1080x1920 vertical, 10–30s, talking-head face + motion-graphic sc
 
 ## The playbook (high-level)
 
-1. **Audio is source of truth.** Edit audio FIRST (cut retakes, pauses). Save as `<name>-edit.mp4`. Measure exact duration with `ffprobe` — this is the composition's `data-duration`.
+1. **Audio is source of truth.** Edit audio FIRST (cut retakes, pauses). Save as `<name>-edit.mp4`. Measure exact duration with `ffprobe` - this is the composition's `data-duration`.
 2. **Transcribe the edited audio** with `npx hyperframes transcribe <edit>.mp4 --model small.en --json`, or if retiming an existing build with a `shift()` function in captions, keep the existing captions and just shift scene starts.
-3. **Author scene boundaries in edited-time** — NEVER mix original-time and edited-time anchors in the same file. See "Audio-sync protocol" below.
-4. **Build the composition scaffold** (4 layers: ambient-bg, seam-treatment, captions, face) — see "Composition scaffold" below.
+3. **Author scene boundaries in edited-time** - NEVER mix original-time and edited-time anchors in the same file. See "Audio-sync protocol" below.
+4. **Build the composition scaffold** (4 layers: ambient-bg, seam-treatment, captions, face) - see "Composition scaffold" below.
 5. **Author scenes with LOCAL offsets** relative to each scene's `data-start`. Each scene is its own sub-composition under `compositions/scene<N>-<label>.html`.
 6. **Lint → draft render → word-exact frame verification → final render.** This is the verification gate. Never skip step 3 (frame verification).
 
@@ -39,22 +39,22 @@ Every short-form vertical has these four sub-compositions under `compositions/`,
 
 ```
 index.html (root, 1080x1920, data-composition-id="main")
-├── ambient-bg.html        track-index="3" — radial gradient + drift grid + particles + vignette
-├── face-wrapper + <video> track-index="0" — talking head (see face-mode choreography)
-├── seam-treatment.html    track-index="5" — feathers y=960 edge (bottom-half scenes only)
-├── scene1-<label>.html    track-index="1" — scene overlays (back-to-back, no gaps)
+├── ambient-bg.html        track-index="3" - radial gradient + drift grid + particles + vignette
+├── face-wrapper + <video> track-index="0" - talking head (see face-mode choreography)
+├── seam-treatment.html    track-index="5" - feathers y=960 edge (bottom-half scenes only)
+├── scene1-<label>.html    track-index="1" - scene overlays (back-to-back, no gaps)
 ├── scene2-<label>.html    track-index="1"
 ├── …
-└── captions.html          track-index="2" — karaoke captions, word-synced
+└── captions.html          track-index="2" - karaoke captions, word-synced
 ```
 
 - `data-duration` is identical across root, ambient-bg, seam-treatment, face-video, face-audio, captions. Only scene overlays change over time.
 - `<audio>` for the face is a SEPARATE element (mixer needs it), never use the video's own audio track.
-- `class="clip"` goes on timed divs — NEVER on `<video>` or `<audio>`.
+- `class="clip"` goes on timed divs - NEVER on `<video>` or `<audio>`.
 
 ## Face-mode choreography (the signature move of short-form)
 
-The face lives in a wrapper div sized at the source's native landscape (1920x1080). GSAP animates the WRAPPER (never the video element — animating `<video>` dimensions freezes frames).
+The face lives in a wrapper div sized at the source's native landscape (1920x1080). GSAP animates the WRAPPER (never the video element - animating `<video>` dimensions freezes frames).
 
 Two modes:
 
@@ -109,7 +109,7 @@ A navy→transparent gradient band (60–100px) at y=960 plus a 2px accent scan 
    ```
    Difference = total cut time.
 2. If using a `shift()` function in `captions.html` to map transcript words, treat that as the source of truth. The map `shift(originalTime) = editedTime` applies to EVERY scene `data-start` too.
-3. Scene internal offsets (inside `compositions/sceneN.html`) are LOCAL relative to the scene's `data-start`. If a scene's parent `data-start` is correct in edited-time, internal offsets stay correct WITHOUT modification — UNLESS a scene straddles a cut, in which case both the parent duration AND internal offsets shift.
+3. Scene internal offsets (inside `compositions/sceneN.html`) are LOCAL relative to the scene's `data-start`. If a scene's parent `data-start` is correct in edited-time, internal offsets stay correct WITHOUT modification - UNLESS a scene straddles a cut, in which case both the parent duration AND internal offsets shift.
 4. Face-mode transition array times MUST use edited-time. They are NOT automatically shifted.
 
 **Plan format for retimes** (use this table structure every time):
@@ -134,14 +134,14 @@ One scene = one sub-composition file. Scenes sit on the same `data-track-index` 
 - **Payoff ≥ 1s hold.** The "big reveal" of the scene (stamp, number lock, punchline) must have ≥1s on screen, ideally 1.5s. Budget scenes by reveal time, not total time.
 - **Motion through full duration.** If entrance anims all land by local 2s on a 4s scene, add secondary motion: underline sweeps, checkmark pops, ambient drift on cards, small oscillating glows on pills. Dead pacing = swipe-away.
 - **Vary eases.** At least 3 different eases per scene across entrances.
-- **One jaw-dropper per 5s of runtime.** Typography slam, glitch/chromatic reveal, whip-pan, audio-sync slam. Without these, the video reads as "labeled talking head" — correct but forgettable.
+- **One jaw-dropper per 5s of runtime.** Typography slam, glitch/chromatic reveal, whip-pan, audio-sync slam. Without these, the video reads as "labeled talking head" - correct but forgettable.
 
 ## Captions (karaoke style)
 
 - Montserrat 900, 46–58px (for 1080 width), 100% white base
 - Active word: scale-1.08 pop + color change to accent (`#37bdf8` for AIS, adapt to brand)
 - Stroke via layered `text-shadow`, NEVER `-webkit-text-stroke` (renders inconsistently in Chromium render)
-- Drop the rgba background pill — let the stroke hold readability. Captions should feel like graffiti on the frame, not a subtitle track.
+- Drop the rgba background pill - let the stroke hold readability. Captions should feel like graffiti on the frame, not a subtitle track.
 - For retimes, use a `shift()` function inside `captions.html` to map transcript word timestamps → edited-time. This keeps the transcript JSON untouched and makes retimes mechanical.
 
 See `references/captions.md` under `/hyperframes` for the full karaoke implementation. TL;DR: per-word `<span>` elements with `data-word-start`, GSAP tweens scoped to each span, tight 0.08–0.12s pop durations.
@@ -161,7 +161,7 @@ Minimum viable background stack:
 
 - Headlines pulse 3–6% on beat. Backgrounds can go 10–30% on bass.
 - Text reactivity kept subtle (3–6%) so captions stay readable; backgrounds can push harder.
-- Use a SEEDED offline analyser (pre-compute the audio feature track) so renders are deterministic. Do NOT use `AnalyserNode` in the render path — `Math.random()` and real-time audio nodes break determinism.
+- Use a SEEDED offline analyser (pre-compute the audio feature track) so renders are deterministic. Do NOT use `AnalyserNode` in the render path - `Math.random()` and real-time audio nodes break determinism.
 
 ## Transitions
 
@@ -169,11 +169,11 @@ Minimum viable background stack:
 - Face-mode transitions (`BOTTOM ↔ FULLSCREEN`) double as scene transitions when the mode changes between scenes.
 - For pure overlay scene-to-scene, install from registry: `push-up`, `flash-through-white`, `sdf-iris`, or the full shader-transitions pack. `npx hyperframes catalog --type block` to browse.
 
-## The verification gate (mandatory — DO NOT ship without)
+## The verification gate (mandatory - DO NOT ship without)
 
 Lint passing ≠ design working. Never report a short-form render done until you have extracted frames at word-exact timestamps and READ every PNG.
 
-### Step 1 — draft render
+### Step 1 - draft render
 
 ```bash
 cd video-projects/<slug>
@@ -181,7 +181,7 @@ npx hyperframes lint
 npx hyperframes render --quality draft --output renders/<slug>-vN-draft.mp4
 ```
 
-### Step 2 — word-exact frame extraction
+### Step 2 - word-exact frame extraction
 
 Pick 8–15 timestamps that each correspond to a SPOKEN WORD where a specific visual should be on-screen. Not round numbers. Not mid-scene. The exact word.
 
@@ -194,7 +194,7 @@ for pair in "<t>:<label>" "<t>:<label>" ...; do
 done
 ```
 
-### Step 3 — Read every PNG
+### Step 3 - Read every PNG
 
 Call `Read` on every PNG so the image loads into context. Do NOT just list filenames. For each frame confirm:
 
@@ -204,9 +204,9 @@ Call `Read` on every PNG so the image loads into context. Do NOT just list filen
 - Captions are on-brand, readable, not overflowing
 - No blank frames, no unintentional overlap, no text-off-canvas
 
-### Step 4 — if anything fails, fix + re-verify. Never ship broken.
+### Step 4 - if anything fails, fix + re-verify. Never ship broken.
 
-### Step 5 — final render
+### Step 5 - final render
 
 ```bash
 npx hyperframes render --quality standard --output renders/<slug>-vN.mp4
@@ -214,7 +214,7 @@ npx hyperframes render --quality standard --output renders/<slug>-vN.mp4
 
 Spot-check 3–4 frames from the final render (same timestamps, different folder `frames-vN-final/`) to confirm the standard-quality encode didn't change anything.
 
-## The 10 rules (quality checklist — run BEFORE first draft)
+## The 10 rules (quality checklist - run BEFORE first draft)
 
 Every short-form build. Run this list during authoring, not after.
 
@@ -246,7 +246,7 @@ video-projects/<slug>/
 │   └── ...
 ├── assets/
 │   ├── <name>.mp4               (original recording)
-│   ├── <name>-edit.mp4          (edited — cuts removed — this is what the comp uses)
+│   ├── <name>-edit.mp4          (edited - cuts removed - this is what the comp uses)
 │   ├── transcript.json          (whisper output)
 │   └── brand assets (logo, brand-tokens.css, background music)
 └── renders/
@@ -266,10 +266,10 @@ video-projects/<slug>/
 
 ## What NOT to do in short-form
 
-- Don't animate `<video>` element dimensions — freezes frames. Animate wrapper div.
-- Don't use `repeat: -1` on any timeline — breaks the capture engine. Finite counts only.
-- Don't use `Math.random()` or `Date.now()` — breaks determinism. Seeded PRNG if pseudo-random needed.
-- Don't use `<br>` inside captions — natural wrapping + `<br>` produces extra unwanted breaks.
+- Don't animate `<video>` element dimensions - freezes frames. Animate wrapper div.
+- Don't use `repeat: -1` on any timeline - breaks the capture engine. Finite counts only.
+- Don't use `Math.random()` or `Date.now()` - breaks determinism. Seeded PRNG if pseudo-random needed.
+- Don't use `<br>` inside captions - natural wrapping + `<br>` produces extra unwanted breaks.
 - Don't skip the frame verification gate. Lint exit code is not visual truth.
 - Don't author in original-time if the audio is edited. Edited-time or nothing.
 - Don't leave `background: #07121c` flat. Layer it.
@@ -281,23 +281,23 @@ video-projects/<slug>/
 
 Distilled from the 4 concrete problems the v1 render had and what fixed them in v2. Apply these on every new short.
 
-### 1. Slam/stamp timing — reveal logic beats word-sync
+### 1. Slam/stamp timing - reveal logic beats word-sync
 
-A SLAM/STAMP overlay (KILLED, DEAD, STOP, etc.) lands AFTER its target text is fully visible, **not** during the spoken word. In may-shorts-18 v1 scene 1, CLAUDE and CHATGPT were pitched as opponents — KILLED fired at local 0.46s while CHATGPT didn't appear until 0.66s, so viewers saw "Claude … KILLED" with no visible target. The joke collapsed.
+A SLAM/STAMP overlay (KILLED, DEAD, STOP, etc.) lands AFTER its target text is fully visible, **not** during the spoken word. In may-shorts-18 v1 scene 1, CLAUDE and CHATGPT were pitched as opponents - KILLED fired at local 0.46s while CHATGPT didn't appear until 0.66s, so viewers saw "Claude … KILLED" with no visible target. The joke collapsed.
 
 **Rule:** `stamp_t ≥ target-text-visible_t + 0.10–0.25s`. The "visible" timestamp is the END of the target's entrance animation, not its start. Word-sync is a guideline; visual reveal order is the constraint.
 
-### 2. BOTTOM face-mode scale — don't ship the default
+### 2. BOTTOM face-mode scale - don't ship the default
 
-Default `BOTTOM = { x: 0, y: 1136, scale: 0.5625 }` (exact horizontal fit for a 1920×1080 source) leaves empty studio background flanking the speaker if they occupy <70% of the source frame. This is the default in may-shorts-19 and was copied into may-shorts-18 v1 — both videos had visible dead space left and right of the speaker in every BOTTOM scene.
+Default `BOTTOM = { x: 0, y: 1136, scale: 0.5625 }` (exact horizontal fit for a 1920×1080 source) leaves empty studio background flanking the speaker if they occupy <70% of the source frame. This is the default in may-shorts-19 and was copied into may-shorts-18 v1 - both videos had visible dead space left and right of the speaker in every BOTTOM scene.
 
-**Rule:** prefer `BOTTOM = { x: -180, y: 1110, scale: 0.75 }` — crops 180px each side, bottom-anchors to y=1920. Preview ONE frame of BOTTOM mode against the actual source video before committing the constant. If the source speaker is tight-framed already, scale 0.65 may be enough; if the source is wide studio framing, push to scale 0.80 and re-tune x.
+**Rule:** prefer `BOTTOM = { x: -180, y: 1110, scale: 0.75 }` - crops 180px each side, bottom-anchors to y=1920. Preview ONE frame of BOTTOM mode against the actual source video before committing the constant. If the source speaker is tight-framed already, scale 0.65 may be enough; if the source is wide studio framing, push to scale 0.80 and re-tune x.
 
-Always keep HIDDEN's `x`, `y`, `scale` identical to BOTTOM — they only differ in `opacity` — so the opacity-fade scenes don't drift geometrically mid-fade.
+Always keep HIDDEN's `x`, `y`, `scale` identical to BOTTOM - they only differ in `opacity` - so the opacity-fade scenes don't drift geometrically mid-fade.
 
-### 3. Face-mode transitions — three things at once, not one
+### 3. Face-mode transitions - three things at once, not one
 
-When the face changes mode between adjacent scenes, a bare 0.15s pre-roll + 0.32s duration `expo.inOut` on just the face wrapper reads as rigid — the outgoing scene's panels are still fully opaque behind the morphing face, so the eye sees two things fighting instead of a crossfade.
+When the face changes mode between adjacent scenes, a bare 0.15s pre-roll + 0.32s duration `expo.inOut` on just the face wrapper reads as rigid - the outgoing scene's panels are still fully opaque behind the morphing face, so the eye sees two things fighting instead of a crossfade.
 
 **Rule:** for any "hero" scene-to-scene face-mode change (especially BOTTOM ↔ FULLSCREEN), do all three:
 1. Extend that specific transition's duration to 0.45–0.55s (not the default 0.32s)
@@ -314,27 +314,27 @@ Three simultaneous changes = "a real editor edited this." Any one alone = rigid.
 
 ### 4. Data-feel scenes beat decoration scenes mid-video
 
-For scenes 3–5 of a 15–20s short (the "middle grind" where attention drops the hardest), lean on visuals that read as information — bar races, stat grids with counting numbers, heatmaps, sparklines, flowcharts, dashboard chrome with telemetry ticking, pain-point grids that flash red in sequence. may-shorts-18 v1 scene 4 was a radar-rings + terminal-chip + sparks combo — functional but decorative, and Nate called it "bland." v2 replaced it with a 3×3 pain-point grid lighting up red-orange in sequence + a sparkline stroke-drawing with a YOU-ARE-HERE marker + the payoff slam — same time budget, much higher engagement.
+For scenes 3–5 of a 15–20s short (the "middle grind" where attention drops the hardest), lean on visuals that read as information - bar races, stat grids with counting numbers, heatmaps, sparklines, flowcharts, dashboard chrome with telemetry ticking, pain-point grids that flash red in sequence. may-shorts-18 v1 scene 4 was a radar-rings + terminal-chip + sparks combo - functional but decorative, and Nate called it "bland." v2 replaced it with a 3×3 pain-point grid lighting up red-orange in sequence + a sparkline stroke-drawing with a YOU-ARE-HERE marker + the payoff slam - same time budget, much higher engagement.
 
 **Rule:** pure typography-plus-icon scenes feel like slides. Data-feel scenes feel like evidence. When a middle scene feels bland, replace the decoration with something that reads as *information*: a small number ticking up, a bar filling, a chart stroking in, a grid flashing in sequence.
 
 ## Reference compositions
 
-- `video-projects/mcp-tiktok-2/` — live vertical short reference (1080x1920, HyperFrames scenes + footage cuts, SFX timed by frame, karaoke captions). Read `index.html` and `compositions/s0*.html` before authoring a new short.
-- `video-projects/sapo/` — live reference for footage-driven shorts (zoom keyframes on footage, overlays, SFX table in `meta.json`).
+- `video-projects/mcp-tiktok-2/` - live vertical short reference (1080x1920, HyperFrames scenes + footage cuts, SFX timed by frame, karaoke captions). Read `index.html` and `compositions/s0*.html` before authoring a new short.
+- `video-projects/sapo/` - live reference for footage-driven shorts (zoom keyframes on footage, overlays, SFX table in `meta.json`).
 
 ## Related skills (invoke in addition)
 
-- `/hyperframes` — framework rules (always first)
-- `/hyperframes-cli` — CLI commands (init, lint, preview, render)
-- `/gsap` — animation library reference
-- `/hyperframes-registry` — installing transition blocks
-- `/seedance-loop-prompt` — if the short needs an AI-generated looping background video
+- `/hyperframes` - framework rules (always first)
+- `/hyperframes-cli` - CLI commands (init, lint, preview, render)
+- `/gsap` - animation library reference
+- `/hyperframes-registry` - installing transition blocks
+- `/seedance-loop-prompt` - if the short needs an AI-generated looping background video
 
 ## Memory pointers (relevant feedback entries)
 
-- `feedback_short_form_principles.md` — the 10 rules, full rationale
-- `feedback_contrast_technique.md` — glow localization + text-shadow halos + brightening dim text
-- `feedback_techy_background_layers.md` — 6-layer control-room background stack
-- `feedback_visual_verification.md` — the verification gate
-- `project_ais_brand_specs.md` — if the short is AIS-branded (hex codes, fonts, logo glow)
+- `feedback_short_form_principles.md` - the 10 rules, full rationale
+- `feedback_contrast_technique.md` - glow localization + text-shadow halos + brightening dim text
+- `feedback_techy_background_layers.md` - 6-layer control-room background stack
+- `feedback_visual_verification.md` - the verification gate
+- `project_ais_brand_specs.md` - if the short is AIS-branded (hex codes, fonts, logo glow)

@@ -18,10 +18,10 @@ Run `npx hyperframes tts --list` for all 54 voices (8 languages).
 
 ## Speed Tuning
 
-- **0.7-0.8** — Tutorial, complex content
-- **1.0** — Natural pace (default)
-- **1.1-1.2** — Intros, upbeat content
-- **1.5+** — Rarely appropriate
+- **0.7-0.8** - Tutorial, complex content
+- **1.0** - Natural pace (default)
+- **1.1-1.2** - Intros, upbeat content
+- **1.5+** - Rarely appropriate
 
 ## Usage
 

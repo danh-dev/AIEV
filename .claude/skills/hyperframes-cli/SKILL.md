@@ -1,6 +1,6 @@
 ---
 name: hyperframes-cli
-description: HyperFrames CLI tool — hyperframes init, lint, preview, render, transcribe, tts, doctor, browser, info, upgrade, compositions, docs, benchmark. Use when scaffolding a project, linting or validating compositions, previewing in the studio, rendering to video, transcribing audio, generating TTS, or troubleshooting the HyperFrames environment.
+description: HyperFrames CLI tool - hyperframes init, lint, preview, render, transcribe, tts, doctor, browser, info, upgrade, compositions, docs, benchmark. Use when scaffolding a project, linting or validating compositions, previewing in the studio, rendering to video, transcribing audio, generating TTS, or troubleshooting the HyperFrames environment.
 ---
 
 # HyperFrames CLI
@@ -9,13 +9,13 @@ Everything runs through `npx hyperframes`. Requires Node.js >= 22 and FFmpeg.
 
 ## Workflow
 
-1. **Scaffold** — `npx hyperframes init my-video`
-2. **Write** — author HTML composition (see the `hyperframes` skill)
-3. **Lint** — `npx hyperframes lint`
-4. **Preview** — `npx hyperframes preview`
-5. **Render** — `npx hyperframes render`
+1. **Scaffold** - `npx hyperframes init my-video`
+2. **Write** - author HTML composition (see the `hyperframes` skill)
+3. **Lint** - `npx hyperframes lint`
+4. **Preview** - `npx hyperframes preview`
+5. **Render** - `npx hyperframes render`
 
-Lint before preview — catches missing `data-composition-id`, overlapping tracks, unregistered timelines.
+Lint before preview - catches missing `data-composition-id`, overlapping tracks, unregistered timelines.
 
 ## Scaffolding
 

@@ -1,24 +1,24 @@
 ---
 name: video-pipeline
-description: Quy trình sản xuất video end-to-end của hệ thống AI Edit Video — từ yêu cầu người dùng đến file MP4 trong outputs/, phối hợp HyperFrames (scene) và Remotion (lắp ráp). Đọc khi bắt đầu làm bất kỳ video nào hoặc khi xây backend render queue.
+description: End-to-end video production workflow for the AI Edit Video system - from the user request to the MP4 in outputs/, coordinating HyperFrames (scenes) and Remotion (assembly). Read this when starting any video or when building the backend render queue.
 ---
 
-# Video Pipeline — từ yêu cầu đến MP4
+# Video Pipeline - from request to MP4
 
-## Phân vai engine (không bao giờ đổi vai)
+## Engine roles (never swap them)
 
-| Việc | Engine | Lý do |
+| Task | Engine | Why |
 |---|---|---|
-| Scene motion-graphics: kinetic typography, caption karaoke, count-up, bảng số liệu, callout, shader | **HyperFrames** | HTML + GSAP là thế mạnh, skills tiếng Việt đã có sẵn fix |
-| Ghép các scene + footage gốc, transition giữa scene, mix audio + sound effect, overlay caption toàn bài, xuất bản cuối | **Remotion** | Lắp ráp có lập trình, `<Sequence>`/`<Audio>`/`<OffthreadVideo>` |
+| Scene motion graphics: kinetic typography, karaoke captions, count-ups, data tables, callouts, shaders | **HyperFrames** | HTML + GSAP is its strength, and the Vietnamese skills already ship the fixes |
+| Stitching scenes + source footage, transitions between scenes, mixing audio + sound effects, full-video caption overlay, final export | **Remotion** | Programmatic assembly, `<Sequence>`/`<Audio>`/`<OffthreadVideo>` |
 
-Giao tiếp giữa hai engine: **file MP4 trung gian** trong `video-projects/<ten>/renders/`. HyperFrames không biết Remotion tồn tại và ngược lại — chỉ có manifest chung.
+How the two engines talk to each other: **intermediate MP4 files** in `video-projects/<name>/renders/`. HyperFrames does not know Remotion exists and vice versa - the only shared thing is the manifest.
 
-## Vòng đời một project
+## Project lifecycle
 
-### 1. Khởi tạo
-- Tạo `video-projects/<ten-kebab-case>/` với `index.html`, `compositions/`, `assets/`, `renders/`, `hyperframes.json`, `meta.json`.
-- `meta.json` là manifest trung tâm:
+### 1. Initialize
+- Create `video-projects/<kebab-case-name>/` with `index.html`, `compositions/`, `assets/`, `renders/`, `hyperframes.json`, `meta.json`.
+- `meta.json` is the central manifest:
 
 ```json
 {
@@ -38,109 +38,109 @@ Giao tiếp giữa hai engine: **file MP4 trung gian** trong `video-projects/<te
 }
 ```
 
-- `scenes[]` là hợp đồng giữa hai engine: scene có `src` do HyperFrames render; scene có `srcVideo` là footage dùng thẳng. Remotion đọc file này để lắp — **không hardcode danh sách scene trong code Remotion**.
+- `scenes[]` is the contract between the two engines: a scene with `src` is rendered by HyperFrames; a scene with `srcVideo` is footage used as-is. Remotion reads this file to assemble - **never hardcode the scene list in the Remotion code**.
 
-### 2. Dựng scene (HyperFrames)
-- Copy `assets/brand/brand-tokens.css` vào project, viết composition theo chuẩn `window.__timelines`.
-- Video tiếng Việt: áp dụng fix đã kiểm chứng (chữ gradient mất dấu → render chữ bằng element thật + `background-clip` đúng cách; kiểm tra đủ dấu ở mọi frame đầu/cuối reveal).
-- Lint sạch lỗi rồi mới render: `npx hyperframes lint`.
-- Render draft từng scene: `npx hyperframes render --quality draft --output renders/<scene>.draft.mp4`.
+### 2. Build the scenes (HyperFrames)
+- Copy `assets/brand/brand-tokens.css` into the project, write compositions following the `window.__timelines` convention.
+- Vietnamese videos: apply the verified fixes (gradient text losing diacritics -> render text as real elements + use `background-clip` correctly; check that every diacritic is present on the first/last frame of each reveal).
+- Lint clean before rendering: `npx hyperframes lint`.
+- Render a draft of each scene: `npx hyperframes render --quality draft --output renders/<scene>.draft.mp4`.
 
-### 3. Verify frame (bắt buộc, trước khi lắp)
+### 3. Frame verification (MANDATORY, before assembly)
 ```bash
-ffmpeg -ss <giây-hero-moment> -i renders/<scene>.draft.mp4 -frames:v 1 verify/<scene>.png
+ffmpeg -ss <hero-moment-seconds> -i renders/<scene>.draft.mp4 -frames:v 1 verify/<scene>.png
 ```
-Soi từng ảnh: chữ tiếng Việt đủ dấu? text không tràn mép? không frame trắng/đen bất thường? mặt không bị crop? Sai thì sửa scene, không đi tiếp.
+Inspect every image: does the Vietnamese text keep all its diacritics? Is any text overflowing the edges? Any unexpected white/black frames? Is a face cropped? If anything is wrong, fix the scene - do not move on.
 
-### 4. Lắp ráp (Remotion) — xem chi tiết ở skill `remotion-assemble`
-- Composition Remotion đọc `meta.json`, dựng `<Sequence>` theo `scenes[]`, chèn sfx theo `atFrame`.
-- Render draft toàn bài → xem trong web UI → duyệt.
+### 4. Assembly (Remotion) - see the `remotion-assemble` skill for details
+- The Remotion composition reads `meta.json`, builds `<Sequence>` entries from `scenes[]`, and inserts sfx at `atFrame`.
+- Render a full draft -> review it in the web UI -> approve.
 
-### 5. QC tự động (BẮT BUỘC, chặn final)
+### 5. Automated QC (MANDATORY, blocks final)
 ```bash
 curl -s -X POST http://localhost:6869/api/projects/<id>/qc -H "content-type: application/json" -d "{}"
 ```
-Server đo bằng ffmpeg trên bản draft mới nhất và trả `{ report: { status, checks[] } }`:
+The server measures the latest draft with ffmpeg and returns `{ report: { status, checks[] } }`:
 
-| check | ý nghĩa | xử lý khi fail |
+| check | meaning | what to do on fail |
 |---|---|---|
-| `resolution` | sai kích thước/fps so với `meta.json` | render lại đúng thông số |
-| `loudness` | lệch xa -14 LUFS | chỉnh volume mix, không chỉnh bằng cách kéo peak |
-| `truepeak` | đang clip (> -0.5 dBTP) | hạ gain nguồn, xem skill `noti-tiktok-vn` mục headroom |
-| `blackframes` | frame đen GIỮA video (fade đầu/cuối được bỏ qua) | hở frame ở chỗ chuyển cảnh - sửa `transitionOverlap`/`durationInFrames` |
-| `freeze` | đứng hình >= 2s | scene thiếu animation hoặc footage lỗi |
-| `tail-silence` | đuôi video im lặng > 1.2s | cắt bớt đuôi |
-| `av-duration` | hình và tiếng lệch > 0.5s | sai `durationInFrames` tổng |
-| `safe-area` | LUÔN pass, trả `frames` = ảnh khoanh đỏ dải bị che | **BẮT BUỘC Read từng ảnh** rồi tự phán; có chữ trong vùng đỏ thì kéo vào trong, xem skill `key-layout` |
+| `resolution` | dimensions/fps do not match `meta.json` | re-render with the correct settings |
+| `loudness` | far off -14 LUFS | adjust the mix volume, do not fix it by pulling the peak |
+| `truepeak` | clipping (> -0.5 dBTP) | lower the source gain, see the headroom section of the `noti-tiktok-vn` skill |
+| `blackframes` | black frames in the MIDDLE of the video (leading/trailing fades are ignored) | a gap at a scene change - fix `transitionOverlap`/`durationInFrames` |
+| `freeze` | frozen picture >= 2s | the scene is missing animation, or the footage is broken |
+| `tail-silence` | silent tail > 1.2s | trim the tail |
+| `av-duration` | picture and sound differ by > 0.5s | wrong total `durationInFrames` |
+| `safe-area` | ALWAYS passes, returns `frames` = images with the obstructed bands outlined in red | **you MUST Read every image** and judge for yourself; if any text sits in the red zone, pull it inward, see the `key-layout` skill |
 
-- `status: "fail"` → job `assemble-final` bị server trả **409 QC_REQUIRED / QC_FAILED**. Sửa nguyên nhân, render draft lại, QC lại. Không dùng `force: true` để né trừ khi người dùng yêu cầu rõ.
-- `status: "warn"` → cân nhắc sửa, không chặn.
-- Báo cáo cuối phải nêu kết quả QC và cách đã xử lý các check fail/warn.
+- `status: "fail"` -> the server rejects the `assemble-final` job with **409 QC_REQUIRED / QC_FAILED**. Fix the root cause, re-render the draft, run QC again. Do not use `force: true` to dodge it unless the user explicitly asks.
+- `status: "warn"` -> consider fixing, not blocking.
+- The final report must state the QC results and how each fail/warn check was handled.
 
 ### 6. Final
-- Re-render các scene HyperFrames ở `--quality standard`.
-- Remotion render final → `outputs/<project>-v<N>.mp4`.
-- Cập nhật `meta.json`: `status: "done"`, `output: "outputs/..."`. Web UI đọc trạng thái từ đây.
+- Re-render the HyperFrames scenes at `--quality standard`.
+- Remotion final render -> `outputs/<project>-v<N>.mp4`.
+- Update `meta.json`: `status: "done"`, `output: "outputs/..."`. The web UI reads status from here.
 
-### 7. Thumbnail + gói xuất bản
+### 7. Thumbnail + publish package
 ```bash
 curl -s -X POST http://localhost:6869/api/projects/<id>/thumbnail -H "content-type: application/json" -d "{\"title\":\"...\",\"frameAt\":12}"
 curl -s -X POST http://localhost:6869/api/projects/<id>/publish   -H "content-type: application/json" -d "{}"
 ```
-`publish` sinh `.srt`/`.vtt` từ transcript và nhờ AI soạn title/mô tả/hashtag cho TikTok, YouTube, Facebook theo Style Design. **Điều kiện**: transcript phải là bản CUỐI. Nếu đã cắt/remap thì ghi bản cuối ra `assets/transcript.final.json` (module đọc transcript ưu tiên file này) - không thì phụ đề sẽ lệch so với video đã cắt.
+`publish` generates `.srt`/`.vtt` from the transcript and has the AI write the title/description/hashtags for TikTok, YouTube and Facebook following the Style Design. **Precondition**: the transcript must be the FINAL one. If it was cut/remapped, write the final version to `assets/transcript.final.json` (the transcript loader prefers this file) - otherwise the subtitles will drift out of sync with the cut video.
 
-## Quy tắc render queue (backend)
+## Render queue rules (backend)
 
-1. **Mọi render đi qua queue** — kể cả khi Claude tự chạy tay. Job ghi vào SQLite: `id, projectId, type (scene-draft|scene-final|assemble-draft|assemble-final|image-gen), status, progress, log, startedAt, finishedAt`.
-2. Job chạy **song song tối đa `QUEUE_CONCURRENCY`** (mặc định 2, env chỉnh được; máy yếu đặt 1). Ràng buộc an toàn: hai job của **cùng một project không bao giờ chạy đồng thời** (tránh giẫm renders/meta) — song song chỉ xảy ra giữa các project khác nhau.
-3. Progress: parse stdout của CLI (cả hai engine đều in tiến độ frame) → cập nhật DB → đẩy SSE cho web UI.
-4. Job fail: giữ nguyên log đầy đủ trong DB, hiển thị trên UI, **không tự retry quá 1 lần**.
-5. Draft luôn trước final. Backend từ chối job final nếu project chưa có draft thành công ở phiên bản scene hiện tại.
+1. **Every render goes through the queue** - including the ones Claude runs by hand. Jobs are written to SQLite: `id, projectId, type (scene-draft|scene-final|assemble-draft|assemble-final|image-gen), status, progress, log, startedAt, finishedAt`.
+2. Jobs run **in parallel up to `QUEUE_CONCURRENCY`** (default 2, configurable via env; set 1 on weak machines). Safety constraint: two jobs **from the same project never run at the same time** (to avoid trampling renders/meta) - parallelism only happens across different projects.
+3. Progress: parse the CLI stdout (both engines print frame progress) -> update the DB -> push SSE to the web UI.
+4. Failed jobs: keep the complete log in the DB, show it in the UI, and **do not auto-retry more than once**.
+5. Draft always comes before final. The backend rejects a final job if the project has no successful draft for the current version of the scenes.
 
 ## Sound effects
 
-- Thư viện dùng chung: `assets/sound-effects/`, mỗi file kèm entry trong `assets/sound-effects/library.json` (`file`, `tags`, `durationMs`, `mô tả tiếng Việt`).
-- Khi dùng cho một video: copy vào `video-projects/<ten>/assets/sound-effects/` rồi khai trong `meta.json` — project phải tự chứa đủ asset của nó (tái render không phụ thuộc thư viện thay đổi).
-- Web UI trang Sound Effects đọc `library.json`, nghe thử inline, cho upload file mới (backend cập nhật json).
+- Shared library: `assets/sound-effects/`, every file has an entry in `assets/sound-effects/library.json` (`file`, `tags`, `durationMs`, and a `description` written in Vietnamese).
+- When using one in a video: copy it into `video-projects/<name>/assets/sound-effects/` then declare it in `meta.json` - a project must contain all of its own assets (re-rendering must not depend on a library that may change).
+- The Sound Effects page in the web UI reads `library.json`, plays previews inline, and allows uploading new files (the backend updates the json).
 
-## Tăng tốc render (máy này có GTX 1660 — đã kiểm chứng 2026-07)
+## Speeding up renders (this machine has a GTX 1660 - verified 2026-07)
 
-Nguyên nhân số 1 làm pipeline mất cả tiếng: **re-render draft CẢ BÀI sau mỗi lần sửa nhỏ**. Quy tắc:
+The number one reason the pipeline burns an entire hour: **re-rendering a draft of the WHOLE video after every small edit**. The rules:
 
-1. **Verify layout/chữ bằng `npx hyperframes snapshot` hoặc `inspect`** (vài giây) thay vì render draft
-   cả bài (hàng chục phút). Chỉ render draft đầy đủ MỘT lần khi mọi snapshot đã đạt, và final MỘT lần.
-2. **Sửa nhỏ → chỉ re-render phần đổi**: sửa 1 scene thì render lại scene đó (`render -c <scene>`),
-   đừng render lại cả composition. Pipeline chia scene + Remotion assemble tối ưu nhất cho việc này.
-3. **Flags tăng tốc HyperFrames** (queue của backend đã tự thêm; khi chạy tay thì BẮT BUỘC nhớ):
-   `-w 8 --browser-gpu` cho mọi render; thêm `--gpu` (NVENC) cho draft. Final giữ encode CPU
-   (libx264) để chất lượng tối đa. Đo thực tế: nhanh hơn ~30% scene ngắn, hơn nữa với bài dài.
-4. **Transcript chỉ chạy MỘT lần** — `transcript.json` đã có thì dùng lại, tuyệt đối không transcribe lại.
-5. **Flags tăng tốc Remotion** (khi chạy tay `npx remotion render/still` BẮT BUỘC thêm):
-   `--concurrency 8 --gl angle`. KHÔNG có `--gl angle` thì Chrome của Remotion dựng hình bằng
-   software renderer (SwANGLE) — CPU gánh 100%, GPU đứng nhìn (triệu chứng: Task Manager CPU ~95%,
-   GPU ~5%). Linux dùng `--gl angle-egl` thay cho `angle`.
+1. **Verify layout/text with `npx hyperframes snapshot` or `inspect`** (a few seconds) instead of rendering
+   a full draft (tens of minutes). Render a full draft only ONCE, when every snapshot is good, and final ONCE.
+2. **Small edit -> re-render only what changed**: if you edited one scene, re-render that scene (`render -c <scene>`),
+   do not re-render the whole composition. The split-scene + Remotion-assemble pipeline is built exactly for this.
+3. **HyperFrames speed flags** (the backend queue adds them automatically; when running by hand you MUST remember them):
+   `-w 8 --browser-gpu` for every render; add `--gpu` (NVENC) for drafts. Final keeps CPU encoding
+   (libx264) for maximum quality. Measured in practice: ~30% faster on short scenes, more on long ones.
+4. **Transcription runs only ONCE** - if `transcript.json` already exists, reuse it, NEVER transcribe again.
+5. **Remotion speed flags** (when running `npx remotion render/still` by hand you MUST add):
+   `--concurrency 8 --gl angle`. WITHOUT `--gl angle`, Remotion's Chrome renders with the
+   software renderer (SwANGLE) - the CPU carries 100% while the GPU idles (symptom: Task Manager CPU ~95%,
+   GPU ~5%). On Linux use `--gl angle-egl` instead of `angle`.
 
-## Lỗi đã biết (đã kiểm chứng thực tế 2026-07)
+## Known issues (verified in production 2026-07)
 
-- **`meta.json` phải đúng hợp đồng kiểu dữ liệu** (web UI đọc trực tiếp — sai kiểu là crash trang):
-  `output` là **STRING** đường dẫn (vd `"outputs/<id>-v1.mp4"`), KHÔNG phải object. Metadata phụ
-  (duration, quality, renderedAt…) đặt vào field riêng `outputInfo` nếu cần. `scenes[].durationInFrames`
-  là number; sfx đặt theo `atFrame` (frame, number) như schema đầu file này.
+- **`meta.json` must respect the data-type contract** (the web UI reads it directly - a wrong type crashes the page):
+  `output` is a path **STRING** (e.g. `"outputs/<id>-v1.mp4"`), NOT an object. Extra metadata
+  (duration, quality, renderedAt, ...) goes into a separate `outputInfo` field if needed. `scenes[].durationInFrames`
+  is a number; sfx are placed with `atFrame` (a frame number) as in the schema at the top of this file.
 
-- **Render 1 scene**: dùng cờ `-c`, không phải positional: `npx hyperframes render -c compositions/s01.html --quality draft --output renders/s01.draft.mp4`. Sub-composition dạng `<template>` phải được index.html tham chiếu qua `data-composition-src` thì `-c` mới render được.
-- **Chữ dính nhau khi reveal từng từ**: pipeline HyperFrames nuốt whitespace giữa các `<span>` inline-block — tách từ bằng `margin: 0 0.14em` trên `.word`, đừng trông cậy khoảng trắng trong HTML.
-- **Warning `sub_timeline_readiness_timeout`** khi render `-c` file template: render vẫn ra đúng (best-effort) nhưng tốn thêm 45s chờ — chấp nhận được ở draft; nếu muốn triệt để thì render qua index.html.
-- **Comment TS chứa đường dẫn glob `*/`** (vd `video-projects/*/meta.json`) sẽ đóng block comment sớm → lỗi biên dịch khó hiểu. Viết `video-projects/<id>/meta.json`.
+- **Rendering a single scene**: use the `-c` flag, not a positional argument: `npx hyperframes render -c compositions/s01.html --quality draft --output renders/s01.draft.mp4`. A `<template>` sub-composition must be referenced by index.html through `data-composition-src` for `-c` to be able to render it.
+- **Words running together on per-word reveals**: the HyperFrames pipeline swallows the whitespace between inline-block `<span>`s - separate words with `margin: 0 0.14em` on `.word`, do not rely on whitespace in the HTML.
+- **The `sub_timeline_readiness_timeout` warning** when rendering a template file with `-c`: the render still comes out correct (best-effort) but wastes another 45s waiting - acceptable for drafts; if you want it gone entirely, render through index.html.
+- **A TS comment containing the glob path `*/`** (e.g. `video-projects/*/meta.json`) closes the block comment early -> a baffling compile error. Write `video-projects/<id>/meta.json` instead.
 
-## Checklist trước khi báo hoàn thành
+## Checklist before reporting completion
 
-- [ ] Nếu brief bật autoCut: đã cắt theo skill `auto-cut`, verify silencedetect lần 2 trên bản cắt, báo cáo ghi số giây/số đoạn đã cắt
-- [ ] Mọi scene qua verify frame, chữ tiếng Việt đủ dấu
-- [ ] Audio không lệch sync ở đầu/giữa/cuối (kiểm bằng 3 điểm ngẫu nhiên)
-- [ ] Sound effect đúng frame, âm lượng không đè giọng nói (sfx thấp hơn voice ~10dB)
-- [ ] Output đúng kích thước/fps trong `meta.json`
-- [ ] QC tự động đã chạy trên draft, không còn check `fail` (báo cáo nêu rõ các check warn còn lại)
-- [ ] `meta.json` cập nhật `status` + `output`
-- [ ] Thumbnail đã tạo và đã Read để verify chữ đủ dấu
-- [ ] Gói xuất bản đã tạo (`.srt`/`.vtt` + metadata), transcript dùng là bản CUỐI sau khi cắt
-- [ ] Bài học mới (nếu có) đã ghi vào skill liên quan
+- [ ] If the brief enables autoCut: the cut was done per the `auto-cut` skill, a second silencedetect pass verified the cut version, and the report states the seconds/segments removed
+- [ ] Every scene passed frame verification, Vietnamese text keeps all its diacritics
+- [ ] Audio is in sync at the start/middle/end (check 3 random points)
+- [ ] Sound effects land on the right frames, and their volume does not bury the voice (sfx ~10dB below voice)
+- [ ] The output matches the dimensions/fps in `meta.json`
+- [ ] Automated QC ran on the draft with no remaining `fail` checks (the report spells out any leftover warn checks)
+- [ ] `meta.json` has updated `status` + `output`
+- [ ] The thumbnail was generated and Read to verify the diacritics are complete
+- [ ] The publish package was generated (`.srt`/`.vtt` + metadata), using the FINAL post-cut transcript
+- [ ] Any new lesson learned was written into the relevant skill

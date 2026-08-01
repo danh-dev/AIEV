@@ -144,7 +144,10 @@ router.post("/generate", async (req, res) => {
   }
   promptParts.push(`## Câu trả lời form của người dùng\n\n${answers.join("\n")}`);
   promptParts.push(
-    "## Yêu cầu đầu ra\n\nTrả về DUY NHẤT nội dung file SKILL.md hoàn chỉnh trong một code fence ```markdown - frontmatter có name (kebab-case) + description (nêu rõ KHI NÀO dùng), thân skill tiếng Việt theo đúng chuẩn skill-authoring, có OUTPUT SPEC (kích thước px theo aspect, fps), quy tắc caption/highlight/SFX theo câu trả lời, mục '⚖️ STYLE DESIGN - LUẬT ƯU TIÊN' ngay sau heading đầu (xem skill mẫu), và mục 'Lỗi đã biết' để tích lũy về sau.",
+    // Thân skill viết TIẾNG ANH: toàn bộ skill của dự án đã chuyển sang tiếng Anh,
+    // skill sinh mới mà còn tiếng Việt thì thư viện lẫn lộn hai ngôn ngữ.
+    // Ví dụ minh họa đặc thù tiếng Việt (chữ có dấu, filler) vẫn giữ nguyên tiếng Việt.
+    "## Yêu cầu đầu ra\n\nTrả về DUY NHẤT nội dung file SKILL.md hoàn chỉnh trong một code fence ```markdown. Frontmatter có name (kebab-case) + description (nêu rõ KHI NÀO dùng, viết bằng TIẾNG ANH). **Thân skill viết bằng TIẾNG ANH** theo đúng chuẩn skill-authoring - riêng các chuỗi ví dụ đặc thù tiếng Việt (chữ có dấu để minh họa lỗi font, ví dụ filler \"ừm/à/kiểu\") thì GIỮ NGUYÊN tiếng Việt vì dịch đi là mất ý nghĩa minh họa. Có OUTPUT SPEC (kích thước px theo aspect, fps), quy tắc caption/highlight/SFX theo câu trả lời, mục '⚖️ STYLE DESIGN - PRIORITY RULE' ngay sau heading đầu (xem skill mẫu), và mục 'Known issues' để tích lũy về sau.",
   );
 
   // Gọi Agent SDK - một lượt, không tool, không nạp settings/CLAUDE.md

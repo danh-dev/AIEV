@@ -1,5 +1,6 @@
 {
   "name": "ai-edit-video",
+  "license": "MIT",
   "version": "0.1.0",
   "private": true,
   "description": "AI Edit Video by noti.vn — Claude điều khiển HyperFrames + Remotion, dashboard port 6868",

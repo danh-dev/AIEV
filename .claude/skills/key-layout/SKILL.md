@@ -1,79 +1,79 @@
 ---
 name: key-layout
-description: Bố cục Key chính / Key liên quan trên video — KEY CHÍNH (chủ đề/hook) hiển thị band TRÊN video, các KEY LIÊN QUAN hiển thị band DƯỚI (trên vùng caption), đồng bộ timestamp với nội dung đang nói. Đọc khi brief bật "Bố cục Key" (keyLayoutEnabled) hoặc edit prompt có mục "Bố cục Key: BẬT".
+description: Main key / related key layout on the video - the MAIN KEY (topic/hook) sits in a band at the TOP of the video, the RELATED KEYS in a band at the BOTTOM (above the caption area), timed to whatever is being said. Read this when the brief enables "Bố cục Key" (keyLayoutEnabled) or the edit prompt contains the section "Bố cục Key: BẬT".
 ---
 
-# Key Layout — Key chính trên, Key liên quan dưới
+# Key Layout - main key on top, related keys below
 
-Mục tiêu: người xem lướt thấy video luôn biết **video nói về gì** (key chính, luôn ở trên)
-và **đang nói tới ý nào** (key liên quan, đổi theo nội dung, ở dưới).
+Goal: a viewer scrolling past instantly knows **what the video is about** (main key, always on top)
+and **which point is being made right now** (related key, changes with the content, at the bottom).
 
-## ⚖️ STYLE DESIGN — LUẬT ƯU TIÊN
+## ⚖️ STYLE DESIGN - PRECEDENCE RULE
 
-Edit prompt có mục "STYLE DESIGN (BẮT BUỘC TUÂN THỦ 100%)" → màu/font/tone của key lấy
-TOÀN BỘ từ style đó. Không có → dùng branding mặc định của skill format đang dùng.
+If the edit prompt has a "STYLE DESIGN (BẮT BUỘC TUÂN THỦ 100%)" section -> the key colors/fonts/tone come
+ENTIRELY from that style. If it does not -> use the default branding of the format skill in use.
 
-## Chọn key (khi user không chỉ định)
+## Choosing the keys (when the user does not specify them)
 
-- **KEY CHÍNH**: MỘT cụm 2–6 từ tóm chủ đề/hook của cả video (vd "MCP chính thức của TikTok",
-  "Review iPhone 17 Pro"). Lấy từ transcript — ưu tiên cụm được nhắc nhiều/nằm trong câu hook.
-  KHÔNG lấy nguyên câu dài; không dấu chấm câu cuối.
-- **KEY LIÊN QUAN**: 3–6 cụm 1–4 từ, mỗi cụm là MỘT ý được nói trong video (tính năng, con số,
-  tên riêng, bước quy trình). Mỗi key gắn với timestamp lúc ý đó được nhắc (lấy từ word
-  timestamp của transcript). User đưa sẵn danh sách → dùng ĐỦ và đúng thứ tự nội dung nhắc tới.
+- **MAIN KEY**: ONE phrase of 2–6 words summarizing the topic/hook of the whole video (e.g. "MCP chính thức của TikTok",
+  "Review iPhone 17 Pro"). Take it from the transcript - prefer a phrase that is repeated often or sits in the hook sentence.
+  Do NOT use a whole long sentence; no trailing punctuation.
+- **RELATED KEYS**: 3–6 phrases of 1–4 words, each one a SINGLE point made in the video (a feature, a number,
+  a proper noun, a process step). Each key is pinned to the timestamp where that point is mentioned (from the transcript's
+  word timestamps). If the user supplies a list -> use ALL of it, in the order the content mentions them.
 
-## Vị trí band (9:16 — 1080×1920; tỉ lệ khác quy đổi theo %)
+## Band positions (9:16 - 1080×1920; other ratios convert by %)
 
-| Band | Vùng y | Ghi chú |
+| Band | y range | Notes |
 |---|---|---|
-| **KEY CHÍNH (trên)** | ~96–345px (5–18% cao) | Giữa ngang; TRÁNH đè mặt người (mặt thường bắt đầu ~20%) |
-| **KEY LIÊN QUAN (dưới)** | ~1290–1490px (67–78%) | TRÊN vùng caption (caption ở `bottom: ~372px` = y≥1548) |
+| **MAIN KEY (top)** | ~96–345px (5–18% of height) | Horizontally centered; AVOID covering the face (faces usually start ~20%) |
+| **RELATED KEYS (bottom)** | ~1290–1490px (67–78%) | ABOVE the caption area (captions sit at `bottom: ~372px` = y>=1548) |
 
-- 16:9 (1920×1080): key chính y ~54–190px; key liên quan y ~700–840px, caption dưới cùng.
-- Safe zone TikTok vẫn giữ: 15% dưới + 12% phải — band dưới không tràn vào 2 vùng đó.
-- Cả 2 band là layer TĨNH so với camera: **KHÔNG đặt trong wrapper bị zoom** (`#face-wrapper`) —
-  giống caption, nếu không key sẽ trôi/cắt khi punch-in.
+- 16:9 (1920×1080): main key at y ~54–190px; related keys at y ~700–840px, captions at the very bottom.
+- The TikTok safe zone still applies: bottom 15% + right 12% - the bottom band must not spill into those two areas.
+- Both bands are STATIC layers relative to the camera: **do NOT put them inside the zoomed wrapper** (`#face-wrapper`) -
+  just like captions, otherwise the keys drift/get clipped on punch-in.
 
 ## Typography & style
 
-- **Key chính**: font heading của style, weight 800, cỡ ~64–88px (1080w), 1 dòng (dài quá thì
-  giảm cỡ, không xuống 2 dòng trừ khi ≤2 từ/dòng). Màu primary hoặc gradient primary→secondary
-  (`background-clip:text` — BẮT BUỘC kèm fix mất dấu tiếng Việt: `display:inline-block` +
-  `line-height ≥1.15` + `padding-top: 0.5em`, xem skill noti-tiktok-vn).
-- **Key liên quan**: pill/chip — cỡ chữ ~38–48px weight 700, padding `14px 28px`, bo 999px,
-  nền glass (`rgba` nền style + blur) hoặc nền accent nhạt, chữ màu text/accent của style.
-- **Đọc được trên mọi footage**: sau band key chính thêm scrim mờ
-  (`background: linear-gradient(180deg, rgba(0,0,0,0.45), transparent)` phủ ~0–20% đầu video,
-  màu lấy từ background của style) hoặc text-shadow đậm — verify bằng snapshot trên frame SÁNG nhất.
+- **Main key**: the style's heading font, weight 800, size ~64–88px (at 1080w), 1 line (if too long, reduce the
+  size; do not wrap to 2 lines unless <=2 words per line). Primary color or a primary→secondary gradient
+  (`background-clip:text` - you MUST include the Vietnamese diacritics fix: `display:inline-block` +
+  `line-height >=1.15` + `padding-top: 0.5em`, see the noti-tiktok-vn skill).
+- **Related keys**: pill/chip - font size ~38–48px weight 700, padding `14px 28px`, 999px radius,
+  glass background (`rgba` of the style background + blur) or a soft accent background, text in the style's text/accent color.
+- **Readable over any footage**: behind the main key band add a soft scrim
+  (`background: linear-gradient(180deg, rgba(0,0,0,0.45), transparent)` covering ~0–20% of the top of the video,
+  color taken from the style's background) or a strong text-shadow - verify with a snapshot on the BRIGHTEST frame.
 
-## Timing & animation (GSAP — tất định, không setTimeout/random)
+## Timing & animation (GSAP - deterministic, no setTimeout/random)
 
-- **Key chính**: vào MỘT lần ở ~0.3–0.8s (reveal y 30→0 + opacity, `power3.out` 0.5s), sau đó
-  ĐỨNG YÊN suốt video (được phép glow/scale thở rất nhẹ ±1.5%, chu kỳ ≥3s). Video dài chia chương
-  thì mỗi chương được đổi key chính 1 lần.
-- **Key liên quan**: mỗi key vào đúng lúc ý đó bắt đầu được nói (theo word timestamp), giữ 2.5–4s
-  rồi ra. Vào: y 24→0 + opacity 0→1, 0.35s `power3.out`; ra: opacity→0 + y→-12, 0.3s. Chỉ 1 key
-  hiển thị tại một thời điểm (tối đa 2 nếu 2 ý dính nhau); key cách nhau ≥1s.
-- Key liên quan xuất hiện NÊN khớp SFX nhấn nhẹ (`pop.mp3`/`ting`, volume 0.4) nếu brief bật SFX.
+- **Main key**: enters ONCE at ~0.3–0.8s (reveal y 30→0 + opacity, `power3.out` 0.5s), then
+  STAYS PUT for the whole video (a very subtle glow/breathing scale of ±1.5% with a cycle >=3s is allowed). For a long video split
+  into chapters, the main key may change once per chapter.
+- **Related keys**: each key enters exactly when its point starts being said (per the word timestamps), holds 2.5–4s
+  then exits. Enter: y 24→0 + opacity 0→1, 0.35s `power3.out`; exit: opacity→0 + y→-12, 0.3s. Only 1 key
+  visible at a time (up to 2 if two points run together); keys are >=1s apart.
+- A related key appearing SHOULD line up with a light accent SFX (`pop.mp3`/`ting`, volume 0.4) if the brief enables SFX.
 
-## Phối hợp với các layer khác
+## Working with the other layers
 
-- Key chính ↔ kinetic typography: khi scene có tiêu đề kinetic lớn ở vùng trên (vd hook scene),
-  ẨN key chính trong scene đó (tránh 2 chữ lớn đè nhau) — key chính hiện lại từ scene kế.
-- Key liên quan ↔ caption: 2 layer riêng biệt, không bao giờ đè nhau (band dưới nằm TRÊN caption).
-- Key liên quan ↔ card thông số/stat callout: đang có card ở band dưới thì HOÃN key tới khi card ra.
+- Main key ↔ kinetic typography: when a scene has a large kinetic title in the top area (e.g. the hook scene),
+  HIDE the main key during that scene (avoid two large texts on top of each other) - the main key returns from the next scene.
+- Related keys ↔ captions: two separate layers that must never overlap (the bottom band sits ABOVE the captions).
+- Related keys ↔ spec cards/stat callouts: while a card occupies the bottom band, DELAY the key until the card exits.
 
-## Verify (bắt buộc trước khi báo xong)
+## Verify (mandatory before reporting done)
 
-Trích frame bằng ffmpeg và `Read` từng ảnh:
-1. Frame ~1s: key chính đã vào, đúng band trên, không đè mặt, dấu tiếng Việt đủ (zoom 3×).
-2. Frame giữa mỗi key liên quan: đúng band dưới, không đè caption, không tràn safe zone.
-3. Frame đang punch-in zoom: cả 2 band ĐỨNG YÊN (không bị zoom theo).
-4. Frame sáng nhất của footage: key vẫn đọc rõ (scrim/shadow đủ).
+Extract frames with ffmpeg and `Read` each image:
+1. Frame at ~1s: the main key has entered, sits in the top band, does not cover the face, and its Vietnamese diacritics are complete (zoom 3×).
+2. A frame in the middle of each related key: correct bottom band, not covering the captions, not spilling into the safe zone.
+3. A frame during a punch-in zoom: both bands STAY PUT (they must not zoom along).
+4. The brightest frame of the footage: the keys are still clearly readable (scrim/shadow is sufficient).
 
-## Lỗi đã biết
+## Known issues
 
-- Chữ gradient tiếng Việt mất dấu → áp fix inline-block + line-height + padding-top (đã kiểm chứng).
-- Đặt band trong `#face-wrapper` → key bị phóng theo zoom, trôi khỏi vị trí. Band phải là sibling.
-- Key chính đè tiêu đề hook ở scene mở đầu → ẩn key chính trong scene có kinetic title lớn.
-- Quá nhiều key liên quan nhấp nháy liên tục → người xem mệt; giữ nhịp ≥1 key/4s, mỗi key ≥2.5s.
+- Vietnamese gradient text losing its diacritics -> apply the inline-block + line-height + padding-top fix (verified).
+- Putting a band inside `#face-wrapper` -> the key scales with the zoom and drifts out of place. The band must be a sibling.
+- The main key covering the hook title in the opening scene -> hide the main key in scenes with a large kinetic title.
+- Too many related keys flashing in a row -> viewers get tired; keep the pace at >=1 key per 4s, each key >=2.5s.

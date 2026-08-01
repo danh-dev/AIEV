@@ -2,7 +2,7 @@
 
 Drop-in animation patterns for HyperFrames compositions. Each effect is self-contained with HTML, CSS, and code.
 
-All effects follow HyperFrames composition rules — deterministic, no randomness, timelines registered via `window.__timelines`.
+All effects follow HyperFrames composition rules - deterministic, no randomness, timelines registered via `window.__timelines`.
 
 ## Table of Contents
 
@@ -41,9 +41,9 @@ tl.to(
 
 Three rules:
 
-1. **One cursor visible at a time** — hide previous before showing next.
-2. **Cursor must blink when idle** — after typing, during pauses.
-3. **No gap between text and cursor** — elements must be flush in HTML.
+1. **One cursor visible at a time** - hide previous before showing next.
+2. **Cursor must blink when idle** - after typing, during pauses.
+3. **No gap between text and cursor** - elements must be flush in HTML.
 
 ```html
 <span id="typed-text"></span><span id="cursor" class="cursor-blink">|</span>
@@ -82,7 +82,7 @@ tl.call(() => cursor.classList.replace("cursor-solid", "cursor-blink"), [], star
 
 ### Backspacing
 
-TextPlugin removes from front — wrong for backspace. Use manual substring removal:
+TextPlugin removes from front - wrong for backspace. Use manual substring removal:
 
 ```js
 function backspace(tl, selector, word, startTime, cps) {
@@ -214,18 +214,18 @@ var AUDIO_DATA = {
   /* paste audio-data.json contents */
 };
 
-// Option B: sync XHR (large files — must be synchronous for deterministic timeline construction)
+// Option B: sync XHR (large files - must be synchronous for deterministic timeline construction)
 var xhr = new XMLHttpRequest();
 xhr.open("GET", "audio-data.json", false);
 xhr.send();
 var AUDIO_DATA = JSON.parse(xhr.responseText);
 ```
 
-**Do NOT use async `fetch()` to load audio data.** HyperFrames requires synchronous timeline construction — the capture engine reads `window.__timelines` synchronously after page load. Building timelines inside `.then()` callbacks means the timeline isn't ready when capture starts.
+**Do NOT use async `fetch()` to load audio data.** HyperFrames requires synchronous timeline construction - the capture engine reads `window.__timelines` synchronously after page load. Building timelines inside `.then()` callbacks means the timeline isn't ready when capture starts.
 
 ### Rendering Approaches
 
-**Canvas 2D** (most common — bars, waveforms, circles, gradients):
+**Canvas 2D** (most common - bars, waveforms, circles, gradients):
 
 ```js
 for (let f = 0; f < AUDIO_DATA.totalFrames; f++) {
@@ -241,9 +241,9 @@ for (let f = 0; f < AUDIO_DATA.totalFrames; f++) {
 }
 ```
 
-**WebGL / Three.js** — HyperFrames patches `THREE.Clock` for deterministic time. Update uniforms from audio data each frame.
+**WebGL / Three.js** - HyperFrames patches `THREE.Clock` for deterministic time. Update uniforms from audio data each frame.
 
-**DOM Elements** — fine for < 20 elements, less performant than Canvas for many.
+**DOM Elements** - fine for < 20 elements, less performant than Canvas for many.
 
 ### Spatial Mapping
 
@@ -272,11 +272,11 @@ function smooth(f) {
 
 ### Motion Principles
 
-- **Bass drives big moves** — scale, glow, position shifts
-- **Treble drives detail** — shimmer, flicker, edge effects
-- **RMS drives globals** — background brightness, overall energy
+- **Bass drives big moves** - scale, glow, position shifts
+- **Treble drives detail** - shimmer, flicker, edge effects
+- **RMS drives globals** - background brightness, overall energy
 - Pick 2-3 properties to animate. More looks noisy.
-- Keep minimums above zero — quiet sections need life.
+- Keep minimums above zero - quiet sections need life.
 
 ### Band Count
 
@@ -289,7 +289,7 @@ function smooth(f) {
 
 ### Layering
 
-Layer multiple canvases with CSS z-index for depth — a background layer driven by bass/rms and a foreground layer driven by individual bands creates depth without complexity.
+Layer multiple canvases with CSS z-index for depth - a background layer driven by bass/rms and a foreground layer driven by individual bands creates depth without complexity.
 
 ```html
 <canvas id="bg-layer" style="position:absolute;top:0;left:0;z-index:1;"></canvas>

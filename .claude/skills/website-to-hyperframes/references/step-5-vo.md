@@ -4,11 +4,11 @@
 
 Never use the first voice you find. Audition 2-3 voices with the first sentence of SCRIPT.md:
 
-- **Kokoro** (try first — free, no API key) — `npx hyperframes tts SCRIPT.md --voice af_nova --output narration.wav`. Runs locally on CPU. Requires Python 3.10+ (macOS system Python 3.9 won't work — if it fails with an onnxruntime error, move to the next option).
-- **ElevenLabs** (best voice quality, widest selection) — `mcp__elevenlabs__search_voices` to browse, `mcp__elevenlabs__text_to_speech` to generate. Does not return timestamps — transcribe separately after.
-- **HeyGen TTS** (returns word timestamps automatically — saves a transcribe step) — `mcp__claude_ai_HeyGen__text_to_speech`. Use when you want timestamps without a separate transcription pass.
+- **Kokoro** (try first - free, no API key) - `npx hyperframes tts SCRIPT.md --voice af_nova --output narration.wav`. Runs locally on CPU. Requires Python 3.10+ (macOS system Python 3.9 won't work - if it fails with an onnxruntime error, move to the next option).
+- **ElevenLabs** (best voice quality, widest selection) - `mcp__elevenlabs__search_voices` to browse, `mcp__elevenlabs__text_to_speech` to generate. Does not return timestamps - transcribe separately after.
+- **HeyGen TTS** (returns word timestamps automatically - saves a transcribe step) - `mcp__claude_ai_HeyGen__text_to_speech`. Use when you want timestamps without a separate transcription pass.
 
-Pick the voice that sounds most natural and conversational. Listen for pacing — does it breathe between sentences? Does it sound like a person or a robot?
+Pick the voice that sounds most natural and conversational. Listen for pacing - does it breathe between sentences? Does it sound like a person or a robot?
 
 ## Generate full narration
 
@@ -33,7 +33,7 @@ Go through STORYBOARD.md beat by beat. For each beat:
 
 Update STORYBOARD.md with real durations. Replace estimated times (e.g., "0:00-0:05") with actual timestamps (e.g., "0.00-3.21s").
 
-Beat boundaries land on word onsets — hard cuts to the VO.
+Beat boundaries land on word onsets - hard cuts to the VO.
 
 ## Update index.html
 

@@ -104,7 +104,13 @@ Trong trang project, ở card **Nguồn & Asset** bấm **Kết nối điện th
 
 Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk) · [HyperFrames](https://www.npmjs.com/package/hyperframes) · [Remotion](https://remotion.dev) · Gemini API · faster-whisper · FFmpeg
 
-> Lưu ý giấy phép: Remotion miễn phí cho cá nhân và công ty ≤ 3 người - vượt mức cần [Company License](https://remotion.pro).
+## Giấy phép
+
+[MIT](LICENSE) - tự do dùng, sửa và phân phối, kể cả cho mục đích thương mại.
+
+> Lưu ý về phụ thuộc: dự án này cấp phép MIT, nhưng các công cụ đi kèm giữ giấy phép riêng.
+> Remotion miễn phí cho cá nhân và công ty tối đa 3 người; vượt mức đó cần
+> [Company License](https://remotion.pro). Chi phí Claude và Gemini tính vào tài khoản của bạn.
 
 ---
 
