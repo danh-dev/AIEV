@@ -1389,4 +1389,11 @@ export const en: Record<string, string> = {
   "help.assets.title": "What is the Assets page for?",
   "help.assets.body":
     "The two shared file stores of the system: imports/ is where you drop source files (footage, images, audio), outputs/ is where finished videos land.\nUpload here when a file will be used by several projects, or so you can pick it as the source of an Auto cut session.\nDeleting a file in imports/ that a project still references makes the next render fail with a missing file.",
+
+  // ===== Đồng hồ CPU/GPU trên header =====
+  "meter.cpu": "CPU",
+  "meter.gpu": "GPU",
+  "meter.unknown": "unknown",
+  "meter.vram": "VRAM {used}/{total} GB",
+  "meter.cpu-title": "{model} - {threads} threads",
 };

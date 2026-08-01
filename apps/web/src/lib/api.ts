@@ -2043,3 +2043,18 @@ export const deleteAutoCut = (id: string, force = true) =>
     `/api/auto-cut/${encodeURIComponent(id)}${force ? "?force=true" : ""}`,
     { method: "DELETE" }
   );
+
+// ================= Đồng hồ CPU/GPU realtime trên header =================
+export interface Metrics {
+  cpu: { percent: number; threads: number; model: string };
+  gpu: {
+    available: boolean;
+    name: string | null;
+    percent: number | null;
+    vramUsedMb: number | null;
+    vramTotalMb: number | null;
+  };
+}
+
+/** Mức dùng CPU/GPU hiện tại - server tự cache 1,5s nên poll 2s là an toàn. */
+export const getMetrics = () => request<Metrics>("/api/metrics");

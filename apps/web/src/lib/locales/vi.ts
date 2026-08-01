@@ -1384,4 +1384,11 @@ export const vi: Record<string, string> = {
   "help.assets.title": "Trang Assets để làm gì?",
   "help.assets.body":
     "Hai kho file dùng chung của cả hệ thống: imports/ là nơi bạn bỏ file nguồn vào (footage quay, ảnh, audio), outputs/ là nơi video thành phẩm được xuất ra.\nTải file lên đây khi muốn dùng cho nhiều project, hoặc để chọn làm nguồn cho một phiên Auto cut.\nXóa file trong imports/ mà project đang tham chiếu thì lần render sau sẽ lỗi thiếu file.",
+
+  // ===== Đồng hồ CPU/GPU trên header =====
+  "meter.cpu": "CPU",
+  "meter.gpu": "GPU",
+  "meter.unknown": "không rõ",
+  "meter.vram": "VRAM {used}/{total} GB",
+  "meter.cpu-title": "{model} - {threads} luồng",
 };

@@ -19,6 +19,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { getHealth, type Health } from "@/lib/api";
+import { HardwareMeter } from "@/components/HardwareMeter";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UpdateBadge } from "@/components/UpdateBadge";
@@ -156,6 +157,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </Link>
         <span className="text-sm font-semibold">{t(pageTitle(pathname))}</span>
         <div className="ml-auto flex items-center gap-3">
+          <HardwareMeter />
           <BackendStatus />
           <LanguageToggle />
           <ThemeToggle />

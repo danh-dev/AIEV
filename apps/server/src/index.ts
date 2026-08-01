@@ -19,6 +19,7 @@ import { isKnownUploadToken } from "./routes/uploadSession.js";
 
 import healthRouter from "./routes/health.js";
 import overviewRouter from "./routes/overview.js";
+import metricsRouter from "./routes/metrics.js";
 import projectsRouter from "./routes/projects.js";
 import jobsRouter from "./routes/jobs.js";
 import skillsRouter from "./routes/skills.js";
@@ -166,6 +167,7 @@ app.get("/api/events", addSseClient);
 
 app.use("/api/health", healthRouter);
 app.use("/api/overview", overviewRouter);
+app.use("/api/metrics", metricsRouter);
 app.use("/api/projects", projectsRouter);
 // POST /api/projects/:id/thumbnail - projectsRouter không match nên rơi xuống đây
 app.use("/api/projects", thumbnailsRouter);
