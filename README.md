@@ -19,7 +19,7 @@ Drop in a clip, briefly describe what you want, click **"Start editing with AI"*
 | 🎨 **Color grading with preview** | 14 presets + manual adjustments, per-frame preview; log/HDR footage is tonemapped automatically. |
 | 🔊 **Sound effects** | Library of 100+ files with a curated set - AI inserts them to match the content rhythm and zoom beats. |
 | 🧠 **Skills** | Production know-how accumulated as markdown, managed in the web UI; includes **AI-powered skill creation** from a question form. |
-| ⚡ **Hardware acceleration** | Auto-detects the GPU (NVENC on NVIDIA, VideoToolbox on macOS), parallel rendering, `--gl angle`. |
+| ⚡ **Hardware acceleration** | Auto-detects the GPU (NVENC on NVIDIA, VideoToolbox on macOS), parallel rendering, `--gl angle`. See [CPU or GPU, step by step](#cpu-or-gpu-step-by-step). |
 | 📊 **Dashboard** | Realtime progress (SSE), render queue, AI tokens by day/project type (in/out), AI sessions auto-resume after interruptions. |
 
 ## Architecture
@@ -43,6 +43,44 @@ Drop in a clip, briefly describe what you want, click **"Start editing with AI"*
 ```
 
 Full API contract: [`docs/API.md`](docs/API.md). Production workflow + know-how: [`.claude/skills/`](.claude/skills/).
+
+## CPU or GPU, step by step
+
+Making one video runs through several stages, and each one picks its processor
+differently. Nothing here is automatic magic: the defaults are chosen so a draft is
+fast and a final is high quality, and you can change every one of them in **Settings**.
+
+| Stage | Runs on | Controlled by |
+|---|---|---|
+| Rasterizing HyperFrames scenes (headless Chrome) | **GPU** by default, CPU if turned off | `GPU for capture (browser)` -> `--browser-gpu` |
+| Encoding a scene **draft** | **GPU** by default (NVENC / VideoToolbox) | `GPU encode for drafts` -> `--gpu` |
+| Encoding a scene **final** | **CPU** by default (libx264) | `GPU encode for FINAL`, off by default |
+| Rasterizing the Remotion timeline | **GPU** by default, CPU if turned off | `GPU for capture (browser)` -> `--gl angle` (`angle-egl` on Linux) |
+| Encoding the assembled video (draft + final) | **CPU always** (libx264) | not configurable; draft adds `--crf 28 --x264-preset veryfast` |
+| Auto cut: cutting + reframing each segment | **GPU** only if `GPU encode for FINAL` is on **and** NVENC exists, otherwise CPU | `GPU encode for FINAL` |
+| Transcription (faster-whisper large-v3) | **GPU** (CUDA, float16), falls back to **CPU** (int8) | automatic, no switch |
+| Automated QC | **CPU** (ffmpeg only measures, it does not encode) | - |
+| Thumbnail (`remotion still`) | **GPU** by default, same switch as capture | `GPU for capture (browser)` |
+| Gemini images, subject detection, Claude editing | **Neither** - runs on the provider's servers | - |
+
+Three things worth knowing:
+
+- **Final encoding is deliberately on the CPU.** NVENC is much faster but at the same
+  file size libx264 looks slightly better. Draft quality does not matter, so draft
+  encoding defaults to the GPU and final defaults to the CPU. If you would rather have
+  speed than the last few percent of quality, turn on `GPU encode for FINAL`.
+- **Remotion's own encoding never uses the GPU here**, only its rasterizing does.
+  Without `--gl angle` Remotion falls back to SwANGLE, which is pure software
+  rendering on the CPU and is noticeably slower.
+- **NVENC is detected through `nvidia-smi`.** If it fails, or the GPU runs out of
+  encoding sessions, or it rejects a frame size, the job re-runs on libx264 instead of
+  failing. On macOS the auto-cut reframe currently always uses libx264, because that
+  detection only looks for NVIDIA; HyperFrames still uses VideoToolbox there.
+
+Parallelism is separate from all of this: `Concurrent render jobs (queue)` (2 by default) sets
+how many jobs run at once, `Chrome workers (HyperFrames)` sets the HyperFrames worker count, and
+`Remotion concurrency` sets how many frames Remotion renders in parallel. Two jobs
+belonging to the **same project** never run at the same time.
 
 ## Requirements
 

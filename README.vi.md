@@ -19,7 +19,7 @@
 | 🎨 **Chỉnh màu có preview** | 14 preset + chỉnh tay, xem trước từng frame; footage log/HDR tự tonemap. |
 | 🔊 **Sound effects** | Thư viện 100+ file kèm bộ đề xuất - AI chèn theo nhịp nội dung, khớp mốc zoom. |
 | 🧠 **Skills** | Know-how sản xuất tích lũy dạng markdown, quản lý trên web UI; có cả **tạo skill mới bằng AI** từ form câu hỏi. |
-| ⚡ **Tăng tốc phần cứng** | Tự phát hiện GPU (NVENC trên NVIDIA, VideoToolbox trên macOS), render song song, `--gl angle`. |
+| ⚡ **Tăng tốc phần cứng** | Tự phát hiện GPU (NVENC trên NVIDIA, VideoToolbox trên macOS), render song song, `--gl angle`. Xem [Khi nào dùng CPU, khi nào dùng GPU](#khi-nào-dùng-cpu-khi-nào-dùng-gpu). |
 | 📊 **Dashboard** | Tiến trình realtime (SSE), render queue, token AI theo ngày/loại project (in/out), phiên AI tự chạy tiếp khi gián đoạn. |
 
 ## Kiến trúc
@@ -43,6 +43,43 @@
 ```
 
 Hợp đồng API đầy đủ: [`docs/API.md`](docs/API.md). Quy trình sản xuất + know-how: [`.claude/skills/`](.claude/skills/).
+
+## Khi nào dùng CPU, khi nào dùng GPU
+
+Làm xong một video phải đi qua nhiều bước, mỗi bước chọn bộ xử lý khác nhau. Mặc định
+được chọn theo nguyên tắc **bản draft ưu tiên nhanh, bản final ưu tiên chất lượng**, và
+mọi công tắc đều đổi được trong tab **Cấu hình**.
+
+| Bước | Chạy bằng | Công tắc |
+|---|---|---|
+| Dựng hình scene HyperFrames (Chrome ẩn) | **GPU** mặc định, tắt đi thì CPU | `GPU cho capture (browser)` -> `--browser-gpu` |
+| Encode scene bản **draft** | **GPU** mặc định (NVENC / VideoToolbox) | `Encode GPU cho bản draft` -> `--gpu` |
+| Encode scene bản **final** | **CPU** mặc định (libx264) | `Encode GPU cho bản FINAL`, mặc định TẮT |
+| Dựng hình timeline Remotion | **GPU** mặc định, tắt đi thì CPU | `GPU cho capture (browser)` -> `--gl angle` (Linux: `angle-egl`) |
+| Encode video lắp ráp (cả draft lẫn final) | **Luôn CPU** (libx264) | không chỉnh được; draft thêm `--crf 28 --x264-preset veryfast` |
+| Auto cut: cắt + đổi khung từng đoạn | **GPU** chỉ khi bật `Encode GPU cho bản FINAL` **và** máy có NVENC, còn lại CPU | `Encode GPU cho bản FINAL` |
+| Tạo lời thoại (faster-whisper large-v3) | **GPU** (CUDA, float16), lỗi thì rơi về **CPU** (int8) | tự động, không có công tắc |
+| QC tự động | **CPU** (ffmpeg chỉ đo, không encode) | - |
+| Thumbnail (`remotion still`) | **GPU** mặc định, chung công tắc với capture | `GPU cho capture (browser)` |
+| Ảnh Gemini, dò chủ thể, Claude edit | **Không dùng máy** - chạy trên server nhà cung cấp | - |
+
+Ba điều đáng lưu ý:
+
+- **Encode bản final cố ý để CPU.** NVENC nhanh hơn nhiều nhưng cùng dung lượng file thì
+  libx264 cho hình nhỉnh hơn. Bản draft không cần chất lượng nên mặc định encode bằng
+  GPU, bản final mặc định bằng CPU. Muốn đổi nhanh lấy chất lượng thì bật
+  `Encode GPU cho bản FINAL`.
+- **Phần encode của Remotion không bao giờ dùng GPU ở đây**, chỉ khâu dựng hình mới dùng.
+  Không truyền `--gl angle` thì Remotion rơi về SwANGLE - dựng hình bằng phần mềm trên
+  CPU thuần, chậm thấy rõ.
+- **NVENC nhận diện qua `nvidia-smi`.** Nếu lỗi, hoặc GPU hết session encode, hoặc từ chối
+  kích thước khung, job tự chạy lại bằng libx264 chứ không fail. Trên macOS thì khâu đổi
+  khung của Auto cut hiện luôn dùng libx264, vì phép dò đó chỉ tìm NVIDIA; HyperFrames
+  trên máy đó vẫn dùng VideoToolbox bình thường.
+
+Chạy song song là chuyện riêng: `Job render đồng thời (queue)` (mặc định 2) quyết định mấy job
+chạy cùng lúc, `Worker Chrome (HyperFrames)` là số luồng của HyperFrames, `Remotion concurrency` là số
+frame Remotion dựng song song. Hai job của **cùng một project** không bao giờ chạy đồng thời.
 
 ## Yêu cầu
 
