@@ -14,6 +14,9 @@ outputs/
 imports/
 *.log
 
+# Skill riêng của noti.vn - know-how nội bộ, không đẩy lên GitHub
+.claude/skills/noti-*/
+
 # DB + cấu hình máy local
 apps/server/data/
 
