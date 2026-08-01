@@ -314,7 +314,7 @@ export function PhoneConnectModal({
           {tunnel?.installed && !tunnel.running && (
             <button
               type="button"
-              className="btn btn-secondary btn-sm self-start"
+              className="btn btn-primary btn-sm self-end"
               onClick={() => void handleStartTunnel()}
               disabled={tunnelBusy !== null}
             >
