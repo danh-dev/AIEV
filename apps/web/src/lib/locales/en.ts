@@ -469,8 +469,17 @@ export const en: Record<string, string> = {
     "Your phone must be on the same WiFi as this machine. The first time, Windows will ask about the firewall — choose Allow.",
   "phone.keep-awake":
     "Keep the phone's screen on while uploading large files — once the screen turns off, the browser stops sending.",
-  "phone.tunnel-note":
-    "Remote over 4G/5G: Tailscale (pick the 100.x IP) or a Cloudflare Tunnel pointing a domain at port 6868 — the upload page adapts automatically.",
+  "phone.tunnel-missing":
+    "cloudflared isn't installed on the server — open the Connections tab to install it.",
+  "phone.tunnel-start": "Turn on Internet (Cloudflare Tunnel)",
+  "phone.tunnel-starting": "Starting…",
+  "phone.tunnel-timeout": "Could not start the tunnel — check the Connections tab.",
+  "phone.tunnel-ready":
+    "Cloudflare Tunnel is running — the QR also works when the phone is on 4G/5G.",
+  "phone.tunnel-use": "Use the Internet link",
+  "phone.tunnel-stop": "Turn off Internet",
+  "phone.tunnel-warn":
+    "Anyone with the Internet link can open this project's upload page — turn it off when you're done.",
   "phone.tunnel-active":
     "Internet route via Cloudflare Tunnel — works over 4G/5G. Remember to keep cloudflared running on this machine.",
   "phone.session-note":

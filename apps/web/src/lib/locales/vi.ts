@@ -469,8 +469,17 @@ export const vi: Record<string, string> = {
     "Điện thoại phải cùng WiFi với máy này. Lần đầu Windows hỏi firewall → chọn Allow.",
   "phone.keep-awake":
     "Giữ màn hình điện thoại sáng khi đang tải file lớn — tắt màn hình là trình duyệt ngừng gửi.",
-  "phone.tunnel-note":
-    "Dùng từ xa qua 4G/5G: Tailscale (chọn IP 100.x) hoặc Cloudflare Tunnel trỏ domain về cổng 6868 — trang upload tự thích ứng.",
+  "phone.tunnel-missing":
+    "Chưa cài cloudflared trên máy chủ — mở tab Kết nối để cài.",
+  "phone.tunnel-start": "Bật Internet (Cloudflare Tunnel)",
+  "phone.tunnel-starting": "Đang bật…",
+  "phone.tunnel-timeout": "Chưa bật được tunnel — xem tab Kết nối.",
+  "phone.tunnel-ready":
+    "Cloudflare Tunnel đang chạy — quét được cả khi điện thoại dùng 4G/5G.",
+  "phone.tunnel-use": "Dùng link Internet",
+  "phone.tunnel-stop": "Tắt Internet",
+  "phone.tunnel-warn":
+    "Link Internet ai có cũng mở được trang upload của project này — tắt khi dùng xong.",
   "phone.tunnel-active":
     "Đường Internet qua Cloudflare Tunnel — dùng được với 4G/5G. Nhớ bật cloudflared trên máy này.",
   "phone.session-note":

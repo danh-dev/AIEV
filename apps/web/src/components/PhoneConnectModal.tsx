@@ -1,12 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createUploadSession,
   getLanInfo,
+  getTunnelStatus,
   revokeUploadSession,
+  startTunnel,
+  stopTunnel,
   type LanInfo,
+  type TunnelStatus,
 } from "@/lib/api";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
@@ -22,6 +27,13 @@ import { useT } from "@/lib/i18n";
 
 /** Giá trị option "đi qua Cloudflare Tunnel" trong select Mạng (IP không bao giờ trùng). */
 const TUNNEL_OPTION = "__tunnel__";
+
+/** Chờ tunnel lên: hỏi lại mỗi 2s, bỏ cuộc sau 40s (cloudflared quick mất ~5–15s). */
+const TUNNEL_POLL_MS = 2000;
+const TUNNEL_POLL_TIMEOUT_MS = 40_000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export function PhoneConnectModal({
   projectId,
   open,
@@ -39,6 +51,15 @@ export function PhoneConnectModal({
   const [error, setError] = useState<string | null>(null);
   // Token phiên upload — link/QR chỉ sống khi modal đang mở (bảo mật)
   const [token, setToken] = useState<string | null>(null);
+  // Trạng thái cloudflared/tunnel — để bật/tắt đường Internet ngay trong modal
+  const [tunnel, setTunnel] = useState<TunnelStatus | null>(null);
+  const [tunnelBusy, setTunnelBusy] = useState<"start" | "stop" | null>(null);
+  const [tunnelError, setTunnelError] = useState<string | null>(null);
+  // Vòng poll chạy async — dừng ngay khi modal đóng, không setState nữa
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   // Lấy IP LAN mỗi lần mở modal (đổi mạng WiFi thì IP đổi theo)
   useEffect(() => {
@@ -57,6 +78,24 @@ export function PhoneConnectModal({
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : String(e));
       });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  // Trạng thái tunnel mỗi lần mở modal — quyết định hiện nút Bật/Tắt Internet.
+  // Lỗi ở đây không chặn QR LAN nên chỉ nuốt, không đẩy lên ErrorBanner.
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setTunnel(null);
+    setTunnelBusy(null);
+    setTunnelError(null);
+    getTunnelStatus()
+      .then((s) => {
+        if (alive) setTunnel(s);
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -112,6 +151,63 @@ export function PhoneConnectModal({
       alive = false;
     };
   }, [url]);
+
+  /**
+   * Bật Cloudflare Tunnel rồi chuyển QR sang link Internet.
+   * cloudflared cần vài giây mới có URL public → poll /api/tunnel tới khi
+   * `running && url`, sau đó lấy lại lan-info (server ưu tiên hostname quick
+   * tunnel đang sống) và chọn option Internet.
+   */
+  async function handleStartTunnel() {
+    setTunnelBusy("start");
+    setTunnelError(null);
+    try {
+      await startTunnel();
+      const deadline = Date.now() + TUNNEL_POLL_TIMEOUT_MS;
+      let live = false;
+      while (Date.now() < deadline) {
+        await sleep(TUNNEL_POLL_MS);
+        if (!openRef.current) return;
+        const s = await getTunnelStatus().catch(() => null);
+        if (s) setTunnel(s);
+        if (s?.running && s.url) {
+          live = true;
+          break;
+        }
+      }
+      if (!live) {
+        setTunnelError(t("phone.tunnel-timeout"));
+        return;
+      }
+      const info = await getLanInfo();
+      if (!openRef.current) return;
+      setLan(info);
+      if (info.tunnelDomain) setSel(TUNNEL_OPTION);
+    } catch (e) {
+      setTunnelError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (openRef.current) setTunnelBusy(null);
+    }
+  }
+
+  /** Tắt tunnel → link Internet chết ngay, QR quay về IP LAN đầu tiên. */
+  async function handleStopTunnel() {
+    setTunnelBusy("stop");
+    setTunnelError(null);
+    try {
+      await stopTunnel();
+      const [s, info] = await Promise.all([getTunnelStatus(), getLanInfo()]);
+      if (!openRef.current) return;
+      setTunnel(s);
+      setLan(info);
+      // Tunnel đã tắt → quay về LAN kể cả khi .env vẫn còn TUNNEL_DOMAIN
+      setSel(info.ips[0] ?? null);
+    } catch (e) {
+      setTunnelError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (openRef.current) setTunnelBusy(null);
+    }
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={t("phone.title")}>
@@ -176,18 +272,76 @@ export function PhoneConnectModal({
 
       {viaTunnel ? (
         // Đang đi đường Internet qua Cloudflare Tunnel — không cần cùng WiFi
-        <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-          {t("phone.tunnel-active")}
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
+            {t("phone.tunnel-active")}
+          </p>
+          {/* Link Internet là public — nhắc tắt khi xong, kèm nút tắt tại chỗ */}
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("phone.tunnel-warn")}{" "}
+            <button
+              type="button"
+              className="font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
+              onClick={() => void handleStopTunnel()}
+              disabled={tunnelBusy !== null}
+            >
+              {t("phone.tunnel-stop")}
+            </button>
+          </p>
+          {tunnelError && (
+            <p className="text-xs font-medium text-[var(--danger)]">{tunnelError}</p>
+          )}
+        </div>
       ) : (
-        <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-          {t("phone.note")}
-        </p>
-      )}
+        <div className="flex flex-col gap-2">
+          <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
+            {t("phone.note")}
+          </p>
 
-      {/* Ghi chú dùng từ xa: Tailscale / Cloudflare Tunnel — trang /m tự chọn endpoint upload */}
-      {!viaTunnel && (
-        <p className="text-xs text-[var(--text-muted)]">{t("phone.tunnel-note")}</p>
+          {/* Dùng ngoài mạng LAN (4G/5G) — bật Cloudflare Tunnel ngay tại đây */}
+          {tunnel && !tunnel.installed && (
+            <p className="text-xs text-[var(--text-muted)]">
+              {t("phone.tunnel-missing")}{" "}
+              <Link
+                href="/connections"
+                className="font-medium text-[var(--primary)] hover:underline"
+              >
+                {t("nav.connections")} →
+              </Link>
+            </p>
+          )}
+
+          {tunnel?.installed && !tunnel.running && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm self-start"
+              onClick={() => void handleStartTunnel()}
+              disabled={tunnelBusy !== null}
+            >
+              {tunnelBusy === "start"
+                ? t("phone.tunnel-starting")
+                : t("phone.tunnel-start")}
+            </button>
+          )}
+
+          {/* Tunnel đã chạy sẵn nhưng QR đang trỏ IP LAN → mời đổi sang link Internet */}
+          {tunnel?.running && lan?.tunnelDomain && (
+            <p className="text-xs text-[var(--text-muted)]">
+              {t("phone.tunnel-ready")}{" "}
+              <button
+                type="button"
+                className="font-medium text-[var(--primary)] hover:underline"
+                onClick={() => setSel(TUNNEL_OPTION)}
+              >
+                {t("phone.tunnel-use")}
+              </button>
+            </p>
+          )}
+
+          {tunnelError && (
+            <p className="text-xs font-medium text-[var(--danger)]">{tunnelError}</p>
+          )}
+        </div>
       )}
 
       <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
