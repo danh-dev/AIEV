@@ -19,6 +19,7 @@
 | 🎨 **Chỉnh màu có preview** | 14 preset + chỉnh tay, xem trước từng frame; footage log/HDR tự tonemap. |
 | 🔊 **Sound effects** | Thư viện 100+ file kèm bộ đề xuất - AI chèn theo nhịp nội dung, khớp mốc zoom. |
 | 🧠 **Skills** | Know-how sản xuất tích lũy dạng markdown, quản lý trên web UI; có cả **tạo skill mới bằng AI** từ form câu hỏi. |
+| 🩺 **Kiểm tra & tự cài môi trường** | Một lệnh dò đủ FFmpeg, Chrome, xác thực Claude, faster-whisper, khóa Gemini; thiếu gì cài giúp nấy. Chạy sẵn lúc khởi động, và có nút cài một chạm ngay trong tab Cấu hình. Xem [Kiểm tra môi trường](#kiểm-tra-môi-trường). |
 | ⚡ **Tăng tốc phần cứng** | Tự phát hiện GPU (NVENC trên NVIDIA, VideoToolbox trên macOS), render song song, `--gl angle`. Xem [Khi nào dùng CPU, khi nào dùng GPU](#khi-nào-dùng-cpu-khi-nào-dùng-gpu). |
 | 📊 **Dashboard** | Tiến trình realtime (SSE), render queue, token AI theo ngày/loại project (in/out), phiên AI tự chạy tiếp khi gián đoạn. |
 
@@ -90,6 +91,9 @@ frame Remotion dựng song song. Hai job của **cùng một project** không ba
 - **Gemini** (chỉ cần cho tạo ảnh): `GEMINI_API_KEY` trong `.env` - lấy tại [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 - Tùy chọn: GPU NVIDIA (NVENC) hoặc Mac Apple Silicon (VideoToolbox) để render nhanh hơn; Python + `faster-whisper` cho phụ đề
 
+Không phải tự cài tay từng thứ. Script khởi động kiểm tra hết danh sách trên và cài giúp những thứ
+cài được - xem [Kiểm tra môi trường](#kiểm-tra-môi-trường) bên dưới.
+
 ## Chạy
 
 ```bash
@@ -108,6 +112,31 @@ chmod +x start/start.sh start/stop.sh   # lần đầu
 Script tự lo mọi thứ: kiểm tra môi trường → `npm install` (lần đầu) → build → tạo `.env` → chạy server + web → mở `http://localhost:6868`. Dừng bằng `start\stop.bat` / `./start/stop.sh`.
 
 Chạy dev thủ công: `npm install` rồi `npm run dev`.
+
+## Kiểm tra môi trường
+
+`start/doctor.mjs` dò đủ những thứ pipeline cần - Node.js, FFmpeg, Google Chrome, xác thực Claude,
+faster-whisper, khóa Gemini, cloudflared, GPU - và cài giúp phần cài được:
+
+| | |
+|---|---|
+| **Cài giúp bạn** (hỏi `[Y/n]` trước) | FFmpeg, Google Chrome, Claude Code, faster-whisper, cloudflared - qua `winget` trên Windows, `brew` trên macOS, `npm`/`pip` cho phần còn lại |
+| **Bạn tự làm, hệ thống chỉ đúng việc cần làm** | cài Node.js, đăng nhập Claude (`claude` → `/login`), dán khóa Gemini |
+
+Nó chạy sẵn trong `start.bat` / `start.command`, và đúng danh sách đó hiện thành card
+**Kiểm tra hệ thống** trong tab **Cấu hình** - mỗi mục thiếu có nút cài một chạm (hoặc lệnh chép
+một phát nếu không tự cài được). Thiếu đồ **không chặn khởi động**: dashboard vẫn lên để bạn sửa
+ngay trên giao diện.
+
+```bash
+node start/doctor.mjs              # chỉ xem
+node start/doctor.mjs --fix        # thiếu gì hỏi cài nấy
+node start/doctor.mjs --fix --yes  # cài luôn, không hỏi
+node start/doctor.mjs --lang en    # in tiếng Anh
+```
+
+Một file duy nhất phục vụ cả terminal, hai script khởi động lẫn web UI - thêm mục kiểm tra mới thì
+sửa đúng một chỗ.
 
 ## Upload từ điện thoại
 

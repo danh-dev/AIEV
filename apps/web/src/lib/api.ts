@@ -2058,3 +2058,58 @@ export interface Metrics {
 
 /** Mức dùng CPU/GPU hiện tại - server tự cache 1,5s nên poll 2s là an toàn. */
 export const getMetrics = () => request<Metrics>("/api/metrics");
+
+// ================= Kiểm tra môi trường (start/doctor.mjs) =================
+
+export type DoctorLevel = "required" | "optional" | "info";
+
+export interface DoctorFix {
+  /** true = bấm nút là cài được, không cần gõ lệnh */
+  auto: boolean;
+  size?: string;
+  manual?: string;
+  /**
+   * Lệnh chép-dán-chạy được. Chỉ có ở mục mà cách sửa THỰC SỰ là một dòng lệnh -
+   * mục kiểu "dán API key ở trang Kết nối" thì không, để khỏi hiện nút chép vô nghĩa.
+   */
+  command?: string;
+  /** Trang trong dashboard làm được việc này (vd /connections) */
+  link?: string;
+  url?: string;
+}
+
+export interface DoctorCheck {
+  id: string;
+  /** Tên riêng (FFmpeg, Google Chrome...) - KHÔNG dịch */
+  label: string;
+  level: DoctorLevel;
+  status: "ok" | "missing";
+  /** Version/đường dẫn máy dò được - KHÔNG dịch */
+  detail: string;
+  /** Mã ghi chú, dịch bằng key "doctor.note.<note>" */
+  note?: string | null;
+  fix: DoctorFix | null;
+}
+
+export interface DoctorReport {
+  platform: string;
+  ok: boolean;
+  missingRequired: string[];
+  checks: DoctorCheck[];
+}
+
+export interface DoctorFixResult {
+  ok: boolean;
+  installed: boolean;
+  timedOut: boolean;
+  log: string[];
+  report: DoctorReport;
+}
+
+/** Dò môi trường - server cache 20s; refresh=true để ép dò lại. */
+export const getDoctor = (refresh = false) =>
+  request<DoctorReport>(`/api/doctor${refresh ? "?refresh=1" : ""}`);
+
+/** Cài một mục còn thiếu. Chỉ chạy được với mục có fix.auto = true. */
+export const fixDoctor = (id: string) =>
+  post<DoctorFixResult>("/api/doctor/fix", { id });

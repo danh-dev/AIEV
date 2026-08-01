@@ -20,6 +20,7 @@ import { isKnownUploadToken } from "./routes/uploadSession.js";
 import healthRouter from "./routes/health.js";
 import overviewRouter from "./routes/overview.js";
 import metricsRouter from "./routes/metrics.js";
+import doctorRouter, { warmDoctorCache } from "./routes/doctor.js";
 import projectsRouter from "./routes/projects.js";
 import jobsRouter from "./routes/jobs.js";
 import skillsRouter from "./routes/skills.js";
@@ -168,6 +169,9 @@ app.get("/api/events", addSseClient);
 app.use("/api/health", healthRouter);
 app.use("/api/overview", overviewRouter);
 app.use("/api/metrics", metricsRouter);
+// Kiểm tra môi trường + cài phần còn thiếu (không đặt dưới /api/health vì
+// nhánh đó public, còn đây là đường chạy lệnh cài)
+app.use("/api/doctor", doctorRouter);
 app.use("/api/projects", projectsRouter);
 // POST /api/projects/:id/thumbnail - projectsRouter không match nên rơi xuống đây
 app.use("/api/projects", thumbnailsRouter);
@@ -259,6 +263,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 const server = app.listen(SERVER_PORT, () => {
   console.log(`[server] AI Edit Video backend chạy tại http://localhost:${SERVER_PORT}`);
   console.log(`[server] Repo root: ${repoRoot}`);
+  // Dò môi trường sẵn (~6s, chạy trong tiến trình con) để trang Cấu hình mở là có ngay
+  warmDoctorCache();
   // Phiên bị 'interrupted' do restart (autoResume bật) → tự chạy tiếp sau khi server ổn định
   setTimeout(() => {
     void autoResumeStartup();

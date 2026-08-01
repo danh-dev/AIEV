@@ -99,17 +99,20 @@ export function UpdateBadge() {
             className="shrink-0 text-[var(--success)]"
           />
         )}
-        {/* Sidebar chỉ rộng 220px: nhãn + số thay đổi nằm cùng hàng thì nhãn bị
-            cắt giữa từ ("Có bản cập..."). Xếp chồng hai dòng đọc được trọn vẹn. */}
-        <span className="flex min-w-0 flex-1 flex-col leading-tight">
+        {/* Trạng thái và phiên bản nằm CÙNG MỘT HÀNG. Sidebar chỉ rộng 220px nên
+            khi hết chỗ thì cắt bớt phần nhãn (còn đọc được ý) và giữ nguyên phần
+            phiên bản - đó mới là thông tin không đoán được. */}
+        <span className="flex min-w-0 flex-1 items-baseline gap-1.5 leading-tight">
+          {/* Nhãn NGẮN riêng cho badge: cùng hàng với phiên bản thì chỗ chỉ đủ
+              ~85px, dùng nhãn dài của modal sẽ bị cắt giữa từ ("Có bản cập..."). */}
           <span className="truncate">
             {hasUpdate
-              ? t("update.available")
+              ? t("update.badge-available")
               : checkFailed
-                ? t("update.check-failed")
+                ? t("update.badge-check-failed")
                 : t("update.up-to-date")}
           </span>
-          <span className="truncate font-mono text-[11px] text-[var(--text-muted)]">
+          <span className="shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
             {hasUpdate
               ? tf("update.behind", { n: status.behind })
               : status.current}

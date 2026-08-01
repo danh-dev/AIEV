@@ -22,6 +22,7 @@ import { Card } from "@/components/Card";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
+import { SystemCheckCard } from "@/components/SystemCheckCard";
 import { useT } from "@/lib/i18n";
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -409,6 +410,9 @@ export default function ConfigPage() {
       {saveError && (
         <ErrorBanner message={t("config.save-error")} detail={saveError} />
       )}
+
+      {/* Đặt TRÊN CÙNG: thiếu ffmpeg/Chrome thì mọi cài đặt phía dưới đều vô nghĩa */}
+      <SystemCheckCard />
 
       {hw && <HardwareCard hw={hw} />}
 

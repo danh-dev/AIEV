@@ -22,6 +22,31 @@ GET /api/overview
 `runningJob` = job đang chạy ĐẦU TIÊN (queue song song nên có thể nhiều job đang chạy cùng lúc).
 `recentProjects` mỗi phần tử kèm `tokensUsed, costUsd`.
 
+## Kiểm tra môi trường (card "Kiểm tra hệ thống" trang /config)
+
+```
+GET /api/doctor[?refresh=1]
+→ { platform: string, ok: bool, missingRequired: string[],
+    checks: [ { id, label, level: "required"|"optional"|"info",
+                status: "ok"|"missing", detail: string, note: string|null,
+                fix: { auto: bool, size?, command?, manual?, link?, url? } | null } ] }
+
+POST /api/doctor/fix   { id }
+→ { ok: bool, installed: bool, timedOut: bool, log: string[≤40], report: <như GET> }
+```
+
+Danh sách kiểm tra nằm ở **`start/doctor.mjs`** — dùng chung với `start.ps1` / `start.sh`, nên
+terminal lúc khởi động và card trên web luôn khớp nhau. Backend **spawn** file đó (`--json` /
+`--fix-one <id>`) chứ không import: mọi phép dò bên trong là `spawnSync` (phải chạy được trước
+cả `npm install`), chạy trong tiến trình server sẽ chặn event loop ~6s.
+
+- `detail` là dữ liệu máy dò được (version, đường dẫn) — KHÔNG dịch. `note` là mã để web tự dịch
+  (`doctor.note.<note>`), `label` dịch qua `doctor.label.<id>` nếu có.
+- Kết quả cache 20s; server tự dò sẵn một lần lúc khởi động để lần mở trang đầu không phải chờ.
+- `POST /fix` chỉ chấp nhận mục có `fix.auto = true` (400 `MANUAL_ONLY` nếu không), mỗi lần một
+  mục (409 `FIX_BUSY`). `installed` là kết quả DÒ LẠI sau khi cài — lệnh chạy xong chưa chắc đã
+  thấy (winget ghi PATH ở nơi khác), nên đừng tin mỗi `ok` của lệnh.
+
 ## Kết nối điện thoại (upload từ điện thoại cùng WiFi)
 
 ```

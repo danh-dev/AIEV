@@ -107,6 +107,9 @@ export const en: Record<string, string> = {
   "update.click-check": "Click to check now",
   "update.up-to-date": "Up to date",
   "update.available": "Update available",
+  // Short forms for the narrow sidebar badge - the long ones above are for the modal
+  "update.badge-available": "New version",
+  "update.badge-check-failed": "Check failed",
   "update.behind": "{n} changes",
   "update.apply": "Update",
 
@@ -1389,6 +1392,44 @@ export const en: Record<string, string> = {
   "help.assets.title": "What is the Assets page for?",
   "help.assets.body":
     "The two shared file stores of the system: imports/ is where you drop source files (footage, images, audio), outputs/ is where finished videos land.\nUpload here when a file will be used by several projects, or so you can pick it as the source of an Auto cut session.\nDeleting a file in imports/ that a project still references makes the next render fail with a missing file.",
+
+  // ===== Kiểm tra hệ thống (start/doctor.mjs) =====
+  "doctor.title": "System check",
+  "doctor.recheck": "Check again",
+  "doctor.checking": "Checking this machine…",
+  "doctor.all-good": "All set",
+  "doctor.missing-required": "{n} required item(s) missing",
+  "doctor.missing-optional": "{n} optional feature(s) unavailable",
+  "doctor.details": "Show details",
+  "doctor.hide": "Collapse",
+  "doctor.install": "Install",
+  "doctor.install-size": "Install ({size})",
+  "doctor.installing": "Installing…",
+  "doctor.install-failed": "Install did not succeed - try the manual command below.",
+  "doctor.copy": "Copy command",
+  "doctor.copied": "Copied",
+  "doctor.open-page": "Open page",
+  "doctor.guide": "Guide",
+  "doctor.label.claude-auth": "Claude login",
+  "doctor.label.gemini": "Gemini API key",
+  "doctor.why.node": "runtime for the whole system",
+  "doctor.why.ffmpeg": "cuts, joins and encodes video - nothing renders without it",
+  "doctor.why.chrome": "HyperFrames and Remotion both render through headless Chrome",
+  "doctor.why.claude-cli": "one way to sign in with a subscription (the other is an API key)",
+  "doctor.why.claude-auth": "without credentials, AI editing is unavailable",
+  "doctor.why.whisper": "automatic subtitles from speech",
+  "doctor.why.gemini": "background and illustration images",
+  "doctor.why.cloudflared": "reach the dashboard over 4G/5G",
+  "doctor.why.gpu": "faster rendering",
+  "doctor.note.ffprobe-missing": "ffmpeg found but ffprobe is missing",
+  "doctor.note.not-needed": "not needed - credentials already present",
+  "doctor.note.module-missing": "Python found but the module is missing",
+  "doctor.note.python-missing": "Python not installed",
+  "doctor.note.cpu-only": "no hardware acceleration - rendering on CPU",
+
+  "help.doctor.title": "What is the system check for?",
+  "help.doctor.body":
+    "It probes whether this machine has everything the pipeline needs: FFmpeg, Google Chrome, Claude credentials, faster-whisper for subtitles, a Gemini key for image generation.\nAnything missing gets an \"Install\" button; anything that cannot be installed automatically shows a command to copy or a link to the page that handles it.\nThe same list runs when you launch start.bat / start.command, so both places always agree.",
 
   // ===== Đồng hồ CPU/GPU trên header =====
   "meter.cpu": "CPU",

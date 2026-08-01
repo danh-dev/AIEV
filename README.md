@@ -19,6 +19,7 @@ Drop in a clip, briefly describe what you want, click **"Start editing with AI"*
 | 🎨 **Color grading with preview** | 14 presets + manual adjustments, per-frame preview; log/HDR footage is tonemapped automatically. |
 | 🔊 **Sound effects** | Library of 100+ files with a curated set - AI inserts them to match the content rhythm and zoom beats. |
 | 🧠 **Skills** | Production know-how accumulated as markdown, managed in the web UI; includes **AI-powered skill creation** from a question form. |
+| 🩺 **Environment check & auto-install** | One command probes FFmpeg, Chrome, Claude credentials, faster-whisper and the Gemini key, then installs whatever it can. Runs at startup and offers one-click installs in the Settings tab. See [Environment check](#environment-check). |
 | ⚡ **Hardware acceleration** | Auto-detects the GPU (NVENC on NVIDIA, VideoToolbox on macOS), parallel rendering, `--gl angle`. See [CPU or GPU, step by step](#cpu-or-gpu-step-by-step). |
 | 📊 **Dashboard** | Realtime progress (SSE), render queue, AI tokens by day/project type (in/out), AI sessions auto-resume after interruptions. |
 
@@ -91,6 +92,9 @@ belonging to the **same project** never run at the same time.
 - **Gemini** (only needed for image generation): `GEMINI_API_KEY` in `.env` - get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 - Optional: an NVIDIA GPU (NVENC) or Apple Silicon Mac (VideoToolbox) for faster rendering; Python + `faster-whisper` for subtitles
 
+You do not have to install these by hand. The start script checks every item above and offers to
+install whatever it can - see [Environment check](#environment-check) below.
+
 ## Getting started
 
 ```bash
@@ -109,6 +113,31 @@ chmod +x start/start.sh start/stop.sh   # first time only
 The script handles everything: checks the environment → `npm install` (first run) → build → creates `.env` → starts server + web → opens `http://localhost:6868`. Stop with `start\stop.bat` / `./start/stop.sh`.
 
 Manual dev run: `npm install` then `npm run dev`.
+
+## Environment check
+
+`start/doctor.mjs` probes everything the pipeline needs - Node.js, FFmpeg, Google Chrome, Claude
+credentials, faster-whisper, the Gemini key, cloudflared, GPU - and installs what it can:
+
+| | |
+|---|---|
+| **Installed for you** (after a `[Y/n]` prompt) | FFmpeg, Google Chrome, Claude Code, faster-whisper, cloudflared - via `winget` on Windows, `brew` on macOS, `npm`/`pip` elsewhere |
+| **You do it, we tell you exactly how** | installing Node.js, signing in to Claude (`claude` → `/login`), pasting the Gemini key |
+
+It runs automatically inside `start.bat` / `start.command`, and the same list appears as the
+**System check** card in the **Settings** tab, where each missing item gets a one-click install
+button (or a copyable command when it cannot be automated). Missing pieces never block startup -
+the dashboard comes up regardless so you can fix things from the UI.
+
+```bash
+node start/doctor.mjs              # just look
+node start/doctor.mjs --fix        # ask before installing each missing item
+node start/doctor.mjs --fix --yes  # install without asking
+node start/doctor.mjs --lang en    # English output (default follows the script)
+```
+
+One file feeds the terminal, both start scripts and the web UI, so a new check is added in exactly
+one place.
 
 ## Upload from your phone
 

@@ -107,6 +107,9 @@ export const vi: Record<string, string> = {
   "update.click-check": "Bấm để kiểm tra ngay",
   "update.up-to-date": "Bản mới nhất",
   "update.available": "Có bản cập nhật",
+  // Bản ngắn cho badge ở sidebar (chỗ hẹp) - bản dài phía trên dùng trong modal
+  "update.badge-available": "Có bản mới",
+  "update.badge-check-failed": "Lỗi kiểm tra",
   "update.behind": "{n} thay đổi",
   "update.apply": "Cập nhật",
 
@@ -1384,6 +1387,46 @@ export const vi: Record<string, string> = {
   "help.assets.title": "Trang Assets để làm gì?",
   "help.assets.body":
     "Hai kho file dùng chung của cả hệ thống: imports/ là nơi bạn bỏ file nguồn vào (footage quay, ảnh, audio), outputs/ là nơi video thành phẩm được xuất ra.\nTải file lên đây khi muốn dùng cho nhiều project, hoặc để chọn làm nguồn cho một phiên Auto cut.\nXóa file trong imports/ mà project đang tham chiếu thì lần render sau sẽ lỗi thiếu file.",
+
+  // ===== Kiểm tra hệ thống (start/doctor.mjs) =====
+  "doctor.title": "Kiểm tra hệ thống",
+  "doctor.recheck": "Kiểm tra lại",
+  "doctor.checking": "Đang kiểm tra máy…",
+  "doctor.all-good": "Đầy đủ",
+  "doctor.missing-required": "Thiếu {n} thứ bắt buộc",
+  "doctor.missing-optional": "{n} tính năng phụ chưa dùng được",
+  "doctor.details": "Xem chi tiết",
+  "doctor.hide": "Thu gọn",
+  "doctor.install": "Cài tự động",
+  "doctor.install-size": "Cài tự động ({size})",
+  "doctor.installing": "Đang cài…",
+  "doctor.install-failed": "Cài không thành công - thử lệnh thủ công bên dưới.",
+  "doctor.copy": "Chép lệnh",
+  "doctor.copied": "Đã chép",
+  "doctor.open-page": "Mở trang xử lý",
+  "doctor.guide": "Hướng dẫn",
+  // Nhãn dịch được - mục nào là tên riêng (FFmpeg, Google Chrome) thì bỏ trống,
+  // component tự lấy label gốc từ server
+  "doctor.label.claude-auth": "Đăng nhập Claude",
+  "doctor.label.gemini": "Khóa API Gemini",
+  "doctor.why.node": "nền tảng chạy toàn hệ thống",
+  "doctor.why.ffmpeg": "cắt, ghép và encode video - thiếu là không render được",
+  "doctor.why.chrome": "HyperFrames và Remotion đều render qua Chrome ẩn",
+  "doctor.why.claude-cli": "một cách đăng nhập subscription (cách kia là API key)",
+  "doctor.why.claude-auth": "chưa có xác thực thì không edit bằng AI được",
+  "doctor.why.whisper": "tạo phụ đề tự động từ giọng nói",
+  "doctor.why.gemini": "tạo ảnh nền và ảnh minh họa",
+  "doctor.why.cloudflared": "mở dashboard qua 4G/5G",
+  "doctor.why.gpu": "render nhanh hơn",
+  "doctor.note.ffprobe-missing": "có ffmpeg nhưng thiếu ffprobe",
+  "doctor.note.not-needed": "không cần - đã có xác thực",
+  "doctor.note.module-missing": "có Python nhưng thiếu module",
+  "doctor.note.python-missing": "chưa có Python",
+  "doctor.note.cpu-only": "không có GPU tăng tốc - render bằng CPU",
+
+  "help.doctor.title": "Kiểm tra hệ thống để làm gì?",
+  "help.doctor.body":
+    "Dò xem máy đã có đủ những thứ pipeline cần chưa: FFmpeg, Google Chrome, xác thực Claude, faster-whisper cho phụ đề, khóa Gemini cho tạo ảnh.\nThiếu thứ nào bấm \"Cài tự động\" là xong, thứ nào không tự cài được thì có sẵn lệnh để chép hoặc link tới trang xử lý.\nĐúng danh sách này cũng chạy khi bạn mở start.bat / start.command, nên kết quả hai nơi luôn khớp nhau.",
 
   // ===== Đồng hồ CPU/GPU trên header =====
   "meter.cpu": "CPU",

@@ -12,22 +12,44 @@ chmod +x start/*.sh start/*.command   # chỉ cần lần đầu (tải ZIP mớ
 
 Script (cả hai hệ) tự động:
 
-1. Kiểm tra Node.js 20+ (macOS kiểm thêm ffmpeg — `brew install ffmpeg` nếu thiếu)
-2. Cài dependencies nếu là lần chạy đầu (vài phút)
-3. Build backend + web UI nếu chưa build hoặc code mới hơn bản build
-4. Tạo file `.env` nếu chưa có
-5. Chạy server (port 6869) + web (port 6868) — Windows mở cửa sổ log riêng, macOS ghi log vào `start/server.log` (`tail -f start/server.log` để xem)
-6. Mở trình duyệt tại **http://localhost:6868**
+1. Kiểm tra Node.js 20+
+2. **Kiểm tra môi trường + cài phần còn thiếu** (`doctor.mjs` — xem mục dưới)
+3. Cài dependencies nếu là lần chạy đầu (vài phút)
+4. Build backend + web UI nếu chưa build hoặc code mới hơn bản build
+5. Tạo file `.env` nếu chưa có
+6. Chạy server (port 6869) + web (port 6868) — Windows mở cửa sổ log riêng, macOS ghi log vào `start/server.log` (`tail -f start/server.log` để xem)
+7. Mở trình duyệt tại **http://localhost:6868**
 
 Nếu hệ thống đang chạy sẵn, script chỉ mở lại trình duyệt; đang chạy dở dang (một trong hai port chết) thì tự dọn sạch và khởi động lại.
+
+## Kiểm tra môi trường — `doctor.mjs`
+
+Một file duy nhất kiểm tra máy đã đủ đồ chưa: **Node.js, FFmpeg, Google Chrome, xác thực Claude,
+faster-whisper (phụ đề), khóa Gemini (tạo ảnh), cloudflared (tunnel), GPU**.
+
+Thiếu thứ nào cài tự động được thì script hỏi `[Y/n]` rồi cài luôn (winget trên Windows, brew trên
+macOS, npm/pip cho phần còn lại). Thứ nào không tự cài được — cài Node, đăng nhập Claude, dán API
+key — thì in ra đúng việc cần làm. **Thiếu đồ không chặn hệ thống khởi động**: dashboard vẫn lên,
+và card **Kiểm tra hệ thống** trong tab Cấu hình hiện y hệt danh sách đó kèm nút cài một chạm.
+
+```bash
+node start/doctor.mjs              # chỉ xem
+node start/doctor.mjs --fix        # thiếu gì hỏi cài nấy
+node start/doctor.mjs --fix --yes  # cài luôn, không hỏi
+node start/doctor.mjs --json       # cho máy đọc (backend dùng đường này)
+node start/doctor.mjs --lang en    # tiếng Anh
+```
+
+Đây là nguồn sự thật duy nhất cho cả terminal lẫn web (`GET /api/doctor`) — thêm một mục kiểm tra
+thì sửa đúng một chỗ.
 
 ## Dừng hệ thống
 
 - Windows: nhấp đúp **`stop.bat`** (hoặc đóng cửa sổ "AI Edit Video - LOG")
 - macOS / Linux: `./start/stop.sh`
 
-> macOS: `start.command` tự kiểm tra & cài Claude Code nếu thiếu; chưa đăng nhập thì hỏi và mở
-> sẵn Claude Code để bạn gõ `/login` (bước đăng nhập là OAuth qua trình duyệt nên cần bạn xác nhận).
+> Chưa đăng nhập Claude thì `start.command` (macOS) mở sẵn Claude Code để bạn gõ `/login` — bước
+> đăng nhập là OAuth qua trình duyệt nên phải có bạn xác nhận, không tự làm thay được.
 
 ## Bật tính năng Chat / Edit AI
 

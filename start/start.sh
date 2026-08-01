@@ -32,14 +32,15 @@ if [ "$NODE_MAJOR" -lt 20 ]; then
 fi
 ok "Node.js $(node --version)"
 
-# ffmpeg là bắt buộc cho pipeline render
-if ! command -v ffmpeg >/dev/null 2>&1; then
-  err "Chưa có ffmpeg trên PATH. macOS: brew install ffmpeg"
-  exit 1
-fi
-ok "ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}')"
+# Kiểm tra môi trường + cài phần còn thiếu (ffmpeg, Chrome, faster-whisper,
+# cloudflared...). Danh sách nằm ở start/doctor.mjs - DÙNG CHUNG với start.ps1
+# và trang Cấu hình trên web, để ba nơi không bao giờ lệch nhau.
+export PATH="$ROOT/start/bin:$PATH"
+node "$ROOT/start/doctor.mjs" --fix
 
-# --- Claude Code: tự cài nếu thiếu, kiểm tra đăng nhập, dẫn vào /login nếu chưa ---
+# --- Claude Code: kiểm tra đăng nhập, dẫn vào /login nếu chưa ---
+# Doctor cài được CLI nhưng KHÔNG đăng nhập thay được (phải mở trình duyệt,
+# nhập mã) - đoạn dưới bàn giao terminal cho `claude` để người dùng gõ /login.
 claude_authed() {
   [ -n "${ANTHROPIC_API_KEY:-}" ] && return 0
   [ -f "$HOME/.claude/.credentials.json" ] && return 0
@@ -49,13 +50,6 @@ claude_authed() {
   fi
   return 1
 }
-
-if ! command -v claude >/dev/null 2>&1; then
-  step "Chưa có Claude Code - đang cài (npm install -g @anthropic-ai/claude-code)..."
-  npm install -g @anthropic-ai/claude-code --no-audit --no-fund \
-    && ok "Đã cài Claude Code." \
-    || err "Không cài được Claude Code tự động - cài tay: npm install -g @anthropic-ai/claude-code"
-fi
 
 if command -v claude >/dev/null 2>&1 && ! claude_authed; then
   echo ""
@@ -69,33 +63,6 @@ if command -v claude >/dev/null 2>&1 && ! claude_authed; then
     fi
   else
     printf '  \033[33mBỏ qua - đăng nhập sau bằng: claude → /login (hoặc điền ANTHROPIC_API_KEY vào .env)\033[0m\n'
-  fi
-fi
-
-# --- cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel) ---
-export PATH="$ROOT/start/bin:$PATH"
-if ! command -v cloudflared >/dev/null 2>&1; then
-  if command -v brew >/dev/null 2>&1; then
-    step "Chưa có cloudflared - đang cài (brew install cloudflared)..."
-    brew install cloudflared && ok "Đã cài cloudflared." \
-      || err "Không cài được cloudflared qua brew - sẽ thử tải trực tiếp."
-  fi
-fi
-if ! command -v cloudflared >/dev/null 2>&1; then
-  # Không có brew (hoặc brew fail) → tải binary chính thức của Cloudflare về start/bin/
-  ARCH="$(uname -m)"
-  CF_PKG="cloudflared-darwin-amd64.tgz"
-  [ "$ARCH" = "arm64" ] && CF_PKG="cloudflared-darwin-arm64.tgz"
-  step "Chưa có cloudflared - đang tải trực tiếp từ Cloudflare ($CF_PKG)..."
-  mkdir -p "$ROOT/start/bin"
-  if curl -fsSL -o "$ROOT/start/bin/$CF_PKG" \
-      "https://github.com/cloudflare/cloudflared/releases/latest/download/$CF_PKG" \
-    && tar -xzf "$ROOT/start/bin/$CF_PKG" -C "$ROOT/start/bin" \
-    && chmod +x "$ROOT/start/bin/cloudflared"; then
-    rm -f "$ROOT/start/bin/$CF_PKG"
-    ok "Đã cài cloudflared vào start/bin/."
-  else
-    err "Không tải được cloudflared - Tunnel tạm chưa dùng được (không ảnh hưởng phần còn lại)."
   fi
 fi
 

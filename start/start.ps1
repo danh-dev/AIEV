@@ -5,7 +5,18 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# doctor.mjs in tiếng Việt có dấu ra stdout - console cmd mặc định là codepage
+# 437/1258 nên sẽ ra ký tự rác nếu không chuyển sang UTF-8 trước.
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
+
 $WebUrl = "http://localhost:6868"
+# Địa chỉ để DÒ bằng Invoke-WebRequest - phải là 127.0.0.1 chứ không phải localhost.
+# PowerShell phân giải "localhost" ra ::1 (IPv6) trước, còn `next start` chỉ bind
+# IPv4, nên request treo đến hết TimeoutSec rồi mới lỗi. Hậu quả đo được: bước 2
+# không bao giờ nhận ra hệ thống đang chạy sẵn (lần nào cũng build + khởi động
+# lại), và bước 8 luôn kết thúc bằng "chưa phản hồi sau 2 phút" dù web đã lên.
+# Mở trình duyệt thì vẫn dùng $WebUrl cho dễ đọc.
+$ProbeUrl = "http://127.0.0.1:6868"
 
 function Write-Step($msg)  { Write-Host "  -> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)    { Write-Host "  [OK] $msg" -ForegroundColor Green }
@@ -28,14 +39,24 @@ if ([int]($nodeVer.Split(".")[0]) -lt 20) {
 }
 Write-Ok "Node.js v$nodeVer"
 
+# 1b. Kiểm tra môi trường + cài phần còn thiếu.
+#     Danh sách kiểm tra nằm ở start/doctor.mjs - DÙNG CHUNG với start.sh và với
+#     trang Cấu hình trên web, để ba nơi không bao giờ lệch nhau. Doctor không
+#     cần node_modules nên chạy được ngay cả lần clone đầu tiên.
+node (Join-Path $root "start\doctor.mjs") --fix
+# winget ghi PATH vào registry chứ không vào tiến trình đang chạy: nạp lại để
+# server (khởi động ở bước 6) thấy được ffmpeg/cloudflared vừa cài xong.
+$env:Path = ([Environment]::GetEnvironmentVariable("Path", "Machine"),
+             [Environment]::GetEnvironmentVariable("Path", "User")) -join ";"
+
 # 2. Kiểm tra trạng thái hiện tại: web (6868) VÀ backend (6869 qua proxy /api/health)
 $webUp = $false; $apiUp = $false
 try {
-    $probe = Invoke-WebRequest -UseBasicParsing -Uri $WebUrl -TimeoutSec 2
+    $probe = Invoke-WebRequest -UseBasicParsing -Uri $ProbeUrl -TimeoutSec 2
     if ($probe.StatusCode -eq 200) { $webUp = $true }
 } catch { }
 try {
-    $probeApi = Invoke-WebRequest -UseBasicParsing -Uri "$WebUrl/api/health" -TimeoutSec 3
+    $probeApi = Invoke-WebRequest -UseBasicParsing -Uri "$ProbeUrl/api/health" -TimeoutSec 3
     if ($probeApi.StatusCode -eq 200) { $apiUp = $true }
 } catch { }
 
@@ -103,16 +124,7 @@ if (-not (Test-Path $webNext) -or
     if ($LASTEXITCODE -ne 0) { Write-Err "Build web thất bại."; exit 1 }
 }
 
-# 4b. cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel - không bắt buộc)
-if (-not (Get-Command cloudflared -ErrorAction SilentlyContinue)) {
-    Write-Step "Chưa có cloudflared - đang thử cài (winget)..."
-    try {
-        winget install --id Cloudflare.cloudflared --silent --accept-source-agreements --accept-package-agreements | Out-Null
-        Write-Ok "Đã cài cloudflared."
-    } catch {
-        Write-Host "  [!] Không tự cài được cloudflared - cài tay: winget install --id Cloudflare.cloudflared (chỉ cần cho Tunnel)" -ForegroundColor Yellow
-    }
-}
+# (cloudflared, ffmpeg, Chrome... đã do doctor.mjs ở bước 1b lo)
 
 # 5. Tạo .env nếu chưa có
 $envFile = Join-Path $root ".env"
@@ -149,7 +161,7 @@ $ready = $false
 for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep -Seconds 2
     try {
-        $r = Invoke-WebRequest -UseBasicParsing -Uri $WebUrl -TimeoutSec 2
+        $r = Invoke-WebRequest -UseBasicParsing -Uri $ProbeUrl -TimeoutSec 2
         if ($r.StatusCode -eq 200) { $ready = $true; break }
     } catch { }
 }
