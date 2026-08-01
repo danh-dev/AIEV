@@ -23,7 +23,7 @@ import { refreshStyles } from "@/components/StyleSelect";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-/** Thứ tự 5 màu trên dải swatch — trùng thứ tự form editor. */
+/** Thứ tự 5 màu trên dải swatch - trùng thứ tự form editor. */
 const SWATCH_KEYS: (keyof StyleColors)[] = [
   "primary",
   "secondary",
@@ -32,7 +32,7 @@ const SWATCH_KEYS: (keyof StyleColors)[] = [
   "accent",
 ];
 
-/** Dải 5 ô màu của style — màu style là DATA của user, render bằng inline style. */
+/** Dải 5 ô màu của style - màu style là DATA của user, render bằng inline style. */
 function SwatchStrip({ colors }: { colors: StyleColors }) {
   return (
     <div className="flex h-10 overflow-hidden rounded-t-[var(--radius-lg)]">
@@ -106,7 +106,7 @@ export default function StylesPage() {
     const targets = list.filter((s) => selected.has(s.id));
     setBulkDeleting(true);
     setBulkErrors([]);
-    // Xóa TUẦN TỰ — lỗi nào (vd style cuối cùng / LAST_STYLE) gom hiện sau
+    // Xóa TUẦN TỰ - lỗi nào (vd style cuối cùng / LAST_STYLE) gom hiện sau
     const errors: string[] = [];
     for (const s of targets) {
       try {
@@ -279,7 +279,7 @@ export default function StylesPage() {
         </Card>
       )}
 
-      {/* Modal xác nhận xóa nhiều style — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa nhiều style - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={bulkDeleteOpen}
         title={t("stylesPage.delete-selected-title")}

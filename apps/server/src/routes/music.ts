@@ -13,7 +13,7 @@ import {
 } from "../util.js";
 
 /**
- * Thư viện nhạc nền dùng chung — mirror pattern routes/sfx.ts.
+ * Thư viện nhạc nền dùng chung - mirror pattern routes/sfx.ts.
  * File nằm tại assets/music/, metadata tại assets/music/library.json.
  * Tags = mood của bài nhạc (nang-luong, chill, cam-hung, cang-thang, vui-ve...).
  */
@@ -65,7 +65,7 @@ const upload = multer({
   limits: { fileSize: 200 * 1024 * 1024 },
 });
 
-// GET /api/music — chỉ trả entry có file tồn tại trên đĩa
+// GET /api/music - chỉ trả entry có file tồn tại trên đĩa
 router.get("/", (_req, res) => {
   const entries = readMusicLibrary().filter((e) =>
     fs.existsSync(path.join(paths.musicDir, e.file)),
@@ -73,7 +73,7 @@ router.get("/", (_req, res) => {
   res.json(entries);
 });
 
-// POST /api/music — multipart: file (audio) + tags (csv) + description
+// POST /api/music - multipart: file (audio) + tags (csv) + description
 router.post("/", upload.single("file"), async (req, res) => {
   const uploaded = req.file;
   if (!uploaded) throw new HttpError(400, "FILE_REQUIRED", "Thiếu file audio (field `file`)");
@@ -126,7 +126,7 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// PATCH /api/music/:file — { description?, tags? } → MusicEntry sau cập nhật
+// PATCH /api/music/:file - { description?, tags? } → MusicEntry sau cập nhật
 router.patch("/:file", (req, res) => {
   const file = path.basename(req.params.file); // chặn traversal
   const entries = readMusicLibrary();

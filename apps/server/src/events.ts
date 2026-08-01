@@ -1,13 +1,13 @@
 import type { Request, Response } from "express";
 
 /**
- * SSE hub — một stream chung tại GET /api/events.
+ * SSE hub - một stream chung tại GET /api/events.
  * Event types: "job" (Job), "joblog" ({jobId, line}), "agent" ({sessionId, kind, ...}).
  */
 const clients = new Set<Response>();
 
 /**
- * Trần số client SSE đồng thời — mỗi client là một socket giữ mãi; không giới
+ * Trần số client SSE đồng thời - mỗi client là một socket giữ mãi; không giới
  * hạn thì một vòng lặp mở stream sẽ nuốt hết file descriptor của server.
  * Dashboard thật chỉ dùng 1 stream mỗi tab.
  */
@@ -35,7 +35,7 @@ export function addSseClient(req: Request, res: Response): void {
   req.on("close", () => {
     clients.delete(res);
   });
-  // Socket lỗi (client rớt mạng đột ngột) — gỡ client để không thành zombie
+  // Socket lỗi (client rớt mạng đột ngột) - gỡ client để không thành zombie
   res.on("error", () => {
     clients.delete(res);
   });

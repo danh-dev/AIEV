@@ -4,15 +4,15 @@ import { projectExists } from "../meta.js";
 import { HttpError } from "../util.js";
 
 /**
- * Phiên upload cho tính năng "Kết nối điện thoại" — bảo mật link QR.
+ * Phiên upload cho tính năng "Kết nối điện thoại" - bảo mật link QR.
  *
  * PC mở modal QR → POST tạo token `ut_<nanoid>` gắn với projectId (TTL 60
  * phút); URL/QR mang token qua query `?k=`. ĐÓNG modal → DELETE thu hồi ngay
  * → link trên điện thoại hết hiệu lực tức thì. POST /api/assets (scope
- * project, request không phải từ chính máy chủ) bắt buộc token hợp lệ —
+ * project, request không phải từ chính máy chủ) bắt buộc token hợp lệ -
  * xem isValidUploadToken.
  *
- * Lưu trong Map module-level (mất khi restart server — chấp nhận được: user
+ * Lưu trong Map module-level (mất khi restart server - chấp nhận được: user
  * chỉ cần mở lại modal QR để lấy link mới).
  */
 
@@ -25,7 +25,7 @@ interface UploadSession {
 
 const sessions = new Map<string, UploadSession>();
 
-/** Dọn token hết hạn — gọi mỗi lần có request tới route này. */
+/** Dọn token hết hạn - gọi mỗi lần có request tới route này. */
 function prune(): void {
   const now = Date.now();
   for (const [token, s] of sessions) {
@@ -78,7 +78,7 @@ router.post("/", (req, res) => {
   res.status(201).json({ token, expiresAt: new Date(expiresAt).toISOString() });
 });
 
-// DELETE /api/upload-session/:token → 204 (idempotent — token lạ cũng 204)
+// DELETE /api/upload-session/:token → 204 (idempotent - token lạ cũng 204)
 router.delete("/:token", (req, res) => {
   prune();
   sessions.delete(req.params.token);

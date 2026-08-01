@@ -6,7 +6,7 @@ import { useT } from "@/lib/i18n";
 
 /**
  * Banner lỗi theo spec: nền --danger-bg, viền trái 3px --danger,
- * chi tiết log gốc collapsible — không nuốt lỗi.
+ * chi tiết log gốc collapsible - không nuốt lỗi.
  */
 export function ErrorBanner({
   message,

@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * Khung hội thoại với Claude — dùng chung cho trang Chat và panel AI trong
+ * Khung hội thoại với Claude - dùng chung cho trang Chat và panel AI trong
  * trang project. Tự load lịch sử khi sessionId đổi, nghe SSE agent (lọc theo
  * session), stream text, chip công cụ, progress strip, input gửi tin và nút Dừng.
  *
- * - sessionId = null: phiên mới — tin nhắn đầu tiên sẽ tạo session
+ * - sessionId = null: phiên mới - tin nhắn đầu tiên sẽ tạo session
  *   (kèm projectId nếu có) rồi báo lên qua onSessionCreated.
  * - compact: kích thước gọn để nhúng trong panel hẹp.
  */
@@ -63,7 +63,7 @@ function ToolChip({ name, input }: { name: string; input?: string }) {
   );
 }
 
-/** Diễn giải tool đang chạy thành hành động dễ hiểu — theo ngôn ngữ UI. */
+/** Diễn giải tool đang chạy thành hành động dễ hiểu - theo ngôn ngữ UI. */
 export function toolActionLabel(
   name: string,
   input: unknown,
@@ -140,7 +140,7 @@ function Bubble({ msg, compact }: { msg: UiMessage; compact: boolean }) {
   );
 }
 
-/** Khối kết thúc phiên — hiển thị rõ kết cục thay vì chỉ tắt progress bar. */
+/** Khối kết thúc phiên - hiển thị rõ kết cục thay vì chỉ tắt progress bar. */
 function SessionEndBlock({
   status,
   finalText,
@@ -213,10 +213,10 @@ export function ChatThread({
 }: {
   sessionId: string | null;
   projectId?: string;
-  /** Trạng thái đã lưu của phiên (từ GET /api/chat/sessions) — dùng làm trạng thái ban đầu khi mở lại phiên cũ. */
+  /** Trạng thái đã lưu của phiên (từ GET /api/chat/sessions) - dùng làm trạng thái ban đầu khi mở lại phiên cũ. */
   initialStatus?: ChatSessionStatus;
   /**
-   * Bản ghi session đầy đủ (nếu parent có) — nguồn runStartedAt/runFinishedAt/
+   * Bản ghi session đầy đủ (nếu parent có) - nguồn runStartedAt/runFinishedAt/
    * autoResume để timer chạy bền qua F5 và toggle "Tự chạy tiếp".
    */
   session?: ChatSession | null;
@@ -232,7 +232,7 @@ export function ChatThread({
   const [input, setInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
-  // Trạng thái phiên đang xem — khởi tạo từ DB, cập nhật sống theo SSE
+  // Trạng thái phiên đang xem - khởi tạo từ DB, cập nhật sống theo SSE
   const [status, setStatus] = useState<ChatSessionStatus | null>(null);
   // Model/mode cho phiên MỚI (chỉ có tác dụng ở tin nhắn tạo session)
   const [model, setModel] = useState(DEFAULT_MODEL);
@@ -242,7 +242,7 @@ export function ChatThread({
   const sessionPropRef = useRef(session);
   sessionPropRef.current = session;
 
-  // Bản ghi session đầy đủ (runStartedAt/runFinishedAt/autoResume) — khởi tạo
+  // Bản ghi session đầy đủ (runStartedAt/runFinishedAt/autoResume) - khởi tạo
   // từ prop, refetch sau khi phiên kết thúc để lấy runFinishedAt/status mới.
   const [sessionInfo, setSessionInfo] = useState<ChatSession | null>(null);
 
@@ -251,13 +251,13 @@ export function ChatThread({
   const [currentAction, setCurrentAction] = useState(t("chat.thinking"));
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  // Phiên VỪA lỗi ngay trước mắt (SSE) — chỉ khi đó server mới lên lịch tự chạy tiếp;
+  // Phiên VỪA lỗi ngay trước mắt (SSE) - chỉ khi đó server mới lên lịch tự chạy tiếp;
   // phiên lỗi cũ mở lại thì không (tránh hứa "sẽ tự chạy tiếp" suông).
   const [justFailed, setJustFailed] = useState(false);
 
   useEffect(() => {
     if (!running || startedAt === null) return;
-    // clamp ≥ 0 — runStartedAt từ server có thể lệch giờ với máy client
+    // clamp ≥ 0 - runStartedAt từ server có thể lệch giờ với máy client
     const t = setInterval(
       () => setElapsed(Math.max(0, Date.now() - startedAt)),
       1000
@@ -275,7 +275,7 @@ export function ChatThread({
     });
   }, []);
 
-  // Session đang hiển thị thực tế — có thể đi trước prop khi vừa tạo session mới.
+  // Session đang hiển thị thực tế - có thể đi trước prop khi vừa tạo session mới.
   // Khởi tạo undefined (sentinel) để effect load lịch sử luôn chạy ở lần mount đầu.
   const activeIdRef = useRef<string | null | undefined>(undefined);
   const streamRef = useRef("");
@@ -308,7 +308,7 @@ export function ChatThread({
         ? sessionPropRef.current
         : null;
     setSessionInfo(savedSession);
-    // Trạng thái ban đầu lấy từ DB (session.status) — phiên đang chạy thì hiện
+    // Trạng thái ban đầu lấy từ DB (session.status) - phiên đang chạy thì hiện
     // progress ngay, không chờ event SSE đầu tiên.
     const saved = sessionId ? (initialStatusRef.current ?? null) : null;
     setStatus(saved);
@@ -377,7 +377,7 @@ export function ChatThread({
   }, [session]);
 
   /**
-   * Refetch bản ghi session đang mở (API sessions theo project) — gọi sau khi
+   * Refetch bản ghi session đang mở (API sessions theo project) - gọi sau khi
    * phiên kết thúc để lấy runFinishedAt/status/autoResume mới nhất từ DB.
    */
   const refreshSession = useCallback(async () => {
@@ -388,11 +388,11 @@ export function ChatThread({
       const found = list.find((s) => s.sessionId === current);
       if (found && activeIdRef.current === current) setSessionInfo(found);
     } catch {
-      // không tra được — giữ thông tin cũ, không chặn UI
+      // không tra được - giữ thông tin cũ, không chặn UI
     }
   }, [projectId]);
 
-  // Realtime agent events — chỉ nhận event của session đang mở
+  // Realtime agent events - chỉ nhận event của session đang mở
   useAgentEvents((e) => {
     if (!activeIdRef.current || e.sessionId !== activeIdRef.current) return;
     switch (e.kind) {
@@ -480,7 +480,7 @@ export function ChatThread({
         message,
         current ?? undefined,
         current ? undefined : projectId,
-        // model/effort chỉ gửi khi TẠO session mới — session cũ giữ model đã lưu
+        // model/effort chỉ gửi khi TẠO session mới - session cũ giữ model đã lưu
         !current && providersEnabled ? { model, effort } : undefined
       );
       if (res.sessionId !== current) {
@@ -510,7 +510,7 @@ export function ChatThread({
     }
   }
 
-  /** Toggle "Tự chạy tiếp khi gián đoạn" — optimistic, revert nếu lỗi. */
+  /** Toggle "Tự chạy tiếp khi gián đoạn" - optimistic, revert nếu lỗi. */
   async function onToggleAutoResume() {
     const current = activeIdRef.current;
     if (!current || !sessionInfo) return;
@@ -525,7 +525,7 @@ export function ChatThread({
   }
 
   // Khối kết thúc phiên: done hiện "✓ Hoàn thành" kèm message text cuối của
-  // assistant (kết quả final) — tách khỏi danh sách bubble để không lặp đôi.
+  // assistant (kết quả final) - tách khỏi danh sách bubble để không lặp đôi.
   const showEndBlock =
     !running &&
     (status === "done" || status === "error" || status === "interrupted");

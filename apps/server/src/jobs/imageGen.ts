@@ -17,7 +17,7 @@ import { ensureDir, remotionCli } from "../util.js";
 import { parseProgressLine, shortenStep } from "./progress.js";
 
 /**
- * Job "image-gen" — pipeline tạo ảnh của image project (docs/API.md mục Image Projects):
+ * Job "image-gen" - pipeline tạo ảnh của image project (docs/API.md mục Image Projects):
  * - step "background": gọi Gemini tạo ảnh nền (prompt trộn Design System) → background.png
  * - step "compose": stage nền + logo bằng hardlink vào engines/remotion/public/staging/img-<id>/,
  *   ghi props.json (PosterProps), chạy `npx remotion still Poster` → final.png
@@ -64,7 +64,7 @@ export async function runImageGen(ctx: JobCtx): Promise<void> {
 async function stepBackground(ctx: JobCtx, id: string): Promise<void> {
   if (!geminiApiKey()) {
     throw new Error(
-      "Chưa có GEMINI_API_KEY. Thêm GEMINI_API_KEY vào .env — lấy tại aistudio.google.com/apikey; hoặc tự upload nền rồi chạy bước Hoàn thiện.",
+      "Chưa có GEMINI_API_KEY. Thêm GEMINI_API_KEY vào .env - lấy tại aistudio.google.com/apikey; hoặc tự upload nền rồi chạy bước Hoàn thiện.",
     );
   }
   const meta = readImageMeta(id);
@@ -95,7 +95,7 @@ async function stepCompose(ctx: JobCtx, id: string): Promise<void> {
   const meta = readImageMeta(id);
   const design = getStyle(meta.styleId); // style đã chọn hoặc default
 
-  // 1. Stage nền + logo bằng hardlink (fallback copy) — cùng cơ chế với assemble
+  // 1. Stage nền + logo bằng hardlink (fallback copy) - cùng cơ chế với assemble
   ctx.progress(45, "Stage asset cho Remotion");
   const stagingId = `img-${id}`;
   const stagingAbs = path.join(paths.stagingDir, stagingId);
@@ -104,15 +104,15 @@ async function stepCompose(ctx: JobCtx, id: string): Promise<void> {
 
   // prefix theo vai trò (bg-/logo-/font-h-/font-b-) để file trùng basename không đè nhau
   const stage = (srcAbs: string, prefix: string): string => {
-    // meta/styles do agent hoặc file trên đĩa cung cấp — chặn đường dẫn thoát khỏi repo
+    // meta/styles do agent hoặc file trên đĩa cung cấp - chặn đường dẫn thoát khỏi repo
     const resolved = path.resolve(srcAbs);
     if (!resolved.startsWith(path.resolve(repoRoot) + path.sep)) {
-      throw new Error(`Đường dẫn "${srcAbs}" nằm ngoài repo — từ chối stage`);
+      throw new Error(`Đường dẫn "${srcAbs}" nằm ngoài repo - từ chối stage`);
     }
     const name = prefix + path.basename(srcAbs);
     const dstAbs = path.join(stagingAbs, name);
     try {
-      fs.linkSync(srcAbs, dstAbs); // hardlink — không tốn dung lượng
+      fs.linkSync(srcAbs, dstAbs); // hardlink - không tốn dung lượng
     } catch {
       fs.copyFileSync(srcAbs, dstAbs); // fallback (khác ổ đĩa / FS không hỗ trợ)
     }
@@ -125,22 +125,22 @@ async function stepCompose(ctx: JobCtx, id: string): Promise<void> {
   if (meta.background) {
     const bgAbs = path.join(imageDirOf(id), meta.background);
     if (fs.existsSync(bgAbs)) background = stage(bgAbs, "bg-");
-    else ctx.log(`[warn] Không thấy nền ${meta.background} — dùng nền gradient từ design`);
+    else ctx.log(`[warn] Không thấy nền ${meta.background} - dùng nền gradient từ design`);
   }
 
   let logoFile: string | null = null;
   if (design.logoPath) {
     const logoAbs = path.join(repoRoot, design.logoPath);
     if (fs.existsSync(logoAbs)) logoFile = stage(logoAbs, "logo-");
-    else ctx.log(`[warn] Không thấy logo ${design.logoPath} — bỏ qua logo`);
+    else ctx.log(`[warn] Không thấy logo ${design.logoPath} - bỏ qua logo`);
   }
 
-  // Font brand (nếu đã upload trong Design System) — Poster nạp để chữ đúng font
+  // Font brand (nếu đã upload trong Design System) - Poster nạp để chữ đúng font
   const stageFont = (rel: string | null, prefix: string): string | null => {
     if (!rel) return null;
     const abs = path.join(repoRoot, rel);
     if (!fs.existsSync(abs)) {
-      ctx.log(`[warn] Không thấy font ${rel} — dùng font fallback hệ thống`);
+      ctx.log(`[warn] Không thấy font ${rel} - dùng font fallback hệ thống`);
       return null;
     }
     return stage(abs, prefix);
@@ -150,7 +150,7 @@ async function stepCompose(ctx: JobCtx, id: string): Promise<void> {
     body: stageFont(design.fontFiles.body, "font-b-"),
   };
 
-  // 2. props.json — PosterProps đúng hợp đồng composition `Poster` (docs/API.md)
+  // 2. props.json - PosterProps đúng hợp đồng composition `Poster` (docs/API.md)
   const props = {
     aspect: meta.aspect,
     background,
@@ -160,7 +160,7 @@ async function stepCompose(ctx: JobCtx, id: string): Promise<void> {
       fontFiles,
       logoFile,
       effects: design.effects,
-      // PosterProps giữ field brandName (hợp đồng Remotion) — StyleDesign dùng name
+      // PosterProps giữ field brandName (hợp đồng Remotion) - StyleDesign dùng name
       brandName: design.name,
     },
     overlay: meta.overlay,

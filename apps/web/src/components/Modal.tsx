@@ -17,7 +17,7 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  /** true = modal rộng (lưới preview nhiều cột) — max-w 960px thay vì 640px. */
+  /** true = modal rộng (lưới preview nhiều cột) - max-w 960px thay vì 640px. */
   wide?: boolean;
 }) {
   const { t } = useT();

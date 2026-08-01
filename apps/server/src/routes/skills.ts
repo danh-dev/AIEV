@@ -24,7 +24,7 @@ function assertValidName(name: string): void {
   }
 }
 
-/** Parse frontmatter — bắt buộc có name + description */
+/** Parse frontmatter - bắt buộc có name + description */
 function parseFrontmatter(content: string): { name: string; description: string } {
   let data: Record<string, unknown>;
   try {
@@ -68,7 +68,7 @@ function extractSkillMarkdown(text: string): string | null {
   return null;
 }
 
-// POST /api/skills/generate — tạo draft SKILL.md bằng Claude (một lượt, không tool). KHÔNG ghi file.
+// POST /api/skills/generate - tạo draft SKILL.md bằng Claude (một lượt, không tool). KHÔNG ghi file.
 router.post("/generate", async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const str = (key: string): string | undefined =>
@@ -77,7 +77,7 @@ router.post("/generate", async (req, res) => {
       : undefined;
 
   const goal = str("goal");
-  if (!goal) throw new HttpError(400, "GOAL_REQUIRED", "Thiếu goal — mục đích & loại video");
+  if (!goal) throw new HttpError(400, "GOAL_REQUIRED", "Thiếu goal - mục đích & loại video");
 
   // Enum lỏng: giá trị lạ → bỏ qua field, không lỗi
   const platform = str("platform");
@@ -108,7 +108,7 @@ router.post("/generate", async (req, res) => {
     throw new HttpError(
       503,
       "NO_CLAUDE_AUTH",
-      "Chưa có xác thực Claude. Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy này (VSCode extension hoặc chạy `claude` trong terminal rồi /login) — hệ thống tự dùng gói subscription. Cách 2: điền ANTHROPIC_API_KEY vào file .env rồi khởi động lại server.",
+      "Chưa có xác thực Claude. Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy này (VSCode extension hoặc chạy `claude` trong terminal rồi /login) - hệ thống tự dùng gói subscription. Cách 2: điền ANTHROPIC_API_KEY vào file .env rồi khởi động lại server.",
     );
   }
 
@@ -120,7 +120,7 @@ router.post("/generate", async (req, res) => {
     /* không có skill-authoring thì prompt vẫn chạy được */
   }
 
-  // (c) câu trả lời form — chỉ field có giá trị, nhãn tiếng Việt
+  // (c) câu trả lời form - chỉ field có giá trị, nhãn tiếng Việt
   const answers: string[] = [`- Mục đích: ${goal}`];
   if (platform) answers.push(`- Nền tảng: ${platform}`);
   if (aspect) answers.push(`- Định dạng khung: ${aspect}`);
@@ -139,15 +139,15 @@ router.post("/generate", async (req, res) => {
   ];
   if (baseSkillContent) {
     promptParts.push(
-      `## Skill mẫu tham khảo — kế thừa cấu trúc/kỹ thuật, KHÔNG copy branding\n\n<base-skill name="${baseSkillName}">\n${baseSkillContent}\n</base-skill>`,
+      `## Skill mẫu tham khảo - kế thừa cấu trúc/kỹ thuật, KHÔNG copy branding\n\n<base-skill name="${baseSkillName}">\n${baseSkillContent}\n</base-skill>`,
     );
   }
   promptParts.push(`## Câu trả lời form của người dùng\n\n${answers.join("\n")}`);
   promptParts.push(
-    "## Yêu cầu đầu ra\n\nTrả về DUY NHẤT nội dung file SKILL.md hoàn chỉnh trong một code fence ```markdown — frontmatter có name (kebab-case) + description (nêu rõ KHI NÀO dùng), thân skill tiếng Việt theo đúng chuẩn skill-authoring, có OUTPUT SPEC (kích thước px theo aspect, fps), quy tắc caption/highlight/SFX theo câu trả lời, mục '⚖️ STYLE DESIGN — LUẬT ƯU TIÊN' ngay sau heading đầu (xem skill mẫu), và mục 'Lỗi đã biết' để tích lũy về sau.",
+    "## Yêu cầu đầu ra\n\nTrả về DUY NHẤT nội dung file SKILL.md hoàn chỉnh trong một code fence ```markdown - frontmatter có name (kebab-case) + description (nêu rõ KHI NÀO dùng), thân skill tiếng Việt theo đúng chuẩn skill-authoring, có OUTPUT SPEC (kích thước px theo aspect, fps), quy tắc caption/highlight/SFX theo câu trả lời, mục '⚖️ STYLE DESIGN - LUẬT ƯU TIÊN' ngay sau heading đầu (xem skill mẫu), và mục 'Lỗi đã biết' để tích lũy về sau.",
   );
 
-  // Gọi Agent SDK — một lượt, không tool, không nạp settings/CLAUDE.md
+  // Gọi Agent SDK - một lượt, không tool, không nạp settings/CLAUDE.md
   const options: Record<string, unknown> = {
     cwd: repoRoot,
     maxTurns: 1,
@@ -192,7 +192,7 @@ router.post("/generate", async (req, res) => {
         }
       }
     })();
-    // Nếu timeout thắng race, run có thể reject sau đó (do interrupt) — nuốt để không unhandled
+    // Nếu timeout thắng race, run có thể reject sau đó (do interrupt) - nuốt để không unhandled
     run.catch(() => {});
 
     let timer: NodeJS.Timeout | undefined;
@@ -215,7 +215,7 @@ router.post("/generate", async (req, res) => {
     );
   }
 
-  // Ghi token đã dùng (kể cả khi output không parse được — token vẫn đã tiêu)
+  // Ghi token đã dùng (kể cả khi output không parse được - token vẫn đã tiêu)
   try {
     if (inTok > 0 || outTok > 0 || cost > 0) {
       addTokenUsage(`skillgen_${nanoid(8)}`, null, inTok, outTok, cost, "claude");
@@ -242,7 +242,7 @@ router.post("/generate", async (req, res) => {
       error: {
         code: "BAD_SKILL_OUTPUT",
         message:
-          "AI trả về sai định dạng SKILL.md (thiếu code fence hoặc frontmatter name/description) — xem raw để tự sửa",
+          "AI trả về sai định dạng SKILL.md (thiếu code fence hoặc frontmatter name/description) - xem raw để tự sửa",
       },
       raw: resultText,
     });
@@ -259,7 +259,7 @@ router.post("/generate", async (req, res) => {
     finalName = `${finalName}-${i}`;
   }
   if (finalName !== fmName) {
-    // Chỉ thay dòng name TRONG block frontmatter (giữa "---" đầu và "---" thứ hai) —
+    // Chỉ thay dòng name TRONG block frontmatter (giữa "---" đầu và "---" thứ hai) -
     // tránh đụng dòng "name:" xuất hiện trong thân skill
     content = content.replace(/^---\r?\n[\s\S]*?\r?\n---/, (frontmatter) =>
       frontmatter.replace(/^name\s*:.*$/m, `name: ${finalName}`),
@@ -269,7 +269,7 @@ router.post("/generate", async (req, res) => {
   res.json({ name: finalName, content, tokens: { input: inTok, output: outTok } });
 });
 
-// GET /api/skills — [{ name, description, updatedAt, sizeBytes }]
+// GET /api/skills - [{ name, description, updatedAt, sizeBytes }]
 router.get("/", (_req, res) => {
   const out: Array<{ name: string; description: string; updatedAt: string; sizeBytes: number }> =
     [];
@@ -315,7 +315,7 @@ router.get("/:name", (req, res) => {
   res.json({ name, content: fs.readFileSync(file, "utf8") });
 });
 
-// POST /api/skills — { name, content } → 201 (409 nếu trùng)
+// POST /api/skills - { name, content } → 201 (409 nếu trùng)
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -331,7 +331,7 @@ router.post("/", (req, res) => {
   res.status(201).json({ name, content });
 });
 
-// PUT /api/skills/:name — { content } → 200
+// PUT /api/skills/:name - { content } → 200
 router.put("/:name", (req, res) => {
   const name = req.params.name;
   assertValidName(name);
@@ -346,7 +346,7 @@ router.put("/:name", (req, res) => {
   res.json({ name, content });
 });
 
-// DELETE /api/skills/:name — xóa cả folder skill
+// DELETE /api/skills/:name - xóa cả folder skill
 router.delete("/:name", (req, res) => {
   const name = req.params.name;
   assertValidName(name);

@@ -141,7 +141,7 @@ export function useEvents(): EventsContextValue {
   return ctx;
 }
 
-/** Đăng ký nhận event `job` — handler luôn là bản mới nhất, không cần memo. */
+/** Đăng ký nhận event `job` - handler luôn là bản mới nhất, không cần memo. */
 export function useJobEvents(handler: JobHandler) {
   const { subscribeJob } = useEvents();
   const ref = useRef(handler);
@@ -174,7 +174,7 @@ export function useAgentEvents(handler: AgentHandler) {
   );
 }
 
-/** Đăng ký nhận event `upload` — tiến trình server nhận file POST /api/assets. */
+/** Đăng ký nhận event `upload` - tiến trình server nhận file POST /api/assets. */
 export function useUploadEvents(handler: UploadHandler) {
   const { subscribeUpload } = useEvents();
   const ref = useRef(handler);

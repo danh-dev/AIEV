@@ -35,12 +35,12 @@ export const SERVER_PORT = Number(process.env.SERVER_PORT || 6869);
 const ENV_FILE = path.join(repoRoot, ".env");
 
 /**
- * Upsert/xóa một biến trong .env — giữ nguyên comment và các dòng khác.
+ * Upsert/xóa một biến trong .env - giữ nguyên comment và các dòng khác.
  * Dùng chung cho connections.ts (API key), tunnel.ts (TUNNEL_DOMAIN) và
  * apiToken() bên dưới. Đặt ở config.ts (nơi đã có repoRoot) để không tạo
  * vòng import config → routes/connections → config.
  *
- * Bảo mật: value KHÔNG được chứa xuống dòng — nếu không, một chuỗi kiểu
+ * Bảo mật: value KHÔNG được chứa xuống dòng - nếu không, một chuỗi kiểu
  * "abc\nANTHROPIC_API_KEY=xxx" sẽ ghi đè biến khác trong .env (env injection).
  */
 export function upsertEnvVar(name: string, value: string | null): void {
@@ -82,7 +82,7 @@ export function apiToken(): string {
   try {
     upsertEnvVar("AIEV_API_TOKEN", generated);
   } catch (err) {
-    // Không ghi được .env (read-only) — vẫn chạy được trong phiên này
+    // Không ghi được .env (read-only) - vẫn chạy được trong phiên này
     console.warn(
       `[config] Không ghi được AIEV_API_TOKEN vào .env: ${err instanceof Error ? err.message : String(err)}`,
     );
@@ -93,7 +93,7 @@ export function apiToken(): string {
 }
 
 /**
- * Có xác thực Claude cho Agent SDK không — theo thứ tự SDK tự nhận:
+ * Có xác thực Claude cho Agent SDK không - theo thứ tự SDK tự nhận:
  * env key (API key / OAuth token / gateway token) hoặc đăng nhập subscription
  * của Claude Code trên máy (~/.claude/.credentials.json, hoặc CLAUDE_CONFIG_DIR).
  */
@@ -113,7 +113,7 @@ export function hasClaudeAuth(): boolean {
   return darwinKeychainHasClaudeCreds();
 }
 
-// Cache kết quả tra Keychain 60s — health poll mỗi 30s, không spawn security liên tục
+// Cache kết quả tra Keychain 60s - health poll mỗi 30s, không spawn security liên tục
 let keychainCache: { at: number; ok: boolean } | null = null;
 function darwinKeychainHasClaudeCreds(): boolean {
   if (process.platform !== "darwin") return false;
@@ -139,11 +139,11 @@ export const WEB_ORIGINS = [
 ];
 
 /**
- * Web UI mở qua LAN (điện thoại/tablet vào http://<ip-máy-chủ>:6868) — upload
+ * Web UI mở qua LAN (điện thoại/tablet vào http://<ip-máy-chủ>:6868) - upload
  * file lớn gọi THẲNG backend 6869 nên origin dạng IP private :6868 phải được
  * phép CORS. Chỉ chấp nhận dải IP private (RFC 1918), không mở cho IP công cộng.
  */
-// Kèm dải CGNAT 100.64.0.0/10 — IP của Tailscale (điện thoại dùng 4G/5G vẫn upload được qua tailnet)
+// Kèm dải CGNAT 100.64.0.0/10 - IP của Tailscale (điện thoại dùng 4G/5G vẫn upload được qua tailnet)
 const LAN_WEB_ORIGIN_RE =
   /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+):6868$/;
 
@@ -160,14 +160,14 @@ export const paths = {
   /** Thư mục tạm cho multer trước khi move về đích (cùng ổ đĩa để rename được) */
   uploadTmpDir: path.join(serverDir, "data", "tmp-uploads"),
   videoProjectsDir: path.join(repoRoot, "video-projects"),
-  /** Image projects (tạo ảnh AI — Gemini nền + Remotion hoàn thiện) */
+  /** Image projects (tạo ảnh AI - Gemini nền + Remotion hoàn thiện) */
   imageProjectsDir: path.join(repoRoot, "image-projects"),
   assetsDir: path.join(repoRoot, "assets"),
   /** Brand assets: logo + design-system.json cũ (nguồn migration sang Style Design) */
   brandDir: path.join(repoRoot, "assets", "brand"),
   /** Style Design: styles.json (nhiều bộ nhận diện) */
   stylesDir: path.join(repoRoot, "assets", "styles"),
-  /** File upload của style (logo, font) — serve qua /media/assets/styles/files/ */
+  /** File upload của style (logo, font) - serve qua /media/assets/styles/files/ */
   stylesFilesDir: path.join(repoRoot, "assets", "styles", "files"),
   sfxDir: path.join(repoRoot, "assets", "sound-effects"),
   /** Thư viện nhạc nền dùng chung (library.json + file nhạc) */

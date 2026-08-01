@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 /**
- * Chỉnh màu video — preset dùng CHUNG cho preview (1 frame) và khi AI áp toàn bài.
+ * Chỉnh màu video - preset dùng CHUNG cho preview (1 frame) và khi AI áp toàn bài.
  * Nguyên tắc: preview phải ra đúng kết quả cuối → mọi nơi đều dùng filter chain ở đây.
  * (Xem skill color-grading.)
  */
@@ -81,7 +81,7 @@ export const GRADE_PRESETS: GradePreset[] = [
   { id: "den-trang", label: "Đen trắng", filter: "hue=s=0,eq=contrast=1.15" },
 ];
 
-/** Thông số chỉnh tay — cộng CHỒNG lên preset. Giá trị mặc định = không đổi gì. */
+/** Thông số chỉnh tay - cộng CHỒNG lên preset. Giá trị mặc định = không đổi gì. */
 export interface GradeAdjust {
   /** -0.3..0.3, mặc định 0 */
   brightness: number;
@@ -134,7 +134,7 @@ export function isDefaultAdjust(a: GradeAdjust): boolean {
   );
 }
 
-/** Chuỗi filter cho phần chỉnh tay — rỗng nếu toàn giá trị mặc định */
+/** Chuỗi filter cho phần chỉnh tay - rỗng nếu toàn giá trị mặc định */
 export function adjustFilter(a: GradeAdjust): string {
   const parts: string[] = [];
   const eq: string[] = [];
@@ -148,14 +148,14 @@ export function adjustFilter(a: GradeAdjust): string {
   return parts.join(",");
 }
 
-/** Tonemap HDR/HLG → SDR Rec.709 — chèn TRƯỚC preset khi footage là HDR/log */
+/** Tonemap HDR/HLG → SDR Rec.709 - chèn TRƯỚC preset khi footage là HDR/log */
 export const TONEMAP_FILTER =
   "zscale=t=linear:npl=100,tonemap=hable:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p";
 
 export interface ColorInfo {
   transfer: string | null;
   primaries: string | null;
-  /** HDR/HLG/log — cần tonemap/delog trước khi chỉnh màu */
+  /** HDR/HLG/log - cần tonemap/delog trước khi chỉnh màu */
   needsTonemap: boolean;
   durationSec: number | null;
 }
@@ -213,7 +213,7 @@ export function buildFilterChain(
 }
 
 /**
- * Render MỘT frame theo preset + chỉnh tay — phục vụ preview to và slider trên UI.
+ * Render MỘT frame theo preset + chỉnh tay - phục vụ preview to và slider trên UI.
  * Trả relPath (repo root) của PNG trong cache của project.
  */
 export async function renderGradeFrame(
@@ -229,7 +229,7 @@ export async function renderGradeFrame(
   const outDir = path.join(projectDir, "cache", "grade-preview", fileName);
   fs.mkdirSync(outDir, { recursive: true });
 
-  // Tên file ổn định theo tham số — trùng thì trả cache luôn, không render lại
+  // Tên file ổn định theo tham số - trùng thì trả cache luôn, không render lại
   const key = JSON.stringify({ p: presetId, a: adjust });
   let hash = 0;
   for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
@@ -251,7 +251,7 @@ export async function renderGradeFrame(
 
 /**
  * Sinh ảnh preview: 1 frame gốc + 1 frame mỗi preset (kèm tonemap nếu footage HDR/log).
- * Ghi vào <projectDir>/.cache/grade-preview/<tên-file>/ — trả đường dẫn tương đối repo root.
+ * Ghi vào <projectDir>/.cache/grade-preview/<tên-file>/ - trả đường dẫn tương đối repo root.
  */
 export async function generateGradePreviews(
   projectDir: string,
@@ -261,7 +261,7 @@ export async function generateGradePreviews(
 ): Promise<{ info: ColorInfo; previews: Array<{ preset: string | null; label: string; relPath: string }> }> {
   const info = await probeColorInfo(videoAbs);
   const t = info.durationSec ? Math.max(0.5, info.durationSec / 3) : 1;
-  // KHÔNG dùng ".cache" (dotfolder) — express.static mặc định chặn dotfiles khi serve /media
+  // KHÔNG dùng ".cache" (dotfolder) - express.static mặc định chặn dotfiles khi serve /media
   const outDir = path.join(projectDir, "cache", "grade-preview", fileName);
   fs.mkdirSync(outDir, { recursive: true });
 

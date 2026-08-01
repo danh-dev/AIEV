@@ -16,7 +16,7 @@ import {
 import { HttpError, ensureDir, moveFile, nowIso, sanitizeFileName, toKebabAscii } from "../util.js";
 
 /**
- * Style Design — CRUD nhiều bộ nhận diện + default + upload logo/font từng style.
+ * Style Design - CRUD nhiều bộ nhận diện + default + upload logo/font từng style.
  * File lưu assets/styles/files/ (serve qua /media/assets/...). Xem docs/API.md mục "Style Design".
  */
 
@@ -74,7 +74,7 @@ router.get("/", (_req, res) => {
   res.json(readStyles());
 });
 
-// POST /api/styles — { name, tags?, cloneFrom? } → 201 StyleDesign
+// POST /api/styles - { name, tags?, cloneFrom? } → 201 StyleDesign
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -113,7 +113,7 @@ router.post("/", (req, res) => {
   res.status(201).json(style);
 });
 
-// PUT /api/styles/:id — partial (name/tags/colors/fonts/logoPath/tone/guidelines) → StyleDesign
+// PUT /api/styles/:id - partial (name/tags/colors/fonts/logoPath/tone/guidelines) → StyleDesign
 router.put("/:id", (req, res) => {
   const data = readStyles();
   const style = findStyle(data, req.params.id);
@@ -204,7 +204,7 @@ router.delete("/:id", (req, res) => {
   const data = readStyles();
   findStyle(data, req.params.id); // 404 nếu không có
   if (data.styles.length <= 1) {
-    throw new HttpError(400, "LAST_STYLE", "Không thể xóa style cuối cùng — phải còn ít nhất một style");
+    throw new HttpError(400, "LAST_STYLE", "Không thể xóa style cuối cùng - phải còn ít nhất một style");
   }
   data.styles = data.styles.filter((s) => s.id !== req.params.id);
   if (data.defaultId === req.params.id) data.defaultId = data.styles[0].id;
@@ -221,7 +221,7 @@ router.post("/:id/default", (req, res) => {
   res.json({ defaultId: data.defaultId });
 });
 
-// POST /api/styles/:id/logo — multipart file → StyleDesign (file lưu assets/styles/files/)
+// POST /api/styles/:id/logo - multipart file → StyleDesign (file lưu assets/styles/files/)
 router.post("/:id/logo", upload.single("file"), (req, res) => {
   const uploaded = req.file;
   try {
@@ -243,7 +243,7 @@ router.post("/:id/logo", upload.single("file"), (req, res) => {
   }
 });
 
-// POST /api/styles/:id/font?slot=heading|body — multipart file (.ttf/.otf/.woff/.woff2) → StyleDesign
+// POST /api/styles/:id/font?slot=heading|body - multipart file (.ttf/.otf/.woff/.woff2) → StyleDesign
 router.post("/:id/font", upload.single("file"), (req, res) => {
   const uploaded = req.file;
   try {
@@ -269,7 +269,7 @@ router.post("/:id/font", upload.single("file"), (req, res) => {
   }
 });
 
-// DELETE /api/styles/:id/font/:slot — gỡ font (file giữ lại trong assets/styles/files) → StyleDesign
+// DELETE /api/styles/:id/font/:slot - gỡ font (file giữ lại trong assets/styles/files) → StyleDesign
 router.delete("/:id/font/:slot", (req, res) => {
   const slot = req.params.slot;
   if (slot !== "heading" && slot !== "body") {
@@ -284,7 +284,7 @@ router.delete("/:id/font/:slot", (req, res) => {
 });
 
 /**
- * POST /api/styles/:id/font-google — { slot: "heading"|"body", family: string }
+ * POST /api/styles/:id/font-google - { slot: "heading"|"body", family: string }
  * Tự tải font từ Google Fonts theo TÊN (user chỉ cần gõ tên, không phải upload):
  * dùng User-Agent cũ để css2 trả về MỘT file TTF trọn bộ (đủ glyph tiếng Việt),
  * tải về assets/styles/files/, set fontFiles[slot] + fonts[slot] = family.
@@ -306,7 +306,7 @@ router.post("/:id/font-google", async (req, res) => {
   const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}&display=swap`;
   let cssRes: Response;
   try {
-    // UA cũ → Google trả TTF một file trọn bộ glyph (không chia subset) — cần cho tiếng Việt
+    // UA cũ → Google trả TTF một file trọn bộ glyph (không chia subset) - cần cho tiếng Việt
     cssRes = await fetch(cssUrl, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 6.1)" } });
   } catch (err) {
     throw new HttpError(
@@ -319,7 +319,7 @@ router.post("/:id/font-google", async (req, res) => {
     throw new HttpError(
       404,
       "FONT_NOT_FOUND",
-      `Google Fonts không có font "${family}" (kiểm tra chính tả — vd: Be Vietnam Pro, Montserrat, Roboto)`,
+      `Google Fonts không có font "${family}" (kiểm tra chính tả - vd: Be Vietnam Pro, Montserrat, Roboto)`,
     );
   }
   const css = await cssRes.text();

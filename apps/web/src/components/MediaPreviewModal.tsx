@@ -13,7 +13,7 @@ export function canPreview(kind: FileInfo["kind"]): boolean {
 }
 
 /**
- * Nút "Mở file" — mở Explorer/Finder trên máy và chọn đúng file.
+ * Nút "Mở file" - mở Explorer/Finder trên máy và chọn đúng file.
  * Lỗi báo qua onError (cắm vào cơ chế báo lỗi sẵn có của chỗ dùng).
  */
 export function RevealButton({
@@ -28,7 +28,7 @@ export function RevealButton({
   const { t, tf } = useT();
   const [busy, setBusy] = useState(false);
   async function onClick(e: MouseEvent<HTMLButtonElement>) {
-    // Nút nằm trong hàng/thumbnail clickable — không cho lan ra mở preview
+    // Nút nằm trong hàng/thumbnail clickable - không cho lan ra mở preview
     e.stopPropagation();
     if (busy) return;
     setBusy(true);
@@ -65,7 +65,7 @@ export function RevealButton({
 }
 
 /**
- * Modal xem trước media dùng chung — ảnh/video hiển thị lớn, audio phát ngay.
+ * Modal xem trước media dùng chung - ảnh/video hiển thị lớn, audio phát ngay.
  * Đóng bằng Esc hoặc click nền (Modal sẵn có). Footer có "Mở tab mới" (link
  * /media) và "Mở file" (reveal trong Explorer/Finder).
  */
@@ -84,7 +84,7 @@ export function MediaPreviewModal({
   }, [file?.relPath]);
 
   if (!file) return null;
-  // Cache-bust theo mtime — file render/draft ghi đè cùng tên
+  // Cache-bust theo mtime - file render/draft ghi đè cùng tên
   const url = mediaUrl(file.relPath) + `?v=${encodeURIComponent(file.mtime)}`;
 
   return (

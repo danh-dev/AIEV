@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * Bắt lỗi tải chunk JS/CSS (tab đang chạy bản build cũ sau khi server thay bản mới)
- * và tự reload MỘT lần để lấy bản mới — kể cả khi lỗi không lọt vào error boundary
+ * và tự reload MỘT lần để lấy bản mới - kể cả khi lỗi không lọt vào error boundary
  * (vd: Next hiện màn "This page couldn't load" khi điều hướng client-side thất bại).
  */
 export function StaleChunkGuard() {

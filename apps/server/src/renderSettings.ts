@@ -9,7 +9,7 @@ import { ensureDir } from "./util.js";
 const execFileAsync = promisify(execFile);
 
 /**
- * Cài đặt tăng tốc phần cứng cho render — điều khiển từ tab "Tăng tốc" trên web UI.
+ * Cài đặt tăng tốc phần cứng cho render - điều khiển từ tab "Tăng tốc" trên web UI.
  * Lưu data/render-settings.json; job đọc MỖI LẦN chạy nên đổi là có hiệu lực ngay.
  * Thiết kế đa nền tảng: NVENC (NVIDIA/Windows-Linux), VideoToolbox + fast-capture (macOS).
  */
@@ -19,11 +19,11 @@ export interface RenderSettings {
   workers: number;
   /** Dùng GPU cho capture của Chrome (Windows/NVIDIA lẫn macOS/Metal đều hưởng) */
   browserGpu: boolean;
-  /** Encode GPU cho bản DRAFT (NVENC/VideoToolbox tùy máy) — nhanh, chất lượng draft không quan trọng */
+  /** Encode GPU cho bản DRAFT (NVENC/VideoToolbox tùy máy) - nhanh, chất lượng draft không quan trọng */
   gpuEncodeDraft: boolean;
-  /** Encode GPU cho bản FINAL — nhanh hơn nhưng chất lượng nhỉnh kém libx264 cùng dung lượng */
+  /** Encode GPU cho bản FINAL - nhanh hơn nhưng chất lượng nhỉnh kém libx264 cùng dung lượng */
   gpuEncodeFinal: boolean;
-  /** --experimental-fast-capture — chỉ thực sự ăn trên macOS + GPU thật (nơi khác tự fallback) */
+  /** --experimental-fast-capture - chỉ thực sự ăn trên macOS + GPU thật (nơi khác tự fallback) */
   fastCapture: boolean;
   /** --concurrency của Remotion (0 = mặc định Remotion ~ nửa số core) */
   remotionConcurrency: number;
@@ -33,7 +33,7 @@ export interface RenderSettings {
   draftFps: number | null;
 }
 
-/** Số luồng CPU thật của máy — nguồn cho default + trần của workers/concurrency */
+/** Số luồng CPU thật của máy - nguồn cho default + trần của workers/concurrency */
 const cpuThreads = os.cpus().length;
 /** Số worker khuyên dùng: theo máy thật, trần 8 (nhiều hơn hiếm khi nhanh hơn đáng kể) */
 export const recommendedWorkers = Math.min(cpuThreads, 8);
@@ -55,7 +55,7 @@ const settingsFile = path.join(paths.dataDir, "render-settings.json");
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-/** Kẹp range + ép kiểu một object bất kỳ về RenderSettings hợp lệ — dùng cho cả read lẫn write */
+/** Kẹp range + ép kiểu một object bất kỳ về RenderSettings hợp lệ - dùng cho cả read lẫn write */
 function normalizeSettings(raw: Record<string, unknown>): RenderSettings {
   const base = { ...DEFAULT_RENDER_SETTINGS };
   if (typeof raw.workers === "number") base.workers = clamp(Math.round(raw.workers), 0, maxWorkers);
@@ -85,7 +85,7 @@ export function readRenderSettings(): RenderSettings {
 }
 
 export function writeRenderSettings(patch: Partial<RenderSettings>): RenderSettings {
-  // Clamp TRƯỚC khi ghi — file trên đĩa không còn chứa giá trị ngoài range
+  // Clamp TRƯỚC khi ghi - file trên đĩa không còn chứa giá trị ngoài range
   const next = normalizeSettings({ ...readRenderSettings(), ...patch });
   ensureDir(paths.dataDir);
   fs.writeFileSync(settingsFile, JSON.stringify(next, null, 2) + "\n", "utf8");
@@ -106,7 +106,7 @@ export interface HardwareInfo {
   // ---- Chi tiết hiển thị trên tab Cấu hình ----
   /** Tên đầy đủ CPU, vd "Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz" (đã dọn (R)/(TM)) */
   cpuModel: string;
-  /** Số core vật lý (null nếu không tra được — UI rơi về threads) */
+  /** Số core vật lý (null nếu không tra được - UI rơi về threads) */
   cpuCores: number | null;
   /** Số luồng logic */
   cpuThreads: number;
@@ -116,13 +116,13 @@ export interface HardwareInfo {
   ramType: string | null;
   /** Bus RAM (MHz) */
   ramSpeedMhz: number | null;
-  /** VRAM của GPU (GB) — hiện chỉ tra được với NVIDIA */
+  /** VRAM của GPU (GB) - hiện chỉ tra được với NVIDIA */
   gpuVramGb: number | null;
 }
 
 let hardwareCache: HardwareInfo | null = null;
 
-/** Chạy PowerShell CIM trả JSON — fallback khi wmic không có (Win11 mới bỏ wmic) */
+/** Chạy PowerShell CIM trả JSON - fallback khi wmic không có (Win11 mới bỏ wmic) */
 async function psCimJson(className: string, props: string[]): Promise<Record<string, unknown>[]> {
   const cmd =
     `Get-CimInstance ${className} | Select-Object ${props.join(",")} | ConvertTo-Json -Compress`;
@@ -164,7 +164,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
     gpuVramGb: null,
   };
 
-  // NVIDIA? — lấy luôn cả VRAM
+  // NVIDIA? - lấy luôn cả VRAM
   try {
     const { stdout } = await execFileAsync(
       "nvidia-smi",
@@ -186,7 +186,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
   }
 
   if (process.platform === "win32") {
-    // CPU: core vật lý + xung tối đa (CIM — wmic đã deprecated trên Win11 mới)
+    // CPU: core vật lý + xung tối đa (CIM - wmic đã deprecated trên Win11 mới)
     try {
       const rows = await psCimJson("Win32_Processor", ["NumberOfCores", "MaxClockSpeed"]);
       const cores = rows.reduce((acc, r) => acc + (Number(r.NumberOfCores) || 0), 0);
@@ -194,7 +194,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
       const mhz = Number(rows[0]?.MaxClockSpeed);
       if (Number.isFinite(mhz) && mhz > 0) info.cpuMaxGhz = Math.round(mhz / 100) / 10;
     } catch {
-      /* thôi — UI rơi về threads */
+      /* thôi - UI rơi về threads */
     }
     // RAM: loại + bus
     try {
@@ -241,7 +241,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
 
 // ---------------------------------------------------------------- Flags builder
 
-/** Argv flags tăng tốc cho `hyperframes render` — job đọc mỗi lần chạy */
+/** Argv flags tăng tốc cho `hyperframes render` - job đọc mỗi lần chạy */
 export function hyperframesSpeedArgs(draft: boolean): string[] {
   const s = readRenderSettings();
   const parts: string[] = [];
@@ -260,7 +260,7 @@ export function remotionConcurrencyArgs(): string[] {
 }
 
 /**
- * Argv --gl cho Chrome của Remotion — mặc định Remotion dùng SwANGLE (software, CPU thuần).
+ * Argv --gl cho Chrome của Remotion - mặc định Remotion dùng SwANGLE (software, CPU thuần).
  * Bật "GPU cho capture" → angle (Windows/macOS) / angle-egl (Linux) để dựng hình bằng GPU thật.
  */
 export function remotionGlArgs(): string[] {
@@ -273,7 +273,7 @@ export function remotionSpeedArgs(): string[] {
   return [...remotionConcurrencyArgs(), ...remotionGlArgs()];
 }
 
-/** Số job queue chạy đồng thời — queue đọc mỗi tick nên đổi là ăn ngay */
+/** Số job queue chạy đồng thời - queue đọc mỗi tick nên đổi là ăn ngay */
 export function queueConcurrency(): number {
   return readRenderSettings().queueConcurrency;
 }

@@ -39,7 +39,7 @@ import { useT } from "@/lib/i18n";
 
 export const DEFAULT_BRIEF: Brief = {
   sourceDescription: "",
-  // Khớp defaultBrief() phía server — lệch default là lưu sớm sẽ âm thầm đổi hành vi
+  // Khớp defaultBrief() phía server - lệch default là lưu sớm sẽ âm thầm đổi hành vi
   autoCut: true,
   subtitles: true,
   highlightEnabled: true,
@@ -57,7 +57,7 @@ export const DEFAULT_BRIEF: Brief = {
   styleId: null,
 };
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 export const SFX_MODE_LABEL: Record<SfxMode, string> = {
   recommended: "brief.sfx.recommended",
   library: "brief.sfx.library",
@@ -160,9 +160,9 @@ export function ProjectBriefCard({
   projectId: string;
   brief: Brief | undefined;
   onSaved: (brief: Brief) => void;
-  /** Báo bản nháp hiện tại lên parent mỗi lần gõ — modal "Bắt đầu edit" dùng giá trị này */
+  /** Báo bản nháp hiện tại lên parent mỗi lần gõ - modal "Bắt đầu edit" dùng giá trị này */
   onDraftChange?: (brief: Brief) => void;
-  /** Chế độ gọn sau khi đã bắt đầu edit — tóm tắt chỉ đọc, bấm "Chỉnh sửa" mở form đầy đủ. */
+  /** Chế độ gọn sau khi đã bắt đầu edit - tóm tắt chỉ đọc, bấm "Chỉnh sửa" mở form đầy đủ. */
   compact?: boolean;
 }) {
   const { t, tf } = useT();
@@ -179,10 +179,10 @@ export function ProjectBriefCard({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Style Design — cache module-level, tên style dùng ở tóm tắt compact
+  // Style Design - cache module-level, tên style dùng ở tóm tắt compact
   const { data: stylesData } = useStyles();
 
-  // Ảnh minh họa AI — model Gemini lazy fetch khi user chạm select "Model vẽ"
+  // Ảnh minh họa AI - model Gemini lazy fetch khi user chạm select "Model vẽ"
   const { providers } = useProviders();
   const gemini = providers?.find((p) => p.id === "gemini");
   // providers chưa về → chưa kết luận được, không nháy cảnh báo
@@ -238,7 +238,7 @@ export function ProjectBriefCard({
     set("highlightKeywords", [...form.highlightKeywords, kw]);
   }
 
-  /** Đổ content của prompt mẫu vào ô "Yêu cầu edit" — confirm nếu sắp ghi đè. */
+  /** Đổ content của prompt mẫu vào ô "Yêu cầu edit" - confirm nếu sắp ghi đè. */
   function applyPrompt(id: string) {
     const p = prompts.find((x) => x.id === id);
     if (!p) return;
@@ -386,7 +386,7 @@ export function ProjectBriefCard({
           />
         </div>
 
-        {/* 2. Yêu cầu edit (prompt) — nội dung chính gửi AI */}
+        {/* 2. Yêu cầu edit (prompt) - nội dung chính gửi AI */}
         <div>
           <FieldLabel
             htmlFor="brief-notes"
@@ -452,7 +452,7 @@ export function ProjectBriefCard({
             label={t("brief.highlight")}
             hint={t("brief.highlight-hint")}
           />
-          {/* Nâng cao: chỉ định thêm keyword — chỉ hiện khi toggle BẬT */}
+          {/* Nâng cao: chỉ định thêm keyword - chỉ hiện khi toggle BẬT */}
           {form.highlightEnabled && (
             <div className="border-t border-[var(--border)] pt-2.5">
               {!keywordsOpen ? (
@@ -518,7 +518,7 @@ export function ProjectBriefCard({
             label={t("brief.key-layout-label")}
             hint={t("brief.key-layout-hint")}
           />
-          {/* Chế độ chọn key — chỉ hiện khi toggle BẬT */}
+          {/* Chế độ chọn key - chỉ hiện khi toggle BẬT */}
           {form.keyLayoutEnabled && (
             <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-2.5">
               <div className="flex gap-1.5" role="radiogroup" aria-label={t("brief.key-mode-aria")}>
@@ -603,7 +603,7 @@ export function ProjectBriefCard({
             label={t("brief.illustrations-label")}
             hint={t("brief.illustrations-hint")}
           />
-          {/* Chọn model vẽ — chỉ hiện khi toggle BẬT */}
+          {/* Chọn model vẽ - chỉ hiện khi toggle BẬT */}
           {form.autoIllustrations && (
             <div className="border-t border-[var(--border)] pt-2.5">
               <label
@@ -675,7 +675,7 @@ export function ProjectBriefCard({
           )}
         </div>
 
-        {/* 4. Style Design — NGAY TRÊN Skill, sản phẩm cưỡng chế theo style */}
+        {/* 4. Style Design - NGAY TRÊN Skill, sản phẩm cưỡng chế theo style */}
         <div>
           <FieldLabel
             htmlFor="brief-style"
@@ -707,7 +707,7 @@ export function ProjectBriefCard({
               <option key={s.name} value={s.name}>
                 {s.name}
                 {s.description
-                  ? ` — ${s.description.length > 60 ? `${s.description.slice(0, 60)}…` : s.description}`
+                  ? ` - ${s.description.length > 60 ? `${s.description.slice(0, 60)}…` : s.description}`
                   : ""}
               </option>
             ))}
@@ -738,7 +738,7 @@ export function ProjectBriefCard({
             ))}
           </div>
 
-          {/* Nhạc nền — thư viện assets/music/, AI duck tự động khi có thoại */}
+          {/* Nhạc nền - thư viện assets/music/, AI duck tự động khi có thoại */}
           <div className="mt-3 border-t border-[var(--border)] pt-3">
             <FieldLabel
               label={t("brief.music-label")}

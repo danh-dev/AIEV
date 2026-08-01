@@ -10,14 +10,14 @@ import {
   type FileInfo,
 } from "./util.js";
 
-/** Schema meta.json — manifest trung tâm của một video project (xem skill video-pipeline) */
+/** Schema meta.json - manifest trung tâm của một video project (xem skill video-pipeline) */
 export interface SceneMeta {
   id: string;
-  /** Composition HyperFrames — scene do HyperFrames render */
+  /** Composition HyperFrames - scene do HyperFrames render */
   src?: string;
-  /** Footage dùng thẳng — không qua HyperFrames */
+  /** Footage dùng thẳng - không qua HyperFrames */
   srcVideo?: string;
-  /** Ảnh tĩnh (ảnh minh họa AI) — scene cutaway full-bleed */
+  /** Ảnh tĩnh (ảnh minh họa AI) - scene cutaway full-bleed */
   srcImage?: string;
   durationInFrames?: number;
   render?: string;
@@ -34,7 +34,7 @@ export interface SfxMeta {
   [key: string]: unknown;
 }
 
-/** Nhạc nền với auto-ducking khi có thoại — file staging + speech ranges (giây) */
+/** Nhạc nền với auto-ducking khi có thoại - file staging + speech ranges (giây) */
 export interface MusicMeta {
   file: string;
   volume?: number;
@@ -43,7 +43,7 @@ export interface MusicMeta {
   [key: string]: unknown;
 }
 
-/** Kịch bản edit — AI đọc phần này khi bắt đầu edit project (xem docs/API.md mục Project Brief) */
+/** Kịch bản edit - AI đọc phần này khi bắt đầu edit project (xem docs/API.md mục Project Brief) */
 export type SfxMode = "recommended" | "library" | "none";
 
 export const SFX_MODES: SfxMode[] = ["recommended", "library", "none"];
@@ -54,7 +54,7 @@ export type MusicMode = "auto" | "none";
 export const MUSIC_MODES: MusicMode[] = ["auto", "none"];
 
 export interface Brief {
-  /** Mô tả nội dung video gốc — bối cảnh cho AI */
+  /** Mô tả nội dung video gốc - bối cảnh cho AI */
   sourceDescription: string;
   /** Có tự động cắt bỏ đoạn thừa, khoảng lặng không */
   autoCut: boolean;
@@ -66,9 +66,9 @@ export interface Brief {
   highlightKeywords: string[];
   /** BẬT = bố cục Key: KEY CHÍNH vùng TRÊN video, KEY LIÊN QUAN vùng DƯỚI (skill key-layout) */
   keyLayoutEnabled: boolean;
-  /** Key chính user chỉ định — "" = AI tự phân tích chọn */
+  /** Key chính user chỉ định - "" = AI tự phân tích chọn */
   mainKey: string;
-  /** Key liên quan user chỉ định (bắt buộc dùng đủ) — [] = AI tự chọn 3–6 key */
+  /** Key liên quan user chỉ định (bắt buộc dùng đủ) - [] = AI tự chọn 3–6 key */
   relatedKeys: string[];
   /** Tên skill dùng để edit (null = AI tự chọn) */
   skill: string | null;
@@ -80,9 +80,9 @@ export interface Brief {
   autoIllustrations: boolean;
   /** Model Gemini cho ảnh minh họa (null = mặc định Nano Banana 2) */
   illustrationModel: string | null;
-  /** BẬT = cho phép Gemini vẽ chữ tiếng Việt vào ảnh minh họa (mặc định TẮT — chữ do Remotion/HyperFrames đặt) */
+  /** BẬT = cho phép Gemini vẽ chữ tiếng Việt vào ảnh minh họa (mặc định TẮT - chữ do Remotion/HyperFrames đặt) */
   illustrationText: boolean;
-  /** Style Design áp cho video (id trong assets/styles/styles.json) — null = style default */
+  /** Style Design áp cho video (id trong assets/styles/styles.json) - null = style default */
   styleId: string | null;
   /** Ghi chú tự do cho AI */
   notes: string;
@@ -109,10 +109,10 @@ export function defaultBrief(): Brief {
   };
 }
 
-/** Merge meta.brief (nếu có) lên default — field thiếu/sai kiểu dùng default */
+/** Merge meta.brief (nếu có) lên default - field thiếu/sai kiểu dùng default */
 export function briefOf(meta: ProjectMeta): Brief {
   const base = defaultBrief();
-  const raw = meta.brief as unknown; // meta đọc từ đĩa — không tin kiểu
+  const raw = meta.brief as unknown; // meta đọc từ đĩa - không tin kiểu
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return base;
   const b = raw as Record<string, unknown>;
   if (typeof b.sourceDescription === "string") base.sourceDescription = b.sourceDescription;
@@ -154,12 +154,12 @@ export interface ProjectMeta {
   audio?: {
     voice?: string | null;
     sfx?: SfxMeta[];
-    /** Nhạc nền auto-ducking (xem skill background-music) — null/thiếu = không có nhạc */
+    /** Nhạc nền auto-ducking (xem skill background-music) - null/thiếu = không có nhạc */
     music?: MusicMeta | null;
     [key: string]: unknown;
   };
   output?: string | null;
-  /** Tags quản lý project — hiện trong danh sách, lọc được */
+  /** Tags quản lý project - hiện trong danh sách, lọc được */
   tags?: string[];
   createdAt?: string;
   updatedAt?: string;
@@ -181,7 +181,7 @@ export interface ProjectSummary {
 
 /**
  * Chuẩn hóa output về string đường dẫn theo hợp đồng API.
- * AI đôi khi ghi meta.output thành object { file, renderPath, ... } — lấy .file.
+ * AI đôi khi ghi meta.output thành object { file, renderPath, ... } - lấy .file.
  */
 export function normOutput(raw: unknown): string | null {
   if (typeof raw === "string" && raw) return raw;
@@ -211,7 +211,7 @@ export function projectExists(id: string): boolean {
   return isKebabCase(id) && fs.existsSync(metaPathOf(id));
 }
 
-/** Đọc meta.json — ném HttpError 404/500 tùy trường hợp */
+/** Đọc meta.json - ném HttpError 404/500 tùy trường hợp */
 export function readMeta(id: string): ProjectMeta {
   if (!isKebabCase(id)) {
     throw new HttpError(400, "INVALID_PROJECT_ID", `Project id không hợp lệ: ${id}`);
@@ -263,13 +263,13 @@ export function projectSummaryOf(id: string): ProjectSummary | null {
 
 // ------------------------------------------------- Asset descriptions
 // File video-projects/<id>/assets/assets.json = { "<fileName>": { "description": string } }
-// Thiếu entry nghĩa là asset chưa được mô tả — upload mới không cần tạo entry.
+// Thiếu entry nghĩa là asset chưa được mô tả - upload mới không cần tạo entry.
 
 export type FileInfoWithDescription = FileInfo & {
   description?: string;
   /** Preset chỉnh màu người dùng đã duyệt cho asset video (id trong GRADE_PRESETS, null = không chỉnh) */
   colorGrade?: string;
-  /** Thông số chỉnh tay cộng chồng lên preset (GradeAdjust) — chỉ có khi khác mặc định */
+  /** Thông số chỉnh tay cộng chồng lên preset (GradeAdjust) - chỉ có khi khác mặc định */
   colorAdjust?: Record<string, number>;
 };
 
@@ -328,7 +328,7 @@ export function writeAssetEntry(
   fs.writeFileSync(assetsJsonPathOf(id), JSON.stringify(map, null, 2) + "\n", "utf8");
 }
 
-/** Xóa hẳn entry của một asset khỏi assets.json (dùng khi xóa file asset) — không có entry thì bỏ qua */
+/** Xóa hẳn entry của một asset khỏi assets.json (dùng khi xóa file asset) - không có entry thì bỏ qua */
 export function removeAssetEntry(id: string, fileName: string): void {
   const map = readAssetEntries(id);
   if (!(fileName in map)) return;

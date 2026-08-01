@@ -61,8 +61,8 @@ import { PhoneConnectModal } from "@/components/PhoneConnectModal";
 import { formatBytes, isRecentFile } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-/** Placeholder mô tả cụ thể theo loại file — gợi ý người dùng viết gì. */
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+/** Placeholder mô tả cụ thể theo loại file - gợi ý người dùng viết gì. */
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const DESCRIPTION_PLACEHOLDER: Record<FileInfo["kind"], string> = {
   image: "assets.ph.image",
   video: "assets.ph.video",
@@ -84,7 +84,7 @@ const KIND_GROUPS: { kind: FileInfo["kind"]; label: string }[] = [
   { kind: "other", label: "assets.group.other" },
 ];
 
-/** Icon nhỏ theo loại file — dùng cho dòng compact. */
+/** Icon nhỏ theo loại file - dùng cho dòng compact. */
 function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   const cls = "shrink-0 text-[var(--text-muted)]";
   switch (kind) {
@@ -191,11 +191,11 @@ export function ProjectAssetsCard({
   projectId: string;
   assets: FileInfo[];
   onChanged: () => void;
-  /** Chế độ gọn sau khi đã bắt đầu edit — mỗi asset một dòng, click mở chi tiết. */
+  /** Chế độ gọn sau khi đã bắt đầu edit - mỗi asset một dòng, click mở chi tiết. */
   compact?: boolean;
-  /** Tiêu đề card — dùng khi tách khối (Sound Effect, Khác). */
+  /** Tiêu đề card - dùng khi tách khối (Sound Effect, Khác). */
   title?: string;
-  /** false = khối chỉ hiển thị (không dropzone/nút tải lên) — upload dồn về khối chính. */
+  /** false = khối chỉ hiển thị (không dropzone/nút tải lên) - upload dồn về khối chính. */
   showUpload?: boolean;
 }) {
   const { t, tf } = useT();
@@ -214,13 +214,13 @@ export function ProjectAssetsCard({
   // Modal "Kết nối điện thoại" (QR upload từ điện thoại cùng WiFi)
   const [phoneOpen, setPhoneOpen] = useState(false);
 
-  // Upload đang đến server (từ điện thoại /m/<id> hoặc tab khác) — SSE kênh
+  // Upload đang đến server (từ điện thoại /m/<id> hoặc tab khác) - SSE kênh
   // "upload", theo id để nhiều upload song song không đè nhau
   const [incoming, setIncoming] = useState<
     Record<string, { received: number; total: number; error?: boolean }>
   >({});
   useUploadEvents((e) => {
-    // Chỉ khối chính (showUpload) hiện tiến trình — tránh trùng ở khối SFX/Khác
+    // Chỉ khối chính (showUpload) hiện tiến trình - tránh trùng ở khối SFX/Khác
     if (!showUpload || e.projectId !== projectId) return;
     if (e.done) {
       if (e.error) {
@@ -254,7 +254,7 @@ export function ProjectAssetsCard({
   // Asset đang mở modal preview lớn (ảnh/video/audio)
   const [previewFile, setPreviewFile] = useState<FileInfo | null>(null);
 
-  // Nhãn preset màu — nguồn chính: GET /api/grade-presets (GRADE_LABELS chỉ là fallback)
+  // Nhãn preset màu - nguồn chính: GET /api/grade-presets (GRADE_LABELS chỉ là fallback)
   const [gradeLabels, setGradeLabels] =
     useState<Record<string, string>>(GRADE_LABELS);
   useEffect(() => {
@@ -267,14 +267,14 @@ export function ProjectAssetsCard({
         setGradeLabels((cur) => ({ ...cur, ...map }));
       })
       .catch(() => {
-        // Im lặng — chip sẽ dùng GRADE_LABELS fallback hoặc id thô
+        // Im lặng - chip sẽ dùng GRADE_LABELS fallback hoặc id thô
       });
     return () => {
       alive = false;
     };
   }, []);
 
-  /** Nhãn hiển thị màu của một asset — "Cinematic", "Cinematic +" (có chỉnh tay), "Tùy chỉnh"… */
+  /** Nhãn hiển thị màu của một asset - "Cinematic", "Cinematic +" (có chỉnh tay), "Tùy chỉnh"… */
   function gradeLabelOf(f: FileInfo): string | null {
     const hasAdjust = !isDefaultAdjust(f.colorAdjust);
     if (!f.colorGrade && !hasAdjust) return null;
@@ -284,12 +284,12 @@ export function ProjectAssetsCard({
     return hasAdjust && f.colorGrade ? `${base} +` : base;
   }
 
-  // Bản nháp mô tả từng file — chỉ giữ khi người dùng đã gõ (không clobber khi reload)
+  // Bản nháp mô tả từng file - chỉ giữ khi người dùng đã gõ (không clobber khi reload)
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingFile, setSavingFile] = useState<string | null>(null);
   const [savedFile, setSavedFile] = useState<string | null>(null);
 
-  // File đang xóa — disable nút xóa của đúng file đó
+  // File đang xóa - disable nút xóa của đúng file đó
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   // File đang chờ xác nhận xóa (modal gõ DELETE)
   const [deleteTarget, setDeleteTarget] = useState<FileInfo | null>(null);
@@ -390,7 +390,7 @@ export function ProjectAssetsCard({
 
   const renderItem = compact ? renderCompactRow : renderRow;
 
-  // Thanh tiến trình upload đang đến server — dùng chung cho cả hai layout
+  // Thanh tiến trình upload đang đến server - dùng chung cho cả hai layout
   const incomingEntries = Object.entries(incoming);
   const uploadBanner =
     showUpload && incomingEntries.length > 0 ? (
@@ -442,7 +442,7 @@ export function ProjectAssetsCard({
       </div>
     ) : null;
 
-  // Modal duyệt chỉnh màu — dùng chung cho cả hai layout (compact và đầy đủ)
+  // Modal duyệt chỉnh màu - dùng chung cho cả hai layout (compact và đầy đủ)
   const gradeModal = gradeFile ? (
     <GradeModal
       projectId={projectId}
@@ -455,7 +455,7 @@ export function ProjectAssetsCard({
     />
   ) : null;
 
-  // Modal preview media dùng chung — cho cả hai layout
+  // Modal preview media dùng chung - cho cả hai layout
   const previewModal = (
     <MediaPreviewModal
       file={previewFile}
@@ -463,7 +463,7 @@ export function ProjectAssetsCard({
     />
   );
 
-  // Modal QR kết nối điện thoại — chỉ khối chính (showUpload) mới có nút mở
+  // Modal QR kết nối điện thoại - chỉ khối chính (showUpload) mới có nút mở
   const phoneModal = showUpload ? (
     <PhoneConnectModal
       projectId={projectId}
@@ -479,7 +479,7 @@ export function ProjectAssetsCard({
     </Button>
   ) : null;
 
-  // Modal xác nhận xóa asset — bắt gõ DELETE (thay window.confirm)
+  // Modal xác nhận xóa asset - bắt gõ DELETE (thay window.confirm)
   const deleteModal = (
     <ConfirmDeleteModal
       open={deleteTarget !== null}
@@ -548,7 +548,7 @@ export function ProjectAssetsCard({
     );
 
   if (compact || !showUpload) {
-    // Compact (hoặc khối chỉ hiển thị): bỏ dropzone to — nút "Tải lên" nhỏ ở
+    // Compact (hoặc khối chỉ hiển thị): bỏ dropzone to - nút "Tải lên" nhỏ ở
     // header card, cả card vẫn nhận kéo thả file khi showUpload.
     return (
       <div
@@ -651,7 +651,7 @@ export function ProjectAssetsCard({
     </Card>
   );
 
-  /** Ô sửa mô tả cho AI — dùng chung cho row đầy đủ và row compact mở rộng. */
+  /** Ô sửa mô tả cho AI - dùng chung cho row đầy đủ và row compact mở rộng. */
   function renderDescriptionEditor(f: FileInfo) {
     const value = drafts[f.name] ?? f.description ?? "";
     const dirty =
@@ -704,7 +704,7 @@ export function ProjectAssetsCard({
     );
   }
 
-  /** Chip nhỏ hiện preset màu đã lưu — đặt cạnh badge "mới"/"Chưa mô tả". */
+  /** Chip nhỏ hiện preset màu đã lưu - đặt cạnh badge "mới"/"Chưa mô tả". */
   function renderGradeChip(f: FileInfo) {
     if (f.kind !== "video") return null;
     const label = gradeLabelOf(f);
@@ -717,7 +717,7 @@ export function ProjectAssetsCard({
     );
   }
 
-  /** Nút mở modal duyệt chỉnh màu — chỉ cho asset video. */
+  /** Nút mở modal duyệt chỉnh màu - chỉ cho asset video. */
   function renderGradeButton(f: FileInfo) {
     if (f.kind !== "video") return null;
     const label = gradeLabelOf(f);
@@ -745,7 +745,7 @@ export function ProjectAssetsCard({
     );
   }
 
-  /** Hàng nút thao tác của một asset — Mở file + Chỉnh màu (video) + Xóa. */
+  /** Hàng nút thao tác của một asset - Mở file + Chỉnh màu (video) + Xóa. */
   function renderActions(f: FileInfo) {
     const deleting = deletingFile === f.name;
     return (
@@ -776,7 +776,7 @@ export function ProjectAssetsCard({
     const missing = !(f.description ?? "").trim() && !value.trim();
     return (
       <div key={f.relPath} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
-        {/* Hàng trên: thumbnail + tên + size + badge — click thumbnail/tên mở preview lớn */}
+        {/* Hàng trên: thumbnail + tên + size + badge - click thumbnail/tên mở preview lớn */}
         <div className="flex items-center gap-3">
           <AssetPreview
             file={f}
@@ -877,7 +877,7 @@ export function ProjectAssetsCard({
   }
 }
 
-/** Cấu hình 6 slider chỉnh tay — range khớp GradeAdjust phía server. */
+/** Cấu hình 6 slider chỉnh tay - range khớp GradeAdjust phía server. */
 const ADJUST_SLIDERS: {
   key: keyof GradeAdjust;
   label: string;
@@ -937,7 +937,7 @@ const ADJUST_SLIDERS: {
 ];
 
 /**
- * CSS filter XẤP XỈ thông số chỉnh tay — áp tức thì lên ảnh preview cho cảm
+ * CSS filter XẤP XỈ thông số chỉnh tay - áp tức thì lên ảnh preview cho cảm
  * giác realtime khi kéo slider; ảnh CHÍNH XÁC từ grade-frame sẽ thay thế sau.
  * Gamma/nhiệt độ màu chỉ gần đúng (CSS không có filter tương ứng 1:1).
  */
@@ -960,7 +960,7 @@ function cssApprox(a: GradeAdjust): string | undefined {
 }
 
 /**
- * Modal duyệt chỉnh màu cho một asset video — bố cục 2 khung:
+ * Modal duyệt chỉnh màu cho một asset video - bố cục 2 khung:
  * trái = preview lớn (kèm giữ nút "So với gốc" để so A/B), phải = lưới template
  * màu (ảnh grade-preview có sẵn) + 6 slider chỉnh tay. Kéo slider áp CSS filter
  * xấp xỉ ngay, debounce 500ms gọi grade-frame lấy ảnh chính xác thay thế.
@@ -975,7 +975,7 @@ function GradeModal({
   projectId: string;
   file: FileInfo;
   onClose: () => void;
-  /** Gọi sau khi lưu thành công — cha đóng modal + reload danh sách asset. */
+  /** Gọi sau khi lưu thành công - cha đóng modal + reload danh sách asset. */
   onSaved: () => void;
 }) {
   const { t, tf } = useT();
@@ -985,15 +985,15 @@ function GradeModal({
   const [selected, setSelected] = useState<string | null>(
     file.colorGrade ?? null
   );
-  // Thông số chỉnh tay — khởi tạo theo colorAdjust đã lưu (nếu có)
+  // Thông số chỉnh tay - khởi tạo theo colorAdjust đã lưu (nếu có)
   const savedAdjust = useMemo(() => toGradeAdjust(file.colorAdjust), [file]);
   const [adjust, setAdjust] = useState<GradeAdjust>(savedAdjust);
   const [adjustOpen, setAdjustOpen] = useState(true);
-  // Đang giữ nút "So với gốc" — khung trái tạm hiện ảnh Gốc
+  // Đang giữ nút "So với gốc" - khung trái tạm hiện ảnh Gốc
   const [comparing, setComparing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Ảnh CHÍNH XÁC từ grade-frame — key hóa theo tham số để biết còn khớp không
+  // Ảnh CHÍNH XÁC từ grade-frame - key hóa theo tham số để biết còn khớp không
   const [exact, setExact] = useState<{ key: string; relPath: string } | null>(
     null
   );

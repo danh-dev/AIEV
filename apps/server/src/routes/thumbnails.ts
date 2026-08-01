@@ -17,11 +17,11 @@ import { HttpError, ensureDir, execFileCapture, remotionCli } from "../util.js";
 import type { ImageAspect } from "../imageMeta.js";
 
 /**
- * Tạo THUMBNAIL cho video project — chạy ĐỒNG BỘ (~1 phút), pipeline:
+ * Tạo THUMBNAIL cho video project - chạy ĐỒNG BỘ (~1 phút), pipeline:
  * 1) ffmpeg cắt một frame từ video (mặc định output final của meta,
  *    fallback video asset đầu tiên) tại giây `frameAt`
  * 2) Gemini vẽ nền theo Style Design (lỗi/thiếu key → bỏ qua, composition
- *    tự dựng nền gradient từ style — như Poster)
+ *    tự dựng nền gradient từ style - như Poster)
  * 3) stage nền + frame + logo + font bằng hardlink → props.json →
  *    `npx remotion still Thumbnail` → video-projects/<id>/thumbnail.png
  * Style resolve: body.styleId → brief.styleId → default (như /api/illustrations).
@@ -60,7 +60,7 @@ router.post("/:id/thumbnail", async (req, res) => {
   const meta = readMeta(id);
   const projectDir = projectDirOf(id);
 
-  // Đường dẫn do người dùng/agent cung cấp — chặn thoát khỏi repo
+  // Đường dẫn do người dùng/agent cung cấp - chặn thoát khỏi repo
   const resolveInRepo = (rel: string, what: string): string => {
     const abs = path.resolve(repoRoot, rel);
     if (!abs.startsWith(path.resolve(repoRoot) + path.sep)) {
@@ -93,7 +93,7 @@ router.post("/:id/thumbnail", async (req, res) => {
     throw new HttpError(
       400,
       "NO_SOURCE_VIDEO",
-      "Project chưa có video để cắt frame (chưa có output final lẫn video asset) — truyền sourceRel hoặc render final trước",
+      "Project chưa có video để cắt frame (chưa có output final lẫn video asset) - truyền sourceRel hoặc render final trước",
     );
   }
 
@@ -118,7 +118,7 @@ router.post("/:id/thumbnail", async (req, res) => {
     throw new HttpError(
       500,
       "FRAME_FAILED",
-      `ffmpeg chạy xong nhưng không có frame — frameAt=${frameAt}s có thể vượt quá thời lượng video`,
+      `ffmpeg chạy xong nhưng không có frame - frameAt=${frameAt}s có thể vượt quá thời lượng video`,
     );
   }
 
@@ -141,7 +141,7 @@ router.post("/:id/thumbnail", async (req, res) => {
       hasBg = true;
     } catch (err) {
       console.warn(
-        `[thumbnail] Gemini lỗi — dùng nền gradient từ style: ${err instanceof Error ? err.message : String(err)}`,
+        `[thumbnail] Gemini lỗi - dùng nền gradient từ style: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -156,12 +156,12 @@ router.post("/:id/thumbnail", async (req, res) => {
   const stage = (srcAbs: string, prefix: string): string => {
     const resolved = path.resolve(srcAbs);
     if (!resolved.startsWith(path.resolve(repoRoot) + path.sep)) {
-      throw new HttpError(400, "PATH_OUTSIDE_REPO", `Đường dẫn "${srcAbs}" nằm ngoài repo — từ chối stage`);
+      throw new HttpError(400, "PATH_OUTSIDE_REPO", `Đường dẫn "${srcAbs}" nằm ngoài repo - từ chối stage`);
     }
     const name = prefix + path.basename(srcAbs);
     const dstAbs = path.join(stagingAbs, name);
     try {
-      fs.linkSync(resolved, dstAbs); // hardlink — không tốn dung lượng
+      fs.linkSync(resolved, dstAbs); // hardlink - không tốn dung lượng
     } catch {
       fs.copyFileSync(resolved, dstAbs); // fallback (khác ổ đĩa / FS không hỗ trợ)
     }
@@ -219,7 +219,7 @@ router.post("/:id/thumbnail", async (req, res) => {
   if (!fs.existsSync(outAbs)) {
     throw new HttpError(500, "STILL_FAILED", "Remotion still xong nhưng không thấy thumbnail.png");
   }
-  // Staging chỉ cần trong lúc still — dọn luôn, không tích rác
+  // Staging chỉ cần trong lúc still - dọn luôn, không tích rác
   fs.rmSync(stagingAbs, { recursive: true, force: true });
 
   res.status(201).json({

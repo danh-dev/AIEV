@@ -38,7 +38,7 @@ export interface ProjectSummary {
   costUsd: number;
 }
 
-/** Token + chi phí gộp — /api/usage/summary. */
+/** Token + chi phí gộp - /api/usage/summary. */
 export interface UsageSummary {
   byProject: Record<string, { tokens: number; costUsd: number }>;
   total: {
@@ -52,7 +52,7 @@ export interface UsageSummary {
 /** Loại project để lọc timeline token: all = mọi dòng, video/image theo projectId. */
 export type UsageScope = "all" | "video" | "image";
 
-/** Một ngày trong timeline token — /api/usage/timeline. */
+/** Một ngày trong timeline token - /api/usage/timeline. */
 export interface UsageTimelinePoint {
   /** yyyy-mm-dd */
   date: string;
@@ -62,7 +62,7 @@ export interface UsageTimelinePoint {
   /** Token output (completion) trong ngày. */
   tokensOut: number;
   costUsd: number;
-  /** Token phân theo AI ("claude" | "gemini" | "openai") — vẽ đường theo provider. */
+  /** Token phân theo AI ("claude" | "gemini" | "openai") - vẽ đường theo provider. */
   byProvider: Record<string, number>;
 }
 
@@ -72,16 +72,16 @@ export interface FileInfo {
   size: number;
   mtime: string;
   kind: "video" | "audio" | "image" | "other";
-  /** Mô tả asset (assets.json của project) — cho AI biết dùng file vào lúc nào. */
+  /** Mô tả asset (assets.json của project) - cho AI biết dùng file vào lúc nào. */
   description?: string;
-  /** Preset chỉnh màu đã lưu cho video (id preset — nhãn lấy từ getGradePresets). */
+  /** Preset chỉnh màu đã lưu cho video (id preset - nhãn lấy từ getGradePresets). */
   colorGrade?: string;
-  /** Thông số chỉnh tay cộng chồng lên preset — chỉ có khi khác mặc định. */
+  /** Thông số chỉnh tay cộng chồng lên preset - chỉ có khi khác mặc định. */
   colorAdjust?: Record<string, number>;
 }
 
 /**
- * Nhãn fallback của vài preset cũ — CHỈ dùng khi chưa fetch được danh sách.
+ * Nhãn fallback của vài preset cũ - CHỈ dùng khi chưa fetch được danh sách.
  * Nguồn nhãn chính thức: GET /api/grade-presets (getGradePresets).
  */
 export const GRADE_LABELS: Record<string, string> = {
@@ -92,16 +92,16 @@ export const GRADE_LABELS: Record<string, string> = {
   lanh: "Lạnh",
 };
 
-/** Một preset màu server hỗ trợ — nguồn nhãn duy nhất cho UI. */
+/** Một preset màu server hỗ trợ - nguồn nhãn duy nhất cho UI. */
 export interface GradePresetInfo {
   id: string;
   label: string;
 }
 
-// Cache module-level — danh sách preset tĩnh trong một phiên chạy server.
+// Cache module-level - danh sách preset tĩnh trong một phiên chạy server.
 let gradePresetsCache: GradePresetInfo[] | null = null;
 
-/** Danh sách preset màu (id + nhãn tiếng Việt) — cache sau lần gọi đầu. */
+/** Danh sách preset màu (id + nhãn tiếng Việt) - cache sau lần gọi đầu. */
 export async function getGradePresets(): Promise<GradePresetInfo[]> {
   if (gradePresetsCache) return gradePresetsCache;
   const list = await request<GradePresetInfo[]>("/api/grade-presets");
@@ -109,7 +109,7 @@ export async function getGradePresets(): Promise<GradePresetInfo[]> {
   return list;
 }
 
-/** Thông số chỉnh màu tay — cộng CHỒNG lên preset (khớp GradeAdjust của server). */
+/** Thông số chỉnh màu tay - cộng CHỒNG lên preset (khớp GradeAdjust của server). */
 export interface GradeAdjust {
   /** -0.3..0.3, mặc định 0 */
   brightness: number;
@@ -153,7 +153,7 @@ export function isDefaultAdjust(raw?: GradeAdjust | Record<string, number> | nul
   );
 }
 
-/** Thông tin màu của footage — kèm kết quả grade-preview. */
+/** Thông tin màu của footage - kèm kết quả grade-preview. */
 export interface GradePreviewInfo {
   transfer: string;
   primaries: string;
@@ -179,7 +179,7 @@ export type SfxMode = "recommended" | "library" | "none";
 /** Nhạc nền: AI tự chọn bài theo mood trong thư viện / không dùng. */
 export type MusicMode = "auto" | "none";
 
-/** Kịch bản edit của project — AI đọc phần này khi bắt đầu edit. */
+/** Kịch bản edit của project - AI đọc phần này khi bắt đầu edit. */
 export interface Brief {
   sourceDescription: string;
   autoCut: boolean;
@@ -190,9 +190,9 @@ export interface Brief {
   highlightKeywords: string[];
   /** BẬT (mặc định) = bố cục Key: KEY CHÍNH ở vùng TRÊN video, KEY LIÊN QUAN ở vùng DƯỚI. */
   keyLayoutEnabled: boolean;
-  /** Key chính do user chỉ định — "" = AI tự phân tích chọn. */
+  /** Key chính do user chỉ định - "" = AI tự phân tích chọn. */
   mainKey: string;
-  /** Key liên quan user chỉ định (AI bắt buộc dùng đủ) — [] = AI tự chọn 3–6 key. */
+  /** Key liên quan user chỉ định (AI bắt buộc dùng đủ) - [] = AI tự chọn 3–6 key. */
   relatedKeys: string[];
   skill: string | null;
   sfxMode: SfxMode;
@@ -201,15 +201,15 @@ export interface Brief {
   notes: string;
   /** BẬT = Claude chọn ý chính, Gemini vẽ ảnh minh họa rồi ghép vào video. */
   autoIllustrations: boolean;
-  /** Model Gemini vẽ minh họa — null = mặc định của server (Nano Banana 2). */
+  /** Model Gemini vẽ minh họa - null = mặc định của server (Nano Banana 2). */
   illustrationModel: string | null;
-  /** BẬT = Gemini được vẽ chữ vào ảnh minh họa (mặc định TẮT — chữ do hệ thống đặt). */
+  /** BẬT = Gemini được vẽ chữ vào ảnh minh họa (mặc định TẮT - chữ do hệ thống đặt). */
   illustrationText: boolean;
-  /** Style Design sản phẩm phải tuân theo — null = style mặc định. */
+  /** Style Design sản phẩm phải tuân theo - null = style mặc định. */
   styleId: string | null;
 }
 
-/** Prompt mẫu tái sử dụng — đổ vào ô "Yêu cầu edit" của brief. */
+/** Prompt mẫu tái sử dụng - đổ vào ô "Yêu cầu edit" của brief. */
 export interface PromptTemplate {
   id: string;
   name: string;
@@ -229,7 +229,7 @@ export interface SceneMeta {
 export interface ProjectDetail extends ProjectSummary {
   scenes?: SceneMeta[];
   brief?: Brief;
-  /** "thumbnail.png" nếu video-projects/<id>/thumbnail.png tồn tại — null = chưa tạo. */
+  /** "thumbnail.png" nếu video-projects/<id>/thumbnail.png tồn tại - null = chưa tạo. */
   thumbnail?: string | null;
   files: { renders: FileInfo[]; assets: FileInfo[] };
   [key: string]: unknown;
@@ -287,7 +287,7 @@ export interface SfxEntry {
   description: string;
 }
 
-/** Một bài nhạc nền trong thư viện assets/music/ — tags = mood. */
+/** Một bài nhạc nền trong thư viện assets/music/ - tags = mood. */
 export interface MusicEntry {
   file: string;
   tags: string[];
@@ -295,7 +295,7 @@ export interface MusicEntry {
   description: string;
 }
 
-/** Trạng thái phiên AI — bền vững trong DB, đọc lại được sau khi tắt UI. */
+/** Trạng thái phiên AI - bền vững trong DB, đọc lại được sau khi tắt UI. */
 export type ChatSessionStatus =
   | "idle"
   | "running"
@@ -309,9 +309,9 @@ export interface ChatSession {
   /** Project mà phiên chat gắn vào (null = chat tự do). */
   projectId: string | null;
   status: ChatSessionStatus;
-  /** ISO — lúc lượt chạy hiện tại BẮT ĐẦU (không reset khi auto-resume). */
+  /** ISO - lúc lượt chạy hiện tại BẮT ĐẦU (không reset khi auto-resume). */
   runStartedAt: string | null;
-  /** ISO — lúc lượt chạy kết thúc hẳn; null khi đang chạy. */
+  /** ISO - lúc lượt chạy kết thúc hẳn; null khi đang chạy. */
   runFinishedAt: string | null;
   /** Tự chạy tiếp khi phiên bị lỗi/gián đoạn (mặc định true). */
   autoResume: boolean;
@@ -332,7 +332,7 @@ export interface AgentEvent {
   text?: string;
   tool?: { name: string; input: unknown };
   error?: string;
-  /** Kèm theo event kind "done" — kết cục của phiên. */
+  /** Kèm theo event kind "done" - kết cục của phiên. */
   status?: "done" | "error" | "interrupted";
 }
 
@@ -341,17 +341,17 @@ export interface JobLogEvent {
   line: string;
 }
 
-/** Event SSE kênh "upload" — tiến trình server nhận file qua POST /api/assets. */
+/** Event SSE kênh "upload" - tiến trình server nhận file qua POST /api/assets. */
 export interface UploadEvent {
   id: string;
-  /** Có khi scope=project — dùng để lọc theo trang project đang mở. */
+  /** Có khi scope=project - dùng để lọc theo trang project đang mở. */
   projectId?: string;
   received?: number;
   /** 0 = không biết tổng (thiếu content-length) → hiện progress vô định. */
   total?: number;
   done: boolean;
   error?: boolean;
-  /** Tên file đã lưu — đi kèm event done thành công. */
+  /** Tên file đã lưu - đi kèm event done thành công. */
   file?: string;
 }
 
@@ -380,16 +380,16 @@ export interface Provider {
 
 // ============ Kết nối (API key providers) ============
 
-/** Trạng thái API key của một provider — key đọc từ .env, đổi được qua UI. */
+/** Trạng thái API key của một provider - key đọc từ .env, đổi được qua UI. */
 export interface ConnectionKeyInfo {
   /** Tên biến môi trường chứa key (vd ANTHROPIC_API_KEY). */
   envVar: string;
   present: boolean;
-  /** Key đã che bớt (vd sk-ant-…abcd) — null khi chưa có key. */
+  /** Key đã che bớt (vd sk-ant-…abcd) - null khi chưa có key. */
   masked: string | null;
 }
 
-/** Một provider trên trang Kết nối — GET /api/connections. */
+/** Một provider trên trang Kết nối - GET /api/connections. */
 export interface ConnectionInfo {
   id: "claude" | "gemini" | "openai";
   label: string;
@@ -407,7 +407,7 @@ export interface ConnectionInfo {
 // ============ Cấu hình (render settings) ============
 
 /**
- * Cài đặt tăng tốc render — server đọc mỗi lần job chạy / queue tick,
+ * Cài đặt tăng tốc render - server đọc mỗi lần job chạy / queue tick,
  * nên PUT là có hiệu lực ngay, không cần restart.
  */
 export interface RenderSettings {
@@ -417,25 +417,25 @@ export interface RenderSettings {
   browserGpu: boolean;
   /** Encode GPU (NVENC/VideoToolbox) cho bản draft. */
   gpuEncodeDraft: boolean;
-  /** Encode GPU cho bản FINAL — nhanh nhưng chất lượng nhỉnh kém libx264. */
+  /** Encode GPU cho bản FINAL - nhanh nhưng chất lượng nhỉnh kém libx264. */
   gpuEncodeFinal: boolean;
-  /** Fast capture — chỉ thực sự hoạt động trên macOS + GPU, nơi khác fallback vô hại. */
+  /** Fast capture - chỉ thực sự hoạt động trên macOS + GPU, nơi khác fallback vô hại. */
   fastCapture: boolean;
   /** Concurrency render của Remotion (0 = auto; trần = số luồng CPU của máy). */
   remotionConcurrency: number;
   /** Số job render chạy đồng thời trong queue (1-4). */
   queueConcurrency: number;
-  /** FPS cho bản draft — null = giữ nguyên fps project; 15 = draft nhanh. */
+  /** FPS cho bản draft - null = giữ nguyên fps project; 15 = draft nhanh. */
   draftFps: number | null;
 }
 
-/** Phần cứng máy backend phát hiện được — GET /api/render-settings. */
+/** Phần cứng máy backend phát hiện được - GET /api/render-settings. */
 export interface HardwareInfo {
   /** process.platform của server: win32 | darwin | linux… */
   platform: string;
   cores: number;
   ramGb: number;
-  /** Tên GPU — null khi không phát hiện được. */
+  /** Tên GPU - null khi không phát hiện được. */
   gpuName: string | null;
   /** Có encoder NVENC (GPU NVIDIA). */
   nvenc: boolean;
@@ -443,21 +443,21 @@ export interface HardwareInfo {
   videotoolbox: boolean;
   /** Tên đầy đủ CPU, vd "Intel Core i5-9400F CPU @ 2.90GHz". */
   cpuModel: string;
-  /** Số core vật lý — null nếu không tra được (hiển thị rơi về threads). */
+  /** Số core vật lý - null nếu không tra được (hiển thị rơi về threads). */
   cpuCores: number | null;
   /** Số luồng logic. */
   cpuThreads: number;
-  /** Xung tối đa (GHz) — null nếu không tra được. */
+  /** Xung tối đa (GHz) - null nếu không tra được. */
   cpuMaxGhz: number | null;
-  /** Loại RAM: DDR4 | DDR5 | Unified Memory… — null nếu không tra được. */
+  /** Loại RAM: DDR4 | DDR5 | Unified Memory… - null nếu không tra được. */
   ramType: string | null;
   /** Bus RAM (MHz). */
   ramSpeedMhz: number | null;
-  /** VRAM (GB) — hiện chỉ có với GPU NVIDIA. */
+  /** VRAM (GB) - hiện chỉ có với GPU NVIDIA. */
   gpuVramGb: number | null;
 }
 
-/** Khuyến nghị theo máy thật — UI dựng option worker/concurrency từ đây. */
+/** Khuyến nghị theo máy thật - UI dựng option worker/concurrency từ đây. */
 export interface RenderRecommended {
   /** Số worker Chrome khuyên dùng (= min(số luồng CPU, 8)). */
   workers: number;
@@ -477,13 +477,13 @@ export interface RenderSettingsResponse {
 export const getRenderSettings = () =>
   request<RenderSettingsResponse>("/api/render-settings");
 
-/** PUT partial — hiệu lực NGAY (job đọc mỗi lần chạy), không cần restart. */
+/** PUT partial - hiệu lực NGAY (job đọc mỗi lần chạy), không cần restart. */
 export const updateRenderSettings = (patch: Partial<RenderSettings>) =>
   jsonBody<{ settings: RenderSettings }>("/api/render-settings", "PUT", patch);
 
-// ============ Style Design (bộ nhận diện thương hiệu — nhiều style) ============
+// ============ Style Design (bộ nhận diện thương hiệu - nhiều style) ============
 
-/** Màu BRAND trong một style (DATA của user) — không phải token màu UI. */
+/** Màu BRAND trong một style (DATA của user) - không phải token màu UI. */
 export interface StyleColors {
   primary: string;
   secondary: string;
@@ -492,10 +492,10 @@ export interface StyleColors {
   accent: string;
 }
 
-/** Slot font của style — heading (tiêu đề) | body (nội dung). */
+/** Slot font của style - heading (tiêu đề) | body (nội dung). */
 export type StyleFontSlot = "heading" | "body";
 
-/** Hiệu ứng thị giác của style — bật/tắt được từng cái (default true/true). */
+/** Hiệu ứng thị giác của style - bật/tắt được từng cái (default true/true). */
 export interface StyleEffects {
   /** Chữ highlight + bề mặt dùng chuyển màu primary→secondary. */
   gradient: boolean;
@@ -503,18 +503,18 @@ export interface StyleEffects {
   liquidGlass: boolean;
 }
 
-/** Một bộ nhận diện (Style Design) — lưu tại assets/styles/styles.json. */
+/** Một bộ nhận diện (Style Design) - lưu tại assets/styles/styles.json. */
 export interface StyleDesign {
   id: string;
   name: string;
   tags: string[];
   colors: StyleColors;
   fonts: { heading: string; body: string };
-  /** File font đã upload (relPath, phát qua /media) — null = font hệ thống. */
+  /** File font đã upload (relPath, phát qua /media) - null = font hệ thống. */
   fontFiles: { heading: string | null; body: string | null };
-  /** relPath logo — phát qua /media. */
+  /** relPath logo - phát qua /media. */
   logoPath: string | null;
-  /** Hiệu ứng thị giác (gradient / liquid glass) — style cũ có thể thiếu. */
+  /** Hiệu ứng thị giác (gradient / liquid glass) - style cũ có thể thiếu. */
   effects?: StyleEffects;
   tone: string;
   guidelines: string;
@@ -522,7 +522,7 @@ export interface StyleDesign {
   updatedAt: string;
 }
 
-/** Kết quả GET /api/styles — danh sách style + style mặc định. */
+/** Kết quả GET /api/styles - danh sách style + style mặc định. */
 export interface StylesResponse {
   defaultId: string | null;
   styles: StyleDesign[];
@@ -547,7 +547,7 @@ export interface ImageStat {
   value: string;
 }
 
-/** Chữ trên ảnh — Remotion đặt theo Design System, KHÔNG nằm trong ảnh Gemini. */
+/** Chữ trên ảnh - Remotion đặt theo Design System, KHÔNG nằm trong ảnh Gemini. */
 export interface ImageOverlay {
   title: string;
   subtitle: string;
@@ -564,13 +564,13 @@ export interface ImageProject {
   aspect: ImageAspect;
   status: ImageProjectStatus;
   overlay: ImageOverlay;
-  /** Model Gemini tạo ảnh nền — null = model mặc định của server. */
+  /** Model Gemini tạo ảnh nền - null = model mặc định của server. */
   model: string | null;
-  /** Style Design ảnh phải tuân theo — null = style mặc định. */
+  /** Style Design ảnh phải tuân theo - null = style mặc định. */
   styleId: string | null;
-  /** relPath ảnh nền (Gemini tạo hoặc upload tay) — phát qua /media. */
+  /** relPath ảnh nền (Gemini tạo hoặc upload tay) - phát qua /media. */
   background: string | null;
-  /** relPath ảnh hoàn thiện (Remotion compose) — phát qua /media. */
+  /** relPath ảnh hoàn thiện (Remotion compose) - phát qua /media. */
   final: string | null;
   error: string | null;
   createdAt: string;
@@ -582,7 +582,7 @@ export type ImageGenStep = "all" | "background" | "compose";
 // ============ Error & core ============
 
 /**
- * Origin của backend — dùng cho upload file lớn: gọi THẲNG server (CORS đã mở),
+ * Origin của backend - dùng cho upload file lớn: gọi THẲNG server (CORS đã mở),
  * không qua rewrite proxy của Next (proxy có timeout ~30s, file video lớn sẽ chết).
  */
 export function serverOrigin(): string {
@@ -592,9 +592,9 @@ export function serverOrigin(): string {
 }
 
 /**
- * Origin để UPLOAD file từ trang mobile /m — tự thích ứng cách truy cập:
+ * Origin để UPLOAD file từ trang mobile /m - tự thích ứng cách truy cập:
  * - LAN/localhost (localhost, 127.x, IP private 192.168/10./172.16-31,
- *   Tailscale 100.64-127): gọi THẲNG backend 6869 (serverOrigin) — né proxy
+ *   Tailscale 100.64-127): gọi THẲNG backend 6869 (serverOrigin) - né proxy
  *   Next vì request dài dễ dính buffering/timeout với file video lớn.
  * - Domain qua tunnel (vd Cloudflare Tunnel https://aiev.noti.vn →
  *   localhost:6868): cổng 6869 KHÔNG tồn tại trên domain đó → upload
@@ -632,12 +632,12 @@ export class ApiError extends Error {
  *
  * 1. `?t=<token>` trên URL (mở dashboard từ xa qua Cloudflare Tunnel) → lưu lại.
  * 2. localStorage (đã lấy được ở lần trước).
- * 3. Gọi THẲNG `${serverOrigin()}/api/health` — request loopback trực tiếp
+ * 3. Gọi THẲNG `${serverOrigin()}/api/health` - request loopback trực tiếp
  *    (không qua proxy Next) nên backend trả kèm `apiToken`. Chỉ trình duyệt
  *    chạy trên chính máy chủ mới lấy được.
  *
  * Token được gắn vào: header `x-aiev-token` (mọi fetch) VÀ cookie `aiev_token`
- * (để <img>/<video>/EventSource — thứ không set được header — vẫn qua được).
+ * (để <img>/<video>/EventSource - thứ không set được header - vẫn qua được).
  *
  * Trang /m trên điện thoại KHÔNG dùng token này: nó đi bằng token phiên QR
  * (`?k=`) mà backend chỉ cho xem project + upload asset.
@@ -649,7 +649,7 @@ const TOKEN_COOKIE = "aiev_token";
 let apiToken: string | null = null;
 let tokenPromise: Promise<string | null> | null = null;
 
-/** Token phiên upload QR trên URL (trang /m) — "" nếu không có. */
+/** Token phiên upload QR trên URL (trang /m) - "" nếu không có. */
 function uploadTokenFromUrl(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("k") ?? "";
@@ -660,7 +660,7 @@ function persistToken(token: string): void {
   try {
     window.localStorage.setItem(TOKEN_KEY, token);
   } catch {
-    // Safari private mode… — vẫn dùng được token trong phiên này
+    // Safari private mode… - vẫn dùng được token trong phiên này
   }
   // Cookie để img/video/EventSource (không set header được) qua được middleware
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
@@ -708,7 +708,7 @@ async function ensureToken(): Promise<string | null> {
         }
       }
     } catch {
-      // Không gọi thẳng backend được (mở dashboard qua tunnel) — cần ?t=
+      // Không gọi thẳng backend được (mở dashboard qua tunnel) - cần ?t=
     }
     tokenPromise = null; // cho phép thử lại ở request sau
     return null;
@@ -751,7 +751,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         message = body.error.message;
       }
     } catch {
-      // body không phải JSON — giữ message mặc định
+      // body không phải JSON - giữ message mặc định
     }
     throw new ApiError(code, message, res.status);
   }
@@ -800,9 +800,9 @@ export interface UpdateStatus {
   upToDate: boolean;
   latestMessage: string | null;
   checkedAt: string;
-  /** false khi `git fetch origin` thất bại — behind tính theo refs cũ. */
+  /** false khi `git fetch origin` thất bại - behind tính theo refs cũ. */
   fetchOk?: boolean;
-  /** Lỗi ngắn khi check thất bại (offline…) — server không bao giờ 500. */
+  /** Lỗi ngắn khi check thất bại (offline…) - server không bao giờ 500. */
   error?: string;
 }
 
@@ -817,7 +817,7 @@ export const applyUpdate = () => post<{ ok: true }>("/api/update/apply");
 export const getUsageSummary = () =>
   request<UsageSummary>("/api/usage/summary");
 
-/** Timeline token theo ngày — scope lọc theo loại project (bỏ qua = all). */
+/** Timeline token theo ngày - scope lọc theo loại project (bỏ qua = all). */
 export const getUsageTimeline = (days = 30, scope?: UsageScope) =>
   request<UsageTimelinePoint[]>(
     `/api/usage/timeline?days=${days}${scope && scope !== "all" ? `&scope=${scope}` : ""}`
@@ -841,7 +841,7 @@ export const getProject = (id: string) =>
   request<ProjectDetail>(`/api/projects/${encodeURIComponent(id)}`);
 
 /**
- * POST nhân bản project — server copy compositions/assets (kèm mô tả)/brief/tags/scenes,
+ * POST nhân bản project - server copy compositions/assets (kèm mô tả)/brief/tags/scenes,
  * BỎ renders + output; project mới ở trạng thái draft, id tự sinh từ name.
  * name bỏ trống → server dùng "<tên cũ> (bản sao)".
  */
@@ -856,7 +856,7 @@ export const deleteProject = (id: string) =>
     method: "DELETE",
   });
 
-/** PUT brief (partial được — server merge). */
+/** PUT brief (partial được - server merge). */
 export const updateBrief = (id: string, brief: Partial<Brief>) =>
   jsonBody<Brief>(
     `/api/projects/${encodeURIComponent(id)}/brief`,
@@ -885,7 +885,7 @@ export const updateAssetDescription = (
   );
 
 /**
- * POST tạo thumbnail cho video project — chạy ĐỒNG BỘ (~1 phút: ffmpeg cắt
+ * POST tạo thumbnail cho video project - chạy ĐỒNG BỘ (~1 phút: ffmpeg cắt
  * frame + Gemini vẽ nền theo Style Design + Remotion still). Trả 201 khi
  * video-projects/<id>/thumbnail.png đã ghi xong.
  */
@@ -898,7 +898,7 @@ export const createThumbnail = (
     input
   );
 
-/** Một mục file rác — relPath từ repo root, thư mục kết thúc bằng "/". */
+/** Một mục file rác - relPath từ repo root, thư mục kết thúc bằng "/". */
 export interface JunkItem {
   relPath: string;
   size: number;
@@ -914,7 +914,7 @@ export const getProjectJunk = (id: string) =>
   request<ProjectJunk>(`/api/projects/${encodeURIComponent(id)}/junk`);
 
 /**
- * POST xóa file rác của project — renders/verify/cache, props.resolved.json,
+ * POST xóa file rác của project - renders/verify/cache, props.resolved.json,
  * draft lắp ráp và staging Remotion. File nguồn + video final giữ nguyên.
  * Project đang có job chạy/chờ → lỗi 409 JOB_RUNNING.
  */
@@ -923,7 +923,7 @@ export const cleanProjectJunk = (id: string) =>
     `/api/projects/${encodeURIComponent(id)}/junk/clean`
   );
 
-/** DELETE một asset của project — xóa file + entry mô tả/màu trong assets.json. */
+/** DELETE một asset của project - xóa file + entry mô tả/màu trong assets.json. */
 export const deleteProjectAsset = (projectId: string, file: string) =>
   request<void>(
     `/api/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(file)}`,
@@ -932,7 +932,7 @@ export const deleteProjectAsset = (projectId: string, file: string) =>
 
 /**
  * Sinh ảnh preview các preset màu cho một video của project.
- * POST (dù là "get") vì server phải render 6 ảnh — mất vài giây.
+ * POST (dù là "get") vì server phải render 6 ảnh - mất vài giây.
  */
 export const getGradePreviews = (projectId: string, file: string) =>
   post<GradePreviewResult>(
@@ -940,7 +940,7 @@ export const getGradePreviews = (projectId: string, file: string) =>
   );
 
 /**
- * Render MỘT frame chính xác theo preset + thông số chỉnh tay — phục vụ preview
+ * Render MỘT frame chính xác theo preset + thông số chỉnh tay - phục vụ preview
  * lớn khi kéo slider. Server cache theo tham số nên gọi lại nhanh.
  */
 export const renderGradeFrame = (
@@ -955,7 +955,7 @@ export const renderGradeFrame = (
   );
 
 /**
- * PUT preset chỉnh màu cho asset video — preset null = bỏ chỉnh màu.
+ * PUT preset chỉnh màu cho asset video - preset null = bỏ chỉnh màu.
  * adjust mặc định thì server tự bỏ (không lưu colorAdjust).
  */
 export const setAssetGrade = (
@@ -975,8 +975,8 @@ export const setAssetGrade = (
   );
 
 /**
- * Bắt đầu edit bằng AI — server tự soạn prompt từ brief + assets, trả sessionId chat.
- * model/effort (tùy chọn) lưu vào session — mọi lượt chạy sau dùng đúng model đó.
+ * Bắt đầu edit bằng AI - server tự soạn prompt từ brief + assets, trả sessionId chat.
+ * model/effort (tùy chọn) lưu vào session - mọi lượt chạy sau dùng đúng model đó.
  */
 export const startProjectEdit = (
   id: string,
@@ -1031,9 +1031,9 @@ export const deleteSkill = (name: string) =>
 
 // ============ Tạo skill bằng AI ============
 
-/** Body POST /api/skills/generate — mọi field trừ goal đều optional. */
+/** Body POST /api/skills/generate - mọi field trừ goal đều optional. */
 export interface SkillGenerateInput {
-  /** Mục đích & loại video — BẮT BUỘC. */
+  /** Mục đích & loại video - BẮT BUỘC. */
   goal: string;
   /** Tên kebab-case gợi ý; rỗng = AI tự đặt. */
   name?: string;
@@ -1050,7 +1050,7 @@ export interface SkillGenerateInput {
   highlights?: boolean;
   /** Sound effect đồng bộ timestamp. */
   sfx?: boolean;
-  /** Tên skill có sẵn làm mẫu — server nhúng nội dung vào prompt. */
+  /** Tên skill có sẵn làm mẫu - server nhúng nội dung vào prompt. */
   baseSkill?: string;
   notes?: string;
 }
@@ -1063,7 +1063,7 @@ export interface SkillGenerateResult {
 
 /**
  * Lỗi tạo skill bằng AI. 422 BAD_SKILL_OUTPUT kèm `raw` = văn bản gốc AI
- * trả về — UI đưa cho user tự sửa tay rồi lưu.
+ * trả về - UI đưa cho user tự sửa tay rồi lưu.
  */
 export class SkillGenerateError extends ApiError {
   raw: string | null;
@@ -1076,8 +1076,8 @@ export class SkillGenerateError extends ApiError {
 }
 
 /**
- * POST /api/skills/generate — Claude soạn draft SKILL.md (KHÔNG ghi file).
- * Gọi THẲNG server origin (như upload) vì có thể chạy 1–3 phút — proxy Next
+ * POST /api/skills/generate - Claude soạn draft SKILL.md (KHÔNG ghi file).
+ * Gọi THẲNG server origin (như upload) vì có thể chạy 1–3 phút - proxy Next
  * có timeout sẽ cắt ngang. Lỗi ném SkillGenerateError (422 kèm raw).
  */
 export async function generateSkill(
@@ -1118,7 +1118,7 @@ export async function generateSkill(
       const r = body?.raw ?? body?.error?.raw;
       if (typeof r === "string" && r) raw = r;
     } catch {
-      // body không phải JSON — giữ message mặc định
+      // body không phải JSON - giữ message mặc định
     }
     throw new SkillGenerateError(code, message, res.status, raw);
   }
@@ -1159,7 +1159,7 @@ export const uploadSfx = (file: File, tags: string, description: string) => {
   return request<SfxEntry>(`${serverOrigin()}/api/sfx`, { method: "POST", body: form });
 };
 
-/** PATCH sound effect — recommended=true/false thêm/gỡ tag "hay-dung". */
+/** PATCH sound effect - recommended=true/false thêm/gỡ tag "hay-dung". */
 export const patchSfx = (
   file: string,
   patch: { description?: string; tags?: string[]; recommended?: boolean }
@@ -1204,7 +1204,7 @@ export const uploadAsset = (
   projectId?: string
 ) => {
   const form = new FormData();
-  // scope/projectId TRƯỚC file — server đọc projectId từ đầu stream để phát
+  // scope/projectId TRƯỚC file - server đọc projectId từ đầu stream để phát
   // SSE `upload` progress lọc được theo project
   form.append("scope", scope);
   if (projectId) form.append("projectId", projectId);
@@ -1214,7 +1214,7 @@ export const uploadAsset = (
 
 // ============ Chat ============
 
-/** Danh sách phiên chat — truyền projectId để chỉ lấy phiên của project đó. */
+/** Danh sách phiên chat - truyền projectId để chỉ lấy phiên của project đó. */
 export const getChatSessions = (projectId?: string) =>
   request<ChatSession[]>(
     projectId
@@ -1228,8 +1228,8 @@ export const getChatMessages = (sessionId: string) =>
   );
 
 /**
- * Gửi tin nhắn — projectId chỉ dùng khi tạo session mới (gắn session vào project).
- * model/effort cũng chỉ có tác dụng lúc tạo session mới — lưu vào session.
+ * Gửi tin nhắn - projectId chỉ dùng khi tạo session mới (gắn session vào project).
+ * model/effort cũng chỉ có tác dụng lúc tạo session mới - lưu vào session.
  */
 export const sendChat = (
   message: string,
@@ -1269,7 +1269,7 @@ export interface GeminiImageModels {
 }
 
 /**
- * Danh sách model ảnh Gemini MỚI NHẤT — KHÔNG cache phía client (server đã cache 1h)
+ * Danh sách model ảnh Gemini MỚI NHẤT - KHÔNG cache phía client (server đã cache 1h)
  * để mỗi lần mở select đều nhận được model mới Google vừa phát hành.
  */
 export const getGeminiImageModels = () =>
@@ -1283,7 +1283,7 @@ export interface ClaudeModels {
 }
 
 /**
- * Danh sách model Claude MỚI NHẤT — server cache 10 phút; chưa fetch xong
+ * Danh sách model Claude MỚI NHẤT - server cache 10 phút; chưa fetch xong
  * thì UI dùng danh sách tĩnh từ /api/providers.
  */
 export const getClaudeModels = () =>
@@ -1302,7 +1302,7 @@ export const setConnectionKey = (provider: string, apiKey: string | null) =>
     { apiKey }
   );
 
-/** Gọi thử API thật của provider — kiểm tra kết nối. */
+/** Gọi thử API thật của provider - kiểm tra kết nối. */
 export const testConnection = (provider: string) =>
   post<{ ok: boolean; message: string }>(
     `/api/connections/${encodeURIComponent(provider)}/test`
@@ -1312,14 +1312,14 @@ export const testConnection = (provider: string) =>
 
 export const getStyles = () => request<StylesResponse>("/api/styles");
 
-/** Tạo style mới — cloneFrom = id style muốn sao chép toàn bộ (bỏ qua = trống). */
+/** Tạo style mới - cloneFrom = id style muốn sao chép toàn bộ (bỏ qua = trống). */
 export const createStyle = (input: {
   name: string;
   tags?: string[];
   cloneFrom?: string;
 }) => post<StyleDesign>("/api/styles", input);
 
-/** PUT partial (name/tags/colors/fonts/effects/tone/guidelines) — server merge. */
+/** PUT partial (name/tags/colors/fonts/effects/tone/guidelines) - server merge. */
 export const updateStyle = (
   id: string,
   patch: Partial<
@@ -1331,7 +1331,7 @@ export const updateStyle = (
 ) =>
   jsonBody<StyleDesign>(`/api/styles/${encodeURIComponent(id)}`, "PUT", patch);
 
-/** Xóa style — server cấm xóa style cuối cùng (400). */
+/** Xóa style - server cấm xóa style cuối cùng (400). */
 export const deleteStyle = (id: string) =>
   request<void>(`/api/styles/${encodeURIComponent(id)}`, { method: "DELETE" });
 
@@ -1340,7 +1340,7 @@ export const setDefaultStyle = (id: string) =>
     `/api/styles/${encodeURIComponent(id)}/default`
   );
 
-/** Upload logo cho style (multipart) — gọi thẳng server như uploadAsset. */
+/** Upload logo cho style (multipart) - gọi thẳng server như uploadAsset. */
 export const uploadStyleLogo = (id: string, file: File) => {
   const form = new FormData();
   form.append("file", file);
@@ -1371,7 +1371,7 @@ export const styleFontGoogle = (id: string, slot: StyleFontSlot, family: string)
     family,
   });
 
-/** Gỡ font một slot của style — quay về font hệ thống. */
+/** Gỡ font một slot của style - quay về font hệ thống. */
 export const deleteStyleFont = (id: string, slot: StyleFontSlot) =>
   request<StyleDesign>(
     `/api/styles/${encodeURIComponent(id)}/font/${slot}`,
@@ -1389,9 +1389,9 @@ export const createImageProject = (input: {
   kind: ImageKind;
   aspect: ImageAspect;
   overlay?: Partial<ImageOverlay>;
-  /** Model Gemini tạo nền — bỏ qua = server dùng mặc định. */
+  /** Model Gemini tạo nền - bỏ qua = server dùng mặc định. */
   model?: string | null;
-  /** Style Design áp cho ảnh — bỏ qua/null = style mặc định. */
+  /** Style Design áp cho ảnh - bỏ qua/null = style mặc định. */
   styleId?: string | null;
 }) => post<ImageProject>("/api/images", input);
 
@@ -1417,7 +1417,7 @@ export const getImageJunk = (id: string) =>
   request<ProjectJunk>(`/api/images/${encodeURIComponent(id)}/junk`);
 
 /**
- * POST xóa file rác của image project — props.json và staging Remotion img-<id>.
+ * POST xóa file rác của image project - props.json và staging Remotion img-<id>.
  * Ảnh nền, final.png và meta giữ nguyên. Project đang có job chạy/chờ → 409 JOB_RUNNING.
  */
 export const cleanImageJunk = (id: string) =>
@@ -1425,7 +1425,7 @@ export const cleanImageJunk = (id: string) =>
     `/api/images/${encodeURIComponent(id)}/junk/clean`
   );
 
-/** Upload ảnh nền thủ công (multipart) — thay cho bước Gemini. */
+/** Upload ảnh nền thủ công (multipart) - thay cho bước Gemini. */
 export const uploadImageBackground = (id: string, file: File) => {
   const form = new FormData();
   form.append("file", file);
@@ -1435,7 +1435,7 @@ export const uploadImageBackground = (id: string, file: File) => {
   );
 };
 
-/** Chạy pipeline tạo ảnh — trả Job (queue type "image-gen", projectId = id ảnh). */
+/** Chạy pipeline tạo ảnh - trả Job (queue type "image-gen", projectId = id ảnh). */
 export const generateImage = (id: string, step?: ImageGenStep) =>
   post<Job>(
     `/api/images/${encodeURIComponent(id)}/generate`,
@@ -1444,33 +1444,33 @@ export const generateImage = (id: string, step?: ImageGenStep) =>
 
 // ============ Kết nối điện thoại (LAN) ============
 
-/** GET /api/lan-info — IP LAN của máy chạy server + port web, cho QR "Kết nối điện thoại". */
+/** GET /api/lan-info - IP LAN của máy chạy server + port web, cho QR "Kết nối điện thoại". */
 export interface LanInfo {
   /** IPv4 non-internal, đã ưu tiên dải 192.168/10. lên đầu. */
   ips: string[];
   webPort: number;
-  /** Domain Cloudflare Tunnel (TUNNEL_DOMAIN trong .env, đã bỏ protocol) — null nếu chưa cấu hình. */
+  /** Domain Cloudflare Tunnel (TUNNEL_DOMAIN trong .env, đã bỏ protocol) - null nếu chưa cấu hình. */
   tunnelDomain: string | null;
 }
 
 export const getLanInfo = () => request<LanInfo>("/api/lan-info");
 
 /**
- * Phiên upload cho QR "Kết nối điện thoại" — token gắn vào URL (?k=) và
+ * Phiên upload cho QR "Kết nối điện thoại" - token gắn vào URL (?k=) và
  * field `token` của FormData upload. Đóng modal → revoke → link hết hiệu lực.
  */
 export interface UploadSession {
-  /** Token dạng ut_<nanoid> — server giữ trong RAM, TTL 60 phút. */
+  /** Token dạng ut_<nanoid> - server giữ trong RAM, TTL 60 phút. */
   token: string;
-  /** ISO — hạn của token (server tự dọn khi quá hạn). */
+  /** ISO - hạn của token (server tự dọn khi quá hạn). */
   expiresAt: string;
 }
 
-/** POST /api/upload-session — tạo token upload cho project (mở modal QR). */
+/** POST /api/upload-session - tạo token upload cho project (mở modal QR). */
 export const createUploadSession = (projectId: string) =>
   post<UploadSession>("/api/upload-session", { projectId });
 
-/** DELETE /api/upload-session/:token — thu hồi ngay (đóng modal QR). Idempotent. */
+/** DELETE /api/upload-session/:token - thu hồi ngay (đóng modal QR). Idempotent. */
 export const revokeUploadSession = (token: string) =>
   request<void>(`/api/upload-session/${encodeURIComponent(token)}`, {
     method: "DELETE",
@@ -1478,16 +1478,16 @@ export const revokeUploadSession = (token: string) =>
 
 // ============ Cloudflare Tunnel (trang Kết nối) ============
 
-/** GET /api/tunnel — trạng thái cloudflared + tunnel đang chạy. */
+/** GET /api/tunnel - trạng thái cloudflared + tunnel đang chạy. */
 export interface TunnelStatus {
   /** cloudflared có trên PATH của máy chạy server không. */
   installed: boolean;
   running: boolean;
   /** named = có TUNNEL_DOMAIN; quick = URL ngẫu nhiên trycloudflare.com. Null khi không chạy. */
   mode: "named" | "quick" | null;
-  /** URL public đang hoạt động (https://…) — null khi không chạy / quick chưa parse được. */
+  /** URL public đang hoạt động (https://…) - null khi không chạy / quick chưa parse được. */
   url: string | null;
-  /** TUNNEL_DOMAIN trong .env (đã chuẩn hóa) — null nếu chưa cấu hình. */
+  /** TUNNEL_DOMAIN trong .env (đã chuẩn hóa) - null nếu chưa cấu hình. */
   domain: string | null;
   /** ≤20 dòng log cloudflared cuối cùng. */
   lastLog: string[];
@@ -1499,7 +1499,7 @@ export const getTunnelStatus = () => request<TunnelStatus>("/api/tunnel");
 export const setTunnelDomain = (domain: string | null) =>
   jsonBody<TunnelStatus>("/api/tunnel/domain", "PUT", { domain });
 
-/** Bật tunnel — 409 NOT_INSTALLED nếu chưa cài cloudflared, 409 nếu đang chạy. */
+/** Bật tunnel - 409 NOT_INSTALLED nếu chưa cài cloudflared, 409 nếu đang chạy. */
 export const startTunnel = () =>
   post<{ mode: "named" | "quick" }>("/api/tunnel/start");
 
@@ -1510,7 +1510,7 @@ export const stopTunnel = () => post<void>("/api/tunnel/stop");
 
 /**
  * Mở file trong Explorer/Finder trên máy chạy server (chọn đúng file).
- * relPath tính từ repo root — whitelist thư mục như /media, 404 nếu không tồn tại.
+ * relPath tính từ repo root - whitelist thư mục như /media, 404 nếu không tồn tại.
  */
 export const revealFile = (relPath: string) =>
   post<void>("/api/reveal", { relPath });
@@ -1527,7 +1527,7 @@ export const mediaUrl = (relPath: string) =>
   );
 
 /**
- * URL ảnh của image project — meta lưu TÊN FILE trần (background.png/final.png),
+ * URL ảnh của image project - meta lưu TÊN FILE trần (background.png/final.png),
  * phải ghép image-projects/<id>/ vào trước khi qua /media.
  * `version` (updatedAt) để cache-bust: file trùng tên khi tạo lại, không có ?v
  * trình duyệt sẽ hiện ảnh CŨ trong cache.

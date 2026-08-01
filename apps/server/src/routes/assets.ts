@@ -35,7 +35,7 @@ function qs(value: unknown): string {
 }
 
 /**
- * Đuôi file được phép upload — chặn .exe/.bat/.ps1/.lnk… lọt vào thư mục
+ * Đuôi file được phép upload - chặn .exe/.bat/.ps1/.lnk… lọt vào thư mục
  * mà agent hoặc người dùng sẽ mở sau này. Tên file đã bị ép ASCII kebab-case
  * (sanitizeFileName) nên chỉ cần soi phần mở rộng.
  */
@@ -55,13 +55,13 @@ const ALLOWED_UPLOAD_EXT = new Set([
 // ============ Tiến trình upload → SSE kênh "upload" ============
 
 interface UploadTracker {
-  /** Upload thành công — phát event cuối kèm tên file đã lưu. */
+  /** Upload thành công - phát event cuối kèm tên file đã lưu. */
   done(projectId: string | undefined, file: string): void;
-  /** Upload thất bại — phát event lỗi (idempotent). */
+  /** Upload thất bại - phát event lỗi (idempotent). */
   fail(projectId?: string): void;
 }
 
-/** Tracker của request đang upload — handler phía sau lấy ra để chốt done/fail. */
+/** Tracker của request đang upload - handler phía sau lấy ra để chốt done/fail. */
 const uploadTrackers = new WeakMap<Request, UploadTracker>();
 
 const UPLOAD_THROTTLE_MS = 400;
@@ -73,7 +73,7 @@ const UPLOAD_STALL_MS = 45_000;
 /**
  * Middleware ĐẶT TRƯỚC multer: đếm bytes nhận được của request multipart và
  * broadcast SSE `upload` (throttle ~400ms) để web UI hiện thanh tiến trình
- * realtime. Listener "data" chạy song song, không tiêu thụ stream — multer
+ * realtime. Listener "data" chạy song song, không tiêu thụ stream - multer
  * (pipe vào busboy) vẫn nhận đủ dữ liệu.
  *
  * projectId được đọc từ đầu stream multipart (client append scope/projectId
@@ -89,7 +89,7 @@ function uploadProgress(req: Request, res: Response, next: NextFunction): void {
   let settled = false;
   let lastSent = 0;
 
-  // Stall watchdog: timer reset mỗi chunk — hết UPLOAD_STALL_MS mà không nhận
+  // Stall watchdog: timer reset mỗi chunk - hết UPLOAD_STALL_MS mà không nhận
   // thêm data thì phát event lỗi (PC không kẹt thanh tiến trình) + hủy request
   // (điện thoại nhận lỗi thay vì treo). Node requestTimeout đã tắt cho upload
   // dài nên đây là lưới duy nhất bắt kết nối chết ngầm.
@@ -152,14 +152,14 @@ function uploadProgress(req: Request, res: Response, next: NextFunction): void {
     }
   });
 
-  // Client rớt mạng giữa chừng — body chưa nhận đủ mà socket đã đóng
+  // Client rớt mạng giữa chừng - body chưa nhận đủ mà socket đã đóng
   req.on("close", () => {
     clearStall();
     if (!settled && !req.complete) uploadTrackers.get(req)?.fail();
   });
 
   // Lưới an toàn: response đã gửi mà chưa chốt (vd multer lỗi file quá lớn,
-  // FILE_REQUIRED…) — chốt theo status code để web UI không kẹt thanh tiến trình
+  // FILE_REQUIRED…) - chốt theo status code để web UI không kẹt thanh tiến trình
   res.on("finish", () => {
     if (!settled && res.statusCode >= 400) uploadTrackers.get(req)?.fail();
   });
@@ -202,7 +202,7 @@ router.get("/", (req, res) => {
   res.json(listFilesRecursive(dir));
 });
 
-// POST /api/assets — multipart: file + scope (+projectId) → FileInfo (tên ép ASCII kebab-case)
+// POST /api/assets - multipart: file + scope (+projectId) → FileInfo (tên ép ASCII kebab-case)
 // Tiến trình nhận file phát realtime qua SSE kênh "upload" (middleware uploadProgress)
 router.post("/", uploadProgress, upload.single("file"), (req, res) => {
   const uploaded = req.file;
@@ -215,7 +215,7 @@ router.post("/", uploadProgress, upload.single("file"), (req, res) => {
     const dir = resolveScopeDir(scope, projectId ?? "", true);
 
     // Bảo mật "Kết nối điện thoại": upload từ máy KHÁC máy chủ (điện thoại
-    // LAN/tunnel) bắt buộc kèm token phiên upload còn hiệu lực — áp cho MỌI
+    // LAN/tunnel) bắt buộc kèm token phiên upload còn hiệu lực - áp cho MỌI
     // scope, không riêng "project" (imports cũng là ghi file vào repo).
     // Token lấy từ field `token` (client append TRƯỚC file) hoặc query `?k=`;
     // do modal QR tạo, ĐÓNG modal là thu hồi ngay → link hết hiệu lực.
@@ -232,7 +232,7 @@ router.post("/", uploadProgress, upload.single("file"), (req, res) => {
         throw new HttpError(
           403,
           "UPLOAD_TOKEN_INVALID",
-          "Link upload đã hết hạn — mở lại mã QR trên máy tính."
+          "Link upload đã hết hạn - mở lại mã QR trên máy tính."
         );
       }
     }
@@ -244,7 +244,7 @@ router.post("/", uploadProgress, upload.single("file"), (req, res) => {
       throw new HttpError(
         400,
         "FILE_TYPE_NOT_ALLOWED",
-        `Không hỗ trợ định dạng "${ext || "(không có đuôi)"}" — chỉ nhận video, audio, ảnh, font, srt/vtt/txt/md/json.`
+        `Không hỗ trợ định dạng "${ext || "(không có đuôi)"}" - chỉ nhận video, audio, ảnh, font, srt/vtt/txt/md/json.`
       );
     }
     let finalName = safeName;

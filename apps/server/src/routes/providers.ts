@@ -6,12 +6,12 @@ import { geminiApiKey } from "../gemini.js";
 import { HttpError } from "../util.js";
 
 /**
- * GET /api/providers — trạng thái kết nối + model khả dụng của từng AI provider.
+ * GET /api/providers - trạng thái kết nối + model khả dụng của từng AI provider.
  * Xem docs/API.md mục "AI Providers & chọn model".
  */
 
 /**
- * Danh sách tĩnh ĐẦY ĐỦ model Claude đang khả dụng (sắp mới → cũ) — fallback khi
+ * Danh sách tĩnh ĐẦY ĐỦ model Claude đang khả dụng (sắp mới → cũ) - fallback khi
  * không có ANTHROPIC_API_KEY (OAuth subscription không gọi được Models API) hoặc
  * fetch lỗi. Các model 3.7/3.5 đã retired (404) nên không liệt kê.
  */
@@ -34,17 +34,17 @@ export const CLAUDE_MODELS = [
 
 export const CLAUDE_MODEL_IDS: string[] = CLAUDE_MODELS.map((m) => m.id);
 
-/** Mức effort của Agent SDK — expose thành "mode" trên UI: Nhanh/Chuẩn/Sâu */
+/** Mức effort của Agent SDK - expose thành "mode" trên UI: Nhanh/Chuẩn/Sâu */
 export const EFFORT_LEVELS = ["low", "medium", "high"];
 
-// Danh sách model tạo ảnh — nguồn sự thật là IMAGE_MODELS trong gemini.ts
+// Danh sách model tạo ảnh - nguồn sự thật là IMAGE_MODELS trong gemini.ts
 import { IMAGE_MODELS } from "../gemini.js";
 export const GEMINI_MODELS: Array<{ id: string; label: string }> = IMAGE_MODELS.map((m) => ({
   id: m.id,
   label: m.label,
 }));
 
-// Cache danh sách model ảnh live từ Google — 1 giờ
+// Cache danh sách model ảnh live từ Google - 1 giờ
 let liveImageModelsCache: { at: number; list: Array<{ id: string; label: string }> } | null = null;
 
 /**
@@ -94,7 +94,7 @@ async function fetchLiveImageModels(): Promise<{
   }
 }
 
-// Cache danh sách model Claude live từ Anthropic Models API — 10 phút
+// Cache danh sách model Claude live từ Anthropic Models API - 10 phút
 let liveClaudeModelsCache: { at: number; list: Array<{ id: string; label: string }> } | null =
   null;
 const CLAUDE_MODELS_CACHE_MS = 10 * 60 * 1000;
@@ -103,7 +103,7 @@ const CLAUDE_MODELS_CACHE_MS = 10 * 60 * 1000;
  * Lấy danh sách model Claude MỚI NHẤT từ Anthropic Models API
  * (GET https://api.anthropic.com/v1/models, header x-api-key + anthropic-version: 2023-06-01,
  * phân trang after_id/has_more, mỗi model có id + display_name).
- * Chỉ gọi được với ANTHROPIC_API_KEY — OAuth subscription hoặc lỗi mạng
+ * Chỉ gọi được với ANTHROPIC_API_KEY - OAuth subscription hoặc lỗi mạng
  * → fallback danh sách tĩnh CLAUDE_MODELS.
  */
 async function fetchLiveClaudeModels(): Promise<{
@@ -212,7 +212,7 @@ function claudeSource(): "oauth" | "api-key" | null {
   return null;
 }
 
-/** Có cài Antigravity/gemini-cli trên máy không — auth IDE không dùng được cho API tạo ảnh */
+/** Có cài Antigravity/gemini-cli trên máy không - auth IDE không dùng được cho API tạo ảnh */
 function hasAntigravityInstall(): boolean {
   const home = homeDir();
   const localAppData = process.env.LOCALAPPDATA || "";
@@ -248,18 +248,18 @@ router.get("/", (_req, res) => {
   };
   if (!gKey && hasAntigravityInstall()) {
     gemini.note =
-      "Đã phát hiện Antigravity/gemini-cli — auth IDE không dùng được cho API tạo ảnh, cần GEMINI_API_KEY trong .env";
+      "Đã phát hiện Antigravity/gemini-cli - auth IDE không dùng được cho API tạo ảnh, cần GEMINI_API_KEY trong .env";
   }
 
   res.json({ providers: [claude, gemini] });
 });
 
-// GET /api/providers/gemini/image-models — danh sách model ảnh MỚI NHẤT (live từ Google, cache 1h)
+// GET /api/providers/gemini/image-models - danh sách model ảnh MỚI NHẤT (live từ Google, cache 1h)
 router.get("/gemini/image-models", async (_req, res) => {
   res.json(await fetchLiveImageModels());
 });
 
-// GET /api/providers/claude/models — danh sách model Claude MỚI NHẤT (live từ Anthropic, cache 10')
+// GET /api/providers/claude/models - danh sách model Claude MỚI NHẤT (live từ Anthropic, cache 10')
 router.get("/claude/models", async (_req, res) => {
   res.json(await fetchLiveClaudeModels());
 });

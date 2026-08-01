@@ -40,7 +40,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   const router = useRouter();
   const [list, setList] = useState<ImageProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Tiến trình thật của job image-gen theo projectId — cho ProgressBar mini trong bảng
+  // Tiến trình thật của job image-gen theo projectId - cho ProgressBar mini trong bảng
   const [genProgress, setGenProgress] = useState<
     Record<string, { progress: number; step: string }>
   >({});
@@ -153,7 +153,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
     const targets = selectedProjects;
     setBulkDeleting(true);
     setBulkErrors([]);
-    // Xóa TUẦN TỰ — lỗi nào gom lại hiện sau
+    // Xóa TUẦN TỰ - lỗi nào gom lại hiện sau
     const errors: string[] = [];
     for (const p of targets) {
       try {
@@ -218,7 +218,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         )
       )
         return;
-      // Xóa tuần tự — dự án đang có job server trả 409, gom lỗi và đi tiếp
+      // Xóa tuần tự - dự án đang có job server trả 409, gom lỗi và đi tiếp
       let freed = 0;
       let deleted = 0;
       let cleaned = 0;
@@ -426,7 +426,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         )}
       </Card>
 
-      {/* Modal xác nhận xóa nhiều dự án ảnh — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa nhiều dự án ảnh - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={bulkDeleteOpen}
         title={t("imagesPage.delete-selected-title")}
@@ -449,7 +449,7 @@ export default function ImagesPage() {
   const { t } = useT();
   const router = useRouter();
 
-  // Modal "Tạo ảnh mới" — id sinh tự động từ tên phía server (auto-ID ẩn)
+  // Modal "Tạo ảnh mới" - id sinh tự động từ tên phía server (auto-ID ẩn)
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<ImageDraft>(DEFAULT_IMAGE_DRAFT);

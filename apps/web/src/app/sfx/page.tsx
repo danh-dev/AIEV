@@ -79,7 +79,7 @@ export default function SfxPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // File đang xóa — chặn double-submit nút xóa
+  // File đang xóa - chặn double-submit nút xóa
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   // File đang chờ xác nhận xóa (modal gõ DELETE)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export default function SfxPage() {
     audio.play().catch(() => setPlaying(null));
   }
 
-  /** Toggle đề xuất — optimistic update, revert nếu API lỗi. */
+  /** Toggle đề xuất - optimistic update, revert nếu API lỗi. */
   async function toggleRecommended(entry: SfxEntry) {
     const next = !isRecommended(entry);
     setActionError(null);
@@ -278,7 +278,7 @@ export default function SfxPage() {
                   {formatDurationMs(e.durationMs)}
                 </td>
                 <td className="max-w-xs truncate text-[var(--text-muted)]">
-                  {e.description || "—"}
+                  {e.description || "-"}
                 </td>
                 <td>
                   <span className="flex items-center justify-end gap-1">
@@ -395,7 +395,7 @@ export default function SfxPage() {
         </Card>
       ) : (
         <>
-          {/* Khu đề xuất — AI ưu tiên dùng khi brief đặt sfxMode "recommended" */}
+          {/* Khu đề xuất - AI ưu tiên dùng khi brief đặt sfxMode "recommended" */}
           <Card
             title={tf("sfx.recommended-title", { n: recommended.length })}
             actions={
@@ -430,7 +430,7 @@ export default function SfxPage() {
         </>
       )}
 
-      {/* Nhạc nền — thư viện riêng tại assets/music/, AI tự chọn theo mood khi brief bật */}
+      {/* Nhạc nền - thư viện riêng tại assets/music/, AI tự chọn theo mood khi brief bật */}
       <MusicSection />
 
       {/* Modal upload */}
@@ -546,7 +546,7 @@ export default function SfxPage() {
         </div>
       </Modal>
 
-      {/* Modal xác nhận xóa sound effect — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa sound effect - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteTarget !== null}
         title={t("sfx.delete-title")}
@@ -569,7 +569,7 @@ export default function SfxPage() {
 }
 
 /**
- * Section "Nhạc nền" — thư viện assets/music/ (cùng pattern với sound effects).
+ * Section "Nhạc nền" - thư viện assets/music/ (cùng pattern với sound effects).
  * Tags = mood (nang-luong, chill, cam-hung, cang-thang, vui-ve…) để AI chọn
  * bài hợp nội dung khi brief đặt musicMode "auto".
  */
@@ -598,7 +598,7 @@ function MusicSection() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // File đang xóa — chặn double-submit nút xóa
+  // File đang xóa - chặn double-submit nút xóa
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   // File đang chờ xác nhận xóa (modal gõ DELETE)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -793,7 +793,7 @@ function MusicSection() {
                     {formatDurationMs(e.durationMs)}
                   </td>
                   <td className="max-w-xs truncate text-[var(--text-muted)]">
-                    {e.description || "—"}
+                    {e.description || "-"}
                   </td>
                   <td>
                     <span className="flex items-center justify-end gap-1">
@@ -934,7 +934,7 @@ function MusicSection() {
         </div>
       </Modal>
 
-      {/* Modal xác nhận xóa bài nhạc — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa bài nhạc - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteTarget !== null}
         title={t("music.delete-title")}

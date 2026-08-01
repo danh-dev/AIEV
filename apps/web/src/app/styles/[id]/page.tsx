@@ -45,7 +45,7 @@ import { refreshStyles } from "@/components/StyleSelect";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-// label là KEY dictionary — dịch bằng t() lúc render.
+// label là KEY dictionary - dịch bằng t() lúc render.
 const COLOR_FIELDS: { key: keyof StyleColors; label: string }[] = [
   { key: "primary", label: "styleDetail.color.primary" },
   { key: "secondary", label: "styleDetail.color.secondary" },
@@ -56,13 +56,13 @@ const COLOR_FIELDS: { key: keyof StyleColors; label: string }[] = [
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 // Fallback CHỈ cho value của <input type="color"> khi hex user gõ chưa hợp lệ
-// — đây là DATA brand của user, không phải màu UI (token UI nằm ở globals.css).
+// - đây là DATA brand của user, không phải màu UI (token UI nằm ở globals.css).
 const COLOR_INPUT_FALLBACK = "#000000";
 
 /** Hiệu ứng mặc định cho style cũ chưa có field effects. */
 const DEFAULT_EFFECTS: StyleEffects = { gradient: true, liquidGlass: true };
 
-/** Font Google phổ biến hỗ trợ đầy đủ glyph tiếng Việt — gợi ý datalist. */
+/** Font Google phổ biến hỗ trợ đầy đủ glyph tiếng Việt - gợi ý datalist. */
 const GOOGLE_FONT_SUGGESTIONS = [
   "Be Vietnam Pro",
   "Inter",
@@ -124,7 +124,7 @@ function ColorField({
 }
 
 /**
- * Preview mini — dải 5 swatch + chữ mẫu trên nền style. Mọi màu ở đây là
+ * Preview mini - dải 5 swatch + chữ mẫu trên nền style. Mọi màu ở đây là
  * DATA brand của user (inline style), không phải token UI.
  */
 function StylePreview({ style }: { style: StyleDesign }) {
@@ -191,12 +191,12 @@ export default function StyleDetailPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Tải font từ Google theo tên — trạng thái riêng từng slot
+  // Tải font từ Google theo tên - trạng thái riêng từng slot
   const [fontDl, setFontDl] = useState<
     Partial<Record<StyleFontSlot, { busy?: boolean; error?: string }>>
   >({});
 
-  // Upload file font thủ công (collapse) — một input file dùng chung
+  // Upload file font thủ công (collapse) - một input file dùng chung
   const [manualFontOpen, setManualFontOpen] = useState(false);
   const [fontBusy, setFontBusy] = useState<StyleFontSlot | null>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
@@ -204,7 +204,7 @@ export default function StyleDetailPage() {
 
   const load = useCallback(async () => {
     try {
-      // Hợp đồng không có GET /api/styles/:id — lấy danh sách rồi tìm theo id
+      // Hợp đồng không có GET /api/styles/:id - lấy danh sách rồi tìm theo id
       const r = await getStyles();
       setDefaultId(r.defaultId);
       const s = r.styles.find((x) => x.id === styleId) ?? null;
@@ -269,7 +269,7 @@ export default function StyleDetailPage() {
     }
   }
 
-  // Modal xác nhận xóa style — bắt gõ DELETE (thay window.confirm)
+  // Modal xác nhận xóa style - bắt gõ DELETE (thay window.confirm)
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function onDelete() {
@@ -315,7 +315,7 @@ export default function StyleDetailPage() {
     setFontDl((m) => ({ ...m, [slot]: { busy: true } }));
     try {
       const s = await styleFontGoogle(styleId, slot, family);
-      // Chỉ merge phần server đổi — không clobber các field đang sửa dở
+      // Chỉ merge phần server đổi - không clobber các field đang sửa dở
       setStyle((cur) =>
         cur
           ? { ...cur, fonts: s.fonts, fontFiles: s.fontFiles, updatedAt: s.updatedAt }
@@ -407,7 +407,7 @@ export default function StyleDetailPage() {
       {style && (
         <>
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            {/* ============ Cột trái — Nhận diện ============ */}
+            {/* ============ Cột trái - Nhận diện ============ */}
             <Card title={t("styleDetail.identity")}>
               <div className="flex flex-col gap-4">
                 <StylePreview style={style} />
@@ -508,7 +508,7 @@ export default function StyleDetailPage() {
               </div>
             </Card>
 
-            {/* ============ Cột phải — Chữ & Logo ============ */}
+            {/* ============ Cột phải - Chữ & Logo ============ */}
             <Card title={t("styleDetail.type-logo")}>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3">
@@ -767,7 +767,7 @@ export default function StyleDetailPage() {
         </>
       )}
 
-      {/* Modal xác nhận xóa style — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa style - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteOpen}
         title={t("styleDetail.delete")}

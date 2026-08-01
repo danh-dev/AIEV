@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * Chọn model Claude + chế độ (effort) cho phiên AI — dùng ở:
+ * Chọn model Claude + chế độ (effort) cho phiên AI - dùng ở:
  * - Modal "Bắt đầu edit bằng AI" (khối AiModelBlock đầy đủ, có badge kết nối)
  * - ChatThread khi tạo phiên MỚI (hàng AiModelInlineRow gọn phía trên input)
  *
  * Danh sách model + trạng thái kết nối lấy từ GET /api/providers, cache
- * module-level trong một phiên UI. Gemini chỉ hiện dạng thông tin — provider
+ * module-level trong một phiên UI. Gemini chỉ hiện dạng thông tin - provider
  * đó dành cho tính năng Tạo ảnh, không dùng cho chat/edit.
  */
 
@@ -29,25 +29,25 @@ export const EFFORT_OPTIONS: {
   label: string;
   hint: string;
 }[] = [
-  // label/hint là KEY dictionary — dịch bằng t() lúc render
+  // label/hint là KEY dictionary - dịch bằng t() lúc render
   { value: "low", label: "effort.low", hint: "effort.low-hint" },
   { value: "medium", label: "effort.medium", hint: "effort.medium-hint" },
   { value: "high", label: "effort.high", hint: "effort.high-hint" },
 ];
 
-/** Fallback khi chưa fetch được /api/providers — chỉ để select không trống. */
+/** Fallback khi chưa fetch được /api/providers - chỉ để select không trống. */
 const FALLBACK_MODELS = [{ id: DEFAULT_MODEL, label: "Claude Fable 5" }];
 
-// KEY dictionary — dịch bằng t() lúc render
+// KEY dictionary - dịch bằng t() lúc render
 const GEMINI_TOOLTIP = "model.gemini-tooltip";
 
-// Cache module-level — providers thay đổi khi sửa .env/đăng nhập lại,
+// Cache module-level - providers thay đổi khi sửa .env/đăng nhập lại,
 // một lần fetch mỗi phiên UI là đủ.
 let providersCache: Provider[] | null = null;
 let providersPromise: Promise<Provider[]> | null = null;
 
 /**
- * Bust cache providers — gọi sau khi đổi/xóa API key ở trang Kết nối để các
+ * Bust cache providers - gọi sau khi đổi/xóa API key ở trang Kết nối để các
  * select model/provider nơi khác fetch lại danh sách mới ở lần mount sau.
  */
 export function refreshProviders(): void {
@@ -89,7 +89,7 @@ export function useProviders(): {
 }
 
 /**
- * Danh sách model Claude live — lazy: chỉ fetch khi user chạm vào select Model
+ * Danh sách model Claude live - lazy: chỉ fetch khi user chạm vào select Model
  * lần đầu (load()), giống useGeminiImageModels. Server cache 10 phút; chưa
  * fetch xong thì UI vẫn dùng danh sách tĩnh từ /api/providers.
  */
@@ -124,7 +124,7 @@ function claudeModels(claude: Provider | undefined) {
   return claude && claude.models.length > 0 ? claude.models : FALLBACK_MODELS;
 }
 
-/** Khối "AI thực hiện" trong modal Bắt đầu edit — model + mode + trạng thái kết nối. */
+/** Khối "AI thực hiện" trong modal Bắt đầu edit - model + mode + trạng thái kết nối. */
 export function AiModelBlock({
   model,
   effort,
@@ -203,7 +203,7 @@ export function AiModelBlock({
             >
               {EFFORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {t(o.label)} — {t(o.hint)}
+                  {t(o.label)} - {t(o.hint)}
                 </option>
               ))}
             </select>
@@ -225,7 +225,7 @@ export function AiModelBlock({
   );
 }
 
-/** Hàng chọn model/mode gọn — hiện trong ChatThread khi tạo phiên mới. */
+/** Hàng chọn model/mode gọn - hiện trong ChatThread khi tạo phiên mới. */
 export function AiModelInlineRow({
   model,
   effort,

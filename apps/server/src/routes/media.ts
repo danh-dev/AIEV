@@ -3,7 +3,7 @@ import express, { Router } from "express";
 import { paths } from "../config.js";
 
 /**
- * GET /media/<relPath> — phát file tĩnh (video/audio seek được nhờ Range).
+ * GET /media/<relPath> - phát file tĩnh (video/audio seek được nhờ Range).
  * Chỉ phục vụ dưới whitelist: video-projects/, image-projects/, assets/, outputs/, imports/.
  * express.static (serve-static) tự chặn `..`/path traversal và hỗ trợ Range.
  */
@@ -32,7 +32,7 @@ for (const [prefix, dir] of Object.entries(whitelist)) {
         res.setHeader("X-Content-Type-Options", "nosniff");
         const ext = path.extname(filePath).toLowerCase();
         if (FORCE_DOWNLOAD_EXT.has(ext)) {
-          // index.html của composition, XML… — tải về, không chạy như trang web
+          // index.html của composition, XML… - tải về, không chạy như trang web
           res.setHeader("Content-Type", "application/octet-stream");
           res.setHeader("Content-Disposition", "attachment");
         } else if (ext === ".svg") {

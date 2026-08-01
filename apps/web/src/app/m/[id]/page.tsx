@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Trang upload trên ĐIỆN THOẠI — mở qua QR "Kết nối điện thoại"
+ * Trang upload trên ĐIỆN THOẠI - mở qua QR "Kết nối điện thoại"
  * (http://<ip-máy-chủ>:6868/m/<projectId>, điện thoại cùng WiFi).
  *
  * Tối giản cho màn dọc, không Shell/sidebar (Shell tự bypass /m/*).
  * Endpoint upload chọn qua uploadOrigin() (api.ts):
  * - Cùng WiFi/LAN (hostname là localhost/IP private/Tailscale 100.x): gọi
- *   THẲNG backend 6869 — né proxy /api của Next vì request dài dính
+ *   THẲNG backend 6869 - né proxy /api của Next vì request dài dính
  *   buffering + timeout, file video lớn hay kẹt giữa chừng. Backend đã mở
  *   CORS cho origin http://<ip-LAN>:6868 và start.ps1 mở firewall port 6869.
  * - Qua domain tunnel (vd Cloudflare Tunnel → localhost:6868): cổng 6869
@@ -32,7 +32,7 @@ interface UploadItem {
   error?: string;
 }
 
-/** Lỗi upload kèm code từ server — bắt UPLOAD_TOKEN_INVALID để hiện thông báo riêng. */
+/** Lỗi upload kèm code từ server - bắt UPLOAD_TOKEN_INVALID để hiện thông báo riêng. */
 class UploadError extends Error {
   code: string;
 
@@ -43,7 +43,7 @@ class UploadError extends Error {
   }
 }
 
-/** Upload MỘT file lên /api/assets (origin theo uploadOrigin) — XHR để có progress từng phần. */
+/** Upload MỘT file lên /api/assets (origin theo uploadOrigin) - XHR để có progress từng phần. */
 function uploadOne(
   projectId: string,
   token: string,
@@ -75,13 +75,13 @@ function uploadOne(
         if (body?.error?.message) message = body.error.message;
         if (body?.error?.code) code = body.error.code;
       } catch {
-        // body không phải JSON — giữ message mặc định
+        // body không phải JSON - giữ message mặc định
       }
       reject(new UploadError(message, code));
     };
     xhr.onerror = () => reject(new Error("network"));
     const form = new FormData();
-    // scope/projectId/token TRƯỚC file — server đọc projectId từ đầu stream để
+    // scope/projectId/token TRƯỚC file - server đọc projectId từ đầu stream để
     // phát SSE `upload` progress, và field phải parse xong trước khi file tới
     form.append("scope", "project");
     form.append("projectId", projectId);
@@ -95,9 +95,9 @@ export default function MobileUploadPage() {
   const { t } = useT();
   const params = useParams<{ id: string }>();
   const projectId = params?.id ?? "";
-  // Token phiên upload từ query ?k= (QR trên PC gắn vào) — server yêu cầu khi
+  // Token phiên upload từ query ?k= (QR trên PC gắn vào) - server yêu cầu khi
   // upload không phải từ chính máy chủ; đóng modal QR là token bị thu hồi.
-  // Đọc từ window.location (client component) — né yêu cầu Suspense của useSearchParams.
+  // Đọc từ window.location (client component) - né yêu cầu Suspense của useSearchParams.
   const [uploadToken] = useState(() =>
     typeof window === "undefined"
       ? ""
@@ -110,7 +110,7 @@ export default function MobileUploadPage() {
 
   const pickRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<HTMLInputElement>(null);
-  // Hàng đợi upload tuần tự — tránh đẩy nhiều video lớn song song qua WiFi
+  // Hàng đợi upload tuần tự - tránh đẩy nhiều video lớn song song qua WiFi
   const queueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {

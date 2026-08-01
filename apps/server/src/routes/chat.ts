@@ -32,7 +32,7 @@ router.get("/:sessionId/messages", (req, res) => {
   res.json(db.listChatMessages(sessionId));
 });
 
-// POST /api/chat — { message, sessionId?, model?, effort? } → 202 { sessionId }, agent chạy async
+// POST /api/chat - { message, sessionId?, model?, effort? } → 202 { sessionId }, agent chạy async
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const message = typeof body.message === "string" ? body.message.trim() : "";
@@ -45,7 +45,7 @@ router.post("/", (req, res) => {
     if (!db.getChatSession(sessionId)) {
       throw new HttpError(404, "SESSION_NOT_FOUND", `Không tìm thấy phiên chat "${sessionId}"`);
     }
-    // Đổi model/effort giữa chừng — lưu vào session, mọi lượt chạy sau dùng lựa chọn mới
+    // Đổi model/effort giữa chừng - lưu vào session, mọi lượt chạy sau dùng lựa chọn mới
     db.setChatSessionModelEffort(sessionId, model, effort);
   } else {
     sessionId = `sess_${nanoid()}`;
@@ -55,12 +55,12 @@ router.post("/", (req, res) => {
     db.createChatSession(sessionId, message.slice(0, 60), projectId, model ?? null, effort ?? null);
   }
 
-  // Trả 202 NGAY, agent chạy nền — event đẩy qua SSE kênh `agent`
+  // Trả 202 NGAY, agent chạy nền - event đẩy qua SSE kênh `agent`
   res.status(202).json({ sessionId });
   void runAgent(sessionId, message);
 });
 
-// PUT /api/chat/:sessionId/auto-resume — { enabled: boolean } → 204
+// PUT /api/chat/:sessionId/auto-resume - { enabled: boolean } → 204
 router.put("/:sessionId/auto-resume", (req, res) => {
   const sessionId = req.params.sessionId;
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -82,7 +82,7 @@ router.post("/:sessionId/interrupt", async (req, res) => {
   if (!db.getChatSession(sessionId)) {
     throw new HttpError(404, "SESSION_NOT_FOUND", `Không tìm thấy phiên chat "${sessionId}"`);
   }
-  await interruptAgent(sessionId); // không chạy thì bỏ qua — interrupt là idempotent
+  await interruptAgent(sessionId); // không chạy thì bỏ qua - interrupt là idempotent
   res.status(204).end();
 });
 

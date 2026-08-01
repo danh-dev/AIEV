@@ -9,7 +9,7 @@ import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
 
 /**
- * Modal "Nhân bản project" — dùng chung cho trang danh sách và trang chi tiết.
+ * Modal "Nhân bản project" - dùng chung cho trang danh sách và trang chi tiết.
  * Prefill tên "<tên cũ> (bản sao)", gọi POST clone, trả project mới qua onCloned
  * (caller tự quyết: reload danh sách hoặc chuyển sang project mới).
  */
@@ -18,7 +18,7 @@ export function CloneProjectModal({
   onClose,
   onCloned,
 }: {
-  /** Project gốc cần nhân bản — null = modal đóng. */
+  /** Project gốc cần nhân bản - null = modal đóng. */
   source: { id: string; name: string } | null;
   onClose: () => void;
   onCloned: (p: ProjectSummary) => void;

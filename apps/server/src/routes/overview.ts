@@ -5,11 +5,11 @@ import { getHealth } from "./health.js";
 
 const router = Router();
 
-// GET /api/overview — dữ liệu tổng hợp cho dashboard
+// GET /api/overview - dữ liệu tổng hợp cho dashboard
 router.get("/", async (_req, res) => {
   const running = db.getRunningJob();
   const recentJobs = db.listJobs(5).map(db.jobToApi);
-  // Join token usage như GET /api/projects — thiếu join là cột TOKEN trên Dashboard = 0
+  // Join token usage như GET /api/projects - thiếu join là cột TOKEN trên Dashboard = 0
   const usage = db.tokensByProject();
   const recentProjects = scanProjects()
     .slice(0, 6)

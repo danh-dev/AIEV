@@ -5,7 +5,7 @@ import { useT } from "@/lib/i18n";
 
 type Tone = "success" | "running" | "danger" | "muted";
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const JOB_LABEL: Record<JobStatus, string> = {
   queued: "badge.job.queued",
   running: "badge.job.running",

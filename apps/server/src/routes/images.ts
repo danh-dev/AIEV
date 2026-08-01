@@ -35,7 +35,7 @@ import {
 } from "../util.js";
 
 /**
- * Image Projects — tạo ảnh AI (Gemini nền + Remotion hoàn thiện).
+ * Image Projects - tạo ảnh AI (Gemini nền + Remotion hoàn thiện).
  * CRUD + upload nền thủ công + POST /:id/generate (queue job "image-gen").
  * Xem docs/API.md mục "Image Projects".
  */
@@ -55,7 +55,7 @@ const upload = multer({
 
 function parseImageModel(raw: unknown, fallback: string | null): string | null {
   if (raw === undefined || raw === null || raw === "") return raw === undefined ? fallback : null;
-  // Chấp nhận cả model mới từ danh sách live của Google (không chỉ IMAGE_MODELS tĩnh) —
+  // Chấp nhận cả model mới từ danh sách live của Google (không chỉ IMAGE_MODELS tĩnh) -
   // miễn là id hợp lệ và có "image" trong tên
   if (
     typeof raw !== "string" ||
@@ -65,7 +65,7 @@ function parseImageModel(raw: unknown, fallback: string | null): string | null {
     throw new HttpError(
       400,
       "INVALID_MODEL",
-      `model không hợp lệ — vd: ${IMAGE_MODELS.map((m) => m.id).join(", ")}`,
+      `model không hợp lệ - vd: ${IMAGE_MODELS.map((m) => m.id).join(", ")}`,
     );
   }
   return raw;
@@ -111,7 +111,7 @@ router.get("/", (_req, res) => {
   res.json(scanImageProjects());
 });
 
-// POST /api/images — { name, prompt, kind, aspect, overlay? } → 201 (id sinh từ name)
+// POST /api/images - { name, prompt, kind, aspect, overlay? } → 201 (id sinh từ name)
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -146,7 +146,7 @@ router.get("/:id", (req, res) => {
   res.json(readImageMeta(req.params.id));
 });
 
-// PUT /api/images/:id — partial (name/prompt/kind/aspect/overlay) → ImageProject
+// PUT /api/images/:id - partial (name/prompt/kind/aspect/overlay) → ImageProject
 router.put("/:id", (req, res) => {
   const meta = readImageMeta(req.params.id); // ném 404 nếu không có
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -191,7 +191,7 @@ router.delete("/:id", (req, res) => {
   res.status(204).end();
 });
 
-// POST /api/images/:id/background — multipart, tự upload nền (không cần Gemini) → ImageProject
+// POST /api/images/:id/background - multipart, tự upload nền (không cần Gemini) → ImageProject
 router.post("/:id/background", upload.single("file"), (req, res) => {
   const uploaded = req.file;
   try {
@@ -231,7 +231,7 @@ router.post("/:id/background", upload.single("file"), (req, res) => {
 });
 
 // ---------------------------------------------------------------- File rác
-// File trung gian của bước compose — xóa được an toàn, KHÔNG đụng file nguồn
+// File trung gian của bước compose - xóa được an toàn, KHÔNG đụng file nguồn
 // (background.png/.jpg, final.png, meta.json). Pattern y hệt junk của video project.
 
 interface JunkItem {
@@ -243,7 +243,7 @@ interface JunkItem {
 function collectImageJunk(id: string): { items: JunkItem[]; totalBytes: number } {
   const items: JunkItem[] = [];
 
-  // props.json — PosterProps đã stage cho Remotion (sản phẩm của lần compose)
+  // props.json - PosterProps đã stage cho Remotion (sản phẩm của lần compose)
   const propsFile = path.join(imageDirOf(id), "props.json");
   if (fs.existsSync(propsFile)) {
     items.push({
@@ -252,7 +252,7 @@ function collectImageJunk(id: string): { items: JunkItem[]; totalBytes: number }
     });
   }
 
-  // Staging hardlink cho Remotion — img-<id>
+  // Staging hardlink cho Remotion - img-<id>
   const staging = path.join(paths.stagingDir, `img-${id}`);
   if (fs.existsSync(staging)) {
     items.push({
@@ -264,31 +264,31 @@ function collectImageJunk(id: string): { items: JunkItem[]; totalBytes: number }
   return { items, totalBytes: items.reduce((sum, i) => sum + i.size, 0) };
 }
 
-// GET /api/images/:id/junk — liệt kê file rác (file trung gian) + tổng dung lượng
+// GET /api/images/:id/junk - liệt kê file rác (file trung gian) + tổng dung lượng
 router.get("/:id/junk", (req, res) => {
   const meta = readImageMeta(req.params.id); // ném 404 nếu không có
   res.json(collectImageJunk(meta.id));
 });
 
-// POST /api/images/:id/junk/clean — xóa file rác; job running/queued của project → 409
+// POST /api/images/:id/junk/clean - xóa file rác; job running/queued của project → 409
 router.post("/:id/junk/clean", (req, res) => {
   const meta = readImageMeta(req.params.id); // ném 404 nếu không có
   if (db.hasActiveJobForProject(meta.id)) {
     throw new HttpError(
       409,
       "JOB_RUNNING",
-      "Image project đang có job chạy/chờ trong hàng đợi — đợi xong rồi mới dọn file rác",
+      "Image project đang có job chạy/chờ trong hàng đợi - đợi xong rồi mới dọn file rác",
     );
   }
   const { items, totalBytes } = collectImageJunk(meta.id);
   for (const item of items) {
-    // relPath dạng repo-relative dấu / (thư mục có "/" cuối) — path.join tự chuẩn hóa
+    // relPath dạng repo-relative dấu / (thư mục có "/" cuối) - path.join tự chuẩn hóa
     fs.rmSync(path.join(repoRoot, item.relPath), { recursive: true, force: true });
   }
   res.json({ freedBytes: totalBytes, deleted: items.length });
 });
 
-// POST /api/images/:id/generate — { step? } → 202 Job (queue type "image-gen")
+// POST /api/images/:id/generate - { step? } → 202 Job (queue type "image-gen")
 router.post("/:id/generate", (req, res) => {
   const meta = readImageMeta(req.params.id); // ném 404 nếu không có
   const body = (req.body ?? {}) as Record<string, unknown>;

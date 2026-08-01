@@ -19,7 +19,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { formatJobDuration, formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const TYPE_LABEL: Record<Job["type"], string> = {
   "scene-draft": "queue.type.scene-draft",
   "scene-final": "queue.type.scene-final",
@@ -222,7 +222,7 @@ export default function QueuePage() {
                       <ProgressBar progress={j.progress} step={j.step} />
                     ) : (
                       <span className="text-xs text-[var(--text-muted)]">
-                        {j.status === "done" ? "100%" : "—"}
+                        {j.status === "done" ? "100%" : "-"}
                       </span>
                     )}
                   </td>

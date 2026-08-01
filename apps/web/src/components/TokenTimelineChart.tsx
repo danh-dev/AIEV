@@ -6,15 +6,15 @@ import { formatTokens, formatUsd } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
 /**
- * Combo chart SVG thuần — token AI theo ngày.
+ * Combo chart SVG thuần - token AI theo ngày.
  * CỘT = tổng token/ngày (--primary mờ 0.35, làm nền), ĐƯỜNG + chấm = token
  * theo từng AI. Màu series đi qua token: Claude --primary, Gemini --chart-2,
  * OpenAI --chart-3 (bộ 3 đã validate CVD/contrast bằng validator dataviz,
- * light lẫn dark — xem comment trong globals.css). Provider không có dữ liệu
- * thì không vẽ đường và không hiện trong legend. Một trục Y duy nhất — đường
+ * light lẫn dark - xem comment trong globals.css). Provider không có dữ liệu
+ * thì không vẽ đường và không hiện trong legend. Một trục Y duy nhất - đường
  * luôn ≤ cột tổng nên chung thang đo.
  *
- * Chiều rộng SVG đo theo container (ResizeObserver) để 1 unit = 1 px thật —
+ * Chiều rộng SVG đo theo container (ResizeObserver) để 1 unit = 1 px thật -
  * KHÔNG dùng viewBox cố định + width 100%, vì khi card rộng hơn viewBox thì
  * cả chữ trục bị phóng to theo (bug "số quá to").
  */
@@ -26,7 +26,7 @@ const PAD_T = 10;
 const PAD_B = 20;
 const AXIS_FONT = 10;
 
-/** Thứ tự series CỐ ĐỊNH — màu theo entity, không theo rank (dataviz). */
+/** Thứ tự series CỐ ĐỊNH - màu theo entity, không theo rank (dataviz). */
 const PROVIDERS = [
   { id: "claude", label: "Claude", color: "var(--primary)" },
   { id: "gemini", label: "Gemini", color: "var(--chart-2)" },
@@ -77,7 +77,7 @@ export function TokenTimelineChart({
   const { t, tf } = useT();
   const [hover, setHover] = useState<number | null>(null);
 
-  // Đo chiều rộng container — SVG vẽ đúng scale 1:1, chữ giữ nguyên px
+  // Đo chiều rộng container - SVG vẽ đúng scale 1:1, chữ giữ nguyên px
   const wrapRef = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(720);
   useEffect(() => {
@@ -91,7 +91,7 @@ export function TokenTimelineChart({
     return () => ro.disconnect();
   }, []);
 
-  // Lấp đủ `days` ngày liên tục kết thúc hôm nay — ngày không có data = 0
+  // Lấp đủ `days` ngày liên tục kết thúc hôm nay - ngày không có data = 0
   const series = useMemo(() => {
     const byDate = new Map(data.map((d) => [d.date, d]));
     const out: UsageTimelinePoint[] = [];
@@ -131,7 +131,7 @@ export function TokenTimelineChart({
   const y = (v: number) => baseline - (v / max) * plotH;
   const cx = (i: number) => PAD_L + slot * (i + 0.5);
 
-  // Nhãn ngày thưa — chỉ ~6 mốc
+  // Nhãn ngày thưa - chỉ ~6 mốc
   const labelStep = Math.max(1, Math.ceil(n / 6));
 
   const hovered = hover != null ? series[hover] : null;
@@ -234,7 +234,7 @@ export function TokenTimelineChart({
           strokeWidth={1}
         />
 
-        {/* Cột tổng token/ngày — mờ để nhường sân cho đường provider */}
+        {/* Cột tổng token/ngày - mờ để nhường sân cho đường provider */}
         {series.map((d, i) => (
           <path
             key={d.date}
@@ -244,7 +244,7 @@ export function TokenTimelineChart({
           />
         ))}
 
-        {/* Đường theo từng AI — polyline qua mọi ngày (ngày không dùng = 0) */}
+        {/* Đường theo từng AI - polyline qua mọi ngày (ngày không dùng = 0) */}
         {activeProviders.map((p) => (
           <polyline
             key={p.id}
@@ -259,7 +259,7 @@ export function TokenTimelineChart({
           />
         ))}
 
-        {/* Chấm nhỏ tại ngày provider có data — viền surface tách khỏi cột */}
+        {/* Chấm nhỏ tại ngày provider có data - viền surface tách khỏi cột */}
         {activeProviders.map((p) =>
           series.map((d, i) => {
             const v = d.byProvider[p.id] ?? 0;
@@ -294,7 +294,7 @@ export function TokenTimelineChart({
           ) : null
         )}
 
-        {/* Vùng bắt hover/focus — rộng hơn mark (hit target ≥ mark) */}
+        {/* Vùng bắt hover/focus - rộng hơn mark (hit target ≥ mark) */}
         {series.map((d, i) => (
           <rect
             key={d.date}
@@ -314,7 +314,7 @@ export function TokenTimelineChart({
         ))}
       </svg>
 
-      {/* Legend — chỉ provider có dữ liệu; chữ dùng token text, màu nằm ở chip */}
+      {/* Legend - chỉ provider có dữ liệu; chữ dùng token text, màu nằm ở chip */}
       {activeProviders.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           {activeProviders.map((p) => (

@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * Đa ngôn ngữ (vi/en) cho web UI — LanguageProvider + hook useT().
+ * Đa ngôn ngữ (vi/en) cho web UI - LanguageProvider + hook useT().
  * - Mặc định "vi", lưu lựa chọn vào localStorage("aiev-lang").
  * - Tránh hydration mismatch: luôn khởi tạo "vi" (khớp SSR), đọc lại
  *   localStorage trong useEffect sau khi mount.
  * - t(key): tra dictionary; en thiếu key → fallback vi; thiếu cả hai → trả key.
- * - tf(key, vars): t + thay {var} bằng giá trị — cho chuỗi động.
+ * - tf(key, vars): t + thay {var} bằng giá trị - cho chuỗi động.
  */
 
 import {
@@ -43,7 +43,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved === "en" || saved === "vi") setLangState(saved);
     } catch {
-      // localStorage bị chặn — giữ mặc định vi
+      // localStorage bị chặn - giữ mặc định vi
     }
   }, []);
 
@@ -56,7 +56,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // formatRelative/formatJobDuration đọc ngôn ngữ hiện tại từ module format —
+  // formatRelative/formatJobDuration đọc ngôn ngữ hiện tại từ module format -
   // set ngay trong render để mọi format phía dưới cây dùng đúng ngôn ngữ.
   setFormatLang(lang);
 

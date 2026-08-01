@@ -9,20 +9,20 @@ import { HttpError } from "../util.js";
 
 const router = Router();
 
-// GET /api/jobs?limit=50 — mới nhất trước
+// GET /api/jobs?limit=50 - mới nhất trước
 router.get("/", (req, res) => {
   const limit = Number(req.query.limit) || 50;
   res.json(db.listJobs(limit).map(db.jobToApi));
 });
 
-// GET /api/jobs/:id — Job + log đầy đủ
+// GET /api/jobs/:id - Job + log đầy đủ
 router.get("/:id", (req, res) => {
   const job = db.getJob(req.params.id);
   if (!job) throw new HttpError(404, "JOB_NOT_FOUND", `Không tìm thấy job "${req.params.id}"`);
   res.json({ ...db.jobToApi(job), log: job.log });
 });
 
-// POST /api/jobs — { projectId, type, sceneId? } → 201 Job
+// POST /api/jobs - { projectId, type, sceneId? } → 201 Job
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
@@ -65,7 +65,7 @@ router.post("/", (req, res) => {
       throw new HttpError(
         409,
         "DRAFT_REQUIRED",
-        `Project "${projectId}" chưa có assemble-draft thành công — draft luôn trước final.`,
+        `Project "${projectId}" chưa có assemble-draft thành công - draft luôn trước final.`,
       );
     }
   }
@@ -81,7 +81,7 @@ router.post("/", (req, res) => {
   res.status(201).json(db.jobToApi(job));
 });
 
-// POST /api/jobs/:id/cancel — kill process nếu đang chạy
+// POST /api/jobs/:id/cancel - kill process nếu đang chạy
 router.post("/:id/cancel", (req, res) => {
   const job = db.getJob(req.params.id);
   if (!job) throw new HttpError(404, "JOB_NOT_FOUND", `Không tìm thấy job "${req.params.id}"`);

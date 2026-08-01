@@ -6,16 +6,16 @@ import type { ImageAspect, ImageKind } from "./imageMeta.js";
 import { ensureDir } from "./util.js";
 
 /**
- * Gọi Gemini tạo ảnh nền (gemini-3.1-flash-image — "Nano Banana 2").
+ * Gọi Gemini tạo ảnh nền (gemini-3.1-flash-image - "Nano Banana 2").
  * Endpoint + shape body/response đã verify trong docs/API.md mục "AI Providers & chọn model".
- * Chữ (tiêu đề, CTA...) KHÔNG để Gemini vẽ — Remotion đặt ở bước compose.
+ * Chữ (tiêu đề, CTA...) KHÔNG để Gemini vẽ - Remotion đặt ở bước compose.
  */
 
-/** Các model tạo ảnh khả dụng — UI cho chọn, meta.model lưu lựa chọn */
+/** Các model tạo ảnh khả dụng - UI cho chọn, meta.model lưu lựa chọn */
 export const IMAGE_MODELS = [
-  { id: "gemini-3.1-flash-image", label: "Nano Banana 2 (khuyên dùng) — gemini-3.1-flash-image" },
-  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite (rẻ, nhanh) — gemini-3.1-flash-lite-image" },
-  { id: "gemini-3-pro-image", label: "Nano Banana Pro (cao cấp, 4K) — gemini-3-pro-image" },
+  { id: "gemini-3.1-flash-image", label: "Nano Banana 2 (khuyên dùng) - gemini-3.1-flash-image" },
+  { id: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite (rẻ, nhanh) - gemini-3.1-flash-lite-image" },
+  { id: "gemini-3-pro-image", label: "Nano Banana Pro (cao cấp, 4K) - gemini-3-pro-image" },
 ] as const;
 
 export const DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image";
@@ -39,22 +39,22 @@ const KIND_PHRASES: Record<ImageKind, string> = {
 };
 
 /**
- * Vùng Remotion sẽ đặt chữ theo tỉ lệ khung (khớp layout composition Poster) —
+ * Vùng Remotion sẽ đặt chữ theo tỉ lệ khung (khớp layout composition Poster) -
  * dặn Gemini chừa vùng đó thoáng để chữ đặt lên không bị rối.
  */
 /**
- * Hướng dẫn bố cục — QUAN TRỌNG: một cảnh THỐNG NHẤT phủ toàn khung, KHÔNG chia đôi.
+ * Hướng dẫn bố cục - QUAN TRỌNG: một cảnh THỐNG NHẤT phủ toàn khung, KHÔNG chia đôi.
  * Vùng chữ chỉ giảm độ chi tiết/tương phản dần (falloff), atmosphere vẫn tràn qua.
  */
 const NEGATIVE_SPACE: Record<ImageAspect, string> = {
   "9:16":
-    "Compose ONE unified scene filling the ENTIRE frame. Main subject in the upper two thirds; toward the lower third, gradually reduce detail and contrast (soft atmospheric falloff) so a headline can sit there — but atmosphere, lighting and background texture must continue through that area. Never leave an empty band, never split the image into zones.",
+    "Compose ONE unified scene filling the ENTIRE frame. Main subject in the upper two thirds; toward the lower third, gradually reduce detail and contrast (soft atmospheric falloff) so a headline can sit there - but atmosphere, lighting and background texture must continue through that area. Never leave an empty band, never split the image into zones.",
   "4:5":
-    "Compose ONE unified scene filling the ENTIRE frame; gradually reduce detail toward the lower third with soft atmospheric falloff — background atmosphere must continue through it. No empty band, no split.",
+    "Compose ONE unified scene filling the ENTIRE frame; gradually reduce detail toward the lower third with soft atmospheric falloff - background atmosphere must continue through it. No empty band, no split.",
   "16:9":
-    "Compose ONE unified scene filling the ENTIRE frame. Main subject slightly RIGHT of center; visual elements, lighting and atmosphere must FLOW ACROSS the whole frame including the left side — on the left third only gradually reduce detail and contrast (soft falloff, darker, fewer elements) so a headline can sit there. STRICTLY FORBIDDEN: an empty left half, a hard vertical split, or two visually separate zones.",
+    "Compose ONE unified scene filling the ENTIRE frame. Main subject slightly RIGHT of center; visual elements, lighting and atmosphere must FLOW ACROSS the whole frame including the left side - on the left third only gradually reduce detail and contrast (soft falloff, darker, fewer elements) so a headline can sit there. STRICTLY FORBIDDEN: an empty left half, a hard vertical split, or two visually separate zones.",
   "1:1":
-    "Compose ONE unified scene filling the ENTIRE frame; gradually reduce detail toward the center-bottom with soft falloff — atmosphere continues through it. No empty zones, no split.",
+    "Compose ONE unified scene filling the ENTIRE frame; gradually reduce detail toward the center-bottom with soft falloff - atmosphere continues through it. No empty zones, no split.",
 };
 
 /**
@@ -66,7 +66,7 @@ export function buildImagePrompt(input: {
   kind: ImageKind;
   aspect: ImageAspect;
   design: StyleDesign;
-  /** true = cho phép Gemini vẽ chữ tiếng Việt vào ảnh (mặc định false — chữ do Remotion đặt) */
+  /** true = cho phép Gemini vẽ chữ tiếng Việt vào ảnh (mặc định false - chữ do Remotion đặt) */
   allowText?: boolean;
 }): string {
   const { design } = input;
@@ -77,19 +77,19 @@ export function buildImagePrompt(input: {
   const wantsLogos = /\b(logo|icon|biểu tượng)\b/i.test(input.prompt);
 
   const parts: string[] = [
-    // Ràng buộc chữ đặt ĐẦU TIÊN — model tuân thủ tốt hơn khi ràng buộc đứng trước nội dung
+    // Ràng buộc chữ đặt ĐẦU TIÊN - model tuân thủ tốt hơn khi ràng buộc đứng trước nội dung
     allowText
       ? "Text in the image IS allowed and should reinforce the message: short Vietnamese phrase(s) (3–6 words max), spelled EXACTLY as provided in the prompt, large clean typography matching the brand style, correct Vietnamese diacritics, no lorem ipsum, no gibberish, no extra unrelated text."
-      : "Create a BACKGROUND IMAGE ONLY — it must contain ZERO typography: no text, no words, no letters, no numbers, no captions, no headlines anywhere. The headline will be added later by a design tool.",
+      : "Create a BACKGROUND IMAGE ONLY - it must contain ZERO typography: no text, no words, no letters, no numbers, no captions, no headlines anywhere. The headline will be added later by a design tool.",
     `A ${KIND_PHRASES[input.kind]} for the brand "${design.name}".`,
   ];
   if (input.prompt.trim()) parts.push(input.prompt.trim());
   parts.push(
     `Use the brand color palette: primary ${c.primary}, secondary ${c.secondary}, dark background ${c.background}, accent ${c.accent}.`,
-    "STRICT BRAND COMPLIANCE: this style guide is mandatory — stay within the palette above (plus its neutral tints/shades); do not introduce a different color scheme even if the scene description implies one.",
+    "STRICT BRAND COMPLIANCE: this style guide is mandatory - stay within the palette above (plus its neutral tints/shades); do not introduce a different color scheme even if the scene description implies one.",
   );
   if (design.tone.trim()) parts.push(`Brand tone and mood: ${design.tone.trim()}.`);
-  // Hiệu ứng của style — áp vào chất liệu hình ảnh
+  // Hiệu ứng của style - áp vào chất liệu hình ảnh
   if (design.effects.liquidGlass) {
     parts.push(
       "Liquid glass aesthetic: translucent glassy 3D elements, soft refractions, subtle glow.",
@@ -108,12 +108,12 @@ export function buildImagePrompt(input: {
     );
   } else {
     parts.push(
-      "No logos, no icons, no UI elements, no buttons, no charts — pure scenic/abstract background.",
+      "No logos, no icons, no UI elements, no buttons, no charts - pure scenic/abstract background.",
     );
   }
   parts.push("Nothing cropped or cut off at the edges.");
   if (!allowText) {
-    // Nhắc lại lệnh cấm chữ ở CUỐI — chốt chặn kép
+    // Nhắc lại lệnh cấm chữ ở CUỐI - chốt chặn kép
     parts.push(
       "FINAL RULE (most important): the image must contain absolutely NO text of any kind.",
     );
@@ -148,21 +148,21 @@ export async function generateBackground(input: {
   design: StyleDesign;
   /** Đường dẫn tuyệt đối file PNG output */
   outFile: string;
-  /** Id image project — để ghi token usage (provider gemini) cho biểu đồ Dashboard */
+  /** Id image project - để ghi token usage (provider gemini) cho biểu đồ Dashboard */
   usageProjectId?: string;
-  /** Model tạo ảnh người dùng chọn (IMAGE_MODELS) — mặc định Nano Banana 2 */
+  /** Model tạo ảnh người dùng chọn (IMAGE_MODELS) - mặc định Nano Banana 2 */
   model?: string;
-  /** true = cho phép Gemini vẽ chữ vào ảnh (mặc định false — giữ hành vi cũ) */
+  /** true = cho phép Gemini vẽ chữ vào ảnh (mặc định false - giữ hành vi cũ) */
   allowText?: boolean;
 }): Promise<{ file: string; promptUsed: string }> {
   const key = geminiApiKey();
   if (!key) {
     throw new Error(
-      "Chưa có GEMINI_API_KEY. Thêm GEMINI_API_KEY vào .env — lấy tại aistudio.google.com/apikey; hoặc tự upload nền rồi chạy bước Hoàn thiện.",
+      "Chưa có GEMINI_API_KEY. Thêm GEMINI_API_KEY vào .env - lấy tại aistudio.google.com/apikey; hoặc tự upload nền rồi chạy bước Hoàn thiện.",
     );
   }
 
-  // Nhận cả model mới từ danh sách live của Google — chỉ cần id hợp lệ có "image"
+  // Nhận cả model mới từ danh sách live của Google - chỉ cần id hợp lệ có "image"
   const model =
     input.model && /^[a-z0-9][a-z0-9.-]{2,80}$/i.test(input.model) && input.model.includes("image")
       ? input.model
@@ -204,7 +204,7 @@ export async function generateBackground(input: {
       .join(" ")
       .slice(0, 300);
     throw new Error(
-      `Gemini không trả về ảnh${text ? ` — phản hồi: ${text}` : ""}. Thử sửa prompt rồi chạy lại.`,
+      `Gemini không trả về ảnh${text ? ` - phản hồi: ${text}` : ""}. Thử sửa prompt rồi chạy lại.`,
     );
   }
 
@@ -226,7 +226,7 @@ export async function generateBackground(input: {
       );
     }
   } catch {
-    /* usage là phụ — không chặn luồng chính */
+    /* usage là phụ - không chặn luồng chính */
   }
 
   return { file: input.outFile, promptUsed };

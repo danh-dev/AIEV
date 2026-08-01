@@ -37,7 +37,7 @@ export default function PromptsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Prompt đang xóa — chặn double-submit nút xóa
+  // Prompt đang xóa - chặn double-submit nút xóa
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Prompt đang chờ xác nhận xóa (modal gõ DELETE)
   const [deleteTarget, setDeleteTarget] = useState<PromptTemplate | null>(null);
@@ -90,7 +90,7 @@ export default function PromptsPage() {
     }
   }
 
-  // ===== Form tạo mới / sửa — full-width, editor cao hết viewport =====
+  // ===== Form tạo mới / sửa - full-width, editor cao hết viewport =====
   if (editor) {
     const valid = editor.name.trim() !== "" && editor.content.trim() !== "";
     return (
@@ -247,7 +247,7 @@ export default function PromptsPage() {
         </p>
       )}
 
-      {/* Modal xác nhận xóa prompt mẫu — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa prompt mẫu - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteTarget !== null}
         title={t("prompts.delete-title")}

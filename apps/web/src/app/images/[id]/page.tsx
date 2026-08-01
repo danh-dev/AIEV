@@ -49,7 +49,7 @@ import { useProviders } from "@/components/ModelPicker";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-/** Job image-gen đang theo dõi trên trang — cập nhật realtime qua SSE. */
+/** Job image-gen đang theo dõi trên trang - cập nhật realtime qua SSE. */
 interface ActiveJob {
   id: string;
   progress: number;
@@ -57,7 +57,7 @@ interface ActiveJob {
   status: JobStatus;
 }
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const JOB_STATUS_LABEL: Record<JobStatus, string> = {
   queued: "imageDetail.job.queued",
   running: "imageDetail.job.running",
@@ -79,7 +79,7 @@ const JOB_LINGER_MS = 3000;
 /** Giới hạn số dòng log giữ trong bộ nhớ trang. */
 const MAX_LOG_LINES = 300;
 
-/** Ô ảnh nhỏ trong khối "Các bước" — Background | Final. */
+/** Ô ảnh nhỏ trong khối "Các bước" - Background | Final. */
 function StepThumb({
   label,
   relPath,
@@ -123,7 +123,7 @@ export default function ImageProjectDetailPage() {
   const [proj, setProj] = useState<ImageProject | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Form sửa (prompt/loại/tỉ lệ/overlay) — bản nháp tách khỏi dữ liệu server
+  // Form sửa (prompt/loại/tỉ lệ/overlay) - bản nháp tách khỏi dữ liệu server
   const [draft, setDraft] = useState<ImageDraft | null>(null);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -135,7 +135,7 @@ export default function ImageProjectDetailPage() {
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
-  // Select model ở hàng hành động — danh sách live + auto-save khi chọn
+  // Select model ở hàng hành động - danh sách live + auto-save khi chọn
   const {
     models: liveModels,
     loading: modelsLoading,
@@ -145,7 +145,7 @@ export default function ImageProjectDetailPage() {
 
   const [zoomed, setZoomed] = useState(false);
 
-  // Job image-gen đang chạy/vừa xong của dự án này — tiến trình thật qua SSE
+  // Job image-gen đang chạy/vừa xong của dự án này - tiến trình thật qua SSE
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
   const [logLines, setLogLines] = useState<string[]>([]);
   const activeJobIdRef = useRef<string | null>(null);
@@ -161,7 +161,7 @@ export default function ImageProjectDetailPage() {
       const p = await getImageProject(imageId);
       setProj(p);
       setError(null);
-      // chỉ khởi tạo draft lần đầu — không ghi đè khi user đang sửa form
+      // chỉ khởi tạo draft lần đầu - không ghi đè khi user đang sửa form
       setDraft(
         (d) =>
           d ?? {
@@ -205,7 +205,7 @@ export default function ImageProjectDetailPage() {
           });
         }
       } catch {
-        // không tìm được job đang chạy — SSE sẽ bắt kịp khi có event mới
+        // không tìm được job đang chạy - SSE sẽ bắt kịp khi có event mới
       }
     })();
     return () => {
@@ -312,7 +312,7 @@ export default function ImageProjectDetailPage() {
       // Form đang sửa dở → lưu trước để job dùng đúng prompt/overlay/model mới nhất
       if (draft) await onSaveSilent();
       const job = await generateImage(imageId, step);
-      // Bám theo job ngay — không chờ event SSE đầu tiên
+      // Bám theo job ngay - không chờ event SSE đầu tiên
       activeJobIdRef.current = job.id;
       setLogLines([]);
       setActiveJob({
@@ -329,7 +329,7 @@ export default function ImageProjectDetailPage() {
     }
   }
 
-  /** Lưu form không hiện cờ "Đã lưu" — dùng trước khi chạy generate. */
+  /** Lưu form không hiện cờ "Đã lưu" - dùng trước khi chạy generate. */
   async function onSaveSilent() {
     if (!draft) return;
     const p = await updateImageProject(imageId, {
@@ -370,7 +370,7 @@ export default function ImageProjectDetailPage() {
     }
   }
 
-  // Modal xác nhận xóa dự án ảnh — bắt gõ DELETE (thay window.confirm)
+  // Modal xác nhận xóa dự án ảnh - bắt gõ DELETE (thay window.confirm)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -392,7 +392,7 @@ export default function ImageProjectDetailPage() {
     ? undefined
     : t("imageDetail.gemini-tooltip");
 
-  // Select model gọn ở hàng hành động — live list, fallback danh sách tĩnh
+  // Select model gọn ở hàng hành động - live list, fallback danh sách tĩnh
   const currentModel = draft?.model ?? proj?.model ?? null;
   const modelOptions = liveModels ?? gemini?.models ?? [];
   const modelMissing =
@@ -431,7 +431,7 @@ export default function ImageProjectDetailPage() {
       )}
 
       <div className="grid items-start gap-4 xl:grid-cols-5">
-        {/* Cột trái — ảnh */}
+        {/* Cột trái - ảnh */}
         <div className="flex flex-col gap-4 xl:col-span-3">
           <Card
             title={t("imageDetail.final-card")}
@@ -552,7 +552,7 @@ export default function ImageProjectDetailPage() {
           </Card>
         </div>
 
-        {/* Cột phải — hành động + form */}
+        {/* Cột phải - hành động + form */}
         <div className="flex flex-col gap-4 xl:col-span-2">
           <Card title={t("imageDetail.generate-card")}>
             <div className="flex flex-col gap-3">
@@ -560,7 +560,7 @@ export default function ImageProjectDetailPage() {
                 <ErrorBanner message={t("imageDetail.run-error")} detail={genError} />
               )}
 
-              {/* Hành động chính — full-width, một chạm */}
+              {/* Hành động chính - full-width, một chạm */}
               <span title={geminiTooltip} className="block">
                 <Button
                   className="h-10 w-full"
@@ -572,7 +572,7 @@ export default function ImageProjectDetailPage() {
                 </Button>
               </span>
 
-              {/* Model tạo nền — live list, auto-save khi chọn */}
+              {/* Model tạo nền - live list, auto-save khi chọn */}
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <label className="label" htmlFor="image-quick-model">
@@ -649,7 +649,7 @@ export default function ImageProjectDetailPage() {
                 </p>
               )}
 
-              {/* Hàng phụ — thao tác ít dùng */}
+              {/* Hàng phụ - thao tác ít dùng */}
               <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
                 <button
                   type="button"
@@ -744,7 +744,7 @@ export default function ImageProjectDetailPage() {
         </div>
       </div>
 
-      {/* Modal xác nhận xóa dự án ảnh — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa dự án ảnh - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteOpen}
         title={t("imageDetail.delete-title")}

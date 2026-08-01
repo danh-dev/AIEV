@@ -5,7 +5,7 @@ import { paths } from "../config.js";
 import { HttpError, ensureDir, nowIso, toKebabAscii } from "../util.js";
 
 /**
- * Prompt mẫu — prompt tái sử dụng cho ô "Yêu cầu edit" của Brief.
+ * Prompt mẫu - prompt tái sử dụng cho ô "Yêu cầu edit" của Brief.
  * Lưu tại assets/prompts/prompts.json. Xem docs/API.md mục "Prompt mẫu".
  */
 
@@ -44,14 +44,14 @@ function writePrompts(list: PromptTemplate[]): void {
 
 const router = Router();
 
-// GET /api/prompts — mới cập nhật trước
+// GET /api/prompts - mới cập nhật trước
 router.get("/", (_req, res) => {
   const list = readPrompts();
   list.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
   res.json(list);
 });
 
-// POST /api/prompts — { name, content }
+// POST /api/prompts - { name, content }
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -71,7 +71,7 @@ router.post("/", (req, res) => {
   res.status(201).json(prompt);
 });
 
-// PUT /api/prompts/:id — { name?, content? }
+// PUT /api/prompts/:id - { name?, content? }
 router.put("/:id", (req, res) => {
   const list = readPrompts();
   const prompt = list.find((p) => p.id === req.params.id);

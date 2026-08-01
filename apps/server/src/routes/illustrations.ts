@@ -9,10 +9,10 @@ import { HttpError, ensureDir, toKebabAscii } from "../util.js";
 import type { ImageAspect } from "../imageMeta.js";
 
 /**
- * Tạo ảnh minh họa cho VIDEO project — công cụ cho agent Claude gọi trong lúc edit
+ * Tạo ảnh minh họa cho VIDEO project - công cụ cho agent Claude gọi trong lúc edit
  * (curl http://localhost:6869/api/illustrations). Ảnh sinh bằng Gemini, prompt tự trộn
  * Style Design nên đồng bộ thương hiệu; cấm chữ trong ảnh. Style Design là BẮT BUỘC:
- * thiếu body.styleId thì server tự lấy brief.styleId của project (rồi mới tới default) —
+ * thiếu body.styleId thì server tự lấy brief.styleId của project (rồi mới tới default) -
  * agent quên truyền cũng không thoát được style đã chọn cho video.
  * Ảnh lưu vào video-projects/<id>/assets/illustrations/ + mô tả ghi vào assets.json.
  */

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as db from "../db.js";
 
-/** Thống kê token AI đã dùng — cột token trong danh sách project + biểu đồ Dashboard. */
+/** Thống kê token AI đã dùng - cột token trong danh sách project + biểu đồ Dashboard. */
 const router = Router();
 
 // GET /api/usage/summary → { byProject: { <id>: { tokens, costUsd } }, total: { tokens, costUsd, tokensIn, tokensOut } }

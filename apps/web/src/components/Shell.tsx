@@ -105,7 +105,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { t } = useT();
   const pathname = usePathname();
 
-  // Trang mobile /m/<id> (điện thoại quét QR upload) — layout riêng tối giản,
+  // Trang mobile /m/<id> (điện thoại quét QR upload) - layout riêng tối giản,
   // không header/sidebar của dashboard.
   if (pathname === "/m" || pathname.startsWith("/m/")) {
     return <>{children}</>;
@@ -156,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        {/* FULL WIDTH — không max-width, dùng tối đa không gian màn hình */}
+        {/* FULL WIDTH - không max-width, dùng tối đa không gian màn hình */}
         <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="w-full p-5">{children}</div>
         </main>

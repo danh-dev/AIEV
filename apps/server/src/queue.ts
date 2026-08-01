@@ -8,7 +8,7 @@ import { runAssemble } from "./jobs/assemble.js";
 import { runImageGen } from "./jobs/imageGen.js";
 
 /**
- * Hàng đợi render trong process — chạy SONG SONG tối đa `queueConcurrency` job
+ * Hàng đợi render trong process - chạy SONG SONG tối đa `queueConcurrency` job
  * (chỉnh trong tab "Tăng tốc"; đọc mỗi tick nên đổi là hiệu lực ngay).
  * Ràng buộc an toàn: hai job của CÙNG một project không bao giờ chạy đồng thời.
  */
@@ -25,7 +25,7 @@ export interface JobCtx {
   /** Cập nhật progress/step: lưu DB + đẩy SSE `job` khi có thay đổi */
   progress(progress: number | null, step: string): void;
   /**
-   * Spawn CLI bằng argv array — KHÔNG qua shell (đường dẫn/tham số chứa ký tự
+   * Spawn CLI bằng argv array - KHÔNG qua shell (đường dẫn/tham số chứa ký tự
    * đặc biệt không thể thoát thành lệnh khác); reject nếu exit != 0.
    */
   exec(
@@ -39,11 +39,11 @@ export interface JobCtx {
 
 interface Current {
   jobId: string;
-  /** Khóa "bận" — namespace theo loại job để job ảnh và job video cùng projectId không đụng nhau */
+  /** Khóa "bận" - namespace theo loại job để job ảnh và job video cùng projectId không đụng nhau */
   busyKey: string;
   child: ChildProcess | null;
   canceled: boolean;
-  /** Flush buffer log xuống DB — makeCtx gán; runJob gọi trước broadcast cuối */
+  /** Flush buffer log xuống DB - makeCtx gán; runJob gọi trước broadcast cuối */
   flushLog?: () => void;
 }
 
@@ -83,7 +83,7 @@ class RenderQueue {
     if (cur) {
       cur.canceled = true;
       db.updateJob(jobId, { status: "canceled", step: "Đã hủy", finishedAt: nowIso() });
-      db.appendJobLog(jobId, "[queue] Job bị hủy — kill process tree.");
+      db.appendJobLog(jobId, "[queue] Job bị hủy - kill process tree.");
       if (cur.child) killTree(cur.child);
       broadcastJob(jobId);
       return true;
@@ -91,13 +91,13 @@ class RenderQueue {
     return false;
   }
 
-  /** Nạp job mới vào các slot trống — bỏ qua job có busyKey (loại job + project) đang bận */
+  /** Nạp job mới vào các slot trống - bỏ qua job có busyKey (loại job + project) đang bận */
   private tick(): void {
     while (this.running.size < maxConcurrent()) {
       const busyKeys = new Set([...this.running.values()].map((c) => c.busyKey));
       const idx = this.pending.findIndex((id) => {
         const j = db.getJob(id);
-        if (!j || j.status !== "queued") return true; // job hỏng/đã hủy — lấy ra để loại bỏ
+        if (!j || j.status !== "queued") return true; // job hỏng/đã hủy - lấy ra để loại bỏ
         return !busyKeys.has(busyKeyOf(j));
       });
       if (idx < 0) break;
@@ -157,7 +157,7 @@ class RenderQueue {
     let lastProgress = -1;
     let lastStep = "";
 
-    // Batch log: mỗi dòng là một UPDATE `log = log || ?` (O(n²) khi log dài) —
+    // Batch log: mỗi dòng là một UPDATE `log = log || ?` (O(n²) khi log dài) -
     // gom buffer, flush MỘT lần khi đủ 50 dòng hoặc sau 1s. SSE vẫn đẩy từng dòng ngay.
     let pendingLines: string[] = [];
     let flushTimer: NodeJS.Timeout | null = null;
@@ -208,7 +208,7 @@ class RenderQueue {
           addLogLine(`[cmd] ${command}`);
           broadcast("joblog", { jobId, line: `[cmd] ${command}` });
 
-          // KHÔNG shell — argv array; CLI node chạy bằng process.execPath (xem util.cliJsPath)
+          // KHÔNG shell - argv array; CLI node chạy bằng process.execPath (xem util.cliJsPath)
           const child = spawn(file, args, {
             cwd,
             windowsHide: true,
@@ -219,7 +219,7 @@ class RenderQueue {
           const buffers: Record<"out" | "err", string> = { out: "", err: "" };
           const handleChunk = (which: "out" | "err", chunk: Buffer) => {
             buffers[which] += chunk.toString("utf8");
-            // Remotion dùng \r để vẽ lại dòng tiến độ — tách cả \r lẫn \n
+            // Remotion dùng \r để vẽ lại dòng tiến độ - tách cả \r lẫn \n
             const parts = buffers[which].split(/\r\n|\n|\r/);
             buffers[which] = parts.pop() ?? "";
             for (const raw of parts) {

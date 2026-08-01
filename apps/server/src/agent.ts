@@ -12,10 +12,10 @@ import { normOutput, readMeta } from "./meta.js";
  *   { sessionId, kind: "text"|"tool"|"result"|"error"|"done", text?, tool?, error? }
  */
 
-/** Query đang chạy theo sessionId — phục vụ interrupt */
+/** Query đang chạy theo sessionId - phục vụ interrupt */
 const running = new Map<string, Query>();
 
-/** Shape structural tối thiểu của message SDK — tránh gãy build khi type SDK đổi giữa các bản 0.3.x */
+/** Shape structural tối thiểu của message SDK - tránh gãy build khi type SDK đổi giữa các bản 0.3.x */
 interface AgentMessage {
   type: string;
   subtype?: string;
@@ -28,7 +28,7 @@ interface AgentMessage {
     content?: Array<{ type?: string; name?: string; input?: unknown; text?: string }>;
   };
   result?: string;
-  /** Usage trên message result — tên field theo SDK 0.3.x, đọc phòng thủ */
+  /** Usage trên message result - tên field theo SDK 0.3.x, đọc phòng thủ */
   total_cost_usd?: number;
   usage?: {
     input_tokens?: number;
@@ -59,10 +59,10 @@ export function isAgentRunning(sessionId: string): boolean {
   return running.has(sessionId);
 }
 
-/** Các phiên bị người dùng chủ động dừng — để finally đánh status "interrupted" thay vì "error" */
+/** Các phiên bị người dùng chủ động dừng - để finally đánh status "interrupted" thay vì "error" */
 const interruptedSessions = new Set<string>();
 
-/** Timer auto-resume đang chờ theo sessionId — để hủy được (interrupt / tắt autoResume) */
+/** Timer auto-resume đang chờ theo sessionId - để hủy được (interrupt / tắt autoResume) */
 const pendingResumes = new Map<string, NodeJS.Timeout>();
 
 /**
@@ -75,7 +75,7 @@ export function cancelPendingResume(sessionId: string): boolean {
   clearTimeout(timer);
   pendingResumes.delete(sessionId);
   db.finishChatRun(sessionId);
-  // Gate goal='final' giữ status "running" trong lúc chờ resume — hủy chờ mà không có
+  // Gate goal='final' giữ status "running" trong lúc chờ resume - hủy chờ mà không có
   // query nào chạy thì không được để phiên kẹt "running" mãi
   const s = db.getChatSession(sessionId);
   if (s?.status === "running" && !running.has(sessionId)) {
@@ -90,7 +90,7 @@ export async function interruptAgent(sessionId: string): Promise<boolean> {
   if (!q) {
     // Không có query đang chạy nhưng có auto-resume đang chờ → hủy, coi như đã interrupt
     if (cancelPendingResume(sessionId)) {
-      // cancelPendingResume có thể đã tự đánh interrupted (gate goal='final') — không emit lặp
+      // cancelPendingResume có thể đã tự đánh interrupted (gate goal='final') - không emit lặp
       const s = db.getChatSession(sessionId);
       if (s && s.status !== "interrupted") {
         db.setChatSessionStatus(sessionId, "interrupted");
@@ -112,7 +112,7 @@ export async function interruptAgent(sessionId: string): Promise<boolean> {
 /**
  * Tool agent được tự chạy KHÔNG cần hỏi. Pipeline video chạy hoàn toàn cục bộ
  * (ffmpeg/HyperFrames/Remotion) nên KHÔNG có WebFetch/WebSearch: prompt luôn
- * chứa nội dung do người dùng/asset cung cấp (brief, mô tả file, transcript) —
+ * chứa nội dung do người dùng/asset cung cấp (brief, mô tả file, transcript) -
  * để cả Bash lẫn kênh ra mạng là mở đường rò rỉ .env/credentials nếu bị chèn
  * chỉ thị độc (prompt injection). Cần tra cứu web thì làm ở phiên riêng.
  */
@@ -129,7 +129,7 @@ const ALLOWED_TOOLS = [
 
 /** Message gửi agent khi tự chạy tiếp một phiên bị gián đoạn (auto-resume) */
 const RESUME_MESSAGE =
-  "Tiếp tục công việc đang dở dang. Kiểm tra trạng thái hiện tại của project (meta.json, renders/, log job) rồi làm tiếp từ chỗ dừng — KHÔNG làm lại từ đầu.";
+  "Tiếp tục công việc đang dở dang. Kiểm tra trạng thái hiện tại của project (meta.json, renders/, log job) rồi làm tiếp từ chỗ dừng - KHÔNG làm lại từ đầu.";
 
 /**
  * Tối đa số lần auto-resume liên tiếp KHÔNG CÓ TIẾN BỘ (reset khi user gửi message mới
@@ -138,13 +138,13 @@ const RESUME_MESSAGE =
 const MAX_RESUME_ATTEMPTS = 3;
 /**
  * Phiên edit goal='final': pipeline dài (transcribe → scene → draft → verify → final),
- * mỗi lượt agent có thể kết thúc sớm trong khi render nền còn chạy — cap rộng hơn hẳn,
+ * mỗi lượt agent có thể kết thúc sớm trong khi render nền còn chạy - cap rộng hơn hẳn,
  * áp cho CẢ resume lỗi lẫn final-gate. Phiên thường giữ MAX_RESUME_ATTEMPTS.
  */
 const FINAL_GOAL_MAX_ATTEMPTS = 12;
 const RESUME_DELAY_MS = 10_000;
 
-/** Cap resume theo loại phiên — goal='final' được nhiều lượt hơn hẳn */
+/** Cap resume theo loại phiên - goal='final' được nhiều lượt hơn hẳn */
 function maxResumeAttemptsFor(session: Pick<db.ChatSessionRow, "goal">): number {
   return session.goal === "final" ? FINAL_GOAL_MAX_ATTEMPTS : MAX_RESUME_ATTEMPTS;
 }
@@ -152,7 +152,7 @@ function maxResumeAttemptsFor(session: Pick<db.ChatSessionRow, "goal">): number 
 /**
  * Bằng chứng tiến bộ của project tại thời điểm gọi: số job done + trạng thái renders/
  * (số file, tổng size, mtime mới nhất) + file output + meta.status. Chuỗi đổi giữa hai
- * lượt = pipeline CÓ tiến bộ (kể cả render đang chạy dở — file trong renders/ đang lớn dần).
+ * lượt = pipeline CÓ tiến bộ (kể cả render đang chạy dở - file trong renders/ đang lớn dần).
  */
 function computeProgressMark(projectId: string): string {
   const parts: string[] = [];
@@ -195,7 +195,7 @@ function computeProgressMark(projectId: string): string {
  * So bằng chứng tiến bộ với lần trước TRƯỚC KHI bump resumeAttempts:
  * có tiến bộ → reset đếm về 0 + lưu mark mới; không → giữ nguyên đếm.
  * Trả về số attempts hiện hành sau khi xét (đem so với cap).
- * Phiên không gắn project (chat tự do) không có bằng chứng — giữ nguyên đếm.
+ * Phiên không gắn project (chat tự do) không có bằng chứng - giữ nguyên đếm.
  */
 function refreshResumeProgress(session: db.ChatSessionRow): number {
   if (!session.projectId) return session.resumeAttempts;
@@ -216,7 +216,7 @@ function refreshResumeProgress(session: db.ChatSessionRow): number {
 /**
  * Gate hoàn thành phiên edit (goal='final'): video final phải TỒN TẠI THẬT mới coi là xong.
  * Trả về message resume nếu CHƯA đạt (output null / file không có trên đĩa / meta.status != done);
- * null = đạt hoặc không áp dụng (chat thường, project đã xóa, meta hỏng — không kẹt phiên).
+ * null = đạt hoặc không áp dụng (chat thường, project đã xóa, meta hỏng - không kẹt phiên).
  */
 function finalGateResumeMessage(sessionId: string): string | null {
   const session = db.getChatSession(sessionId);
@@ -227,7 +227,7 @@ function finalGateResumeMessage(sessionId: string): string | null {
     const outAbs = out ? (path.isAbsolute(out) ? out : path.join(repoRoot, out)) : null;
     if (out && outAbs && fs.existsSync(outAbs) && meta.status === "done") return null;
   } catch {
-    // Project đã bị xóa / meta.json hỏng — không gate được, coi như xong để không kẹt phiên
+    // Project đã bị xóa / meta.json hỏng - không gate được, coi như xong để không kẹt phiên
     return null;
   }
   return (
@@ -235,14 +235,14 @@ function finalGateResumeMessage(sessionId: string): string | null {
     "Nhiệm vụ chỉ hoàn thành khi render final xong và meta.json status=done + output trỏ file thật. " +
     "Kiểm tra trạng thái hiện tại rồi làm tiếp: render scene standard còn thiếu, assemble-final, " +
     "verify, cập nhật meta. " +
-    "Nếu job render failed — đọc log job tìm nguyên nhân, sửa rồi chạy lại job, KHÔNG bỏ qua. " +
-    "Nếu render đang chạy dở (job status running hoặc tiến trình render còn sống) — CHỜ nó chạy xong " +
+    "Nếu job render failed - đọc log job tìm nguyên nhân, sửa rồi chạy lại job, KHÔNG bỏ qua. " +
+    "Nếu render đang chạy dở (job status running hoặc tiến trình render còn sống) - CHỜ nó chạy xong " +
     "rồi verify tiếp, KHÔNG chạy lại từ đầu."
   );
 }
 
 /**
- * Chạy agent async cho một message — caller (route POST /api/chat) đã trả 202 trước đó.
+ * Chạy agent async cho một message - caller (route POST /api/chat) đã trả 202 trước đó.
  * Không bao giờ throw; mọi lỗi đẩy qua SSE kind "error".
  * opts.continueRun = lượt auto-resume: GIỮ NGUYÊN runStartedAt + đếm resumeAttempts.
  */
@@ -256,7 +256,7 @@ export async function runAgent(
       sessionId,
       kind: "error",
       error:
-        "Chưa có xác thực Claude. Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy này (VSCode extension hoặc chạy `claude` trong terminal rồi /login) — hệ thống tự dùng gói subscription. Cách 2: điền ANTHROPIC_API_KEY vào file .env rồi khởi động lại server.",
+        "Chưa có xác thực Claude. Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy này (VSCode extension hoặc chạy `claude` trong terminal rồi /login) - hệ thống tự dùng gói subscription. Cách 2: điền ANTHROPIC_API_KEY vào file .env rồi khởi động lại server.",
     });
     emit({ sessionId, kind: "done" });
     return;
@@ -266,7 +266,7 @@ export async function runAgent(
     emit({
       sessionId,
       kind: "error",
-      error: "Agent đang chạy trong phiên này — chờ xong hoặc bấm dừng (interrupt) trước.",
+      error: "Agent đang chạy trong phiên này - chờ xong hoặc bấm dừng (interrupt) trước.",
     });
     emit({ sessionId, kind: "done" });
     return;
@@ -280,7 +280,7 @@ export async function runAgent(
   const sdkSessionId = session?.sdkSessionId ?? null;
 
   // Message mới của user = lượt chạy mới: runStartedAt=now, runFinishedAt=null, resumeAttempts=0.
-  // Lượt auto-resume (continueRun) GIỮ NGUYÊN mốc bắt đầu — UI đo elapsed liền mạch.
+  // Lượt auto-resume (continueRun) GIỮ NGUYÊN mốc bắt đầu - UI đo elapsed liền mạch.
   if (!opts.continueRun) db.startChatRun(sessionId);
 
   // Message đầu của session mới: prepend CLAUDE.md (SDK không tự nạp CLAUDE.md)
@@ -294,20 +294,20 @@ export async function runAgent(
     }
   }
 
-  // Options theo API bản 0.3.x — cast qua Parameters<> để không gãy khi type Options thay đổi nhẹ
+  // Options theo API bản 0.3.x - cast qua Parameters<> để không gãy khi type Options thay đổi nhẹ
   const options: Record<string, unknown> = {
     cwd: repoRoot,
     permissionMode: "acceptEdits",
     allowedTools: ALLOWED_TOOLS,
     includePartialMessages: true,
     // Phiên edit goal='final' chạy pipeline dài (transcribe → scene → draft → verify → final)
-    // — 100 turn không đủ, lượt kết thúc với subtype != success giữa chừng
+    // - 100 turn không đủ, lượt kết thúc với subtype != success giữa chừng
     maxTurns: session?.goal === "final" ? 300 : 100,
     settingSources: ["project", "user"],
     systemPrompt: { type: "preset", preset: "claude_code" },
   };
   if (sdkSessionId) options.resume = sdkSessionId;
-  // Model/effort người dùng đã chọn cho phiên (docs/API.md mục AI Providers) — chỉ set khi có
+  // Model/effort người dùng đã chọn cho phiên (docs/API.md mục AI Providers) - chỉ set khi có
   if (session?.model) options.model = session.model;
   if (session?.effort) options.effort = session.effort;
 
@@ -387,7 +387,7 @@ export async function runAgent(
             db.addTokenUsage(sessionId, session?.projectId ?? null, inTok, outTok, cost);
           }
         } catch {
-          /* usage là phụ — không để hỏng luồng chính */
+          /* usage là phụ - không để hỏng luồng chính */
         }
         const finalText =
           typeof msg.result === "string" && msg.result.length > 0 ? msg.result : textBuffer;
@@ -419,7 +419,7 @@ export async function runAgent(
     });
   } finally {
     running.delete(sessionId);
-    // Trạng thái cuối bền vững — UI tắt/mở lại vẫn đọc được qua GET sessions
+    // Trạng thái cuối bền vững - UI tắt/mở lại vẫn đọc được qua GET sessions
     const userInterrupted = interruptedSessions.has(sessionId);
     let status: db.ChatSessionStatus = userInterrupted
       ? "interrupted"
@@ -430,7 +430,7 @@ export async function runAgent(
 
     // Gate phiên edit (goal='final'): agent báo "done" nhưng video final CHƯA tồn tại → CHƯA xong.
     // Dùng đúng hạ tầng auto-resume: chờ 10s rồi tự chạy tiếp (tôn trọng autoResume + interrupt
-    // + giới hạn resumeAttempts). Trong lúc chờ GIỮ status "running" — đúng ngữ nghĩa "chưa xong".
+    // + giới hạn resumeAttempts). Trong lúc chờ GIỮ status "running" - đúng ngữ nghĩa "chưa xong".
     const gateMessage = status === "done" ? finalGateResumeMessage(sessionId) : null;
     if (gateMessage) {
       const s = db.getChatSession(sessionId);
@@ -441,10 +441,10 @@ export async function runAgent(
       if (canRetry) {
         db.setChatSessionStatus(sessionId, "running");
         db.bumpResumeAttempts(sessionId);
-        // KHÔNG finishChatRun, KHÔNG emit "done" — phiên vẫn đang chạy với UI
+        // KHÔNG finishChatRun, KHÔNG emit "done" - phiên vẫn đang chạy với UI
         const timer = setTimeout(() => {
           pendingResumes.delete(sessionId);
-          // Đọc tươi — user có thể đã interrupt / tắt autoResume trong lúc chờ
+          // Đọc tươi - user có thể đã interrupt / tắt autoResume trong lúc chờ
           const cur = db.getChatSession(sessionId);
           if (!cur || cur.status !== "running" || cur.autoResume === 0 || isAgentRunning(sessionId)) {
             return;
@@ -454,21 +454,21 @@ export async function runAgent(
         pendingResumes.set(sessionId, timer);
         return;
       }
-      // Hết lượt thử liên tiếp KHÔNG tiến bộ / autoResume tắt / mất auth — kết thúc với "error"
+      // Hết lượt thử liên tiếp KHÔNG tiến bộ / autoResume tắt / mất auth - kết thúc với "error"
       status = "error";
       db.addChatMessage(
         sessionId,
         "assistant",
         "text",
-        `Đã dừng sau ${cap} lượt tự chạy liên tiếp mà KHÔNG có tiến bộ — video final vẫn chưa render xong. ` +
+        `Đã dừng sau ${cap} lượt tự chạy liên tiếp mà KHÔNG có tiến bộ - video final vẫn chưa render xong. ` +
           'Xem log job/render tìm nguyên nhân rồi bấm gửi "tiếp tục" để chạy tiếp.',
       );
-      emit({ sessionId, kind: "error", error: "Video final chưa tồn tại — phiên edit chưa hoàn thành" });
+      emit({ sessionId, kind: "error", error: "Video final chưa tồn tại - phiên edit chưa hoàn thành" });
     }
 
     db.setChatSessionStatus(sessionId, status);
 
-    // Auto-resume: chỉ khi lỗi KHÔNG do user bấm dừng, autoResume còn bật (đọc tươi —
+    // Auto-resume: chỉ khi lỗi KHÔNG do user bấm dừng, autoResume còn bật (đọc tươi -
     // user có thể vừa toggle), chưa quá số lượt, và còn xác thực Claude.
     const fresh = db.getChatSession(sessionId);
     // Tiến bộ giữa hai lượt (job done tăng / renders đổi / output xuất hiện) → reset đếm về 0
@@ -483,10 +483,10 @@ export async function runAgent(
 
     if (shouldResume) {
       db.bumpResumeAttempts(sessionId);
-      // KHÔNG finishChatRun — lượt chạy chưa kết thúc hẳn, resume giữ nguyên runStartedAt
+      // KHÔNG finishChatRun - lượt chạy chưa kết thúc hẳn, resume giữ nguyên runStartedAt
       const timer = setTimeout(() => {
         pendingResumes.delete(sessionId);
-        // Đọc tươi — user có thể đã interrupt / tắt autoResume trong lúc chờ
+        // Đọc tươi - user có thể đã interrupt / tắt autoResume trong lúc chờ
         const s = db.getChatSession(sessionId);
         if (!s || s.status !== "error" || s.autoResume === 0 || isAgentRunning(sessionId)) return;
         void runAgent(sessionId, RESUME_MESSAGE, { continueRun: true });
@@ -502,7 +502,7 @@ export async function runAgent(
 }
 
 /**
- * Tự chạy tiếp các phiên bị 'interrupted' do server restart (autoResume bật) —
+ * Tự chạy tiếp các phiên bị 'interrupted' do server restart (autoResume bật) -
  * index.ts gọi ~15s sau khi server listen. Tuần tự cách nhau 2s để không dồn cùng lúc.
  */
 export async function autoResumeStartup(): Promise<void> {
@@ -511,7 +511,7 @@ export async function autoResumeStartup(): Promise<void> {
     const session = db.getChatSession(id);
     if (!session || session.status !== "interrupted" || session.autoResume === 0) continue;
     if (isAgentRunning(id)) continue;
-    // KHÔNG truyền continueRun — lượt mới sau restart, mốc thời gian mới
+    // KHÔNG truyền continueRun - lượt mới sau restart, mốc thời gian mới
     void runAgent(id, RESUME_MESSAGE);
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   }

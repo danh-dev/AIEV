@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Trang Kết nối — quản lý API key của các AI provider (Claude, Gemini).
+ * Trang Kết nối - quản lý API key của các AI provider (Claude, Gemini).
  * Key lưu qua PUT /api/connections/:provider/key, hiệu lực ngay không cần
  * restart. Sau khi đổi key gọi refreshProviders() để các select model/provider
  * nơi khác (ModelPicker) fetch lại danh sách mới.
@@ -51,8 +51,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { refreshProviders } from "@/components/ModelPicker";
 import { useT } from "@/lib/i18n";
 
-/** Nhãn tiếng Việt cho role provider — khớp ProviderRole của server. */
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+/** Nhãn tiếng Việt cho role provider - khớp ProviderRole của server. */
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const ROLE_LABELS: Record<string, string> = {
   edit: "conn.role.edit",
   chat: "conn.role.chat",
@@ -154,7 +154,7 @@ function ProviderCard({
     }
   }
 
-  // Modal xác nhận xóa API key — bắt gõ DELETE (thay window.confirm)
+  // Modal xác nhận xóa API key - bắt gõ DELETE (thay window.confirm)
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function onDeleteKey() {
@@ -367,7 +367,7 @@ function ProviderCard({
         </p>
       )}
 
-      {/* Modal xác nhận xóa API key — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa API key - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteOpen}
         title={t("conn.delete-key-title")}
@@ -390,7 +390,7 @@ const CLOUDFLARED_DL_URL =
   "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/";
 
 /**
- * Card Cloudflare Tunnel — bật/tắt tunnel public cho dashboard ngay trên UI.
+ * Card Cloudflare Tunnel - bật/tắt tunnel public cho dashboard ngay trên UI.
  * Poll GET /api/tunnel: 4s khi đang chạy (chờ URL quick tunnel), 10s khi tắt.
  */
 function TunnelCard() {
@@ -399,7 +399,7 @@ function TunnelCard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Domain input — chỉ đồng bộ từ server khi user chưa gõ dở (dirty)
+  // Domain input - chỉ đồng bộ từ server khi user chưa gõ dở (dirty)
   const [domainValue, setDomainValue] = useState("");
   const [domainDirty, setDomainDirty] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
@@ -610,7 +610,7 @@ function TunnelCard() {
         )}
       </div>
 
-      {/* URL đang hoạt động — QR "Kết nối điện thoại" tự dùng địa chỉ này */}
+      {/* URL đang hoạt động - QR "Kết nối điện thoại" tự dùng địa chỉ này */}
       {running && status?.url && (
         <div className="mt-3">
           <span className="text-xs font-medium text-[var(--text-muted)]">
@@ -646,7 +646,7 @@ function TunnelCard() {
         </p>
       )}
 
-      {/* Log cloudflared — collapse */}
+      {/* Log cloudflared - collapse */}
       {status && status.lastLog.length > 0 && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
           <button
@@ -730,7 +730,7 @@ export default function ConnectionsPage() {
         </div>
       ) : null}
 
-      {/* Cloudflare Tunnel — public dashboard ra Internet, cuối trang */}
+      {/* Cloudflare Tunnel - public dashboard ra Internet, cuối trang */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         <TunnelCard />
       </div>

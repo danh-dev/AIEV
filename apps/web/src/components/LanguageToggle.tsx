@@ -3,9 +3,9 @@
 import { useT } from "@/lib/i18n";
 
 /**
- * Nút đổi ngôn ngữ trên header — hiện lá cờ của ngôn ngữ HIỆN TẠI,
+ * Nút đổi ngôn ngữ trên header - hiện lá cờ của ngôn ngữ HIỆN TẠI,
  * bấm thì chuyển sang ngôn ngữ còn lại (vi ↔ en).
- * Cờ là SVG tự vẽ trong public/flags/ — không icon font, không emoji.
+ * Cờ là SVG tự vẽ trong public/flags/ - không icon font, không emoji.
  */
 export function LanguageToggle() {
   const { lang, setLang } = useT();

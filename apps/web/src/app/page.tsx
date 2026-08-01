@@ -41,7 +41,7 @@ import { TokenTimelineChart } from "@/components/TokenTimelineChart";
 import { formatRelative, formatTokens, formatUsd } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const JOB_TYPE_LABEL: Record<Job["type"], string> = {
   "scene-draft": "dash.job.scene-draft",
   "scene-final": "dash.job.scene-final",
@@ -63,13 +63,13 @@ function healthProblems(
   return problems;
 }
 
-/** yyyy-mm-dd theo giờ địa phương — so "hôm nay" cho tile Job. */
+/** yyyy-mm-dd theo giờ địa phương - so "hôm nay" cho tile Job. */
 function localDayKey(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Skeleton nhẹ — khối pulse dùng chung khi dữ liệu chưa về. */
+/** Skeleton nhẹ - khối pulse dùng chung khi dữ liệu chưa về. */
 function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
@@ -80,14 +80,14 @@ function Skeleton({ className = "" }: { className?: string }) {
 
 const USAGE_DAYS_OPTIONS = [7, 30, 90] as const;
 
-// label là KEY dictionary — dịch bằng t() lúc render.
+// label là KEY dictionary - dịch bằng t() lúc render.
 const USAGE_SCOPE_OPTIONS: { value: UsageScope; label: string }[] = [
   { value: "all", label: "dash.scope.all" },
   { value: "video", label: "dash.scope.video" },
   { value: "image", label: "dash.scope.image" },
 ];
 
-/** Nhóm nút pill chọn khoảng ngày — segmented control nhỏ trong header card. */
+/** Nhóm nút pill chọn khoảng ngày - segmented control nhỏ trong header card. */
 function DaysPillGroup({
   value,
   onChange,
@@ -124,7 +124,7 @@ function DaysPillGroup({
   );
 }
 
-/** Stat tile hàng 1 — số to + label nhỏ + icon mờ góc phải. */
+/** Stat tile hàng 1 - số to + label nhỏ + icon mờ góc phải. */
 function StatTile({
   icon: Icon,
   value,
@@ -163,11 +163,11 @@ export default function DashboardPage() {
   const overviewRef = useRef<Overview | null>(null);
   overviewRef.current = overview;
 
-  // Card "Token AI theo ngày" — timeline theo bộ lọc ngày + loại project
+  // Card "Token AI theo ngày" - timeline theo bộ lọc ngày + loại project
   const [timeline, setTimeline] = useState<UsageTimelinePoint[] | null>(null);
   const [usageDays, setUsageDays] = useState<number>(30);
   const [usageScope, setUsageScope] = useState<UsageScope>("all");
-  // Stat tile "Token 30 ngày" hàng trên — cố định 30 ngày, không theo filter
+  // Stat tile "Token 30 ngày" hàng trên - cố định 30 ngày, không theo filter
   const [timeline30, setTimeline30] = useState<UsageTimelinePoint[] | null>(
     null
   );
@@ -229,7 +229,7 @@ export default function DashboardPage() {
   useJobEvents((job) => {
     const prev = overviewRef.current;
     if (!prev) {
-      // Event tới trước khi overview load xong — refetch thay vì nuốt event
+      // Event tới trước khi overview load xong - refetch thay vì nuốt event
       loadOverview();
       loadJobs();
       return;
@@ -237,7 +237,7 @@ export default function DashboardPage() {
     if (job.status === "running") {
       setOverview({ ...prev, runningJob: job });
     } else {
-      // queued / done / failed / canceled — làm mới overview + số liệu job/project
+      // queued / done / failed / canceled - làm mới overview + số liệu job/project
       loadOverview();
       loadJobs();
       getProjects()
@@ -246,7 +246,7 @@ export default function DashboardPage() {
     }
   });
 
-  // Hoạt động của AI — theo TỪNG session (nhiều phiên chạy song song không đè nhau)
+  // Hoạt động của AI - theo TỪNG session (nhiều phiên chạy song song không đè nhau)
   const [agentActivities, setAgentActivities] = useState<
     Record<string, { steps: number; action: string }>
   >({});
@@ -256,14 +256,14 @@ export default function DashboardPage() {
   const fetchingSessionsRef = useRef(false);
   useAgentEvents((e) => {
     if (e.kind === "done" || e.kind === "error") {
-      // Chỉ gỡ đúng phiên vừa kết thúc — các phiên khác vẫn hiển thị
+      // Chỉ gỡ đúng phiên vừa kết thúc - các phiên khác vẫn hiển thị
       setAgentActivities((m) => {
         if (!(e.sessionId in m)) return m;
         const next = { ...m };
         delete next[e.sessionId];
         return next;
       });
-      loadSessions(); // phiên vừa kết thúc — làm mới "Phiên AI gần đây"
+      loadSessions(); // phiên vừa kết thúc - làm mới "Phiên AI gần đây"
       return;
     }
     setAgentActivities((m) => {
@@ -295,7 +295,7 @@ export default function DashboardPage() {
           setSessionMapVersion((v) => v + 1);
         })
         .catch(() => {
-          // không tra được project — ẩn link, vẫn hiện trạng thái
+          // không tra được project - ẩn link, vẫn hiện trạng thái
         })
         .finally(() => {
           fetchingSessionsRef.current = false;
@@ -316,7 +316,7 @@ export default function DashboardPage() {
     { tokens: 0, tokensIn: 0, tokensOut: 0, costUsd: 0 }
   );
 
-  // Tổng 30 ngày cố định — stat tile hàng trên
+  // Tổng 30 ngày cố định - stat tile hàng trên
   const usage30Total = (timeline30 ?? []).reduce(
     (acc, d) => ({
       tokens: acc.tokens + d.tokens,
@@ -359,7 +359,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Hàng 1 — 4 stat tile */}
+      {/* Hàng 1 - 4 stat tile */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatTile
           icon={Clapperboard}
@@ -391,7 +391,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Hàng 2 — chart 2/3 + cột phải (AI / job đang chạy / hàng đợi) */}
+      {/* Hàng 2 - chart 2/3 + cột phải (AI / job đang chạy / hàng đợi) */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <Card
           title={t("dash.tokens-by-day")}
@@ -532,7 +532,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
                 <span className="text-[24px] font-bold leading-tight">
-                  {overview ? overview.queuedCount : "—"}
+                  {overview ? overview.queuedCount : "-"}
                 </span>
                 <span className="text-xs text-[var(--text-muted)]">
                   {t("dash.jobs-waiting")}
@@ -549,7 +549,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Hàng 3 — project gần đây (bảng) + phiên AI gần đây */}
+      {/* Hàng 3 - project gần đây (bảng) + phiên AI gần đây */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card
           title={t("dash.recent-projects")}
@@ -593,7 +593,7 @@ export default function DashboardPage() {
                       <ProjectBadge status={p.status} />
                     </td>
                     <td className="text-[var(--text-muted)]">
-                      {(p.tokensUsed ?? 0) > 0 ? formatTokens(p.tokensUsed) : "—"}
+                      {(p.tokensUsed ?? 0) > 0 ? formatTokens(p.tokensUsed) : "-"}
                     </td>
                     <td className="whitespace-nowrap text-[var(--text-muted)]">
                       {formatRelative(p.updatedAt)}

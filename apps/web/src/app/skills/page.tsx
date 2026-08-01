@@ -42,7 +42,7 @@ export default function SkillsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Modal "Tạo skill bằng AI" — remount mỗi lần mở (key) để form sạch
+  // Modal "Tạo skill bằng AI" - remount mỗi lần mở (key) để form sạch
   const [aiOpen, setAiOpen] = useState(false);
   const [aiKey, setAiKey] = useState(0);
 

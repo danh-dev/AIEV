@@ -1,8 +1,8 @@
-/** Helpers định dạng hiển thị — theo ngôn ngữ UI đang chọn (vi/en). */
+/** Helpers định dạng hiển thị - theo ngôn ngữ UI đang chọn (vi/en). */
 
 type FormatLang = "vi" | "en";
 
-// LanguageProvider set giá trị này mỗi render — mọi component con render sau
+// LanguageProvider set giá trị này mỗi render - mọi component con render sau
 // đó sẽ format đúng ngôn ngữ, không cần truyền lang qua từng call site.
 let FORMAT_LANG: FormatLang = "vi";
 
@@ -11,7 +11,7 @@ export function setFormatLang(lang: FormatLang): void {
 }
 
 export function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (!Number.isFinite(bytes) || bytes < 0) return "-";
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB", "TB"];
   let value = bytes / 1024;
@@ -23,20 +23,20 @@ export function formatBytes(bytes: number): string {
   return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[i]}`;
 }
 
-/** "hh:mm:ss dd/MM/yyyy" (24h, pad 0); null/invalid → "—". */
+/** "hh:mm:ss dd/MM/yyyy" (24h, pad 0); null/invalid → "-". */
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
 /** "5 phút trước" / "5 minutes ago"… theo ngôn ngữ UI. */
 export function formatRelative(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "—";
+  if (Number.isNaN(t)) return "-";
   const diff = Date.now() - t;
   const sec = Math.round(diff / 1000);
   const en = FORMAT_LANG === "en";
@@ -58,10 +58,10 @@ export function formatJobDuration(
   startedAt: string | null,
   finishedAt: string | null
 ): string {
-  if (!startedAt) return "—";
+  if (!startedAt) return "-";
   const start = new Date(startedAt).getTime();
   const end = finishedAt ? new Date(finishedAt).getTime() : Date.now();
-  if (Number.isNaN(start) || Number.isNaN(end)) return "—";
+  if (Number.isNaN(start) || Number.isNaN(end)) return "-";
   const sec = Math.max(0, Math.round((end - start) / 1000));
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);
@@ -69,7 +69,7 @@ export function formatJobDuration(
 }
 
 export function formatDurationMs(ms: number | null): string {
-  if (ms == null || !Number.isFinite(ms)) return "—";
+  if (ms == null || !Number.isFinite(ms)) return "-";
   const sec = ms / 1000;
   if (sec < 60) return `${sec.toFixed(1)}s`;
   const min = Math.floor(sec / 60);
@@ -113,7 +113,7 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** File "mới" — sửa đổi trong vòng 3 phút (badge "mới" trong danh sách asset/render). */
+/** File "mới" - sửa đổi trong vòng 3 phút (badge "mới" trong danh sách asset/render). */
 export function isRecentFile(mtime: string, windowMs = 3 * 60_000): boolean {
   const t = new Date(mtime).getTime();
   return Number.isFinite(t) && Date.now() - t < windowMs;

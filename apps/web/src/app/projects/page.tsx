@@ -44,7 +44,7 @@ import {
 } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-// label là KEY dictionary — dịch bằng t() lúc render.
+// label là KEY dictionary - dịch bằng t() lúc render.
 const PRESETS = [
   { label: "projects.preset.tiktok", width: 1080, height: 1920, note: "9:16" },
   { label: "projects.preset.youtube", width: 1920, height: 1080, note: "16:9" },
@@ -72,7 +72,7 @@ function AspectIcon({ width, height }: { width: number; height: number }) {
   );
 }
 
-/** Chip bấm được — dùng cho hàng lọc tag và tag dưới tên project. */
+/** Chip bấm được - dùng cho hàng lọc tag và tag dưới tên project. */
 function FilterChip({
   active,
   onClick,
@@ -137,7 +137,7 @@ export default function ProjectsPage() {
   const [bulkActionNotice, setBulkActionNotice] = useState<string | null>(null);
   const [bulkActionErrors, setBulkActionErrors] = useState<string[]>([]);
 
-  // Nhân bản project — project gốc đang chọn + notice sau khi clone xong
+  // Nhân bản project - project gốc đang chọn + notice sau khi clone xong
   const [cloneSource, setCloneSource] = useState<{
     id: string;
     name: string;
@@ -286,7 +286,7 @@ export default function ProjectsPage() {
     setBulkErrors([]);
     const targets = selectedProjects;
     const errors: string[] = [];
-    // Chạy TUẦN TỰ — server khởi động từng phiên AI, không dội đồng thời
+    // Chạy TUẦN TỰ - server khởi động từng phiên AI, không dội đồng thời
     for (let i = 0; i < targets.length; i++) {
       setBulkProgress({ done: i + 1, total: targets.length });
       try {
@@ -307,7 +307,7 @@ export default function ProjectsPage() {
       setSelected(new Set());
     }
     if (errors.length > 0) {
-      // Giữ modal mở để đọc lỗi — các project khác vẫn đã chạy
+      // Giữ modal mở để đọc lỗi - các project khác vẫn đã chạy
       setBulkErrors(errors);
     } else {
       setBulkOpen(false);
@@ -365,7 +365,7 @@ export default function ProjectsPage() {
         )
       )
         return;
-      // Xóa tuần tự — project đang có job server trả 409, gom lỗi và đi tiếp
+      // Xóa tuần tự - project đang có job server trả 409, gom lỗi và đi tiếp
       let freed = 0;
       let deleted = 0;
       let cleaned = 0;
@@ -407,7 +407,7 @@ export default function ProjectsPage() {
     const targets = selectedProjects;
     const errors: string[] = [];
     let created = 0;
-    // Submit đúng job như nút "Render final" đơn lẻ — queue tự điều phối,
+    // Submit đúng job như nút "Render final" đơn lẻ - queue tự điều phối,
     // project chưa đủ điều kiện (chưa có draft…) server tự trả lỗi
     for (const p of targets) {
       try {
@@ -518,7 +518,7 @@ export default function ProjectsPage() {
           <Copy size={15} strokeWidth={2} className="shrink-0" />
           <span>
             {t("projects.cloned-to")}{" "}
-            <span className="font-medium">{cloneNotice.name}</span> —{" "}
+            <span className="font-medium">{cloneNotice.name}</span> -{" "}
             <Link
               href={`/projects/${cloneNotice.id}`}
               className="font-medium underline underline-offset-2"
@@ -694,7 +694,7 @@ export default function ProjectsPage() {
                         : undefined
                     }
                   >
-                    {(p.tokensUsed ?? 0) > 0 ? formatTokens(p.tokensUsed) : "—"}
+                    {(p.tokensUsed ?? 0) > 0 ? formatTokens(p.tokensUsed) : "-"}
                   </td>
                   <td className="text-[var(--text-muted)]">
                     {formatDateTime(p.createdAt)}
@@ -752,7 +752,7 @@ export default function ProjectsPage() {
         }}
       />
 
-      {/* Modal xác nhận xóa nhiều project — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa nhiều project - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteOpen}
         title={t("projects.delete-selected-title")}
@@ -772,7 +772,7 @@ export default function ProjectsPage() {
           )
         }
         items={selectedProjects.map(
-          (p) => `${p.name} — video-projects/${p.id}`
+          (p) => `${p.name} - video-projects/${p.id}`
         )}
         busy={deleting}
         busyLabel={

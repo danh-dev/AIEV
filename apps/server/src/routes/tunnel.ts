@@ -9,7 +9,7 @@ import { HttpError, killTree } from "../util.js";
  * Quản lý Cloudflare Tunnel ngay trên web UI (trang Kết nối).
  * - Có TUNNEL_DOMAIN trong .env → named tunnel (cloudflared tunnel run <nhãn đầu domain>).
  * - Chưa có domain → Quick Tunnel (URL ngẫu nhiên *.trycloudflare.com, parse từ log).
- * Child cloudflared giữ ở module level — server tắt là tunnel tắt theo.
+ * Child cloudflared giữ ở module level - server tắt là tunnel tắt theo.
  */
 
 type TunnelMode = "named" | "quick";
@@ -18,7 +18,7 @@ let child: ChildProcess | null = null;
 let mode: TunnelMode | null = null;
 /** URL Quick Tunnel parse được từ log (https://xxx.trycloudflare.com) */
 let quickUrl: string | null = null;
-/** Ring buffer log cloudflared — giữ tối đa 20 dòng cuối */
+/** Ring buffer log cloudflared - giữ tối đa 20 dòng cuối */
 const lastLog: string[] = [];
 const LOG_MAX = 20;
 
@@ -33,7 +33,7 @@ function pushLog(chunk: string): void {
     if (!s) continue;
     lastLog.push(s);
     if (lastLog.length > LOG_MAX) lastLog.splice(0, lastLog.length - LOG_MAX);
-    // Quick Tunnel in URL ra log lúc khởi động — bắt lấy làm url hiện hành
+    // Quick Tunnel in URL ra log lúc khởi động - bắt lấy làm url hiện hành
     if (mode === "quick" && !quickUrl) {
       const m = QUICK_URL_RE.exec(s);
       if (m) quickUrl = m[0];
@@ -42,7 +42,7 @@ function pushLog(chunk: string): void {
 }
 
 /**
- * Đường dẫn cloudflared: PATH (where/which) trước, rồi các vị trí cài chuẩn —
+ * Đường dẫn cloudflared: PATH (where/which) trước, rồi các vị trí cài chuẩn -
  * server chạy từ .command trên macOS có PATH tối giản KHÔNG chứa /opt/homebrew/bin.
  */
 const CLOUDFLARED_KNOWN_PATHS =
@@ -93,14 +93,14 @@ function normalizeDomain(input: string): string {
     .toLowerCase();
 }
 
-/** TUNNEL_DOMAIN hiện hành từ env (đã chuẩn hóa) — null nếu chưa cấu hình */
+/** TUNNEL_DOMAIN hiện hành từ env (đã chuẩn hóa) - null nếu chưa cấu hình */
 function envDomain(): string | null {
   const d = normalizeDomain(process.env.TUNNEL_DOMAIN ?? "");
   return d || null;
 }
 
 /**
- * Hostname Quick Tunnel đang chạy — /api/lan-info ưu tiên cái này hơn
+ * Hostname Quick Tunnel đang chạy - /api/lan-info ưu tiên cái này hơn
  * TUNNEL_DOMAIN trong .env để QR "Kết nối điện thoại" tự dùng URL đang sống.
  */
 export function quickTunnelHostname(): string | null {
@@ -134,12 +134,12 @@ function statusPayload() {
 
 const router = Router();
 
-// GET /api/tunnel — trạng thái cài đặt + tunnel đang chạy
+// GET /api/tunnel - trạng thái cài đặt + tunnel đang chạy
 router.get("/", (_req, res) => {
   res.json(statusPayload());
 });
 
-// PUT /api/tunnel/domain — { domain } (rỗng/null = xóa TUNNEL_DOMAIN)
+// PUT /api/tunnel/domain - { domain } (rỗng/null = xóa TUNNEL_DOMAIN)
 router.put("/domain", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const raw = body.domain;
@@ -151,7 +151,7 @@ router.put("/domain", (req, res) => {
     throw new HttpError(
       400,
       "INVALID_DOMAIN",
-      `"${domain}" không phải hostname hợp lệ — ví dụ đúng: aiev.noti.vn`,
+      `"${domain}" không phải hostname hợp lệ - ví dụ đúng: aiev.noti.vn`,
     );
   }
   upsertEnvVar("TUNNEL_DOMAIN", domain || null);
@@ -160,7 +160,7 @@ router.put("/domain", (req, res) => {
   res.json(statusPayload());
 });
 
-// POST /api/tunnel/start — spawn cloudflared (named nếu có domain, không thì quick)
+// POST /api/tunnel/start - spawn cloudflared (named nếu có domain, không thì quick)
 router.post("/start", (req, res) => {
   if (!cloudflaredInstalled()) {
     throw new HttpError(
@@ -170,11 +170,11 @@ router.post("/start", (req, res) => {
         process.platform === "darwin"
           ? "brew install cloudflared"
           : "winget install --id Cloudflare.cloudflared"
-      } — hoặc tải tại https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/`,
+      } - hoặc tải tại https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/`,
     );
   }
   if (child) {
-    throw new HttpError(409, "ALREADY_RUNNING", "Tunnel đang chạy rồi — tắt trước nếu muốn khởi động lại.");
+    throw new HttpError(409, "ALREADY_RUNNING", "Tunnel đang chạy rồi - tắt trước nếu muốn khởi động lại.");
   }
 
   const webPort = Number(process.env.WEB_PORT || 6868);
@@ -182,7 +182,7 @@ router.post("/start", (req, res) => {
   const domain = envDomain();
   let args: string[];
   if (domain) {
-    // Named tunnel — tên tunnel = nhãn đầu của domain (aiev.noti.vn → aiev),
+    // Named tunnel - tên tunnel = nhãn đầu của domain (aiev.noti.vn → aiev),
     // giống start/tunnel.bat. Yêu cầu đã: cloudflared tunnel login/create/route dns.
     const name = domain.split(".")[0];
     mode = "named";
@@ -220,7 +220,7 @@ router.post("/start", (req, res) => {
   res.status(202).json({ mode });
 });
 
-// POST /api/tunnel/stop — kill cả cây process cloudflared
+// POST /api/tunnel/stop - kill cả cây process cloudflared
 router.post("/stop", (_req, res) => {
   if (child) {
     killTree(child);

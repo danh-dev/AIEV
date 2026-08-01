@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Thanh timeline giai đoạn pipeline của một video project — stepper ngang
+ * Thanh timeline giai đoạn pipeline của một video project - stepper ngang
  * 6 giai đoạn, gọn để nằm cùng hàng header. Giai đoạn suy ra HOÀN TOÀN phía
- * client từ dữ liệu trang đã có (meta + jobs + session AI) — backend vẫn là
+ * client từ dữ liệu trang đã có (meta + jobs + session AI) - backend vẫn là
  * nguồn sự thật về job, component chỉ đọc.
  */
 
@@ -11,7 +11,7 @@ import { Check } from "lucide-react";
 import type { FileInfo, Job, ProjectStatus, SceneMeta } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const STEPS = [
   "pipeline.analyze",
   "pipeline.build-scenes",
@@ -26,7 +26,7 @@ export interface PipelineStageInput {
   hasOutput: boolean;
   scenes: SceneMeta[];
   renders: FileInfo[];
-  /** Jobs của project này (mọi trạng thái) — cập nhật sống qua SSE. */
+  /** Jobs của project này (mọi trạng thái) - cập nhật sống qua SSE. */
   jobs: Job[];
   /** Có phiên AI của project đang chạy. */
   sessionRunning: boolean;
@@ -38,7 +38,7 @@ export interface PipelineStage {
   active: boolean;
 }
 
-/** Mốc "đã qua" suy từ job done — nâng floor khi không có gì đang chạy rõ hơn. */
+/** Mốc "đã qua" suy từ job done - nâng floor khi không có gì đang chạy rõ hơn. */
 function doneJobFloor(jobs: Job[]): number {
   let floor = 0;
   for (const j of jobs) {
@@ -57,14 +57,14 @@ function doneJobFloor(jobs: Job[]): number {
 }
 
 /**
- * Suy giai đoạn hiện tại của pipeline — thuần, không side effect.
+ * Suy giai đoạn hiện tại của pipeline - thuần, không side effect.
  * Trả null = chưa bắt đầu gì (project draft trống) → ẩn timeline.
  */
 export function deriveStage(input: PipelineStageInput): PipelineStage | null {
   const { metaStatus, hasOutput, scenes, renders, jobs, sessionRunning } =
     input;
 
-  // 6 — final đã xuất, meta chốt done
+  // 6 - final đã xuất, meta chốt done
   if (metaStatus === "done" && hasOutput) return { stage: 6, active: false };
 
   // Job đang chạy/chờ quyết định giai đoạn trực tiếp
@@ -84,7 +84,7 @@ export function deriveStage(input: PipelineStageInput): PipelineStage | null {
   const floor = Math.max(artifactFloor, doneJobFloor(jobs));
 
   if (sessionRunning) {
-    // AI đang chạy nhưng chưa có job render nào — đang phân tích/dựng scene
+    // AI đang chạy nhưng chưa có job render nào - đang phân tích/dựng scene
     return { stage: Math.max(floor, 1), active: true };
   }
 

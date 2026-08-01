@@ -9,9 +9,9 @@ import { remotionSpeedArgs } from "../renderSettings.js";
 import { parseProgressLine, shortenStep } from "./progress.js";
 
 /**
- * Job assemble-draft | assemble-final — Remotion lắp timeline từ meta.json.
+ * Job assemble-draft | assemble-final - Remotion lắp timeline từ meta.json.
  * 1. Stage asset bằng hardlink (fallback copy) vào engines/remotion/public/staging/<projectId>/
- * 2. Sinh props.resolved.json — mọi đường dẫn asset đổi thành "staging/<projectId>/<file>"
+ * 2. Sinh props.resolved.json - mọi đường dẫn asset đổi thành "staging/<projectId>/<file>"
  * 3. npx remotion render Assemble --props=<abs> --output=<abs> (cwd engines/remotion)
  *    Draft thêm --crf 28. Final ghi outputs/<projectId>-v<N>.mp4 (N tự tăng) + cập nhật meta.json.
  * (Điều kiện "final phải có assemble-draft done" đã được check 409 ở route POST /api/jobs.)
@@ -35,11 +35,11 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     const cached = staged.get(relFromProject);
     if (cached) return cached;
     const srcAbs = path.join(projectDir, relFromProject);
-    // meta.json do agent ghi — chặn traversal kiểu "../../.env" thoát khỏi project
+    // meta.json do agent ghi - chặn traversal kiểu "../../.env" thoát khỏi project
     const resolved = path.resolve(srcAbs);
     if (!resolved.startsWith(path.resolve(projectDir) + path.sep)) {
       throw new Error(
-        `Đường dẫn asset "${relFromProject}" nằm ngoài project ${projectId} — từ chối stage`,
+        `Đường dẫn asset "${relFromProject}" nằm ngoài project ${projectId} - từ chối stage`,
       );
     }
     if (!fs.existsSync(srcAbs)) {
@@ -49,7 +49,7 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     const flat = relFromProject.split(/[\\/]+/).join("__");
     const dstAbs = path.join(stagingAbs, flat);
     try {
-      fs.linkSync(srcAbs, dstAbs); // hardlink — không tốn dung lượng
+      fs.linkSync(srcAbs, dstAbs); // hardlink - không tốn dung lượng
     } catch {
       fs.copyFileSync(srcAbs, dstAbs); // fallback (khác ổ đĩa / FS không hỗ trợ)
     }
@@ -87,7 +87,7 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     if (typeof scene.srcVideo === "string" && scene.srcVideo) {
       scene.srcVideo = stage(scene.srcVideo);
     }
-    // Scene ảnh tĩnh (ảnh minh họa AI) — cũng phải stage, nếu không Remotion
+    // Scene ảnh tĩnh (ảnh minh họa AI) - cũng phải stage, nếu không Remotion
     // load `assets/...` từ public/ và chết 404 giữa chừng.
     if (typeof scene.srcImage === "string" && scene.srcImage) {
       scene.srcImage = stage(scene.srcImage);
@@ -100,7 +100,7 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     for (const sfx of props.audio.sfx ?? []) {
       if (typeof sfx.file === "string" && sfx.file) sfx.file = stage(sfx.file);
     }
-    // Nhạc nền (file đã copy vào assets/ của project — xem skill background-music)
+    // Nhạc nền (file đã copy vào assets/ của project - xem skill background-music)
     const music = props.audio.music;
     if (music && typeof music.file === "string" && music.file) {
       music.file = stage(music.file);
@@ -118,8 +118,8 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
   const outAbs = path.join(paths.outputsDir, outName);
 
   ctx.progress(0, "Remotion render Assemble");
-  // Concurrency + --gl angle (GPU) lấy từ tab Cấu hình — Remotion mặc định render bằng CPU thuần
-  // Draft: CRF cao + x264 veryfast — encode CPU nhẹ đi nhiều, chất lượng draft không quan trọng
+  // Concurrency + --gl angle (GPU) lấy từ tab Cấu hình - Remotion mặc định render bằng CPU thuần
+  // Draft: CRF cao + x264 veryfast - encode CPU nhẹ đi nhiều, chất lượng draft không quan trọng
   const args = [
     remotionCli(),
     "render",

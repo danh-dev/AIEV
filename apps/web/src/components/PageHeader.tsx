@@ -8,7 +8,7 @@ export function PageHeader({
 }: {
   title: string;
   subtitle?: string;
-  /** Nội dung giữa hàng header (vd timeline giai đoạn) — cùng hàng, wrap khi hẹp. */
+  /** Nội dung giữa hàng header (vd timeline giai đoạn) - cùng hàng, wrap khi hẹp. */
   center?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -19,7 +19,7 @@ export function PageHeader({
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
       {/* Hàng 2: subtitle (kích thước/fps) bên trái + center (timeline) kéo dài
-          phần còn lại của hàng — tới lề phải vùng nội dung */}
+          phần còn lại của hàng - tới lề phải vùng nội dung */}
       {(subtitle || center) && (
         <div className="mt-0.5 flex flex-wrap items-center gap-y-2">
           {subtitle && (
@@ -31,7 +31,7 @@ export function PageHeader({
               {subtitle}
             </p>
           )}
-          {/* Timeline chiếm phần còn lại — mép trái ≈ cột Kịch bản edit, mép phải = hết vùng nội dung */}
+          {/* Timeline chiếm phần còn lại - mép trái ≈ cột Kịch bản edit, mép phải = hết vùng nội dung */}
           {center && <div className="min-w-64 max-w-full flex-1">{center}</div>}
         </div>
       )}

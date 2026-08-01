@@ -9,7 +9,7 @@ import { HttpError } from "../util.js";
  * POST /api/reveal { relPath } → 204
  * Mở đúng file được chọn trong trình quản lý file của MÁY CHẠY SERVER
  * (Explorer/Finder). Server chạy trên máy người dùng (localhost) nên đây là
- * thao tác hợp lệ — tương đương "Reveal in Explorer" của editor.
+ * thao tác hợp lệ - tương đương "Reveal in Explorer" của editor.
  *
  * An toàn: chặn path traversal (đường dẫn resolve phải nằm trong repo root)
  * và CHỈ cho phép dưới whitelist thư mục như /media.
@@ -46,7 +46,7 @@ router.post("/", (req: Request, res: Response) => {
       "relPath không hợp lệ (vượt ra ngoài repo)",
     );
   }
-  // Whitelist thư mục gốc — đồng bộ với /media
+  // Whitelist thư mục gốc - đồng bộ với /media
   const top = path.relative(repoRoot, abs).split(path.sep)[0];
   if (!ALLOWED_TOP.has(top)) {
     throw new HttpError(
@@ -69,7 +69,7 @@ router.post("/", (req: Request, res: Response) => {
   let cmd: string;
   let args: string[];
   if (process.platform === "win32") {
-    // Explorer cần "/select," DÍNH LIỀN đường dẫn trong cùng một argument —
+    // Explorer cần "/select," DÍNH LIỀN đường dẫn trong cùng một argument -
     // tách "/select," và path thành 2 arg thì Explorer không select đúng file.
     cmd = "explorer.exe";
     args = [`/select,${abs}`];
@@ -77,13 +77,13 @@ router.post("/", (req: Request, res: Response) => {
     cmd = "open";
     args = ["-R", abs];
   } else {
-    // Linux: xdg-open không select được file — mở thư mục chứa
+    // Linux: xdg-open không select được file - mở thư mục chứa
     cmd = "xdg-open";
     args = [path.dirname(abs)];
   }
   const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
   child.on("error", () => {
-    /* thiếu lệnh trên máy — không làm rơi server, người dùng vẫn nhận 204 */
+    /* thiếu lệnh trên máy - không làm rơi server, người dùng vẫn nhận 204 */
   });
   child.unref();
 

@@ -4,7 +4,7 @@ import { paths } from "./config.js";
 import { ensureDir, nowIso } from "./util.js";
 
 /**
- * Style Design — nhiều bộ nhận diện (thay thế Design System cũ).
+ * Style Design - nhiều bộ nhận diện (thay thế Design System cũ).
  * Nguồn sự thật: assets/styles/styles.json = { defaultId, styles: StyleDesign[] }.
  * Migration tự động: lần đọc đầu nếu styles.json chưa có mà assets/brand/design-system.json
  * có → chuyển thành style id "noti-vn" (tags ["brand"]) và làm default.
@@ -23,11 +23,11 @@ export interface StyleDesign {
     accent: string;
   };
   fonts: { heading: string; body: string };
-  /** File font của style (tính từ repo root, vd "assets/styles/files/x.woff2") — Poster nạp để chữ đúng font */
+  /** File font của style (tính từ repo root, vd "assets/styles/files/x.woff2") - Poster nạp để chữ đúng font */
   fontFiles: { heading: string | null; body: string | null };
-  /** Hiệu ứng thẩm mỹ của style — áp vào cả prompt Gemini lẫn Poster Remotion */
+  /** Hiệu ứng thẩm mỹ của style - áp vào cả prompt Gemini lẫn Poster Remotion */
   effects: { gradient: boolean; liquidGlass: boolean };
-  /** Đường dẫn logo tính từ repo root (vd "assets/styles/files/logo.png") — null = chưa có */
+  /** Đường dẫn logo tính từ repo root (vd "assets/styles/files/logo.png") - null = chưa có */
   logoPath: string | null;
   tone: string;
   guidelines: string;
@@ -46,7 +46,7 @@ export const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const stylesFilePath = () => path.join(paths.stylesDir, "styles.json");
 const legacyFilePath = () => path.join(paths.brandDir, "design-system.json");
 
-/** Style mặc định noti.vn — dùng làm template cho style mới và fallback khi chưa có style nào */
+/** Style mặc định noti.vn - dùng làm template cho style mới và fallback khi chưa có style nào */
 export function defaultStyle(): StyleDesign {
   const now = nowIso();
   return {
@@ -147,7 +147,7 @@ function migrateFromLegacy(): StylesFile | null {
   return data;
 }
 
-/** Đọc styles.json (migration lần đầu nếu cần) — file thiếu/hỏng đọc phòng thủ */
+/** Đọc styles.json (migration lần đầu nếu cần) - file thiếu/hỏng đọc phòng thủ */
 export function readStyles(): StylesFile {
   const file = stylesFilePath();
   if (!fs.existsSync(file)) {

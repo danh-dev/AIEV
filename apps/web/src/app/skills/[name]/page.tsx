@@ -57,7 +57,7 @@ export default function SkillDetailPage() {
     }
   }
 
-  // Modal xác nhận xóa skill — bắt gõ DELETE (thay window.confirm)
+  // Modal xác nhận xóa skill - bắt gõ DELETE (thay window.confirm)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -75,7 +75,7 @@ export default function SkillDetailPage() {
   }
 
   return (
-    // Full-width + editor cao hết viewport — tối đa diện tích soạn thảo
+    // Full-width + editor cao hết viewport - tối đa diện tích soạn thảo
     <div className="flex h-[calc(100vh-56px-40px)] w-full flex-col gap-4">
       <PageHeader
         title={name}
@@ -125,7 +125,7 @@ export default function SkillDetailPage() {
         ) : null}
       </Card>
 
-      {/* Modal xác nhận xóa skill — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa skill - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteOpen}
         title={t("skills.delete-title")}

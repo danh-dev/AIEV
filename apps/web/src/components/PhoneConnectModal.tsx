@@ -18,11 +18,11 @@ import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
 
 /**
- * Modal "Kết nối điện thoại" — hiện QR code mở trang upload mobile
+ * Modal "Kết nối điện thoại" - hiện QR code mở trang upload mobile
  * http://<ip-LAN>:6868/m/<projectId>. Điện thoại cùng WiFi quét QR là
  * upload video/ảnh thẳng vào assets của project (đường proxy /api, port 6868).
  * Nếu .env có TUNNEL_DOMAIN (Cloudflare Tunnel) thì option mặc định là
- * https://<domain>/m/<projectId> — dùng được qua 4G/5G, không cần cùng WiFi.
+ * https://<domain>/m/<projectId> - dùng được qua 4G/5G, không cần cùng WiFi.
  */
 
 /** Giá trị option "đi qua Cloudflare Tunnel" trong select Mạng (IP không bao giờ trùng). */
@@ -49,13 +49,13 @@ export function PhoneConnectModal({
   const [sel, setSel] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Token phiên upload — link/QR chỉ sống khi modal đang mở (bảo mật)
+  // Token phiên upload - link/QR chỉ sống khi modal đang mở (bảo mật)
   const [token, setToken] = useState<string | null>(null);
-  // Trạng thái cloudflared/tunnel — để bật/tắt đường Internet ngay trong modal
+  // Trạng thái cloudflared/tunnel - để bật/tắt đường Internet ngay trong modal
   const [tunnel, setTunnel] = useState<TunnelStatus | null>(null);
   const [tunnelBusy, setTunnelBusy] = useState<"start" | "stop" | null>(null);
   const [tunnelError, setTunnelError] = useState<string | null>(null);
-  // Vòng poll chạy async — dừng ngay khi modal đóng, không setState nữa
+  // Vòng poll chạy async - dừng ngay khi modal đóng, không setState nữa
   const openRef = useRef(open);
   useEffect(() => {
     openRef.current = open;
@@ -83,7 +83,7 @@ export function PhoneConnectModal({
     };
   }, [open]);
 
-  // Trạng thái tunnel mỗi lần mở modal — quyết định hiện nút Bật/Tắt Internet.
+  // Trạng thái tunnel mỗi lần mở modal - quyết định hiện nút Bật/Tắt Internet.
   // Lỗi ở đây không chặn QR LAN nên chỉ nuốt, không đẩy lên ErrorBanner.
   useEffect(() => {
     if (!open) return;
@@ -102,7 +102,7 @@ export function PhoneConnectModal({
   }, [open]);
 
   // Phiên upload: MỞ modal → tạo token (URL/QR mang ?k=); ĐÓNG modal
-  // (onClose/unmount) → thu hồi ngay — link trên điện thoại hết hiệu lực.
+  // (onClose/unmount) → thu hồi ngay - link trên điện thoại hết hiệu lực.
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -133,7 +133,7 @@ export function PhoneConnectModal({
         : `http://${sel}:${lan.webPort}/m/${projectId}?k=${token}`
       : null;
 
-  // Render QR client-side thành dataURL — không gọi service ngoài
+  // Render QR client-side thành dataURL - không gọi service ngoài
   useEffect(() => {
     if (!url) {
       setQr(null);
@@ -271,12 +271,12 @@ export function PhoneConnectModal({
       </p>
 
       {viaTunnel ? (
-        // Đang đi đường Internet qua Cloudflare Tunnel — không cần cùng WiFi
+        // Đang đi đường Internet qua Cloudflare Tunnel - không cần cùng WiFi
         <div className="flex flex-col gap-2">
           <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
             {t("phone.tunnel-active")}
           </p>
-          {/* Link Internet là public — nhắc tắt khi xong, kèm nút tắt tại chỗ */}
+          {/* Link Internet là public - nhắc tắt khi xong, kèm nút tắt tại chỗ */}
           <p className="text-xs text-[var(--text-muted)]">
             {t("phone.tunnel-warn")}{" "}
             <button
@@ -298,7 +298,7 @@ export function PhoneConnectModal({
             {t("phone.note")}
           </p>
 
-          {/* Dùng ngoài mạng LAN (4G/5G) — bật Cloudflare Tunnel ngay tại đây */}
+          {/* Dùng ngoài mạng LAN (4G/5G) - bật Cloudflare Tunnel ngay tại đây */}
           {tunnel && !tunnel.installed && (
             <p className="text-xs text-[var(--text-muted)]">
               {t("phone.tunnel-missing")}{" "}

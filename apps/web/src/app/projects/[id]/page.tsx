@@ -102,7 +102,7 @@ function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   }
 }
 
-/** File render của một scene — ưu tiên bản final trước draft. */
+/** File render của một scene - ưu tiên bản final trước draft. */
 function sceneRenderFile(scene: SceneMeta, renders: FileInfo[]): FileInfo | null {
   return (
     renders.find((f) => f.name === `${scene.id}.mp4`) ??
@@ -111,7 +111,7 @@ function sceneRenderFile(scene: SceneMeta, renders: FileInfo[]): FileInfo | null
   );
 }
 
-/** Bảng file render — click hàng mở modal preview lớn, nút Mở file reveal trong Explorer */
+/** Bảng file render - click hàng mở modal preview lớn, nút Mở file reveal trong Explorer */
 function FileTable({ files }: { files: FileInfo[] }) {
   const { t, tf } = useT();
   const [preview, setPreview] = useState<FileInfo | null>(null);
@@ -179,7 +179,7 @@ function FileTable({ files }: { files: FileInfo[] }) {
 }
 
 /**
- * Card Video output — trạng thái "AI đang tạo video" (phiên running) hiện TRÊN,
+ * Card Video output - trạng thái "AI đang tạo video" (phiên running) hiện TRÊN,
  * video đã có (project.output) hiện DƯỚI; chưa có gì thì empty state nhỏ.
  * Kèm khu Thumbnail: ảnh bìa đã tạo + nút "Tạo thumbnail" (POST đồng bộ ~1 phút).
  */
@@ -195,10 +195,10 @@ function VideoOutputCard({
   projectId: string;
   projectName?: string;
   output: string | null | undefined;
-  /** "thumbnail.png" nếu đã có — null/undefined = chưa tạo */
+  /** "thumbnail.png" nếu đã có - null/undefined = chưa tạo */
   thumbnail?: string | null;
   aiRunning: boolean;
-  /** updatedAt của project — cache-bust vì file draft ghi đè cùng tên */
+  /** updatedAt của project - cache-bust vì file draft ghi đè cùng tên */
   version?: string;
   /** Gọi sau khi tạo thumbnail xong để reload project */
   onChanged: () => void;
@@ -324,7 +324,7 @@ function VideoOutputCard({
         <EmptyState icon={MonitorPlay} description={t("project.no-output")} />
       ) : null}
 
-      {/* Khu Thumbnail — ảnh bìa của video (POST /api/projects/:id/thumbnail) */}
+      {/* Khu Thumbnail - ảnh bìa của video (POST /api/projects/:id/thumbnail) */}
       {(output || thumbnail) && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
           <div className="flex items-center justify-between gap-2">
@@ -373,7 +373,7 @@ function VideoOutputCard({
         onClose={() => setThumbPreview(false)}
       />
 
-      {/* Modal "Tạo thumbnail" — chạy đồng bộ ~1 phút */}
+      {/* Modal "Tạo thumbnail" - chạy đồng bộ ~1 phút */}
       <Modal
         title={t("project.create-thumb")}
         open={thumbOpen}
@@ -447,7 +447,7 @@ function VideoOutputCard({
         )}
       </Modal>
 
-      {/* Lightbox phóng to — click nền hoặc Escape để đóng */}
+      {/* Lightbox phóng to - click nền hoặc Escape để đóng */}
       {zoomed && output && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--text)]/80 p-6"
@@ -511,7 +511,7 @@ export default function ProjectDetailPage() {
   const { t, tf } = useT();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
-  // Jobs của project — nguồn suy giai đoạn cho PipelineTimeline; seed từ
+  // Jobs của project - nguồn suy giai đoạn cho PipelineTimeline; seed từ
   // /api/jobs rồi cập nhật sống qua SSE (backend là nguồn sự thật)
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -519,7 +519,7 @@ export default function ProjectDetailPage() {
   const [jobNotice, setJobNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Tags của project — sửa optimistic, lỗi thì revert
+  // Tags của project - sửa optimistic, lỗi thì revert
   const [addingTag, setAddingTag] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
@@ -534,15 +534,15 @@ export default function ProjectDetailPage() {
   // Modal "Bắt đầu edit bằng AI"
   const [editOpen, setEditOpen] = useState(false);
   const [extraNotes, setExtraNotes] = useState("");
-  // Model + mode cho phiên edit — giữ lựa chọn giữa các lần mở modal
+  // Model + mode cho phiên edit - giữ lựa chọn giữa các lần mở modal
   const [editModel, setEditModel] = useState(DEFAULT_MODEL);
   const [editEffort, setEditEffort] = useState<AgentEffort>(DEFAULT_EFFORT);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  // Bản nháp brief đang gõ trong form (chưa cần bấm Lưu) — modal + start edit dùng bản này
+  // Bản nháp brief đang gõ trong form (chưa cần bấm Lưu) - modal + start edit dùng bản này
   const [briefDraft, setBriefDraft] = useState<Brief | null>(null);
 
-  // Style Design — tên style hiển thị trong tóm tắt modal "Bắt đầu edit"
+  // Style Design - tên style hiển thị trong tóm tắt modal "Bắt đầu edit"
   const { data: stylesData } = useStyles();
 
   // Panel AI của project (chat đi theo project)
@@ -585,7 +585,7 @@ export default function ProjectDetailPage() {
       // Chưa chọn phiên nào → tự chọn phiên mới nhất
       setActiveSessionId((cur) => cur ?? list[0]?.sessionId ?? null);
     } catch {
-      // panel vẫn hoạt động được (empty state) — không chặn trang
+      // panel vẫn hoạt động được (empty state) - không chặn trang
       setChatSessions((s) => s ?? []);
     }
   }, [projectId]);
@@ -607,7 +607,7 @@ export default function ProjectDetailPage() {
     load();
   }, [load]);
 
-  // Tập sessionId thuộc project này — để lọc event agent
+  // Tập sessionId thuộc project này - để lọc event agent
   const sessionIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     sessionIdsRef.current = new Set(
@@ -647,7 +647,7 @@ export default function ProjectDetailPage() {
         if (alive) setJobs(list.filter((j) => j.projectId === projectId));
       })
       .catch(() => {
-        // không có jobs cũng không chặn trang — timeline tự ẩn/suy từ file
+        // không có jobs cũng không chặn trang - timeline tự ẩn/suy từ file
       });
     return () => {
       alive = false;
@@ -686,7 +686,7 @@ export default function ProjectDetailPage() {
     }
   }
 
-  // Xóa file rác — file trung gian sau khi xuất final (renders/verify/cache,
+  // Xóa file rác - file trung gian sau khi xuất final (renders/verify/cache,
   // props.resolved.json, draft lắp ráp, staging Remotion); file nguồn giữ nguyên
   const [cleaning, setCleaning] = useState(false);
   async function onCleanJunk() {
@@ -728,7 +728,7 @@ export default function ProjectDetailPage() {
     }
   }
 
-  /** Thay toàn bộ tags — optimistic: cập nhật UI trước, lỗi thì revert. */
+  /** Thay toàn bộ tags - optimistic: cập nhật UI trước, lỗi thì revert. */
   async function saveTags(next: string[]) {
     if (!project) return;
     const prev = project.tags ?? [];
@@ -753,7 +753,7 @@ export default function ProjectDetailPage() {
     saveTags([...cur, tag]);
   }
 
-  // Modal xác nhận xóa project — bắt gõ DELETE (thay window.confirm)
+  // Modal xác nhận xóa project - bắt gõ DELETE (thay window.confirm)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -776,7 +776,7 @@ export default function ProjectDetailPage() {
     setStarting(true);
     setStartError(null);
     try {
-      // Tự lưu brief đang gõ trước khi bắt đầu — người dùng không cần nhớ bấm "Lưu brief"
+      // Tự lưu brief đang gõ trước khi bắt đầu - người dùng không cần nhớ bấm "Lưu brief"
       if (briefDraft) {
         const saved = await updateBrief(projectId, briefDraft);
         setProject((p) => (p ? { ...p, brief: saved } : p));
@@ -785,7 +785,7 @@ export default function ProjectDetailPage() {
         model: editModel,
         effort: editEffort,
       });
-      // Không rời trang — mở panel AI, chọn phiên vừa tạo, log stream ngay tại chỗ
+      // Không rời trang - mở panel AI, chọn phiên vừa tạo, log stream ngay tại chỗ
       setEditOpen(false);
       setActiveSessionId(sessionId);
       setPanelOpen(true);
@@ -820,7 +820,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header chừa chỗ panel AI ghim phải như vùng nội dung — không thì timeline chui xuống dưới panel */}
+      {/* Header chừa chỗ panel AI ghim phải như vùng nội dung - không thì timeline chui xuống dưới panel */}
       <div className="xl:pr-[452px]">
       <PageHeader
         title={project?.name ?? projectId}
@@ -843,7 +843,7 @@ export default function ProjectDetailPage() {
         }
         actions={
           /* Nút job/Xóa đã chuyển vào panel AI (panel ghim phải che mất chỗ này)
-             — chỉ giữ nút toggle panel cho màn nhỏ */
+             - chỉ giữ nút toggle panel cho màn nhỏ */
           <Button
             variant="secondary"
             className="xl:hidden"
@@ -949,11 +949,11 @@ export default function ProjectDetailPage() {
         <ErrorBanner message={t("project.load-error")} detail={error} />
       )}
 
-      {/* Main content — panel AI ghim cố định bên phải (xl+), nội dung chính
+      {/* Main content - panel AI ghim cố định bên phải (xl+), nội dung chính
           chừa chỗ bằng padding-right. Hai trạng thái layout theo `started`. */}
       <div className="flex flex-col gap-4 xl:pr-[452px]">
         {!started ? (
-          /* Chưa started: đang nhập liệu — Asset + Brief full, ẩn card rỗng */
+          /* Chưa started: đang nhập liệu - Asset + Brief full, ẩn card rỗng */
           <>
             <div className="grid items-start gap-4 xl:grid-cols-5">
               <div className="flex flex-col gap-4 xl:col-span-2">
@@ -1008,7 +1008,7 @@ export default function ProjectDetailPage() {
             </Button>
           </>
         ) : (
-          /* Đã started: 3 cột dọc tự xếp — mỗi cột flex-col, card nối nhau
+          /* Đã started: 3 cột dọc tự xếp - mỗi cột flex-col, card nối nhau
              lấp kín (Brief/Video output ngắn không để lại khoảng trống chết) */
           <>
             <div className="grid items-start gap-4 xl:grid-cols-3">
@@ -1115,11 +1115,11 @@ export default function ProjectDetailPage() {
                                       Video · {s.srcVideo}
                                     </span>
                                   ) : (
-                                    "—"
+                                    "-"
                                   )}
                                 </td>
                                 <td className="text-[var(--text-muted)]">
-                                  {s.durationInFrames ?? "—"}
+                                  {s.durationInFrames ?? "-"}
                                 </td>
                                 <td>
                                   {rendered ? (
@@ -1178,7 +1178,7 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Panel AI — xl+ luôn hiển thị (fixed, cao hết viewport trừ topbar);
+      {/* Panel AI - xl+ luôn hiển thị (fixed, cao hết viewport trừ topbar);
           màn nhỏ là drawer overlay bật bằng nút AI */}
       {panelOpen && (
           <div
@@ -1193,7 +1193,7 @@ export default function ProjectDetailPage() {
           } fixed inset-y-0 right-0 z-40 w-full max-w-[440px] flex-col gap-3 border-l border-[var(--border)] bg-[var(--bg)] p-4 xl:top-14 xl:bottom-0 xl:z-20 xl:h-auto xl:w-[440px] xl:max-w-none xl:p-3`}
           aria-label={t("project.ai-panel-aria")}
         >
-          {/* Hàng nút chức năng — chuyển từ PageHeader vào (panel che mất chỗ cũ) */}
+          {/* Hàng nút chức năng - chuyển từ PageHeader vào (panel che mất chỗ cũ) */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
               <Button
@@ -1376,7 +1376,7 @@ export default function ProjectDetailPage() {
         onClose={() => setScenePreview(null)}
       />
 
-      {/* Modal xác nhận xóa project — bắt gõ DELETE */}
+      {/* Modal xác nhận xóa project - bắt gõ DELETE */}
       <ConfirmDeleteModal
         open={deleteOpen}
         title={t("project.delete-title")}
@@ -1397,7 +1397,7 @@ export default function ProjectDetailPage() {
         onConfirm={onDelete}
       />
 
-      {/* Modal nhân bản project — thành công thì chuyển thẳng sang project mới */}
+      {/* Modal nhân bản project - thành công thì chuyển thẳng sang project mới */}
       <CloneProjectModal
         source={
           cloneOpen

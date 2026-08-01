@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Trang Cấu hình — tăng tốc phần cứng + cài đặt render: worker Chrome
+ * Trang Cấu hình - tăng tốc phần cứng + cài đặt render: worker Chrome
  * (HyperFrames), GPU cho capture/encode, concurrency Remotion + queue, draft fps.
- * Mỗi thay đổi PUT ngay (auto-save) — server đọc settings mỗi lần job chạy
+ * Mỗi thay đổi PUT ngay (auto-save) - server đọc settings mỗi lần job chạy
  * và mỗi tick của queue nên hiệu lực NGAY, không cần restart.
  */
 
@@ -35,11 +35,11 @@ type SegValue = number | null;
 interface SegOption {
   value: SegValue;
   label: string;
-  /** Mốc khuyên dùng theo máy thật — hiển thị suffix ★. */
+  /** Mốc khuyên dùng theo máy thật - hiển thị suffix ★. */
   recommended?: boolean;
 }
 
-/** Các mốc worker/concurrency chuẩn — chỉ giữ mốc ≤ số luồng CPU của máy. */
+/** Các mốc worker/concurrency chuẩn - chỉ giữ mốc ≤ số luồng CPU của máy. */
 const WORKER_STEPS = [2, 4, 6, 8, 12, 16, 24];
 
 /** Sinh option ĐỘNG theo máy: Auto + mốc chuẩn ≤ maxWorkers (+ chính maxWorkers). */
@@ -59,7 +59,7 @@ function buildWorkerOptions(rec: RenderRecommended, recommendedValue: number): S
   ];
 }
 
-/** Fallback khi server cũ chưa trả recommended — giữ hành vi như trước. */
+/** Fallback khi server cũ chưa trả recommended - giữ hành vi như trước. */
 const RECOMMENDED_FALLBACK: RenderRecommended = {
   workers: 8,
   concurrency: 8,
@@ -73,14 +73,14 @@ const QUEUE_OPTIONS: SegOption[] = [
   { value: 4, label: "4" },
 ];
 
-// label "config.keep" là KEY dictionary — SegGroup dịch bằng t() lúc render.
+// label "config.keep" là KEY dictionary - SegGroup dịch bằng t() lúc render.
 const DRAFT_FPS_OPTIONS: SegOption[] = [
   { value: null, label: "config.keep" },
   { value: 15, label: "15 fps" },
   { value: 24, label: "24 fps" },
 ];
 
-/** Nhóm nút chọn một giá trị — style giống bộ chọn tỉ lệ của Tạo ảnh. */
+/** Nhóm nút chọn một giá trị - style giống bộ chọn tỉ lệ của Tạo ảnh. */
 function SegGroup({
   options,
   value,
@@ -204,10 +204,10 @@ function ToggleRow({
   );
 }
 
-/** Card phần cứng — 3 khối CPU / RAM / GPU (tên + dòng chi tiết) + badges. */
+/** Card phần cứng - 3 khối CPU / RAM / GPU (tên + dòng chi tiết) + badges. */
 function HardwareCard({ hw }: { hw: HardwareInfo }) {
   const { t } = useT();
-  // CPU: "6 cores · 12 threads · up to 4.1 GHz" — phần nào không tra được thì bỏ
+  // CPU: "6 cores · 12 threads · up to 4.1 GHz" - phần nào không tra được thì bỏ
   const cpuDetail = [
     hw.cpuCores ? `${hw.cpuCores} cores` : `${hw.cpuThreads} cores`,
     hw.cpuCores ? `${hw.cpuThreads} threads` : null,
@@ -215,7 +215,7 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
   ]
     .filter(Boolean)
     .join(" · ");
-  // Tên CPU thường tự chứa "@ x.xGHz" ở cuối — cắt cho gọn (đã có "up to" ở dòng chi tiết)
+  // Tên CPU thường tự chứa "@ x.xGHz" ở cuối - cắt cho gọn (đã có "up to" ở dòng chi tiết)
   const cpuName = hw.cpuModel.replace(/\s*CPU\s*@.*$/i, "").replace(/\s*@.*$/, "").trim();
 
   const blocks = [
@@ -332,7 +332,7 @@ export default function ConfigPage() {
 
   /**
    * Cập nhật lạc quan + PUT ngay; lỗi thì rollback về settings trước đó.
-   * Fetch nằm NGOÀI state updater — updater phải thuần (StrictMode chạy 2 lần
+   * Fetch nằm NGOÀI state updater - updater phải thuần (StrictMode chạy 2 lần
    * → fetch trong updater là double-fire PUT).
    */
   const apply = useCallback(
@@ -357,7 +357,7 @@ export default function ConfigPage() {
 
   const settings = data?.settings ?? null;
   const hw = data?.hardware ?? null;
-  /** Khuyến nghị theo máy thật — fallback giữ mốc cũ nếu server chưa trả. */
+  /** Khuyến nghị theo máy thật - fallback giữ mốc cũ nếu server chưa trả. */
   const rec = data?.recommended ?? RECOMMENDED_FALLBACK;
   const workerOptions = buildWorkerOptions(rec, rec.workers);
   const remotionOptions = buildWorkerOptions(rec, rec.concurrency);
@@ -413,7 +413,7 @@ export default function ConfigPage() {
             </div>
           }
         >
-          {/* 2 cột nội bộ trên md+ — mỗi cột một nhóm setting, mobile xếp dọc */}
+          {/* 2 cột nội bộ trên md+ - mỗi cột một nhóm setting, mobile xếp dọc */}
           <div className="grid md:grid-cols-2 md:gap-x-10">
             {/* Cột trái: HyperFrames capture + encode GPU */}
             <div className="divide-y divide-[var(--border)] pb-4 md:pb-0">

@@ -53,13 +53,13 @@ try {
 } catch {
   /* cột đã tồn tại */
 }
-// Migration: trạng thái phiên AI — bền vững qua restart/tắt UI (idle|running|done|error|interrupted)
+// Migration: trạng thái phiên AI - bền vững qua restart/tắt UI (idle|running|done|error|interrupted)
 try {
   db.exec("ALTER TABLE chat_sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'idle'");
 } catch {
   /* cột đã tồn tại */
 }
-// Migration: chọn model Claude + effort (mode) cho phiên chat — xem docs/API.md mục AI Providers
+// Migration: chọn model Claude + effort (mode) cho phiên chat - xem docs/API.md mục AI Providers
 try {
   db.exec("ALTER TABLE chat_sessions ADD COLUMN model TEXT");
 } catch {
@@ -70,7 +70,7 @@ try {
 } catch {
   /* cột đã tồn tại */
 }
-// Migration: thời gian chạy bền vững + auto-resume (docs/API.md mục Chat) —
+// Migration: thời gian chạy bền vững + auto-resume (docs/API.md mục Chat) -
 // PHẢI chạy trước UPDATE 'running'→'interrupted' bên dưới (SELECT cần cột autoResume)
 try {
   db.exec("ALTER TABLE chat_sessions ADD COLUMN runStartedAt TEXT");
@@ -92,14 +92,14 @@ try {
 } catch {
   /* cột đã tồn tại */
 }
-// Migration: mục tiêu của phiên — 'final' = phiên edit project, chỉ coi là hoàn thành khi
+// Migration: mục tiêu của phiên - 'final' = phiên edit project, chỉ coi là hoàn thành khi
 // video final tồn tại thật (gate trong agent.ts); null = chat thường, không gate
 try {
   db.exec("ALTER TABLE chat_sessions ADD COLUMN goal TEXT");
 } catch {
   /* cột đã tồn tại */
 }
-// Migration: bằng chứng tiến bộ của lượt chạy gần nhất (jobs done + renders/ + output) —
+// Migration: bằng chứng tiến bộ của lượt chạy gần nhất (jobs done + renders/ + output) -
 // agent.ts so sánh trước khi bump resumeAttempts: có tiến bộ thì reset đếm về 0
 try {
   db.exec("ALTER TABLE chat_sessions ADD COLUMN progressMark TEXT");
@@ -114,7 +114,7 @@ db.prepare(
 ).run();
 
 /**
- * Phiên đang 'running' lúc server tắt (ngay dưới sẽ bị đánh 'interrupted') có autoResume bật —
+ * Phiên đang 'running' lúc server tắt (ngay dưới sẽ bị đánh 'interrupted') có autoResume bật -
  * đọc MỘT LẦN lúc boot; index.ts dùng danh sách này để tự chạy tiếp ~15s sau khi server lên.
  */
 export const startupInterruptedSessions: string[] = (
@@ -131,7 +131,7 @@ db.prepare(
   "UPDATE chat_sessions SET status = 'interrupted', runFinishedAt = COALESCE(runFinishedAt, ?) WHERE status = 'running'",
 ).run(nowIso());
 
-// Theo dõi token AI đã dùng — mỗi lượt runAgent kết thúc ghi một dòng
+// Theo dõi token AI đã dùng - mỗi lượt runAgent kết thúc ghi một dòng
 db.exec(`
   CREATE TABLE IF NOT EXISTS token_usage (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,7 +252,7 @@ export function getRunningJob(): JobRow | undefined {
     | undefined;
 }
 
-/** Project đang có job running/queued? — chặn thao tác dọn file trung gian khi job cần chúng */
+/** Project đang có job running/queued? - chặn thao tác dọn file trung gian khi job cần chúng */
 export function hasActiveJobForProject(projectId: string): boolean {
   const row = db
     .prepare(
@@ -295,25 +295,25 @@ export interface ChatSessionRow {
   sessionId: string;
   sdkSessionId: string | null;
   title: string;
-  /** Project mà phiên chat này thuộc về (phiên edit từ project) — null nếu chat tự do */
+  /** Project mà phiên chat này thuộc về (phiên edit từ project) - null nếu chat tự do */
   projectId: string | null;
-  /** Trạng thái làm việc của agent — bền vững, UI đọc lại được sau khi tắt/mở */
+  /** Trạng thái làm việc của agent - bền vững, UI đọc lại được sau khi tắt/mở */
   status: ChatSessionStatus;
-  /** Model Claude cho phiên (options.model của Agent SDK) — null = mặc định của SDK */
+  /** Model Claude cho phiên (options.model của Agent SDK) - null = mặc định của SDK */
   model: string | null;
-  /** Mức effort ("low"|"medium"|"high") — null = mặc định của SDK */
+  /** Mức effort ("low"|"medium"|"high") - null = mặc định của SDK */
   effort: string | null;
-  /** ISO — lúc lượt chạy hiện tại BẮT ĐẦU (không reset khi auto-resume) */
+  /** ISO - lúc lượt chạy hiện tại BẮT ĐẦU (không reset khi auto-resume) */
   runStartedAt: string | null;
-  /** ISO — lúc lượt chạy kết thúc hẳn; null khi đang chạy */
+  /** ISO - lúc lượt chạy kết thúc hẳn; null khi đang chạy */
   runFinishedAt: string | null;
-  /** Tự chạy tiếp khi gián đoạn — SQLite lưu 0/1; route convert sang boolean khi trả JSON */
+  /** Tự chạy tiếp khi gián đoạn - SQLite lưu 0/1; route convert sang boolean khi trả JSON */
   autoResume: number;
   /** Số lần auto-resume liên tiếp của lượt hiện tại (reset khi user gửi message mới) */
   resumeAttempts: number;
   /** Mục tiêu phiên: "final" = phiên edit project, chỉ xong khi video final tồn tại; null = chat thường */
   goal: string | null;
-  /** Bằng chứng tiến bộ của lượt chạy trước (agent.ts computeProgressMark) — so sánh để reset resumeAttempts */
+  /** Bằng chứng tiến bộ của lượt chạy trước (agent.ts computeProgressMark) - so sánh để reset resumeAttempts */
   progressMark: string | null;
   createdAt: string;
   updatedAt: string;
@@ -352,16 +352,16 @@ export interface UsageTimelinePoint {
   tokensIn: number;
   tokensOut: number;
   costUsd: number;
-  /** Phân loại theo AI — cột tổng + đường theo từng provider trên chart (tổng tokens) */
+  /** Phân loại theo AI - cột tổng + đường theo từng provider trên chart (tổng tokens) */
   byProvider: Record<string, number>;
 }
 
-/** Bộ lọc loại project cho timeline — xem docs/API.md mục Token Usage */
+/** Bộ lọc loại project cho timeline - xem docs/API.md mục Token Usage */
 export type UsageScope = "all" | "video" | "image";
 
 /**
- * Token theo ngày (UTC, yyyy-mm-dd) trong `days` ngày gần nhất — cho biểu đồ Dashboard.
- * scope: phân loại projectId theo folder tồn tại trên đĩa (resolve mỗi request —
+ * Token theo ngày (UTC, yyyy-mm-dd) trong `days` ngày gần nhất - cho biểu đồ Dashboard.
+ * scope: phân loại projectId theo folder tồn tại trên đĩa (resolve mỗi request -
  * project bị xóa thì dòng token của nó rơi về nhóm "còn lại", chỉ tính vào "all").
  */
 export function usageTimeline(days: number, scope: UsageScope = "all"): UsageTimelinePoint[] {
@@ -383,7 +383,7 @@ export function usageTimeline(days: number, scope: UsageScope = "all"): UsageTim
     costUsd: number;
   }>;
 
-  // Cache phân loại theo request — tránh existsSync lặp lại cho cùng projectId
+  // Cache phân loại theo request - tránh existsSync lặp lại cho cùng projectId
   const kindCache = new Map<string, "video" | "image" | "other">();
   const classify = (projectId: string | null): "video" | "image" | "other" => {
     if (!projectId) return "other";
@@ -416,7 +416,7 @@ export function usageTimeline(days: number, scope: UsageScope = "all"): UsageTim
   return [...byDate.values()];
 }
 
-/** Tổng toàn bảng token_usage (kể cả projectId null) — cho /api/usage/summary */
+/** Tổng toàn bảng token_usage (kể cả projectId null) - cho /api/usage/summary */
 export function usageTotals(): {
   tokens: number;
   costUsd: number;
@@ -470,7 +470,7 @@ export function createChatSession(
   return getChatSession(sessionId)!;
 }
 
-/** Cập nhật model/effort cho phiên có sẵn — chỉ ghi field được truyền (undefined = giữ nguyên) */
+/** Cập nhật model/effort cho phiên có sẵn - chỉ ghi field được truyền (undefined = giữ nguyên) */
 export function setChatSessionModelEffort(
   sessionId: string,
   model?: string,
@@ -514,7 +514,7 @@ export function touchChatSession(sessionId: string): void {
   );
 }
 
-/** Bắt đầu một lượt chạy MỚI (user gửi message) — reset mốc thời gian + đếm resume */
+/** Bắt đầu một lượt chạy MỚI (user gửi message) - reset mốc thời gian + đếm resume */
 export function startChatRun(sessionId: string): void {
   const now = nowIso();
   db.prepare(
@@ -530,7 +530,7 @@ export function finishChatRun(sessionId: string): void {
   ).run(now, now, sessionId);
 }
 
-/** Reset đếm auto-resume về 0 — gọi khi phát hiện CÓ tiến bộ thật giữa hai lượt chạy */
+/** Reset đếm auto-resume về 0 - gọi khi phát hiện CÓ tiến bộ thật giữa hai lượt chạy */
 export function resetResumeAttempts(sessionId: string): void {
   db.prepare(
     "UPDATE chat_sessions SET resumeAttempts = 0, updatedAt = ? WHERE sessionId = ?",
@@ -544,7 +544,7 @@ export function setProgressMark(sessionId: string, mark: string): void {
   ).run(mark, nowIso(), sessionId);
 }
 
-/** Số job done của project — một phần bằng chứng tiến bộ của phiên edit */
+/** Số job done của project - một phần bằng chứng tiến bộ của phiên edit */
 export function countDoneJobsForProject(projectId: string): number {
   const row = db
     .prepare("SELECT COUNT(*) AS n FROM jobs WHERE projectId = ? AND status = 'done'")

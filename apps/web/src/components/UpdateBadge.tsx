@@ -35,7 +35,7 @@ export function UpdateBadge() {
       const s = await checkUpdate(force);
       if (aliveRef.current) setStatus(s);
     } catch {
-      // Không kết nối được backend — im lặng, sidebar không được vỡ
+      // Không kết nối được backend - im lặng, sidebar không được vỡ
     } finally {
       if (aliveRef.current) setChecking(false);
     }
@@ -59,7 +59,7 @@ export function UpdateBadge() {
 
   // Đang update: chờ health chết trước rồi sống lại → reload.
   // Quá UPDATE_TIMEOUT_MS mà không thấy chu kỳ chết+sống → script update có thể
-  // đã thoát vì pull fail (server cũ vẫn chạy) — báo lỗi + chỉ tới update.log.
+  // đã thoát vì pull fail (server cũ vẫn chạy) - báo lỗi + chỉ tới update.log.
   useEffect(() => {
     if (!updating) return;
     let alive = true;
@@ -204,7 +204,7 @@ export function UpdateBadge() {
         <span className="text-xs font-medium">{t("update.available")}</span>
       </div>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {tf("update.behind", { n: status.behind })}{message ? ` — ${message}` : ""}
+        {tf("update.behind", { n: status.behind })}{message ? ` - ${message}` : ""}
       </p>
       {notice && <p className="mt-1 text-xs text-[var(--danger)]">{notice}</p>}
       <button

@@ -21,7 +21,7 @@ export interface SfxEntry {
   description: string;
 }
 
-/** Tag quy ước "đề xuất" — AI ưu tiên dùng khi brief đặt sfxMode "recommended" */
+/** Tag quy ước "đề xuất" - AI ưu tiên dùng khi brief đặt sfxMode "recommended" */
 export const RECOMMENDED_TAG = "hay-dung";
 
 const libraryPath = () => path.join(paths.sfxDir, "library.json");
@@ -61,13 +61,13 @@ const upload = multer({
   limits: { fileSize: 200 * 1024 * 1024 },
 });
 
-// GET /api/sfx — chỉ trả entry có file tồn tại trên đĩa
+// GET /api/sfx - chỉ trả entry có file tồn tại trên đĩa
 router.get("/", (_req, res) => {
   const entries = readLibrary().filter((e) => fs.existsSync(path.join(paths.sfxDir, e.file)));
   res.json(entries);
 });
 
-// POST /api/sfx — multipart: file (audio) + tags (csv) + description
+// POST /api/sfx - multipart: file (audio) + tags (csv) + description
 router.post("/", upload.single("file"), async (req, res) => {
   const uploaded = req.file;
   if (!uploaded) throw new HttpError(400, "FILE_REQUIRED", "Thiếu file audio (field `file`)");
@@ -120,7 +120,7 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// PATCH /api/sfx/:file — { description?, tags?, recommended? } → SfxEntry sau cập nhật
+// PATCH /api/sfx/:file - { description?, tags?, recommended? } → SfxEntry sau cập nhật
 router.patch("/:file", (req, res) => {
   const file = path.basename(req.params.file); // chặn traversal
   const entries = readLibrary();

@@ -11,10 +11,10 @@ const CONFIRM_TEXT = "DELETE";
 
 /**
  * Modal xác nhận xóa dùng chung cho MỌI hành động xóa phá hủy dữ liệu:
- * bắt gõ đúng chữ DELETE mới cho bấm Xóa — thay thế window.confirm.
+ * bắt gõ đúng chữ DELETE mới cho bấm Xóa - thay thế window.confirm.
  *
  * Lưu ý: hành động không phá hủy dữ liệu nguồn (vd "Xóa file rác") KHÔNG
- * dùng modal này — giữ confirm thường.
+ * dùng modal này - giữ confirm thường.
  */
 export function ConfirmDeleteModal({
   open,
@@ -29,7 +29,7 @@ export function ConfirmDeleteModal({
   onConfirm,
 }: {
   open: boolean;
-  /** Tiêu đề modal — hiển thị màu đỏ (danger). Mặc định t("confirm.title"). */
+  /** Tiêu đề modal - hiển thị màu đỏ (danger). Mặc định t("confirm.title"). */
   title?: string;
   /** Mô tả đối tượng sắp xóa + hậu quả. */
   description?: ReactNode;
@@ -39,7 +39,7 @@ export function ConfirmDeleteModal({
   busy?: boolean;
   busyLabel?: string;
   confirmLabel?: string;
-  /** Lỗi từ lần xóa trước (nếu có) — hiển thị trong modal. */
+  /** Lỗi từ lần xóa trước (nếu có) - hiển thị trong modal. */
   error?: string | null;
   onClose: () => void;
   onConfirm: () => void;
@@ -47,7 +47,7 @@ export function ConfirmDeleteModal({
   const { t, tf } = useT();
   const [text, setText] = useState("");
 
-  // Mỗi lần mở lại modal thì input về rỗng — không "nhớ" DELETE của lần trước
+  // Mỗi lần mở lại modal thì input về rỗng - không "nhớ" DELETE của lần trước
   useEffect(() => {
     if (open) setText("");
   }, [open]);

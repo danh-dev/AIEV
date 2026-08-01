@@ -4,7 +4,7 @@
  * Phần dùng chung của tính năng Tạo ảnh:
  * - nhãn loại ảnh / tỉ lệ / trạng thái (ImageStatusBadge, AspectChip)
  * - ImageProjectFields: form prompt + loại + tỉ lệ + overlay chữ (Remotion đặt)
- *   — dùng ở cả modal "Tạo ảnh mới" và trang chi tiết images/[id].
+ *   - dùng ở cả modal "Tạo ảnh mới" và trang chi tiết images/[id].
  */
 
 import { Loader2, Plus, X } from "lucide-react";
@@ -22,8 +22,8 @@ import { StyleSelect } from "@/components/StyleSelect";
 import { useT } from "@/lib/i18n";
 
 /**
- * Danh sách model ảnh Gemini live — lazy: chỉ fetch khi user chạm vào select
- * lần đầu (load()). Không cache cứng phía client — server đã cache 1h, mỗi lần
+ * Danh sách model ảnh Gemini live - lazy: chỉ fetch khi user chạm vào select
+ * lần đầu (load()). Không cache cứng phía client - server đã cache 1h, mỗi lần
  * mount hook lại là một lần fetch mới để nhận model Google vừa phát hành.
  */
 export function useGeminiImageModels() {
@@ -51,7 +51,7 @@ export function useGeminiImageModels() {
 
 // ---- Nhãn & options ----
 
-// label là KEY dictionary — dịch bằng t() lúc render.
+// label là KEY dictionary - dịch bằng t() lúc render.
 export const KIND_OPTIONS: { value: ImageKind; label: string }[] = [
   { value: "background", label: "imageForm.kind.background" },
   { value: "3d", label: "imageForm.kind.3d" },
@@ -77,7 +77,7 @@ export const ASPECT_OPTIONS: {
   { value: "4:5", width: 1080, height: 1350, note: "imageForm.aspect.feed" },
 ];
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 export const STATUS_LABEL: Record<ImageProjectStatus, string> = {
   draft: "imageForm.status.draft",
   generating: "imageForm.status.generating",
@@ -104,7 +104,7 @@ export function ImageStatusBadge({ status }: { status: ImageProjectStatus }) {
   );
 }
 
-/** Icon thuần CSS mô phỏng tỉ lệ khung — cùng kiểu preset video ở trang Projects. */
+/** Icon thuần CSS mô phỏng tỉ lệ khung - cùng kiểu preset video ở trang Projects. */
 export function AspectIcon({
   width,
   height,
@@ -112,7 +112,7 @@ export function AspectIcon({
 }: {
   width: number;
   height: number;
-  /** Cạnh dài của icon (px) — 20 cho bản gọn ở trang chi tiết. */
+  /** Cạnh dài của icon (px) - 20 cho bản gọn ở trang chi tiết. */
   size?: number;
 }) {
   const style =
@@ -141,15 +141,15 @@ export const DEFAULT_OVERLAY: ImageOverlay = {
   showLogo: true,
 };
 
-/** Giá trị form (không gồm tên) — modal tạo mới và trang chi tiết dùng chung. */
+/** Giá trị form (không gồm tên) - modal tạo mới và trang chi tiết dùng chung. */
 export interface ImageDraft {
   prompt: string;
   kind: ImageKind;
   aspect: ImageAspect;
   overlay: ImageOverlay;
-  /** Model Gemini tạo nền — null = mặc định của server (Nano Banana 2). */
+  /** Model Gemini tạo nền - null = mặc định của server (Nano Banana 2). */
   model: string | null;
-  /** Style Design ảnh phải tuân theo — null = style mặc định. */
+  /** Style Design ảnh phải tuân theo - null = style mặc định. */
   styleId: string | null;
 }
 
@@ -162,7 +162,7 @@ export const DEFAULT_IMAGE_DRAFT: ImageDraft = {
   styleId: null,
 };
 
-/** Heading section 12px uppercase + divider mảnh — dùng ở chế độ sectioned. */
+/** Heading section 12px uppercase + divider mảnh - dùng ở chế độ sectioned. */
 export function FormSectionHeading({ children }: { children: ReactNode }) {
   return (
     <p className="border-t border-[var(--border)] pt-3 text-xs font-semibold tracking-wide text-[var(--text-muted)] uppercase">
@@ -182,13 +182,13 @@ export function ImageProjectFields({
   value: ImageDraft;
   onChange: (patch: Partial<ImageDraft>) => void;
   disabled?: boolean;
-  /** Tiền tố id các control — tránh trùng id khi form xuất hiện 2 nơi. */
+  /** Tiền tố id các control - tránh trùng id khi form xuất hiện 2 nơi. */
   idPrefix: string;
   /** false = ẩn select model (trang chi tiết đã có select riêng ở hàng hành động). */
   showModel?: boolean;
   /**
    * true = chia form thành section có divider + heading uppercase
-   * ("Định dạng", "Chữ trên ảnh…") và grid tỉ lệ gọn hơn — trang chi tiết dùng.
+   * ("Định dạng", "Chữ trên ảnh…") và grid tỉ lệ gọn hơn - trang chi tiết dùng.
    */
   sectioned?: boolean;
 }) {

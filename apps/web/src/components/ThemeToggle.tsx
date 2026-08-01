@@ -28,7 +28,7 @@ export function ThemeToggle() {
     try {
       localStorage.setItem("theme", next);
     } catch {
-      // localStorage bị chặn — vẫn đổi theme cho phiên hiện tại
+      // localStorage bị chặn - vẫn đổi theme cho phiên hiện tại
     }
     if (next === "dark") {
       document.documentElement.setAttribute("data-theme", "dark");

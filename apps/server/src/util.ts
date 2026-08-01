@@ -5,7 +5,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import type { Request } from "express";
 import { repoRoot } from "./config.js";
 
-/** Lỗi HTTP có mã — error handler ở index.ts sẽ trả { error: { code, message } } */
+/** Lỗi HTTP có mã - error handler ở index.ts sẽ trả { error: { code, message } } */
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -30,7 +30,7 @@ const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
  * Next.js (proxy /api, /media của web 6868) LUÔN set x-forwarded-host /
  * x-forwarded-port / x-forwarded-for cho mọi request nó chuyển tiếp
  * (base-server.js: `req.headers['x-forwarded-host'] ??= ...`), và client không
- * gỡ được các header đó — nên mọi request đi qua proxy (kể cả từ LAN hay
+ * gỡ được các header đó - nên mọi request đi qua proxy (kể cả từ LAN hay
  * Cloudflare Tunnel) đều KHÔNG được coi là local, dù socket là 127.0.0.1.
  */
 export function isLocalRequest(req: Request): boolean {
@@ -47,7 +47,7 @@ export function isLocalRequest(req: Request): boolean {
   return LOOPBACK.has(addr);
 }
 
-/** So sánh chuỗi bí mật theo thời gian hằng — tránh timing attack đoán token */
+/** So sánh chuỗi bí mật theo thời gian hằng - tránh timing attack đoán token */
 export function secretEquals(a: string, b: string): boolean {
   if (!a || !b) return false;
   const bufA = Buffer.from(a, "utf8");
@@ -62,7 +62,7 @@ export function isKebabCase(s: string): boolean {
   return KEBAB_RE.test(s);
 }
 
-/** Ép chuỗi (tên file, id) về ASCII kebab-case — bỏ dấu tiếng Việt, đ→d */
+/** Ép chuỗi (tên file, id) về ASCII kebab-case - bỏ dấu tiếng Việt, đ→d */
 export function toKebabAscii(input: string): string {
   return input
     .normalize("NFD")
@@ -103,7 +103,7 @@ export function fileKind(name: string): FileKind {
   return "other";
 }
 
-/** relPath luôn tính từ repo root, dấu / — dùng thẳng cho /media/<relPath> */
+/** relPath luôn tính từ repo root, dấu / - dùng thẳng cho /media/<relPath> */
 export function toRepoRel(absPath: string): string {
   return path.relative(repoRoot, absPath).split(path.sep).join("/");
 }
@@ -150,7 +150,7 @@ export function moveFile(src: string, dst: string): void {
   }
 }
 
-/** Kill cả cây process (Windows: taskkill /t — npx/shell spawn con như node/chromium/ffprobe) */
+/** Kill cả cây process (Windows: taskkill /t - npx/shell spawn con như node/chromium/ffprobe) */
 export function killTree(child: ChildProcess): void {
   if (!child.pid) return;
   if (process.platform === "win32") {
@@ -167,7 +167,7 @@ export function killTree(child: ChildProcess): void {
 }
 
 /**
- * Chạy một lệnh lấy stdout — KHÔNG qua shell (argv array), nên tên file/tham số
+ * Chạy một lệnh lấy stdout - KHÔNG qua shell (argv array), nên tên file/tham số
  * chứa ký tự đặc biệt (`&`, `|`, `"`, `$(...)`) không thể thoát ra thành lệnh khác.
  * reject nếu exit != 0 hoặc quá timeout.
  */
@@ -217,12 +217,12 @@ export function execFileCapture(
  * Dùng thay cho `npx <cli>`: chạy `process.execPath <binJs> ...` bằng execFile
  * KHÔNG shell. Trên Windows không thể spawn `npx.cmd` khi shell:false (Node
  * chặn .cmd/.bat từ bản vá CVE-2024-27980), nên gọi thẳng file .js/.mjs là
- * cách duy nhất vừa không shell vừa chạy được — lại nhanh hơn vì bỏ qua npx.
+ * cách duy nhất vừa không shell vừa chạy được - lại nhanh hơn vì bỏ qua npx.
  */
 export function cliJsPath(pkg: string, binName: string): string {
   const pkgJson = path.join(repoRoot, "node_modules", ...pkg.split("/"), "package.json");
   if (!fs.existsSync(pkgJson)) {
-    throw new Error(`Chưa cài package "${pkg}" — chạy npm install ở repo root`);
+    throw new Error(`Chưa cài package "${pkg}" - chạy npm install ở repo root`);
   }
   const raw = JSON.parse(fs.readFileSync(pkgJson, "utf8")) as {
     bin?: string | Record<string, string>;

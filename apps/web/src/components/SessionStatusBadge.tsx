@@ -4,12 +4,12 @@ import type { ChatSessionStatus } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
 /**
- * Badge trạng thái phiên AI — dùng ở panel AI của project, header ChatThread
+ * Badge trạng thái phiên AI - dùng ở panel AI của project, header ChatThread
  * và mọi nơi liệt kê session. running có chấm nhấp nháy để thấy ngay là
  * phiên còn sống.
  */
 
-// Giá trị là KEY dictionary — dịch bằng t() lúc render.
+// Giá trị là KEY dictionary - dịch bằng t() lúc render.
 const LABEL: Record<ChatSessionStatus, string> = {
   idle: "badge.session.idle",
   running: "badge.session.running",
@@ -27,7 +27,7 @@ const TONE: Record<ChatSessionStatus, string> = {
 };
 
 /**
- * Label thuần chữ — dùng trong <option> của dropdown (không render JSX được).
+ * Label thuần chữ - dùng trong <option> của dropdown (không render JSX được).
  * Nhận t từ useT() của caller để dịch đúng ngôn ngữ.
  */
 export function sessionStatusLabel(

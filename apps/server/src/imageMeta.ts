@@ -4,7 +4,7 @@ import { paths } from "./config.js";
 import { HttpError, ensureDir, isKebabCase, nowIso, toKebabAscii } from "./util.js";
 
 /**
- * Image project — tạo ảnh AI (Gemini nền + Remotion hoàn thiện).
+ * Image project - tạo ảnh AI (Gemini nền + Remotion hoàn thiện).
  * Nguồn sự thật: image-projects/<id>/meta.json (shape ImageProject trong docs/API.md).
  */
 
@@ -23,7 +23,7 @@ export type ImageAspect = (typeof IMAGE_ASPECTS)[number];
 
 export type ImageStatus = "draft" | "generating" | "done" | "error";
 
-/** Bước của job "image-gen" — lưu trong cột sceneId của job */
+/** Bước của job "image-gen" - lưu trong cột sceneId của job */
 export const IMAGE_GEN_STEPS = ["all", "background", "compose"] as const;
 export type ImageGenStep = (typeof IMAGE_GEN_STEPS)[number];
 
@@ -47,14 +47,14 @@ export interface ImageProject {
   kind: ImageKind;
   aspect: ImageAspect;
   status: ImageStatus;
-  /** Model Gemini tạo nền (IMAGE_MODELS trong gemini.ts) — null = mặc định Nano Banana 2 */
+  /** Model Gemini tạo nền (IMAGE_MODELS trong gemini.ts) - null = mặc định Nano Banana 2 */
   model: string | null;
-  /** Style Design áp dụng khi generate (id trong assets/styles/styles.json) — null = style default */
+  /** Style Design áp dụng khi generate (id trong assets/styles/styles.json) - null = style default */
   styleId: string | null;
   overlay: ImageOverlay;
-  /** Tên file nền trong image-projects/<id>/ (vd "background.png") — null = chưa có */
+  /** Tên file nền trong image-projects/<id>/ (vd "background.png") - null = chưa có */
   background: string | null;
-  /** Tên file ảnh hoàn thiện (vd "final.png") — null = chưa compose */
+  /** Tên file ảnh hoàn thiện (vd "final.png") - null = chưa compose */
   final: string | null;
   error: string | null;
   createdAt: string;
@@ -77,7 +77,7 @@ export function defaultOverlay(): ImageOverlay {
   return { title: "", subtitle: "", stats: [], cta: "", showLogo: true };
 }
 
-/** Merge overlay partial (không tin dữ liệu ngoài) lên base — field thiếu/sai kiểu giữ base */
+/** Merge overlay partial (không tin dữ liệu ngoài) lên base - field thiếu/sai kiểu giữ base */
 export function normOverlay(raw: unknown, base: ImageOverlay = defaultOverlay()): ImageOverlay {
   const out: ImageOverlay = { ...base, stats: [...base.stats] };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
@@ -127,7 +127,7 @@ function normImageMeta(id: string, raw: unknown, mtimeIso: string): ImageProject
   };
 }
 
-/** Đọc meta.json của image project — ném HttpError 400/404/500 như readMeta của video project */
+/** Đọc meta.json của image project - ném HttpError 400/404/500 như readMeta của video project */
 export function readImageMeta(id: string): ImageProject {
   if (!isKebabCase(id)) {
     throw new HttpError(400, "INVALID_IMAGE_ID", `Image project id không hợp lệ: ${id}`);

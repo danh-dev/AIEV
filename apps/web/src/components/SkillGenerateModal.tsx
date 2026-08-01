@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Modal "Tạo skill bằng AI" — 2 bước:
+ * Modal "Tạo skill bằng AI" - 2 bước:
  * 1. Form brief (mục đích, nền tảng, khung, fps, phụ đề…) → POST
  *    /api/skills/generate (gọi thẳng server origin, có thể chạy 1–3 phút).
  * 2. Duyệt draft: sửa tên + nội dung SKILL.md rồi lưu qua POST /api/skills.
@@ -39,7 +39,7 @@ type AspectOption = (typeof ASPECT_OPTIONS)[number];
 
 const FPS_OPTIONS = [30, 60] as const;
 
-// label là KEY dictionary — dịch bằng t() lúc render.
+// label là KEY dictionary - dịch bằng t() lúc render.
 const CAPTION_OPTIONS: {
   value: "karaoke" | "sentence" | "none";
   label: string;
@@ -106,7 +106,7 @@ function toInput(f: FormState): SkillGenerateInput {
   };
 }
 
-/** Nhóm nút segmented nhỏ (khung / fps) — active nền primary-soft. */
+/** Nhóm nút segmented nhỏ (khung / fps) - active nền primary-soft. */
 function Segmented<T extends string | number>({
   options,
   value,
@@ -156,10 +156,10 @@ export function SkillGenerateModal({
   onSaved,
 }: {
   open: boolean;
-  /** Danh sách skill hiện có — nguồn select "Skill mẫu tham khảo". */
+  /** Danh sách skill hiện có - nguồn select "Skill mẫu tham khảo". */
   skills: SkillMeta[];
   onClose: () => void;
-  /** Lưu thành công — parent đóng modal, reload danh sách, điều hướng. */
+  /** Lưu thành công - parent đóng modal, reload danh sách, điều hướng. */
   onSaved: (name: string) => void;
 }) {
   const { t, tf } = useT();
@@ -174,7 +174,7 @@ export function SkillGenerateModal({
   const [draftName, setDraftName] = useState("");
   const [draftContent, setDraftContent] = useState("");
   const [draftTokens, setDraftTokens] = useState<number | null>(null);
-  /** true = draft là raw từ lỗi 422 — AI trả sai định dạng, user sửa tay. */
+  /** true = draft là raw từ lỗi 422 - AI trả sai định dạng, user sửa tay. */
   const [fromRaw, setFromRaw] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -211,7 +211,7 @@ export function SkillGenerateModal({
       setStep(2);
     } catch (e) {
       if (e instanceof SkillGenerateError && e.status === 422 && e.raw) {
-        // AI trả sai định dạng — đưa raw cho user tự sửa rồi lưu
+        // AI trả sai định dạng - đưa raw cho user tự sửa rồi lưu
         setDraftName(form.name.trim());
         setDraftContent(e.raw);
         setDraftTokens(null);

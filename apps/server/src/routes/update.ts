@@ -17,9 +17,9 @@ export interface UpdateStatus {
   /** Message commit mới nhất trên origin/main (null khi đã mới nhất). */
   latestMessage: string | null;
   checkedAt: string;
-  /** false khi `git fetch origin` thất bại (offline…) — behind tính theo refs cũ. */
+  /** false khi `git fetch origin` thất bại (offline…) - behind tính theo refs cũ. */
   fetchOk: boolean;
-  /** Lỗi ngắn khi check thất bại (offline, không có git…) — không bao giờ 500. */
+  /** Lỗi ngắn khi check thất bại (offline, không có git…) - không bao giờ 500. */
   error?: string;
 }
 
@@ -41,7 +41,7 @@ async function checkUpdate(): Promise<UpdateStatus> {
   const checkedAt = nowIso();
 
   // Fetch best-effort: offline thì vẫn so được với refs origin/main đã biết
-  // từ lần fetch trước — máy mất mạng vẫn báo đúng "có bản mới" nếu đã biết.
+  // từ lần fetch trước - máy mất mạng vẫn báo đúng "có bản mới" nếu đã biết.
   let fetchOk = true;
   let error: string | undefined;
   try {
@@ -51,7 +51,7 @@ async function checkUpdate(): Promise<UpdateStatus> {
     error = shortError(err);
   }
 
-  // current độc lập với fetch — luôn cố lấy.
+  // current độc lập với fetch - luôn cố lấy.
   let current = "";
   try {
     current = await git(["rev-parse", "--short", "HEAD"]);
@@ -93,7 +93,7 @@ let cached: { at: number; status: UpdateStatus } | null = null;
 
 const router = Router();
 
-// GET /api/update/check — cache 3 phút, ?force=1 bỏ cache
+// GET /api/update/check - cache 3 phút, ?force=1 bỏ cache
 router.get("/check", async (req, res) => {
   const force = req.query.force === "1";
   if (!force && cached && Date.now() - cached.at < CACHE_MS) {
@@ -105,19 +105,19 @@ router.get("/check", async (req, res) => {
   res.json(status);
 });
 
-// POST /api/update/apply — spawn script update DETACHED rồi trả 202 ngay.
+// POST /api/update/apply - spawn script update DETACHED rồi trả 202 ngay.
 // Script sẽ kill server này, nên process con phải sống độc lập (detached + unref).
 router.post("/apply", (_req, res) => {
   if (db.getRunningJob()) {
     res.status(409).json({
       error: {
         code: "JOB_RUNNING",
-        message: "Đang có job render chạy — chờ xong rồi cập nhật.",
+        message: "Đang có job render chạy - chờ xong rồi cập nhật.",
       },
     });
     return;
   }
-  // Script update tự ghi toàn bộ output vào start/update.log — soi khi lỗi.
+  // Script update tự ghi toàn bộ output vào start/update.log - soi khi lỗi.
   res.status(202).json({ ok: true, logHint: "start/update.log" });
   const child =
     process.platform === "win32"

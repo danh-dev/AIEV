@@ -50,7 +50,7 @@ import {
 
 const router = Router();
 
-// GET /api/projects — quét video-projects/*/meta.json + tổng token AI đã dùng mỗi project
+// GET /api/projects - quét video-projects/*/meta.json + tổng token AI đã dùng mỗi project
 router.get("/", (_req, res) => {
   const usage = db.tokensByProject();
   res.json(
@@ -62,7 +62,7 @@ router.get("/", (_req, res) => {
   );
 });
 
-// POST /api/projects — scaffold project mới
+// POST /api/projects - scaffold project mới
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   let id = typeof body.id === "string" ? body.id.trim() : "";
@@ -141,18 +141,18 @@ router.post("/", (req, res) => {
   res.status(201).json(projectSummaryOf(id));
 });
 
-// GET /api/projects/:id — meta.json đầy đủ + brief (merge default) + danh sách file
+// GET /api/projects/:id - meta.json đầy đủ + brief (merge default) + danh sách file
 router.get("/:id", (req, res) => {
   const id = req.params.id;
   const meta = readMeta(id); // ném 404 nếu không có
   const dir = projectDirOf(id);
   res.json({
     ...meta,
-    // AI có thể ghi meta lệch hợp đồng (vd output là object) — chuẩn hóa trước khi trả
+    // AI có thể ghi meta lệch hợp đồng (vd output là object) - chuẩn hóa trước khi trả
     output: normOutput(meta.output),
     tags: normTags(meta.tags),
     brief: briefOf(meta),
-    // Thumbnail đã tạo (POST /api/projects/:id/thumbnail) — null = chưa có
+    // Thumbnail đã tạo (POST /api/projects/:id/thumbnail) - null = chưa có
     thumbnail: fs.existsSync(path.join(dir, "thumbnail.png")) ? "thumbnail.png" : null,
     files: {
       renders: listFilesRecursive(path.join(dir, "renders")),
@@ -181,7 +181,7 @@ function copyDirFiltered(src: string, dst: string): void {
   }
 }
 
-// POST /api/projects/:id/clone — { name? } → nhân bản project thành sản phẩm mới (201)
+// POST /api/projects/:id/clone - { name? } → nhân bản project thành sản phẩm mới (201)
 router.post("/:id/clone", (req, res) => {
   const srcId = req.params.id;
   const srcMeta = readMeta(srcId); // ném 404 nếu không có
@@ -196,7 +196,7 @@ router.post("/:id/clone", (req, res) => {
   let newId = base;
   for (let n = 2; fs.existsSync(projectDirOf(newId)); n++) newId = `${base}-${n}`;
 
-  // Copy toàn bộ trừ renders/cache/verify — giữ compositions, assets (kèm mô tả), hyperframes.json
+  // Copy toàn bộ trừ renders/cache/verify - giữ compositions, assets (kèm mô tả), hyperframes.json
   copyDirFiltered(projectDirOf(srcId), projectDirOf(newId));
   ensureDir(path.join(projectDirOf(newId), "renders"));
 
@@ -217,7 +217,7 @@ router.post("/:id/clone", (req, res) => {
 });
 
 // ---------------------------------------------------------------- File rác
-// File trung gian sau khi xuất final — xóa được an toàn, KHÔNG đụng file nguồn
+// File trung gian sau khi xuất final - xóa được an toàn, KHÔNG đụng file nguồn
 // (index.html, compositions/, assets/, meta.json, hyperframes.json, outputs/<id>-v*.mp4).
 
 interface JunkItem {
@@ -257,7 +257,7 @@ function collectJunk(id: string): { items: JunkItem[]; totalBytes: number } {
     items.push({ relPath: `outputs/${id}-draft.mp4`, size: fs.statSync(draft).size });
   }
 
-  // Staging hardlink cho Remotion — vid-<id> (video project), img-<id> (image project trùng id)
+  // Staging hardlink cho Remotion - vid-<id> (video project), img-<id> (image project trùng id)
   for (const prefix of ["vid", "img"]) {
     const abs = path.join(paths.stagingDir, `${prefix}-${id}`);
     if (fs.existsSync(abs)) {
@@ -271,14 +271,14 @@ function collectJunk(id: string): { items: JunkItem[]; totalBytes: number } {
   return { items, totalBytes: items.reduce((sum, i) => sum + i.size, 0) };
 }
 
-// GET /api/projects/:id/junk — liệt kê file rác (file trung gian) + tổng dung lượng
+// GET /api/projects/:id/junk - liệt kê file rác (file trung gian) + tổng dung lượng
 router.get("/:id/junk", (req, res) => {
   const id = req.params.id;
   readMeta(id); // ném 404 nếu project không có
   res.json(collectJunk(id));
 });
 
-// POST /api/projects/:id/junk/clean — xóa file rác; job running/queued của project → 409
+// POST /api/projects/:id/junk/clean - xóa file rác; job running/queued của project → 409
 router.post("/:id/junk/clean", (req, res) => {
   const id = req.params.id;
   readMeta(id); // ném 404 nếu project không có
@@ -286,20 +286,20 @@ router.post("/:id/junk/clean", (req, res) => {
     throw new HttpError(
       409,
       "JOB_RUNNING",
-      "Project đang có job chạy/chờ trong hàng đợi — đợi xong rồi mới dọn file rác",
+      "Project đang có job chạy/chờ trong hàng đợi - đợi xong rồi mới dọn file rác",
     );
   }
   const { items, totalBytes } = collectJunk(id);
   for (const item of items) {
-    // relPath dạng repo-relative dấu / (thư mục có "/" cuối) — path.join tự chuẩn hóa
+    // relPath dạng repo-relative dấu / (thư mục có "/" cuối) - path.join tự chuẩn hóa
     fs.rmSync(path.join(repoRoot, item.relPath), { recursive: true, force: true });
   }
-  // renders/ là thư mục scaffold chuẩn của project — tạo lại rỗng
+  // renders/ là thư mục scaffold chuẩn của project - tạo lại rỗng
   ensureDir(path.join(projectDirOf(id), "renders"));
   res.json({ freedBytes: totalBytes, deleted: items.length });
 });
 
-// PUT /api/projects/:id/tags — thay toàn bộ tags
+// PUT /api/projects/:id/tags - thay toàn bộ tags
 router.put("/:id/tags", (req, res) => {
   const id = req.params.id;
   const meta = readMeta(id); // ném 404 nếu không có
@@ -312,7 +312,7 @@ router.put("/:id/tags", (req, res) => {
   res.json({ tags: meta.tags });
 });
 
-// PUT /api/projects/:id/brief — partial Brief, validate từng field, merge vào meta.json
+// PUT /api/projects/:id/brief - partial Brief, validate từng field, merge vào meta.json
 router.put("/:id/brief", (req, res) => {
   const id = req.params.id;
   const meta = readMeta(id); // ném 404 nếu không có
@@ -443,7 +443,7 @@ router.put("/:id/brief", (req, res) => {
   res.json(brief);
 });
 
-// PUT /api/projects/:id/assets/:file/description — ghi assets.json, trả FileInfo + description
+// PUT /api/projects/:id/assets/:file/description - ghi assets.json, trả FileInfo + description
 router.put("/:id/assets/:file/description", (req, res) => {
   const id = req.params.id;
   readMeta(id); // ném 404 nếu project không có
@@ -460,12 +460,12 @@ router.put("/:id/assets/:file/description", (req, res) => {
     throw new HttpError(404, "ASSET_NOT_FOUND", `Không tìm thấy asset "${file}" trong project "${id}"`);
   }
 
-  // writeAssetEntry merge từng field — KHÔNG rebuild cả file (giữ colorGrade/colorAdjust)
+  // writeAssetEntry merge từng field - KHÔNG rebuild cả file (giữ colorGrade/colorAdjust)
   writeAssetEntry(id, file, { description: body.description });
   res.json({ ...found, description: body.description });
 });
 
-// DELETE /api/projects/:id/assets/:file — xóa file asset (kể cả trong thư mục con) + entry assets.json
+// DELETE /api/projects/:id/assets/:file - xóa file asset (kể cả trong thư mục con) + entry assets.json
 router.delete("/:id/assets/:file", (req, res) => {
   const id = req.params.id;
   readMeta(id); // ném 404 nếu project không có
@@ -474,7 +474,7 @@ router.delete("/:id/assets/:file", (req, res) => {
     throw new HttpError(400, "PROTECTED_FILE", "Không thể xóa assets.json");
   }
 
-  // File có thể nằm trong thư mục con (vd assets/audio/x.wav) — tìm bằng relPath thật
+  // File có thể nằm trong thư mục con (vd assets/audio/x.wav) - tìm bằng relPath thật
   const found = listFilesRecursive(projectAssetsDirOf(id)).find((f) => f.name === file);
   if (!found) {
     throw new HttpError(404, "ASSET_NOT_FOUND", `Không tìm thấy asset "${file}" trong project "${id}"`);
@@ -485,7 +485,7 @@ router.delete("/:id/assets/:file", (req, res) => {
   res.status(204).end();
 });
 
-// POST /api/projects/:id/assets/:file/grade-preview — sinh ảnh preview các preset màu
+// POST /api/projects/:id/assets/:file/grade-preview - sinh ảnh preview các preset màu
 router.post("/:id/assets/:file/grade-preview", async (req, res) => {
   const id = req.params.id;
   readMeta(id); // 404 nếu project không có
@@ -503,12 +503,12 @@ router.post("/:id/assets/:file/grade-preview", async (req, res) => {
     file,
   );
   if (result.previews.length === 0) {
-    throw new HttpError(500, "PREVIEW_FAILED", "Không sinh được preview — kiểm tra ffmpeg");
+    throw new HttpError(500, "PREVIEW_FAILED", "Không sinh được preview - kiểm tra ffmpeg");
   }
   res.json(result);
 });
 
-// POST /api/projects/:id/assets/:file/grade-frame — render 1 frame theo preset + chỉnh tay
+// POST /api/projects/:id/assets/:file/grade-frame - render 1 frame theo preset + chỉnh tay
 router.post("/:id/assets/:file/grade-frame", async (req, res) => {
   const id = req.params.id;
   readMeta(id);
@@ -536,7 +536,7 @@ router.post("/:id/assets/:file/grade-frame", async (req, res) => {
   res.json(result);
 });
 
-// PUT /api/projects/:id/assets/:file/grade — { preset: string|null, adjust? } lưu lựa chọn đã duyệt
+// PUT /api/projects/:id/assets/:file/grade - { preset: string|null, adjust? } lưu lựa chọn đã duyệt
 router.put("/:id/assets/:file/grade", (req, res) => {
   const id = req.params.id;
   readMeta(id);
@@ -554,7 +554,7 @@ router.put("/:id/assets/:file/grade", (req, res) => {
     );
   }
   const adjust = normAdjust(body.adjust);
-  // Chỉ lưu adjust khi khác mặc định — entry gọn, prompt AI không thừa thãi
+  // Chỉ lưu adjust khi khác mặc định - entry gọn, prompt AI không thừa thãi
   writeAssetEntry(id, file, {
     colorGrade: preset,
     colorAdjust: isDefaultAdjust(adjust) ? null : (adjust as unknown as Record<string, number>),
@@ -562,7 +562,7 @@ router.put("/:id/assets/:file/grade", (req, res) => {
   res.json({ file, colorGrade: preset, colorAdjust: isDefaultAdjust(adjust) ? null : adjust });
 });
 
-// POST /api/projects/:id/edit — { extraNotes?, model?, effort? } → 202 { sessionId }, agent chạy nền
+// POST /api/projects/:id/edit - { extraNotes?, model?, effort? } → 202 { sessionId }, agent chạy nền
 router.post("/:id/edit", (req, res) => {
   const id = req.params.id;
   const meta = readMeta(id); // ném 404 nếu không có
@@ -581,7 +581,7 @@ router.post("/:id/edit", (req, res) => {
             e.tags.includes(RECOMMENDED_TAG) && fs.existsSync(path.join(paths.sfxDir, e.file)),
         )
       : [];
-  // Thư viện nhạc nền — chỉ soạn vào prompt khi brief bật nhạc auto
+  // Thư viện nhạc nền - chỉ soạn vào prompt khi brief bật nhạc auto
   const music =
     brief.musicMode === "auto"
       ? readMusicLibrary().filter((e) => fs.existsSync(path.join(paths.musicDir, e.file)))
@@ -601,7 +601,7 @@ router.post("/:id/edit", (req, res) => {
 
   const sessionId = `sess_${nanoid()}`;
   // goal='final': phiên edit chỉ được coi là hoàn thành khi video final tồn tại thật
-  // (agent.ts gate trong finally — xem docs/API.md mục Chat)
+  // (agent.ts gate trong finally - xem docs/API.md mục Chat)
   db.createChatSession(
     sessionId,
     `Edit: ${meta.name || id}`,
@@ -611,7 +611,7 @@ router.post("/:id/edit", (req, res) => {
     "final",
   );
 
-  // Trả 202 NGAY, agent chạy nền — cùng pipeline với /api/chat (SSE kênh `agent`,
+  // Trả 202 NGAY, agent chạy nền - cùng pipeline với /api/chat (SSE kênh `agent`,
   // message đầu session được agent.ts tự prepend CLAUDE.md)
   res.status(202).json({ sessionId });
   void runAgent(sessionId, prompt);

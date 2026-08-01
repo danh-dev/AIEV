@@ -49,7 +49,7 @@ failStaleRunningJobs();
 const app = express();
 app.disable("x-powered-by");
 
-// CORS cho web UI :6868 — localhost (dev/debug) + IP LAN private (trang /m
+// CORS cho web UI :6868 - localhost (dev/debug) + IP LAN private (trang /m
 // trên điện thoại upload file lớn gọi thẳng backend, không qua proxy Next)
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
@@ -86,7 +86,7 @@ function queryString(value: unknown): string {
 }
 
 /**
- * Đường được phép đi bằng TOKEN PHIÊN QR (`?k=`) — chỉ đủ cho trang /m trên
+ * Đường được phép đi bằng TOKEN PHIÊN QR (`?k=`) - chỉ đủ cho trang /m trên
  * điện thoại: xem tên project, xem media, và upload file vào project.
  */
 function allowedForUploadToken(req: Request): boolean {
@@ -104,16 +104,16 @@ function allowedForUploadToken(req: Request): boolean {
 
 /**
  * Chặn mọi truy cập không xác thực. Trước đây backend 6869 mở cho cả LAN
- * (upload từ điện thoại) nên bất kỳ ai trong mạng cũng gọi được API — kể cả
+ * (upload từ điện thoại) nên bất kỳ ai trong mạng cũng gọi được API - kể cả
  * chạy agent, đọc .env qua /media, xóa project.
  *
  * Cho qua khi:
  *  (a) preflight OPTIONS (đã trả 204 ở trên, để chắc chắn)
- *  (b) /api/health — endpoint public, trả token cho loopback
- *  (c) request TRỰC TIẾP từ máy chủ (loopback, không qua proxy) — dashboard
+ *  (b) /api/health - endpoint public, trả token cho loopback
+ *  (c) request TRỰC TIẾP từ máy chủ (loopback, không qua proxy) - dashboard
  *      trên máy này, agent Claude, curl, script start
  *  (d) header `x-aiev-token` khớp AIEV_API_TOKEN (fetch của web dashboard)
- *  (e) cookie `aiev_token` khớp (img/video/EventSource — không set được header)
+ *  (e) cookie `aiev_token` khớp (img/video/EventSource - không set được header)
  *  (f) query `?t=` khớp (mở dashboard qua tunnel bằng link có token)
  *  (g) query `?k=` là token phiên upload QR còn hiệu lực (trang /m)
  */
@@ -156,13 +156,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use(express.json({ limit: "20mb" }));
 
-// SSE — một stream chung cho job/joblog/agent
+// SSE - một stream chung cho job/joblog/agent
 app.get("/api/events", addSseClient);
 
 app.use("/api/health", healthRouter);
 app.use("/api/overview", overviewRouter);
 app.use("/api/projects", projectsRouter);
-// POST /api/projects/:id/thumbnail — projectsRouter không match nên rơi xuống đây
+// POST /api/projects/:id/thumbnail - projectsRouter không match nên rơi xuống đây
 app.use("/api/projects", thumbnailsRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/skills", skillsRouter);
@@ -183,16 +183,16 @@ app.use("/api/reveal", revealRouter);
 app.use("/api/tunnel", tunnelRouter);
 app.use("/api/upload-session", uploadSessionRouter);
 
-// Danh sách preset màu — UI dùng làm nguồn nhãn duy nhất (đồng bộ với color.ts)
+// Danh sách preset màu - UI dùng làm nguồn nhãn duy nhất (đồng bộ với color.ts)
 app.get("/api/grade-presets", (_req: Request, res: Response) => {
   res.json(GRADE_PRESETS.map((p) => ({ id: p.id, label: p.label })));
 });
 
-// Thông tin LAN cho tính năng "Kết nối điện thoại" — QR trỏ http://<ip>:6868/m/<id>.
+// Thông tin LAN cho tính năng "Kết nối điện thoại" - QR trỏ http://<ip>:6868/m/<id>.
 // IPv4 non-internal, ưu tiên dải LAN quen thuộc (192.168 → 10. → 172.) lên đầu.
 app.get("/api/lan-info", (_req: Request, res: Response) => {
   const ips: string[] = [];
-  // Bỏ adapter ảo (WSL/Hyper-V/VMware/Docker) — điện thoại không bao giờ tới được các IP đó
+  // Bỏ adapter ảo (WSL/Hyper-V/VMware/Docker) - điện thoại không bao giờ tới được các IP đó
   const VIRTUAL_IF_RE = /wsl|vethernet|hyper-v|virtual|vmware|docker|loopback/i;
   for (const [name, list] of Object.entries(os.networkInterfaces())) {
     if (VIRTUAL_IF_RE.test(name)) continue;
@@ -203,7 +203,7 @@ app.get("/api/lan-info", (_req: Request, res: Response) => {
   const rank = (ip: string) =>
     ip.startsWith("192.168.") ? 0 : ip.startsWith("10.") ? 1 : ip.startsWith("172.") ? 2 : 3;
   ips.sort((a, b) => rank(a) - rank(b));
-  // Domain Cloudflare Tunnel — Quick Tunnel đang chạy (URL sống) ưu tiên hơn
+  // Domain Cloudflare Tunnel - Quick Tunnel đang chạy (URL sống) ưu tiên hơn
   // TUNNEL_DOMAIN trong .env; env thì bỏ protocol/path nếu user lỡ dán kèm
   const rawTunnel = (process.env.TUNNEL_DOMAIN ?? "").trim();
   const tunnelDomain =
@@ -218,7 +218,7 @@ app.use("/api", (_req: Request, res: Response) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy endpoint" } });
 });
 
-// Error handler chuẩn { error: { code, message } } — Express 5 tự forward lỗi async
+// Error handler chuẩn { error: { code, message } } - Express 5 tự forward lỗi async
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (res.headersSent) return;
   if (err instanceof HttpError) {
@@ -236,7 +236,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
   // Lỗi không lường trước: chi tiết CHỈ vào log server (có thể chứa đường dẫn
-  // tuyệt đối, tên biến env, stack) — client chỉ nhận thông báo chung.
+  // tuyệt đối, tên biến env, stack) - client chỉ nhận thông báo chung.
   console.error("[server] Unhandled error:", err);
   res
     .status(500)
