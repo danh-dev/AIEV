@@ -35,6 +35,11 @@ import connectionsRouter from "./routes/connections.js";
 import renderSettingsRouter from "./routes/renderSettingsRoute.js";
 import illustrationsRouter from "./routes/illustrations.js";
 import thumbnailsRouter from "./routes/thumbnails.js";
+import publishRouter from "./routes/publish.js";
+import qcRouter from "./routes/qc.js";
+import clipsRouter from "./routes/clips.js";
+import reviewRouter from "./routes/review.js";
+import autoCutRouter from "./routes/autoCut.js";
 import updateRouter from "./routes/update.js";
 import revealRouter from "./routes/reveal.js";
 import tunnelRouter, { quickTunnelHostname } from "./routes/tunnel.js";
@@ -164,6 +169,12 @@ app.use("/api/overview", overviewRouter);
 app.use("/api/projects", projectsRouter);
 // POST /api/projects/:id/thumbnail - projectsRouter không match nên rơi xuống đây
 app.use("/api/projects", thumbnailsRouter);
+// Các router phụ của project (đường dẫn con riêng, không đụng projectsRouter)
+app.use("/api/projects", publishRouter); // phụ đề .srt/.vtt + gói metadata đăng bài
+app.use("/api/projects", qcRouter); // QC tự động trên bản draft
+app.use("/api/projects", clipsRouter); // cắt short + tái chế tỉ lệ khung
+app.use("/api/projects", reviewRouter); // ghi chú duyệt draft theo mốc thời gian
+app.use("/api/auto-cut", autoCutRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/sfx", sfxRouter);

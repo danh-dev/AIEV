@@ -51,6 +51,7 @@ router.put("/", (req, res) => {
     "gpuEncodeDraft",
     "gpuEncodeFinal",
     "fastCapture",
+    "qcGate",
   ];
   for (const f of boolFields) {
     if (f in body) {

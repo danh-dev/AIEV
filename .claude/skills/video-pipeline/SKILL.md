@@ -56,10 +56,38 @@ Soi từng ảnh: chữ tiếng Việt đủ dấu? text không tràn mép? khô
 - Composition Remotion đọc `meta.json`, dựng `<Sequence>` theo `scenes[]`, chèn sfx theo `atFrame`.
 - Render draft toàn bài → xem trong web UI → duyệt.
 
-### 5. Final
+### 5. QC tự động (BẮT BUỘC, chặn final)
+```bash
+curl -s -X POST http://localhost:6869/api/projects/<id>/qc -H "content-type: application/json" -d "{}"
+```
+Server đo bằng ffmpeg trên bản draft mới nhất và trả `{ report: { status, checks[] } }`:
+
+| check | ý nghĩa | xử lý khi fail |
+|---|---|---|
+| `resolution` | sai kích thước/fps so với `meta.json` | render lại đúng thông số |
+| `loudness` | lệch xa -14 LUFS | chỉnh volume mix, không chỉnh bằng cách kéo peak |
+| `truepeak` | đang clip (> -0.5 dBTP) | hạ gain nguồn, xem skill `noti-tiktok-vn` mục headroom |
+| `blackframes` | frame đen GIỮA video (fade đầu/cuối được bỏ qua) | hở frame ở chỗ chuyển cảnh - sửa `transitionOverlap`/`durationInFrames` |
+| `freeze` | đứng hình >= 2s | scene thiếu animation hoặc footage lỗi |
+| `tail-silence` | đuôi video im lặng > 1.2s | cắt bớt đuôi |
+| `av-duration` | hình và tiếng lệch > 0.5s | sai `durationInFrames` tổng |
+| `safe-area` | LUÔN pass, trả `frames` = ảnh khoanh đỏ dải bị che | **BẮT BUỘC Read từng ảnh** rồi tự phán; có chữ trong vùng đỏ thì kéo vào trong, xem skill `key-layout` |
+
+- `status: "fail"` → job `assemble-final` bị server trả **409 QC_REQUIRED / QC_FAILED**. Sửa nguyên nhân, render draft lại, QC lại. Không dùng `force: true` để né trừ khi người dùng yêu cầu rõ.
+- `status: "warn"` → cân nhắc sửa, không chặn.
+- Báo cáo cuối phải nêu kết quả QC và cách đã xử lý các check fail/warn.
+
+### 6. Final
 - Re-render các scene HyperFrames ở `--quality standard`.
 - Remotion render final → `outputs/<project>-v<N>.mp4`.
 - Cập nhật `meta.json`: `status: "done"`, `output: "outputs/..."`. Web UI đọc trạng thái từ đây.
+
+### 7. Thumbnail + gói xuất bản
+```bash
+curl -s -X POST http://localhost:6869/api/projects/<id>/thumbnail -H "content-type: application/json" -d "{\"title\":\"...\",\"frameAt\":12}"
+curl -s -X POST http://localhost:6869/api/projects/<id>/publish   -H "content-type: application/json" -d "{}"
+```
+`publish` sinh `.srt`/`.vtt` từ transcript và nhờ AI soạn title/mô tả/hashtag cho TikTok, YouTube, Facebook theo Style Design. **Điều kiện**: transcript phải là bản CUỐI. Nếu đã cắt/remap thì ghi bản cuối ra `assets/transcript.final.json` (module đọc transcript ưu tiên file này) - không thì phụ đề sẽ lệch so với video đã cắt.
 
 ## Quy tắc render queue (backend)
 
@@ -111,5 +139,8 @@ Nguyên nhân số 1 làm pipeline mất cả tiếng: **re-render draft CẢ B�
 - [ ] Audio không lệch sync ở đầu/giữa/cuối (kiểm bằng 3 điểm ngẫu nhiên)
 - [ ] Sound effect đúng frame, âm lượng không đè giọng nói (sfx thấp hơn voice ~10dB)
 - [ ] Output đúng kích thước/fps trong `meta.json`
+- [ ] QC tự động đã chạy trên draft, không còn check `fail` (báo cáo nêu rõ các check warn còn lại)
 - [ ] `meta.json` cập nhật `status` + `output`
+- [ ] Thumbnail đã tạo và đã Read để verify chữ đủ dấu
+- [ ] Gói xuất bản đã tạo (`.srt`/`.vtt` + metadata), transcript dùng là bản CUỐI sau khi cắt
 - [ ] Bài học mới (nếu có) đã ghi vào skill liên quan

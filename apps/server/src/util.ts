@@ -219,6 +219,47 @@ export function execFileCapture(
  * chặn .cmd/.bat từ bản vá CVE-2024-27980), nên gọi thẳng file .js/.mjs là
  * cách duy nhất vừa không shell vừa chạy được - lại nhanh hơn vì bỏ qua npx.
  */
+/**
+ * Như execFileCapture nhưng GIỮ CẢ stderr và KHÔNG reject khi exit != 0.
+ *
+ * ffmpeg ghi toàn bộ kết quả đo (loudnorm, blackdetect, silencedetect,
+ * signalstats…) ra stderr, và nhiều filter đo xong thì thoát mã khác 0 -
+ * execFileCapture nuốt stderr nên không dùng cho việc đo được.
+ */
+export function execFileCaptureAll(
+  file: string,
+  args: string[],
+  opts: { cwd?: string; timeoutMs?: number } = {},
+): Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }> {
+  const command = `${file} ${args.join(" ")}`;
+  return new Promise((resolve, reject) => {
+    const child = spawn(file, args, { cwd: opts.cwd ?? repoRoot, windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      timedOut = true;
+      killTree(child);
+    }, opts.timeoutMs ?? 120_000);
+    child.stdout.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
+    child.stderr.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(`Không chạy được lệnh (${command}): ${err.message}`));
+    });
+    child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ code, stdout, stderr, timedOut });
+    });
+  });
+}
+
 export function cliJsPath(pkg: string, binName: string): string {
   const pkgJson = path.join(repoRoot, "node_modules", ...pkg.split("/"), "package.json");
   if (!fs.existsSync(pkgJson)) {

@@ -31,6 +31,12 @@ export interface RenderSettings {
   queueConcurrency: number;
   /** fps cho bản draft (null = giữ fps composition; 15 = nhanh gần gấp đôi, chỉ để duyệt nhịp) */
   draftFps: number | null;
+  /**
+   * Cổng QC: chặn job assemble-final khi bản draft chưa qua QC tự động hoặc QC fail.
+   * Mặc định BẬT - final render tốn hàng chục phút, phát hiện lỗi ở đó là lãng
+   * phí nhất. Tắt được cho trường hợp cố ý bỏ qua (xem routes/jobs.ts).
+   */
+  qcGate: boolean;
 }
 
 /** Số luồng CPU thật của máy - nguồn cho default + trần của workers/concurrency */
@@ -49,6 +55,7 @@ export const DEFAULT_RENDER_SETTINGS: RenderSettings = {
   remotionConcurrency: recommendedWorkers,
   queueConcurrency: 2,
   draftFps: null,
+  qcGate: true,
 };
 
 const settingsFile = path.join(paths.dataDir, "render-settings.json");
@@ -63,6 +70,7 @@ function normalizeSettings(raw: Record<string, unknown>): RenderSettings {
   if (typeof raw.gpuEncodeDraft === "boolean") base.gpuEncodeDraft = raw.gpuEncodeDraft;
   if (typeof raw.gpuEncodeFinal === "boolean") base.gpuEncodeFinal = raw.gpuEncodeFinal;
   if (typeof raw.fastCapture === "boolean") base.fastCapture = raw.fastCapture;
+  if (typeof raw.qcGate === "boolean") base.qcGate = raw.qcGate;
   if (typeof raw.remotionConcurrency === "number") {
     base.remotionConcurrency = clamp(Math.round(raw.remotionConcurrency), 0, maxWorkers);
   }

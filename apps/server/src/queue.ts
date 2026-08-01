@@ -6,6 +6,7 @@ import { queueConcurrency } from "./renderSettings.js";
 import { runSceneRender } from "./jobs/sceneRender.js";
 import { runAssemble } from "./jobs/assemble.js";
 import { runImageGen } from "./jobs/imageGen.js";
+import { runAutoCut } from "./jobs/autoCut.js";
 
 /**
  * Hàng đợi render trong process - chạy SONG SONG tối đa `queueConcurrency` job
@@ -47,9 +48,14 @@ interface Current {
   flushLog?: () => void;
 }
 
-/** Khóa "bận" của một job: image-gen và job video dùng namespace riêng dù trùng projectId */
+/**
+ * Khóa "bận" của một job. Mỗi loại nguồn có namespace riêng để job ảnh, job cắt
+ * và job video trùng id vẫn chạy song song được; nhưng hai job CÙNG namespace và
+ * CÙNG id thì không bao giờ chạy đồng thời (tránh giẫm renders/meta).
+ */
 function busyKeyOf(j: db.JobRow): string {
-  return (j.type === "image-gen" ? "img:" : "vid:") + j.projectId;
+  const ns = j.type === "image-gen" ? "img:" : j.type === "auto-cut" ? "cut:" : "vid:";
+  return ns + j.projectId;
 }
 
 function broadcastJob(jobId: string): void {
@@ -123,6 +129,8 @@ class RenderQueue {
         await runSceneRender(ctx);
       } else if (fresh.type === "image-gen") {
         await runImageGen(ctx);
+      } else if (fresh.type === "auto-cut") {
+        await runAutoCut(ctx);
       } else {
         await runAssemble(ctx);
       }

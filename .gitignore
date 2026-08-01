@@ -7,6 +7,7 @@ dist/
 video-projects/*
 !video-projects/.gitkeep
 image-projects/
+/auto-cut/
 engines/remotion/public/staging/*
 !engines/remotion/public/staging/.gitkeep
 outputs/

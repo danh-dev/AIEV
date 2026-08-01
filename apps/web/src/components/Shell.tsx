@@ -10,6 +10,7 @@ import {
   ListVideo,
   Palette,
   Plug,
+  Scissors,
   ScrollText,
   Settings2,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const NAV = [
   { href: "/", label: "nav.dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "nav.projects", icon: Clapperboard },
   { href: "/images", label: "nav.images", icon: Images },
+  { href: "/auto-cut", label: "nav.auto-cut", icon: Scissors },
   { href: "/styles", label: "nav.styles", icon: Palette },
   { href: "/queue", label: "nav.queue", icon: ListVideo },
   { href: "/assets", label: "nav.assets", icon: FolderOpen },

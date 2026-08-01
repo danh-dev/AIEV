@@ -2,9 +2,12 @@ import { Router } from "express";
 import { nanoid } from "nanoid";
 import * as db from "../db.js";
 import { broadcast } from "../events.js";
+import { autoCutExists } from "../autoCutMeta.js";
 import { IMAGE_GEN_STEPS, imageProjectExists, type ImageGenStep } from "../imageMeta.js";
 import { projectExists } from "../meta.js";
+import { isQcReportStale, readQcReport } from "../qc.js";
 import { queue } from "../queue.js";
+import { readRenderSettings } from "../renderSettings.js";
 import { HttpError } from "../util.js";
 
 const router = Router();
@@ -29,6 +32,8 @@ router.post("/", (req, res) => {
   const type = typeof body.type === "string" ? body.type : "";
   const sceneId =
     typeof body.sceneId === "string" && body.sceneId.trim() ? body.sceneId.trim() : null;
+  /** Bỏ qua cổng QC tự động (người dùng/AI cố ý final dù QC chưa đạt) */
+  const force = body.force === true;
 
   if (!projectId) throw new HttpError(400, "INVALID_PROJECT_ID", "Thiếu projectId");
   if (!db.JOB_TYPES.includes(type as db.JobType)) {
@@ -38,7 +43,19 @@ router.post("/", (req, res) => {
       `type phải là một trong: ${db.JOB_TYPES.join(", ")}`,
     );
   }
-  if (type === "image-gen") {
+  if (type === "auto-cut") {
+    // projectId là id PHIÊN CẮT (auto-cut/<id>), sceneId mang step
+    if (!autoCutExists(projectId)) {
+      throw new HttpError(404, "AUTOCUT_NOT_FOUND", `Không tìm thấy phiên cắt "${projectId}"`);
+    }
+    if (sceneId !== null && sceneId !== "plan" && sceneId !== "cut") {
+      throw new HttpError(
+        400,
+        "INVALID_STEP",
+        'sceneId (step) của job auto-cut phải là "plan" hoặc "cut"',
+      );
+    }
+  } else if (type === "image-gen") {
     // Job tạo ảnh: projectId là image project (image-projects/<id>/meta.json),
     // sceneId mang step cần chạy (all | background | compose)
     if (!imageProjectExists(projectId)) {
@@ -67,6 +84,40 @@ router.post("/", (req, res) => {
         "DRAFT_REQUIRED",
         `Project "${projectId}" chưa có assemble-draft thành công - draft luôn trước final.`,
       );
+    }
+
+    // Cổng QC tự động: chỉ chặn assemble-final (bản nộp cuối). scene-final,
+    // scene-draft, assemble-draft, image-gen KHÔNG bị ảnh hưởng - QC đo trên
+    // bản draft toàn bài nên chỉ có nghĩa ngay trước khi lắp final.
+    if (type === "assemble-final" && force !== true && readRenderSettings().qcGate) {
+      const howTo =
+        `Chạy POST /api/projects/${projectId}/qc để đo lại, ` +
+        `hoặc gửi { "force": true } để bỏ qua, ` +
+        `hoặc tắt cổng QC trong tab Tăng tốc.`;
+      const report = readQcReport(projectId);
+      if (!report) {
+        throw new HttpError(
+          409,
+          "QC_REQUIRED",
+          `Project "${projectId}" chưa qua QC tự động. ${howTo}`,
+        );
+      }
+      if (isQcReportStale(report)) {
+        throw new HttpError(
+          409,
+          "QC_REQUIRED",
+          `Kết quả QC của project "${projectId}" đã cũ - file "${report.file}" thay đổi sau lần đo. ${howTo}`,
+        );
+      }
+      if (report.status === "fail") {
+        const failed = report.checks.filter((c) => c.status === "fail").map((c) => c.id);
+        throw new HttpError(
+          409,
+          "QC_FAILED",
+          `QC tự động của project "${projectId}" FAIL ở: ${failed.join(", ") || "(không rõ check)"}. ` +
+            `Sửa lỗi rồi ${howTo}`,
+        );
+      }
     }
   }
 

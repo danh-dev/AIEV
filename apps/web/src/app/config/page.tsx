@@ -504,6 +504,16 @@ export default function ConfigPage() {
                   onSelect={(v) => apply({ draftFps: v })}
                 />
               </FieldRow>
+
+              {/* Cổng QC - server mặc định BẬT; server cũ chưa có field này thì
+                  vẫn coi như bật để UI không hiện sai trạng thái an toàn */}
+              <ToggleRow
+                id="acc-qc-gate"
+                label={t("qc.gate-label")}
+                hint={t("qc.gate-hint")}
+                checked={settings.qcGate !== false}
+                onChange={(v) => apply({ qcGate: v })}
+              />
             </div>
           </div>
         </Card>

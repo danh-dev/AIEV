@@ -159,7 +159,9 @@ export type JobType =
   | "scene-final"
   | "assemble-draft"
   | "assemble-final"
-  | "image-gen";
+  | "image-gen"
+  /** Auto cut videos: projectId là id phiên cắt, sceneId mang step (plan | cut) */
+  | "auto-cut";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
 export const JOB_TYPES: JobType[] = [
@@ -168,6 +170,7 @@ export const JOB_TYPES: JobType[] = [
   "assemble-draft",
   "assemble-final",
   "image-gen",
+  "auto-cut",
 ];
 
 export interface JobRow {

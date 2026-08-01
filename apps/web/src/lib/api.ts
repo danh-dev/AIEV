@@ -1535,3 +1535,475 @@ export const mediaUrl = (relPath: string) =>
 export const imageFileUrl = (projectId: string, file: string, version?: string | number) =>
   mediaUrl(`image-projects/${projectId}/${file}`) +
   (version !== undefined ? `?v=${encodeURIComponent(String(version))}` : "");
+
+// ================= QC tự động + Gói xuất bản =================
+
+/**
+ * Cổng QC trong render settings. Khai báo bằng declaration merging (TypeScript
+ * gộp interface trùng tên trong cùng module) để phần QC tự gói gọn ở đây, không
+ * phải sửa khối RenderSettings phía trên.
+ */
+export interface RenderSettings {
+  /** true (mặc định) = job assemble-final bị chặn khi report QC còn "fail". */
+  qcGate: boolean;
+}
+
+/** Kết cục một phép đo QC: đạt / cảnh báo / không đạt. */
+export type QcStatus = "pass" | "warn" | "fail";
+
+/** Nền tảng dùng để chọn vùng an toàn (chữ không bị UI app che). */
+export type QcPlatform = "tiktok" | "youtube" | "reels";
+
+export interface QcCheck {
+  id: string;
+  label: string;
+  status: QcStatus;
+  detail: string;
+  /** Số đo chính của check (LUFS, số frame đen…) - null khi không đo được. */
+  value?: number | null;
+  /**
+   * Ảnh bằng chứng (relPath repo, xem qua mediaUrl). Check `safe-area` dùng:
+   * máy không phân biệt được chữ với cảnh quay nên trả ảnh khoanh đỏ vùng bị
+   * UI che để người dùng tự soi.
+   */
+  frames?: string[];
+}
+
+export interface QcReport {
+  checkedAt: string;
+  /** relPath từ repo root của file đã đo. */
+  file: string;
+  /** mtime file lúc đo - server so với mtime hiện tại để biết report cũ. */
+  fileMtime: string;
+  platform: string;
+  status: QcStatus;
+  checks: QcCheck[];
+}
+
+/** GET /api/projects/:id/qc - stale=true khi file đã render lại sau lần đo. */
+export interface QcReportResponse {
+  report: QcReport | null;
+  stale?: boolean;
+}
+
+export const getQcReport = (projectId: string) =>
+  request<QcReportResponse>(`/api/projects/${encodeURIComponent(projectId)}/qc`);
+
+/**
+ * POST chạy QC - ĐỒNG BỘ, ffmpeg đo cả video nên có thể mất vài chục giây tới
+ * ~2 phút (server tự cắt ở 10 phút). Đi qua rewrite /api của Next vì
+ * next.config đã nâng proxyTimeout lên 10 phút - đủ cho lượt đo dài nhất.
+ * Lỗi: 400 NO_VIDEO, 404 FILE_NOT_FOUND, 504 QC_TIMEOUT.
+ */
+export const runProjectQc = (
+  projectId: string,
+  input?: { file?: string; platform?: QcPlatform }
+) =>
+  post<{ report: QcReport }>(
+    `/api/projects/${encodeURIComponent(projectId)}/qc`,
+    input ?? {}
+  );
+
+/** Nền tảng có metadata đăng bài trong gói xuất bản. */
+export type PublishPlatform = "tiktok" | "youtube" | "facebook";
+
+export interface PublishItem {
+  platform: PublishPlatform;
+  title: string;
+  /** Có thể nhiều dòng (mô tả YouTube kèm danh sách chương) - giữ nguyên xuống dòng. */
+  description: string;
+  hashtags: string[];
+}
+
+export interface PublishPack {
+  generatedAt: string;
+  /** File transcript đã dùng làm nguồn (relPath repo). */
+  transcriptRel: string;
+  items: PublishItem[];
+  /** relPath repo của file phụ đề đã ghi vào video-projects/<id>/publish/. */
+  subtitles: { srt: string; vtt: string };
+  thumbnail: string | null;
+  output: string | null;
+}
+
+export const getPublishPack = (projectId: string) =>
+  request<{ pack: PublishPack | null }>(
+    `/api/projects/${encodeURIComponent(projectId)}/publish`
+  );
+
+/**
+ * POST soạn gói xuất bản - AI đọc transcript + Style Design, chạy tới ~3 phút.
+ * platforms bỏ trống = cả 3 nền tảng. Lỗi: 404 NO_TRANSCRIPT, 502 PUBLISH_PARSE_FAILED.
+ */
+export const createPublishPack = (
+  projectId: string,
+  platforms?: PublishPlatform[]
+) =>
+  post<{ pack: PublishPack }>(
+    `/api/projects/${encodeURIComponent(projectId)}/publish`,
+    platforms && platforms.length ? { platforms } : {}
+  );
+
+/** POST ghi lại .srt/.vtt vào publish/ - trả số cue để UI hiển thị. */
+export const createSubtitles = (projectId: string) =>
+  post<{ srt: string; vtt: string; cues: number }>(
+    `/api/projects/${encodeURIComponent(projectId)}/subtitles`
+  );
+
+/**
+ * Link TẢI phụ đề - dùng cho <a download>, không qua fetch nên không set được
+ * header token: dashboard đi bằng cookie `aiev_token` (ensureToken đã set),
+ * trang /m gắn thêm `?k=` giống mediaUrl.
+ * `version` để trình duyệt không trả file .srt cũ trong cache sau khi soạn lại.
+ */
+export const subtitleDownloadUrl = (
+  projectId: string,
+  format: "srt" | "vtt",
+  version?: string
+) =>
+  withUploadToken(
+    `/api/projects/${encodeURIComponent(projectId)}/subtitles?format=${format}` +
+      (version ? `&v=${encodeURIComponent(version)}` : "")
+  );
+
+// ================= Duyệt draft + Cắt short + Tái chế tỉ lệ =================
+
+/** open = chưa gửi, sent = đã gửi cho AI, resolved = người duyệt đã xác nhận xong. */
+export type ReviewNoteStatus = "open" | "sent" | "resolved";
+
+/** Một ghi chú duyệt draft - ghim vào đúng giây trong video. */
+export interface ReviewNote {
+  id: string;
+  /** Mốc thời gian trong video (giây, server làm tròn 2 chữ số). */
+  atSec: number;
+  text: string;
+  status: ReviewNoteStatus;
+  createdAt: string;
+  /** Chỉ có khi ghi chú đã được gửi cho AI. */
+  sentAt?: string;
+}
+
+/** Tối đa 500 ký tự - PHẢI khớp MAX_TEXT_LEN của server (routes/review.ts). */
+export const REVIEW_TEXT_MAX = 500;
+
+/** Danh sách ghi chú - server đã sắp theo atSec tăng dần. */
+export const getReviewNotes = (projectId: string) =>
+  request<{ notes: ReviewNote[] }>(
+    `/api/projects/${encodeURIComponent(projectId)}/review`
+  );
+
+export const addReviewNote = (projectId: string, atSec: number, text: string) =>
+  post<{ note: ReviewNote }>(
+    `/api/projects/${encodeURIComponent(projectId)}/review`,
+    { atSec, text }
+  );
+
+/** PATCH partial - field không gửi thì server giữ nguyên. */
+export const updateReviewNote = (
+  projectId: string,
+  noteId: string,
+  patch: { text?: string; status?: ReviewNoteStatus }
+) =>
+  jsonBody<{ note: ReviewNote }>(
+    `/api/projects/${encodeURIComponent(projectId)}/review/${encodeURIComponent(noteId)}`,
+    "PATCH",
+    patch
+  );
+
+export const deleteReviewNote = (projectId: string, noteId: string) =>
+  request<void>(
+    `/api/projects/${encodeURIComponent(projectId)}/review/${encodeURIComponent(noteId)}`,
+    { method: "DELETE" }
+  );
+
+/**
+ * Gửi mọi ghi chú đang "open" cho AI sửa (202 + sessionId của phiên đang dùng lại).
+ * Lỗi: 400 NO_OPEN_NOTES, 409 SESSION_BUSY (phiên AI của project đang chạy).
+ */
+export const sendReviewNotes = (projectId: string, extraNotes?: string) =>
+  post<{ sessionId: string; sentCount: number }>(
+    `/api/projects/${encodeURIComponent(projectId)}/review/send`,
+    extraNotes && extraNotes.trim() ? { extraNotes: extraNotes.trim() } : {}
+  );
+
+/** Một đoạn AI gợi ý cắt thành short - start/end là giây tuyệt đối trong video nguồn. */
+export interface Clip {
+  start: number;
+  end: number;
+  title: string;
+  /** Câu mở đầu, AI copy nguyên văn từ transcript. */
+  hook: string;
+  reason: string;
+  /** 1-10, càng cao càng đáng cắt. */
+  score: number;
+}
+
+export interface ClipsResponse {
+  clips: Clip[];
+  /** null = chưa gợi ý lần nào. */
+  suggestedAt: string | null;
+  sourceDurationSec?: number;
+}
+
+export const getClips = (projectId: string) =>
+  request<ClipsResponse>(`/api/projects/${encodeURIComponent(projectId)}/clips`);
+
+/**
+ * AI đọc transcript rồi chọn đoạn hay - chạy 1-3 phút (proxy Next đã nới
+ * timeout 10 phút nên đi đường /api bình thường là đủ).
+ * Lỗi: 404 NO_TRANSCRIPT, 502 CLIPS_PARSE_FAILED.
+ */
+export const suggestClips = (
+  projectId: string,
+  input?: { count?: number; minSec?: number; maxSec?: number }
+) =>
+  post<{ clips: Clip[]; suggestedAt: string }>(
+    `/api/projects/${encodeURIComponent(projectId)}/clips/suggest`,
+    input ?? {}
+  );
+
+/** Project con vừa tạo - sessionId null = chưa mở phiên edit AI. */
+export interface CreatedClipProject {
+  id: string;
+  name: string;
+  sessionId: string | null;
+}
+
+/**
+ * Tạo project con từ các clip đã chọn (indexes tính theo mảng clips).
+ * autoEdit chỉ chạy edit ngay cho tối đa 3 project - phần còn lại server ghi vào `note`.
+ */
+export const createClipProjects = (
+  projectId: string,
+  input: {
+    indexes: number[];
+    width?: number;
+    height?: number;
+    autoEdit?: boolean;
+  }
+) =>
+  post<{ created: CreatedClipProject[]; note?: string }>(
+    `/api/projects/${encodeURIComponent(projectId)}/clips/create`,
+    input
+  );
+
+/** Tỉ lệ khung hỗ trợ khi tái chế - khớp bảng ASPECTS của server. */
+export type RepurposeAspect = "9:16" | "16:9" | "1:1" | "4:5";
+
+/** Kích thước tương ứng từng tỉ lệ - PHẢI khớp server (routes/clips.ts). */
+export const REPURPOSE_SIZES: Record<
+  RepurposeAspect,
+  { width: number; height: number }
+> = {
+  "9:16": { width: 1080, height: 1920 },
+  "16:9": { width: 1920, height: 1080 },
+  "1:1": { width: 1080, height: 1080 },
+  "4:5": { width: 1080, height: 1350 },
+};
+
+/**
+ * Tạo bản tái chế sang tỉ lệ khác - project con mang toàn bộ scene + asset của cha.
+ * Lỗi: 400 SAME_ASPECT ("Project đã ở tỉ lệ này").
+ */
+export const repurposeProject = (
+  projectId: string,
+  input: { aspect: RepurposeAspect; name?: string; autoEdit?: boolean }
+) =>
+  post<{ project: ProjectSummary; sessionId: string | null }>(
+    `/api/projects/${encodeURIComponent(projectId)}/repurpose`,
+    input
+  );
+
+// ============ Auto cut videos ============
+// Cắt một video dài thành nhiều video ngắn - mỗi đoạn tự thành một Videos
+// Project dựng sẵn. Hợp đồng: mục "Auto cut videos" trong docs/API.md.
+
+export type AutoCutStatus =
+  | "draft"
+  | "planning"
+  | "planned"
+  | "cutting"
+  | "done"
+  | "failed";
+
+/** time = chia đều theo phút; ai = AI chọn đoạn hay; prompt = cắt theo yêu cầu. */
+export type AutoCutMode = "time" | "ai" | "prompt";
+
+export type AutoCutAspect = "keep" | "9:16" | "16:9" | "1:1" | "4:5";
+
+/** auto = hệ thống tự nhìn khung để chọn crop hay fit. */
+export type AutoCutLayout = "auto" | "crop" | "fit";
+
+export type AutoCutBackground = "gemini" | "blur" | "style";
+
+export interface AutoCutSource {
+  relPath: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationSec: number;
+  /** Metadata xoay của file gốc (điện thoại quay dọc) - 0/90/180/270. */
+  rotation: number;
+}
+
+export interface AutoCutParams {
+  /** mode "time": số phút mỗi đoạn. */
+  minutes?: number;
+  /** mode "time": số giây chồng lấn giữa hai đoạn liền nhau. */
+  overlapSec?: number;
+  /** mode "ai" | "prompt": số đoạn mong muốn + khoảng độ dài. */
+  count?: number;
+  minSec?: number;
+  maxSec?: number;
+  /** mode "prompt": yêu cầu bằng lời của người dùng. */
+  request?: string;
+}
+
+export interface AutoCutOutput {
+  aspect: AutoCutAspect;
+  layout: AutoCutLayout;
+  background: AutoCutBackground;
+  /** null = dùng style mặc định. */
+  styleId: string | null;
+  /** null = giữ fps nguồn. */
+  fps: number | null;
+}
+
+export interface AutoCutSegment {
+  index: number;
+  /** Giây tuyệt đối trong video nguồn. */
+  start: number;
+  end: number;
+  title: string;
+  hook?: string;
+  reason?: string;
+  /** 1-10 - chỉ có ở mode ai/prompt. */
+  score?: number;
+  selected: boolean;
+  /** Có sau bước cut - id Videos Project con đã tạo. */
+  projectId?: string;
+  /** Layout thực tế đã áp khi đổi khung (mode auto quyết định lúc chạy). */
+  appliedLayout?: "crop" | "fit";
+}
+
+export interface AutoCutMeta {
+  id: string;
+  name: string;
+  status: AutoCutStatus;
+  source: AutoCutSource;
+  mode: AutoCutMode;
+  params: AutoCutParams;
+  output: AutoCutOutput;
+  transcribe: boolean;
+  autoEdit: boolean;
+  transcriptRel?: string | null;
+  segments: AutoCutSegment[];
+  error?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Patch một đoạn - chỉ gửi field người dùng vừa sửa. */
+export interface AutoCutSegmentPatch {
+  index: number;
+  start?: number;
+  end?: number;
+  title?: string;
+  selected?: boolean;
+}
+
+/** Kích thước tương ứng từng tỉ lệ ("keep" giữ nguyên khung nguồn nên không có). */
+export const AUTO_CUT_SIZES: Record<
+  Exclude<AutoCutAspect, "keep">,
+  { width: number; height: number }
+> = {
+  "9:16": { width: 1080, height: 1920 },
+  "16:9": { width: 1920, height: 1080 },
+  "1:1": { width: 1080, height: 1080 },
+  "4:5": { width: 1080, height: 1350 },
+};
+
+/** Giá trị mặc định của form tạo phiên - khớp mặc định server. */
+export const AUTO_CUT_DEFAULT_PARAMS = {
+  minutes: 5,
+  overlapSec: 0,
+  count: 5,
+  minSec: 20,
+  maxSec: 60,
+} as const;
+
+/**
+ * Job của phiên cắt: `type` = "auto-cut", `projectId` = id phiên, `sceneId` = bước.
+ * JobType hiện chưa liệt kê "auto-cut" (backend đang bổ sung song song) nên so
+ * sánh qua string để không phải sửa phần đầu file.
+ */
+export type AutoCutStep = "plan" | "cut";
+
+export function isAutoCutJob(job: Job, sessionId?: string): boolean {
+  if ((job.type as string) !== "auto-cut") return false;
+  return sessionId === undefined || job.projectId === sessionId;
+}
+
+/** Video trong imports/ - nguồn cho phiên cắt. */
+export const getAutoCutSources = () =>
+  request<{ files: FileInfo[] }>("/api/auto-cut/sources").then(
+    (r) => r.files ?? []
+  );
+
+export const getAutoCutSessions = () =>
+  request<{ sessions: AutoCutMeta[] }>("/api/auto-cut").then(
+    (r) => r.sessions ?? []
+  );
+
+export const getAutoCutSession = (id: string) =>
+  request<{ session: AutoCutMeta }>(
+    `/api/auto-cut/${encodeURIComponent(id)}`
+  ).then((r) => r.session);
+
+export const createAutoCut = (input: {
+  /** Bỏ trống → server đặt theo tên file nguồn. */
+  name?: string;
+  sourceRel: string;
+  mode: AutoCutMode;
+  params?: AutoCutParams;
+  output?: Partial<AutoCutOutput>;
+  transcribe?: boolean;
+  autoEdit?: boolean;
+}) => post<{ session: AutoCutMeta }>("/api/auto-cut", input).then((r) => r.session);
+
+/** PATCH partial - field không gửi thì server giữ nguyên. */
+export const updateAutoCut = (
+  id: string,
+  patch: {
+    name?: string;
+    params?: AutoCutParams;
+    output?: Partial<AutoCutOutput>;
+    transcribe?: boolean;
+    autoEdit?: boolean;
+    segments?: AutoCutSegmentPatch[];
+  }
+) =>
+  jsonBody<{ session: AutoCutMeta }>(
+    `/api/auto-cut/${encodeURIComponent(id)}`,
+    "PATCH",
+    patch
+  ).then((r) => r.session);
+
+/** 202 - transcribe + chọn đoạn. Lỗi: 409 BUSY, 400 REQUEST_REQUIRED. */
+export const planAutoCut = (id: string) =>
+  post<{ job: Job }>(`/api/auto-cut/${encodeURIComponent(id)}/plan`).then(
+    (r) => r.job
+  );
+
+/** 202 - cắt + đổi khung + đẻ project con. Lỗi: 409 NOT_PLANNED, 400 NO_SEGMENT_SELECTED. */
+export const cutAutoCut = (id: string) =>
+  post<{ job: Job }>(`/api/auto-cut/${encodeURIComponent(id)}/cut`).then(
+    (r) => r.job
+  );
+
+/** Xóa phiên cắt - KHÔNG động tới các Videos Project đã tạo ra từ phiên. */
+export const deleteAutoCut = (id: string, force = true) =>
+  request<void>(
+    `/api/auto-cut/${encodeURIComponent(id)}${force ? "?force=true" : ""}`,
+    { method: "DELETE" }
+  );

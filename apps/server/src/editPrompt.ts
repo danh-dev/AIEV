@@ -270,11 +270,32 @@ export function buildEditPrompt(input: {
       `nhưng phải ghi kết quả vào \`video-projects/${id}/renders/\` và cập nhật \`meta.json\`.`,
   );
   lines.push(
+    `- QC BẮT BUỘC TRƯỚC FINAL: render draft xong thì gọi \`POST http://localhost:6869/api/projects/${id}/qc\` ` +
+      "(body JSON rỗng `{}` là đủ - server tự chọn bản draft mới nhất). Server đo bằng ffmpeg: âm lượng (LUFS), " +
+      "clipping, frame đen giữa video, đứng hình, im lặng thừa ở đuôi, lệch thời lượng hình/tiếng, và với video dọc " +
+      "là chữ có lọt vào dải bị UI TikTok/Reels che hay không. Report trả về có `status` và danh sách `checks`.\n" +
+      "  · `status: \"fail\"` → PHẢI sửa đúng nguyên nhân (đọc `detail` của check fail) rồi render draft lại và QC lại. " +
+      "Job `assemble-final` sẽ bị server từ chối (409 QC_REQUIRED / QC_FAILED) khi chưa QC hoặc QC còn fail.\n" +
+      "  · `status: \"warn\"` → xem xét sửa nếu ảnh hưởng chất lượng, không bắt buộc.\n" +
+      "  · Check `safe-area` LUÔN pass và trả về mảng `frames` (ảnh toàn khung có KHOANH ĐỎ dải trên/dưới " +
+      "bị UI TikTok/Reels che). Máy KHÔNG tự kết luận được vì mật độ biên của chữ và của cảnh quay là như " +
+      "nhau - BẠN PHẢI dùng Read mở từng ảnh trong `frames` ra soi: có chữ, caption hay band key nào rơi " +
+      "vào vùng khoanh đỏ thì kéo vào trong rồi render draft lại (xem skill `key-layout`).\n" +
+      "  · Báo cáo cuối PHẢI nêu kết quả QC (các check fail/warn, kết luận soi ảnh safe-area, cách đã xử lý).",
+  );
+  lines.push(
     `- Sau khi final xong: tạo thumbnail bằng \`POST http://localhost:6869/api/projects/${id}/thumbnail\` ` +
       "(body JSON `{ title, frameAt }`) - title do bạn CHỌN từ transcript (cụm giật tít 4-8 từ, đúng chính tả), " +
       "frameAt = khoảnh khắc mặt/hình ảnh biểu cảm nhất trong video final (giây). Xem kết quả " +
       `\`video-projects/${id}/thumbnail.png\` bằng Read để verify chữ đủ dấu + bố cục; xấu thì gọi lại ` +
       "với frameAt/title khác.",
+  );
+  lines.push(
+    `- Sau thumbnail: tạo gói xuất bản bằng \`POST http://localhost:6869/api/projects/${id}/publish\` ` +
+      "(body JSON rỗng `{}`). Server tự sinh phụ đề `.srt`/`.vtt` từ transcript và nhờ AI soạn " +
+      "title/mô tả/hashtag cho TikTok, YouTube, Facebook theo Style Design. Chỉ chạy được khi project " +
+      "đã có transcript - nếu bạn cắt/remap transcript thì phải ghi bản cuối ra " +
+      `\`video-projects/${id}/assets/transcript.final.json\` để bước này dùng đúng bản đã cắt.`,
   );
   lines.push(
     `- NHIỆM VỤ CHỈ HOÀN THÀNH khi file final \`outputs/${id}-v<N>.mp4\` đã render xong và ` +

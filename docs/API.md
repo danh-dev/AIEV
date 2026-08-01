@@ -205,6 +205,149 @@ mặc định output final trong meta, fallback video asset đầu) → Gemini v
 Style resolve: `body.styleId` → `brief.styleId` → default. `GET /api/projects/:id` trả thêm
 `thumbnail: "thumbnail.png"|null` (check file tồn tại).
 
+## Auto cut videos (tab riêng) - auto-cut/<id>/
+
+Cắt một video dài thành nhiều video ngắn; **mỗi đoạn tự động trở thành một Videos Project
+dựng sẵn** (có asset, transcript đã rebase về gốc 0, brief) nên không phải import lại.
+
+```
+AutoCutMeta = { id, name, status: "draft"|"planning"|"planned"|"cutting"|"done"|"failed",
+  source: { relPath, width, height, fps, durationSec, rotation },
+  mode: "time"|"ai"|"prompt",
+  params: { minutes?, overlapSec?, count?, minSec?, maxSec?, request? },
+  output: { aspect: "keep"|"9:16"|"16:9"|"1:1"|"4:5", layout: "auto"|"crop"|"fit",
+            background: "gemini"|"blur"|"style", styleId, fps },
+  transcribe, autoEdit, transcriptRel?,
+  segments: [{ index, start, end, title, hook?, reason?, score?, selected,
+               projectId?, appliedLayout? }],
+  error?, createdAt, updatedAt }
+
+GET    /api/auto-cut/sources   -> { files: FileInfo[] }   // video trong imports/
+GET    /api/auto-cut           -> { sessions: AutoCutMeta[] }
+GET    /api/auto-cut/:id       -> { session }
+POST   /api/auto-cut           { name?, sourceRel, mode, params?, output?, transcribe?, autoEdit? } -> 201
+PATCH  /api/auto-cut/:id       { name?, params?, output?, transcribe?, autoEdit?, segments? } -> 200
+POST   /api/auto-cut/:id/plan  -> 202 { job }   // job auto-cut step "plan"
+POST   /api/auto-cut/:id/cut   -> 202 { job }   // job auto-cut step "cut"
+DELETE /api/auto-cut/:id?force=true -> 204      // KHÔNG xóa các project con đã tạo
+```
+
+Upload nguồn dùng lại `POST /api/assets` với `scope=imports` (có sẵn thanh tiến độ + QR điện thoại).
+
+**Job `auto-cut`**: `projectId` là id phiên cắt, `sceneId` mang step. Hai bước tách rời để người
+dùng DUYỆT danh sách đoạn trước khi tốn thời gian encode.
+- `plan`: transcribe (faster-whisper large-v3, `language="vi"`, word timestamp, cuda float16 fallback cpu int8) rồi chọn đoạn.
+  **Thời gian đo thật** (GTX 1660, CUDA float16): video 55 giây mất 56 giây, trong đó ~20 giây là nạp
+  model lần đầu. Tức khoảng **0.65x thời lượng video** sau khi model đã nạp - video 1 tiếng mất
+  khoảng 40 phút. Job có progress theo từng segment nên UI phải nói rõ điều này, đừng để người dùng
+  tưởng treo.
+- `cut`: cắt + đổi khung + tạo project con + (tùy chọn) chạy edit AI tối đa 3 project.
+
+### Đổi khung hình (reframe)
+
+| layout | cách làm | được / mất |
+|---|---|---|
+| `crop` | dò tâm nhân vật rồi cắt cúp bám theo | chủ thể to, đầy khung / mất phần rìa |
+| `fit` | thu nhỏ giữ trọn khung, lấp nền (Gemini / mờ / màu style) | không mất thông tin / chủ thể nhỏ |
+| `auto` | hỏi Gemini khung là người hay màn hình rồi tự chọn | mặc định |
+
+**Dò chủ thể** dùng Gemini vision (`gemini-2.5-flash`, ảnh + yêu cầu trả `{found, box:[ymin,xmin,ymax,xmax]}`
+chuẩn hoá 0-1000), lấy trung vị 3 mốc trong đoạn. Đã đo thật: sai số khoảng 1% so với vị trí đúng.
+Không có key hoặc lỗi -> rơi về tâm khung, không bao giờ làm hỏng job.
+
+⚠️ **Cờ xoay video**: `ffprobe` trả width/height của luồng THÔ. File `20260731-164133.mp4` trong repo
+báo 3840x2160 nhưng có `stream_side_data=rotation=-90`, khung giải mã thật là 2160x3840. Mọi phép
+tính tỉ lệ PHẢI hoán đổi width/height khi |rotation| là 90/270, nếu không video quay bằng điện thoại
+sẽ bị hiểu nhầm là video ngang.
+
+## Transcript của project (nguồn dùng chung)
+
+`apps/server/src/transcript.ts` dò transcript theo thứ tự ưu tiên "bản đã chốt trước, bản thô sau":
+`assets/transcript.final.json` -> `assets/transcript.cut.json` -> `assets/transcript.json` ->
+các bản trong `assets/audio/` -> quét thêm mọi `assets/**/[*]transcript*.json`. Nhận cả 3 dạng:
+`{ segments: [...] }` (faster-whisper), mảng segment trần, hoặc `{ words: [...] }` (tự gom câu theo
+khoảng lặng > 0.6s). Chuẩn hóa về `{ relPath, segments: [{ start, end, text, words }], durationSec }`.
+Phụ đề, gợi ý cắt short và gói xuất bản đều đọc qua module này - project cũ không phải sửa gì.
+
+## Gói xuất bản: phụ đề + metadata đăng bài
+
+```
+GET  /api/projects/:id/subtitles?format=srt|vtt  -> text/plain (attachment <id>.srt|.vtt)
+POST /api/projects/:id/subtitles                 -> 201 { srt, vtt, cues }
+                                 ghi video-projects/<id>/publish/<id>.srt + .vtt
+GET  /api/projects/:id/publish                   -> { pack: PublishPack|null }
+POST /api/projects/:id/publish  { platforms?: ("tiktok"|"youtube"|"facebook")[] } -> 201 { pack }
+
+PublishPack = { generatedAt, transcriptRel,
+                items: [{ platform, title, description, hashtags: string[] }],
+                subtitles: { srt, vtt }, thumbnail: string|null, output: string|null }
+```
+Chia cue phụ đề: mỗi segment 1 cue; segment > 7s hoặc > 84 ký tự thì chia theo word timestamp
+(tối đa 42 ký tự/dòng, 2 dòng/cue, cue tối thiểu 0.8s, không chồng cue kế tiếp).
+Metadata do Claude soạn một lượt (không tool) theo transcript + tone của Style Design, ràng buộc
+độ dài title theo từng nền tảng. Chưa có transcript -> 404 `NO_TRANSCRIPT`.
+
+## QC tự động (đo bằng ffmpeg, chặn final nếu FAIL)
+
+```
+POST /api/projects/:id/qc  { file?: relPath, platform?: "tiktok"|"youtube"|"reels" } -> { report }
+GET  /api/projects/:id/qc  -> { report: QcReport|null, stale?: true }
+
+QcReport = { checkedAt, file, fileMtime, platform, status: "pass"|"warn"|"fail",
+             checks: [{ id, label, status, detail, value, frames?: string[] }] }
+```
+File mặc định: `outputs/<id>-draft.mp4` -> file .mp4 mới nhất trong `renders/` -> `meta.output`.
+Kết quả ghi `video-projects/<id>/qc.json`. `stale: true` khi file đã đổi sau lần QC gần nhất.
+
+Các phép đo: `resolution` (so meta), `loudness` (loudnorm, mục tiêu -14 LUFS), `truepeak` (clipping),
+`blackframes` (bỏ qua fade đầu/cuối, `pix_th=0.03` để nền tối `#0A0E1A` không bị báo nhầm là đen),
+`freeze`, `tail-silence`, `av-duration`, `duration`, và `safe-area`.
+
+**`safe-area` không tự kết luận.** Đã đo và xác nhận: mật độ biên (edgedetect + signalstats) của chữ
+và của cảnh quay là như nhau (dải trên 2.99 tại giây 3 hóa ra là lá cây, không phải chữ), nên mọi
+ngưỡng pass/fail đều báo sai. Thay vào đó check này luôn `pass` và trả `frames` - ảnh TOÀN KHUNG có
+khoanh đỏ dải trên 10% + dải dưới 16%, ghi vào `video-projects/<id>/renders/qc-safe-area-<n>.png`.
+Người dùng xem trên UI, agent bắt buộc `Read` từng ảnh để tự phán. Việc phân biệt chữ với cảnh quay
+là việc của thị giác, không phải của ffmpeg.
+
+**Cổng chặn**: `POST /api/jobs` với `type: "assemble-final"` bị 409 `QC_REQUIRED` (chưa QC hoặc QC
+đã cũ) hoặc 409 `QC_FAILED` (có check fail). Bỏ qua bằng `force: true` trong body, hoặc tắt
+`qcGate` trong render settings (tab Tăng tốc). Các job khác không bị ảnh hưởng.
+
+## Cắt short từ video dài + Tái chế tỉ lệ khung
+
+```
+POST /api/projects/:id/clips/suggest { count?=5, minSec?=20, maxSec?=60 } -> 201 { clips, suggestedAt }
+GET  /api/projects/:id/clips        -> { clips, suggestedAt }
+POST /api/projects/:id/clips/create { indexes: number[], width?=1080, height?=1920, autoEdit? }
+                                    -> 201 { created: [{ id, name, sessionId }] }
+POST /api/projects/:id/repurpose    { aspect: "9:16"|"16:9"|"1:1"|"4:5", name?, autoEdit? }
+                                    -> 201 { project, sessionId }
+
+Clip = { start, end, title, hook, reason, score }   // lưu video-projects/<id>/clips.json
+```
+AI đọc transcript, chọn các đoạn đứng riêng được (mở bằng hook, kết thúc trọn ý, không chồng lấn).
+Project con tạo bằng `childProject.ts`: asset mang sang bằng **hardlink** (không nhân đôi dung lượng),
+kèm transcript của cha; scene của clip là một `srcVideo` với `from`/`to` tuyệt đối trong file nguồn.
+Tái chế tỉ lệ copy cả `compositions/` + scenes, đổi width/height, brief kèm hướng dẫn dựng lại bố cục.
+`autoEdit` chạy phiên edit AI luôn (tối đa 3 project mỗi lần để không quá tải).
+
+## Duyệt bản draft (ghi chú theo mốc thời gian)
+
+```
+GET    /api/projects/:id/review              -> { notes }        // sắp theo atSec
+POST   /api/projects/:id/review              { atSec, text }     -> 201 { note }
+PATCH  /api/projects/:id/review/:noteId      { text?, status? }  -> 200 { note }
+DELETE /api/projects/:id/review/:noteId      -> 204
+POST   /api/projects/:id/review/send         { extraNotes? }     -> 202 { sessionId, sentCount }
+
+Note = { id, atSec, text, status: "open"|"sent"|"resolved", createdAt, sentAt? }
+```
+Lưu ở `video-projects/<id>/review.json`. `send` gom các note `open`, soạn message tiếng Việt
+dạng `- [mm:ss] (12.4s) nội dung`, bọc trong `<ghi-chu-nguoi-dung>` kèm luật chống prompt injection,
+rồi tiếp tục ĐÚNG phiên edit gần nhất của project (AI còn ngữ cảnh đã dựng) hoặc tạo phiên mới nếu
+chưa có. Phiên đang chạy -> 409 `SESSION_BUSY`.
+
 ## Style Design (nhiều bộ nhận diện, tab riêng — THAY THẾ Design System cũ) — assets/styles/styles.json
 
 ```

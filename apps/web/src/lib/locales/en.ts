@@ -942,4 +942,250 @@ export const en: Record<string, string> = {
   "tunnel.warn-public":
     "The dashboard has no login yet - when going public, wrap it with Cloudflare Access.",
   "tunnel.load-error": "Could not load the tunnel status.",
+
+  // ===== QC tự động + Gói xuất bản =====
+  "qc.safe-area-hint": "Frames with the platform UI zones outlined in red - click to enlarge and check whether any text or key band falls inside the red zone (the machine cannot tell text from footage).",
+  "qc.safe-area-open": "Open covered-zone frame",
+
+  // Automatic QC (card on the video project detail page)
+  "qc.title": "Automatic QC",
+  "qc.status-pass": "Pass",
+  "qc.status-warn": "Warning",
+  "qc.status-fail": "Fail",
+  "qc.run": "Run QC",
+  "qc.rerun": "Re-run",
+  "qc.running": "Measuring…",
+  "qc.slow-note": "Measuring with ffmpeg, this can take 1-2 minutes.",
+  "qc.empty":
+    "QC measures loudness, looks for black frames and frozen sections, and checks whether text falls into the area covered by the platform UI.",
+  "qc.checked-at": "Measured {time}",
+  "qc.file-title": "Measured file: {file}",
+  "qc.platform": "Safe area: {platform}",
+  "qc.stale":
+    "These results are outdated - the file was re-rendered after the last run. Run QC again for accurate numbers.",
+  "qc.fail-blocks-final":
+    "Some checks failed: the final render stays blocked until they are fixed and QC is run again.",
+  "qc.load-error": "Could not load the QC results.",
+  "qc.run-error": "Running QC failed.",
+  "qc.err-no-video": "No video to check yet - render a draft first.",
+  "qc.err-file-not-found": "Could not find the video file to measure.",
+  "qc.err-timeout": "QC ran for too long and was stopped. Try again or shorten the video.",
+  "qc.gate-label": "Block the final render while QC has not passed",
+  "qc.gate-hint":
+    "On (default): final render jobs are rejected while any QC check fails. Turn it off and the AI can export a final even with measurable problems such as off loudness, black frames or text hidden behind the platform UI.",
+
+  // Publish pack (subtitles + posting metadata)
+  "publish.title": "Publish pack",
+  "publish.generate": "Create publish pack",
+  "publish.regenerate": "Rewrite",
+  "publish.generating": "AI is writing…",
+  "publish.empty":
+    "Generates .srt/.vtt subtitles and writes a title, description and hashtags for TikTok, YouTube and Facebook following the project Style Design.",
+  "publish.no-transcript":
+    "This project has no transcript yet - run the AI edit first to create one, then come back to build the publish pack.",
+  "publish.load-error": "Could not load the publish pack.",
+  "publish.error": "Building the publish pack failed.",
+  "publish.generated-at": "Written {time}",
+  "publish.from-transcript": "Source: {file}",
+  "publish.copy-title": "Copy title",
+  "publish.copy-desc": "Copy description",
+  "publish.copy-tags": "Copy hashtags",
+  "publish.copied": "Copied",
+  "publish.subtitles": "Subtitles",
+  "publish.download-srt": "Download .srt",
+  "publish.download-vtt": "Download .vtt",
+  "publish.cues": "{n} subtitle lines",
+
+  // ===== Duyệt draft + Cắt short + Tái chế tỉ lệ =====
+  "review.title": "Review draft",
+  "review.no-draft": "No draft to review yet - run a draft render first",
+  "review.watching-final":
+    "No draft yet, so you are watching the final cut - notes still pin to these timestamps.",
+  "review.pin-at": "Pin at {time}",
+  "review.pin-hint": "Click a note timestamp to jump the video to that spot.",
+  "review.note-placeholder": "What needs fixing here?",
+  "review.add": "Add",
+  "review.chars-left": "{n} characters left",
+  "review.status-open": "Open",
+  "review.status-sent": "Sent",
+  "review.status-resolved": "Done",
+  "review.mark-resolved": "Mark as done",
+  "review.edit-note": "Edit note",
+  "review.delete-note": "Delete note",
+  "review.delete-confirm": "Delete this note?",
+  "review.seek-aria": "Jump the video to {time}",
+  "review.no-notes":
+    "No notes yet - watch the draft and pin a note wherever something needs fixing.",
+  "review.extra-notes": "Extra notes (optional)",
+  "review.extra-placeholder": "Anything else the AI should know…",
+  "review.send": "Send to AI ({n})",
+  "review.sending": "Sending…",
+  "review.sent-ok":
+    "Sent {n} notes to the AI - follow the progress in the project AI panel.",
+  "review.need-open": "Pin at least one note before sending.",
+  "review.busy":
+    "The project AI session is running - wait for it to finish before sending notes.",
+  "review.load-error": "Could not load the notes.",
+  "review.action-error": "Could not save the change to this note.",
+  "review.send-error": "Could not send the notes to the AI.",
+
+  "clips.title": "Cut shorts from a long video",
+  "clips.count": "Clips",
+  "clips.min-sec": "Min length (sec)",
+  "clips.max-sec": "Max length (sec)",
+  "clips.suggest": "Suggest clips",
+  "clips.suggesting": "Analyzing…",
+  "clips.suggest-hint":
+    "The AI is reading the transcript to find segments that stand on their own - this can take a few minutes.",
+  "clips.none":
+    "No clips yet - hit \"Suggest clips\" and the AI will pick the best segments from the transcript.",
+  "clips.select-all": "Select all",
+  "clips.select-aria": "Select clip {title}",
+  "clips.suggested-at": "Suggested {time}",
+  "clips.score": "Score {score}/10",
+  "clips.create": "Create projects ({n})",
+  "clips.creating": "Creating…",
+  "clips.auto-edit": "Start AI edit right away",
+  "clips.auto-edit-hint":
+    "At most 3 projects start right away - the rest are created and wait for you to hit edit.",
+  "clips.created": "Created {n} child projects:",
+  "clips.load-error": "Could not load the clip list.",
+  "clips.suggest-error": "Could not suggest clips.",
+  "clips.create-error": "Could not create the child projects.",
+
+  "clips.repurpose-title": "Repurpose aspect ratio",
+  "clips.repurpose-desc":
+    "A repurposed copy carries every scene and asset into the new frame, and the AI rebuilds the layout to fit it.",
+  "clips.same-aspect": "The project is already in this aspect ratio",
+  "clips.new-name": "New project name (optional)",
+  "clips.new-name-placeholder": "Leave empty to let the system name it",
+  "clips.repurpose-create": "Create repurposed copy",
+  "clips.repurpose-creating": "Creating…",
+  "clips.repurpose-done": "Repurposed copy created:",
+  "clips.repurpose-error": "Could not create the repurposed copy.",
+
+  // ===== Auto cut videos =====
+  // Tab name chosen by the user - kept in English in both languages, the same
+  // way "Videos Project" is handled.
+  "nav.auto-cut": "Auto cut videos",
+
+  "autocut.subtitle":
+    "Cut one long video into several short ones - every segment becomes a ready-made Videos Project.",
+  "autocut.new": "New cut",
+  "autocut.empty":
+    "No cutting session yet. Drop in a long video, pick how to cut it, and the system slices it into short videos with a Videos Project ready for each one.",
+  "autocut.load-error": "Could not load the cutting sessions.",
+  "autocut.col-mode": "Cut by",
+  "autocut.col-aspect": "Aspect",
+  "autocut.col-segments": "Segments / Projects",
+  "autocut.delete-aria": "Delete cutting session {name}",
+  "autocut.delete-title": "Delete cutting session",
+  "autocut.delete-desc":
+    "Deleting this session only removes its cutting plan and temporary files. The Videos Projects already created from it are NOT deleted.",
+
+  "autocut.status.draft": "Draft",
+  "autocut.status.planning": "Analyzing",
+  "autocut.status.planned": "Planned",
+  "autocut.status.cutting": "Cutting",
+  "autocut.status.done": "Done",
+  "autocut.status.failed": "Failed",
+
+  "autocut.mode.time": "By duration",
+  "autocut.mode.time-desc": "Split the video into segments of equal length.",
+  "autocut.mode.ai": "Let AI cut",
+  "autocut.mode.ai-desc":
+    "The AI reads the transcript and picks the best segments itself.",
+  "autocut.mode.prompt": "Cut on request",
+  "autocut.mode.prompt-desc":
+    "Describe what you want and the AI finds those parts in the transcript.",
+
+  "autocut.layout.auto": "Automatic",
+  "autocut.layout.auto-desc":
+    "The system looks at the frame: a person gets cropped in tight, a screen or text is scaled down so the whole frame stays.",
+  "autocut.layout.crop": "Crop to the subject",
+  "autocut.layout.crop-desc":
+    "The subject is large and fills the frame - the edges are lost.",
+  "autocut.layout.fit": "Keep the whole frame",
+  "autocut.layout.fit-desc":
+    "Nothing is lost, the empty space is filled with a background - the subject ends up small.",
+
+  "autocut.bg.gemini": "AI background",
+  "autocut.bg.gemini-desc":
+    "Gemini paints a background following the selected Style Design.",
+  "autocut.bg.blur": "Blurred background",
+  "autocut.bg.blur-desc": "The video frame itself, scaled up and blurred.",
+  "autocut.bg.style": "Style color",
+  "autocut.bg.style-desc": "A flat background using the Style Design color.",
+
+  "autocut.aspect.keep": "Keep source",
+  "autocut.aspect.keep-size": "Source frame",
+
+  "autocut.create-title": "New cut",
+  "autocut.source": "Source video",
+  "autocut.source-pick": "Pick a video from imports/",
+  "autocut.source-none": "No video in imports/ yet",
+  "autocut.sources-error": "Could not load the source videos.",
+  "autocut.upload": "Upload a video",
+  "autocut.uploading": "Uploading…",
+  "autocut.upload-error": "Could not upload the video.",
+  "autocut.name": "Session name (optional)",
+  "autocut.name-placeholder": "Leave empty to use the file name",
+  "autocut.how": "How to cut",
+  "autocut.minutes": "Minutes per segment",
+  "autocut.overlap": "Overlap (seconds)",
+  "autocut.count": "Segments",
+  "autocut.min-sec": "Shortest (seconds)",
+  "autocut.max-sec": "Longest (seconds)",
+  "autocut.request": "Your request",
+  "autocut.request-placeholder":
+    "e.g. take the parts about pricing and promotions",
+  "autocut.request-required": "Type a request before creating the session.",
+  "autocut.time-hint": "Each segment runs {minutes}.",
+  "autocut.aspect": "Aspect ratio",
+  "autocut.layout": "Fitting into the frame",
+  "autocut.background": "Background filler",
+  "autocut.style": "Style Design",
+  "autocut.keep-note":
+    "The source frame is kept as is - no reframing, so there is nothing to fit.",
+  "autocut.options": "Options",
+  "autocut.transcribe": "Create a transcript",
+  "autocut.transcribe-hint":
+    "With a transcript each child project already has captions to build on.",
+  "autocut.transcribe-locked":
+    "This mode has to read the transcript to pick segments, so it is always on.",
+  "autocut.auto-edit": "Start AI edit right after cutting",
+  "autocut.auto-edit-hint":
+    "At most 3 projects start right away - the rest are created and wait for you to hit edit.",
+  "autocut.create": "Create session & analyze",
+  "autocut.creating": "Creating…",
+  "autocut.create-error": "Could not create the cutting session.",
+  "autocut.plan-error-created":
+    "The session was created but the analysis step could not start.",
+  "autocut.open-session": "Open session",
+
+  "autocut.back": "All sessions",
+  "autocut.not-found": "This cutting session was not found.",
+  "autocut.action-error": "Could not run this step.",
+  "autocut.save-error": "Could not save the segment changes.",
+  "autocut.step-plan": "Analyzing the video",
+  "autocut.step-cut": "Cutting and creating projects",
+  "autocut.planning-hint":
+    "Reading the video and picking segments. On a long video the transcript step can take a few minutes.",
+  "autocut.cutting-hint":
+    "Cutting, reframing and creating a Videos Project for every segment.",
+  "autocut.failed": "The cutting session failed.",
+  "autocut.plan": "Analyze",
+  "autocut.replan": "Analyze again",
+  "autocut.cut": "Cut & create projects",
+  "autocut.cut-n": "Cut & create projects ({n})",
+  "autocut.segments": "Segments",
+  "autocut.no-segment":
+    "No segment yet - hit Analyze and the system will read the video and propose a cutting plan.",
+  "autocut.select-all": "Select all",
+  "autocut.selected-count": "{n} segments selected",
+  "autocut.created-count": "{n} projects created",
+  "autocut.select-aria": "Select segment {title}",
+  "autocut.title-aria": "Title of segment {n}",
+  "autocut.score": "Score {score}/10",
+  "autocut.open-project": "Open project",
 };

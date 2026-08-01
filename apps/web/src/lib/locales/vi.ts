@@ -942,4 +942,245 @@ export const vi: Record<string, string> = {
   "tunnel.warn-public":
     "Dashboard chưa có đăng nhập - bật public nên bọc thêm Cloudflare Access.",
   "tunnel.load-error": "Không tải được trạng thái tunnel.",
+
+  // ===== QC tự động + Gói xuất bản =====
+  "qc.safe-area-hint": "Ảnh khoanh đỏ vùng bị UI nền tảng che - bấm để phóng to và tự soi xem có chữ hay key nào lọt vào vùng đỏ không (máy không phân biệt được chữ với cảnh quay).",
+  "qc.safe-area-open": "Mở ảnh vùng bị che",
+
+  // QC tự động (card trong trang chi tiết video project)
+  "qc.title": "QC tự động",
+  "qc.status-pass": "Đạt",
+  "qc.status-warn": "Cảnh báo",
+  "qc.status-fail": "Không đạt",
+  "qc.run": "Chạy QC",
+  "qc.rerun": "Đo lại",
+  "qc.running": "Đang đo…",
+  "qc.slow-note": "Đang đo bằng ffmpeg, có thể mất 1-2 phút.",
+  "qc.empty":
+    "QC đo âm lượng, tìm frame đen, đoạn đứng hình và kiểm tra chữ có lọt vào vùng bị giao diện nền tảng che hay không.",
+  "qc.checked-at": "Đo {time}",
+  "qc.file-title": "File đã đo: {file}",
+  "qc.platform": "Vùng an toàn: {platform}",
+  "qc.stale":
+    "Kết quả đã cũ - file đã render lại sau lần đo. Chạy QC lại để có số liệu đúng.",
+  "qc.fail-blocks-final":
+    "Còn hạng mục không đạt: render final sẽ bị chặn cho tới khi sửa xong và QC lại.",
+  "qc.load-error": "Không tải được kết quả QC.",
+  "qc.run-error": "Chạy QC thất bại.",
+  "qc.err-no-video": "Chưa có video để QC - render bản draft trước đã.",
+  "qc.err-file-not-found": "Không tìm thấy file video để đo.",
+  "qc.err-timeout": "QC chạy quá lâu nên đã bị dừng. Thử đo lại hoặc rút ngắn video.",
+  "qc.gate-label": "Chặn render final khi QC chưa đạt",
+  "qc.gate-hint":
+    "Bật (mặc định): job render final bị từ chối khi QC còn hạng mục không đạt. Tắt đi thì AI có thể xuất final dù còn lỗi đo được như âm lượng lệch, frame đen hay chữ bị giao diện che.",
+
+  // Gói xuất bản (phụ đề + metadata đăng bài)
+  "publish.title": "Gói xuất bản",
+  "publish.generate": "Tạo gói xuất bản",
+  "publish.regenerate": "Soạn lại",
+  "publish.generating": "AI đang soạn…",
+  "publish.empty":
+    "Sinh phụ đề .srt/.vtt và soạn tiêu đề, mô tả, hashtag cho TikTok, YouTube, Facebook theo Style Design của project.",
+  "publish.no-transcript":
+    "Project chưa có transcript - chạy edit bằng AI trước để tạo transcript, rồi quay lại soạn gói xuất bản.",
+  "publish.load-error": "Không tải được gói xuất bản.",
+  "publish.error": "Soạn gói xuất bản thất bại.",
+  "publish.generated-at": "Soạn {time}",
+  "publish.from-transcript": "Nguồn: {file}",
+  "publish.copy-title": "Copy tiêu đề",
+  "publish.copy-desc": "Copy mô tả",
+  "publish.copy-tags": "Copy hashtag",
+  "publish.copied": "Đã copy",
+  "publish.subtitles": "Phụ đề",
+  "publish.download-srt": "Tải .srt",
+  "publish.download-vtt": "Tải .vtt",
+  "publish.cues": "{n} dòng phụ đề",
+
+  // ===== Duyệt draft + Cắt short + Tái chế tỉ lệ =====
+  "review.title": "Duyệt bản draft",
+  "review.no-draft": "Chưa có bản draft để duyệt - chạy render draft trước",
+  "review.watching-final":
+    "Chưa có bản draft nên đang xem bản final - ghi chú vẫn ghim theo mốc thời gian này.",
+  "review.pin-at": "Ghim tại {time}",
+  "review.pin-hint":
+    "Bấm mốc giờ của một ghi chú để tua video tới đúng chỗ cần xem.",
+  "review.note-placeholder": "Chỗ này cần sửa gì?",
+  "review.add": "Thêm",
+  "review.chars-left": "Còn {n} ký tự",
+  "review.status-open": "Đang mở",
+  "review.status-sent": "Đã gửi",
+  "review.status-resolved": "Đã xong",
+  "review.mark-resolved": "Đánh dấu đã xong",
+  "review.edit-note": "Sửa ghi chú",
+  "review.delete-note": "Xóa ghi chú",
+  "review.delete-confirm": "Xóa ghi chú này?",
+  "review.seek-aria": "Tua video tới {time}",
+  "review.no-notes":
+    "Chưa có ghi chú nào - xem draft rồi ghim ghi chú tại chỗ cần sửa.",
+  "review.extra-notes": "Ghi chú thêm (tùy chọn)",
+  "review.extra-placeholder": "Điều muốn dặn AI ngoài các mốc trên…",
+  "review.send": "Gửi cho AI sửa ({n})",
+  "review.sending": "Đang gửi…",
+  "review.sent-ok":
+    "Đã gửi {n} ghi chú cho AI - theo dõi tiến trình ở panel AI của project.",
+  "review.need-open": "Ghim ít nhất một ghi chú rồi mới gửi được.",
+  "review.busy": "Phiên AI của project đang chạy - đợi xong rồi gửi ghi chú.",
+  "review.load-error": "Không tải được danh sách ghi chú.",
+  "review.action-error": "Không lưu được thay đổi cho ghi chú.",
+  "review.send-error": "Không gửi được ghi chú cho AI.",
+
+  "clips.title": "Cắt short từ video dài",
+  "clips.count": "Số clip",
+  "clips.min-sec": "Ngắn nhất (giây)",
+  "clips.max-sec": "Dài nhất (giây)",
+  "clips.suggest": "Gợi ý clip",
+  "clips.suggesting": "Đang phân tích…",
+  "clips.suggest-hint":
+    "AI đang đọc transcript để chọn đoạn đứng riêng được - việc này có thể mất vài phút.",
+  "clips.none":
+    "Chưa có clip nào - bấm \"Gợi ý clip\" để AI chọn đoạn hay từ transcript.",
+  "clips.select-all": "Chọn tất cả",
+  "clips.select-aria": "Chọn clip {title}",
+  "clips.suggested-at": "Gợi ý {time}",
+  "clips.score": "Điểm {score}/10",
+  "clips.create": "Tạo project ({n})",
+  "clips.creating": "Đang tạo…",
+  "clips.auto-edit": "Chạy AI edit luôn",
+  "clips.auto-edit-hint":
+    "Tối đa 3 project được chạy ngay - số còn lại tạo xong để đó, bấm edit sau.",
+  "clips.created": "Đã tạo {n} project con:",
+  "clips.load-error": "Không tải được danh sách clip.",
+  "clips.suggest-error": "Không gợi ý được clip.",
+  "clips.create-error": "Không tạo được project con.",
+
+  "clips.repurpose-title": "Tái chế tỉ lệ khung",
+  "clips.repurpose-desc":
+    "Bản tái chế mang toàn bộ scene và asset sang khung mới, AI sẽ dựng lại bố cục cho vừa khung.",
+  "clips.same-aspect": "Project đã ở tỉ lệ này",
+  "clips.new-name": "Tên project mới (tùy chọn)",
+  "clips.new-name-placeholder": "Bỏ trống để hệ thống tự đặt tên",
+  "clips.repurpose-create": "Tạo bản tái chế",
+  "clips.repurpose-creating": "Đang tạo…",
+  "clips.repurpose-done": "Đã tạo bản tái chế:",
+  "clips.repurpose-error": "Không tạo được bản tái chế.",
+
+  // ===== Auto cut videos =====
+  // Tên tab do người dùng chỉ định - giữ nguyên tiếng Anh ở cả hai ngôn ngữ,
+  // giống cách "Videos Project" đang làm.
+  "nav.auto-cut": "Auto cut videos",
+
+  "autocut.subtitle":
+    "Cắt một video dài thành nhiều video ngắn - mỗi đoạn tự thành một Videos Project dựng sẵn.",
+  "autocut.new": "Cắt video mới",
+  "autocut.empty":
+    "Chưa có phiên cắt nào. Đưa vào một video dài, chọn cách cắt, hệ thống cắt ra nhiều video ngắn và tạo sẵn Videos Project cho từng đoạn.",
+  "autocut.load-error": "Không tải được danh sách phiên cắt.",
+  "autocut.col-mode": "Cách cắt",
+  "autocut.col-aspect": "Tỉ lệ",
+  "autocut.col-segments": "Đoạn / Project",
+  "autocut.delete-aria": "Xóa phiên cắt {name}",
+  "autocut.delete-title": "Xóa phiên cắt",
+  "autocut.delete-desc":
+    "Xóa phiên này chỉ xóa kế hoạch cắt và file tạm của phiên. Các Videos Project đã tạo ra từ phiên này KHÔNG bị xóa.",
+
+  "autocut.status.draft": "Nháp",
+  "autocut.status.planning": "Đang phân tích",
+  "autocut.status.planned": "Đã có kế hoạch",
+  "autocut.status.cutting": "Đang cắt",
+  "autocut.status.done": "Xong",
+  "autocut.status.failed": "Lỗi",
+
+  "autocut.mode.time": "Theo thời lượng",
+  "autocut.mode.time-desc": "Chia đều video thành các đoạn dài bằng nhau.",
+  "autocut.mode.ai": "Cắt bằng AI",
+  "autocut.mode.ai-desc": "AI đọc lời thoại rồi tự chọn các đoạn hay nhất.",
+  "autocut.mode.prompt": "Cắt theo yêu cầu",
+  "autocut.mode.prompt-desc":
+    "Bạn tả muốn lấy đoạn nào, AI tìm đúng đoạn đó trong lời thoại.",
+
+  "autocut.layout.auto": "Tự động",
+  "autocut.layout.auto-desc":
+    "Hệ thống tự nhìn khung hình: là người thì cắt cúp bám nhân vật, là màn hình hay chữ thì thu nhỏ giữ trọn khung.",
+  "autocut.layout.crop": "Cắt cúp bám nhân vật",
+  "autocut.layout.crop-desc": "Chủ thể to, đầy khung - đổi lại mất phần rìa.",
+  "autocut.layout.fit": "Giữ trọn khung nguồn",
+  "autocut.layout.fit-desc":
+    "Không mất thông tin, phần trống lấp bằng nền - đổi lại chủ thể nhỏ.",
+
+  "autocut.bg.gemini": "Nền AI vẽ",
+  "autocut.bg.gemini-desc": "Gemini vẽ nền theo Style Design đã chọn.",
+  "autocut.bg.blur": "Nền mờ",
+  "autocut.bg.blur-desc": "Lấy chính khung hình video phóng to rồi làm mờ.",
+  "autocut.bg.style": "Màu của style",
+  "autocut.bg.style-desc": "Nền phẳng lấy màu nền từ Style Design.",
+
+  "autocut.aspect.keep": "Giữ nguyên",
+  "autocut.aspect.keep-size": "Khung nguồn",
+
+  "autocut.create-title": "Cắt video mới",
+  "autocut.source": "Video nguồn",
+  "autocut.source-pick": "Chọn video trong imports/",
+  "autocut.source-none": "Chưa có video nào trong imports/",
+  "autocut.sources-error": "Không tải được danh sách video nguồn.",
+  "autocut.upload": "Tải video lên",
+  "autocut.uploading": "Đang tải lên…",
+  "autocut.upload-error": "Không tải được video lên.",
+  "autocut.name": "Tên phiên (tùy chọn)",
+  "autocut.name-placeholder": "Bỏ trống để lấy theo tên file",
+  "autocut.how": "Cách cắt",
+  "autocut.minutes": "Số phút mỗi đoạn",
+  "autocut.overlap": "Chồng lấn (giây)",
+  "autocut.count": "Số đoạn",
+  "autocut.min-sec": "Ngắn nhất (giây)",
+  "autocut.max-sec": "Dài nhất (giây)",
+  "autocut.request": "Yêu cầu cắt",
+  "autocut.request-placeholder": "vd: lấy các đoạn nói về giá và khuyến mãi",
+  "autocut.request-required": "Nhập yêu cầu thì mới tạo được phiên.",
+  "autocut.time-hint": "Mỗi đoạn dài {minutes}.",
+  "autocut.aspect": "Tỉ lệ khung hình",
+  "autocut.layout": "Đưa hình vào khung",
+  "autocut.background": "Nền lấp phần trống",
+  "autocut.style": "Style Design",
+  "autocut.keep-note":
+    "Giữ nguyên khung nguồn - không đổi khung nên không cần chọn cách đưa hình vào khung.",
+  "autocut.options": "Tùy chọn",
+  "autocut.transcribe": "Tạo lời thoại (transcript)",
+  "autocut.transcribe-hint": "Có lời thoại thì project con sẵn phụ đề để dựng.",
+  "autocut.transcribe-locked":
+    "Chế độ này phải đọc lời thoại mới chọn được đoạn nên luôn bật.",
+  "autocut.auto-edit": "Chạy AI edit luôn sau khi cắt",
+  "autocut.auto-edit-hint":
+    "Tối đa 3 project được chạy ngay - số còn lại tạo xong để đó, bấm edit sau.",
+  "autocut.create": "Tạo phiên & phân tích",
+  "autocut.creating": "Đang tạo…",
+  "autocut.create-error": "Không tạo được phiên cắt.",
+  "autocut.plan-error-created":
+    "Đã tạo phiên nhưng chưa chạy được bước phân tích.",
+  "autocut.open-session": "Mở phiên",
+
+  "autocut.back": "Danh sách phiên",
+  "autocut.not-found": "Không tìm thấy phiên cắt này.",
+  "autocut.action-error": "Không chạy được bước này.",
+  "autocut.save-error": "Không lưu được thay đổi của các đoạn.",
+  "autocut.step-plan": "Phân tích video",
+  "autocut.step-cut": "Cắt và tạo project",
+  "autocut.planning-hint":
+    "Đang đọc video và chọn đoạn. Video dài thì bước tạo lời thoại có thể mất vài phút.",
+  "autocut.cutting-hint":
+    "Đang cắt, đổi khung hình và tạo Videos Project cho từng đoạn.",
+  "autocut.failed": "Phiên cắt gặp lỗi.",
+  "autocut.plan": "Phân tích",
+  "autocut.replan": "Phân tích lại",
+  "autocut.cut": "Cắt & tạo project",
+  "autocut.cut-n": "Cắt & tạo project ({n})",
+  "autocut.segments": "Các đoạn",
+  "autocut.no-segment":
+    "Chưa có đoạn nào - bấm Phân tích để hệ thống đọc video và đề xuất kế hoạch cắt.",
+  "autocut.select-all": "Chọn tất cả",
+  "autocut.selected-count": "{n} đoạn được chọn",
+  "autocut.created-count": "{n} project đã tạo",
+  "autocut.select-aria": "Chọn đoạn {title}",
+  "autocut.title-aria": "Tiêu đề đoạn {n}",
+  "autocut.score": "Điểm {score}/10",
+  "autocut.open-project": "Mở project",
 };

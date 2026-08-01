@@ -80,6 +80,10 @@ import {
   SFX_MODE_LABEL,
 } from "@/components/ProjectBriefCard";
 import { ProjectAssetsCard } from "@/components/ProjectAssetsCard";
+import { ProjectClipsCard } from "@/components/ProjectClipsCard";
+import { ProjectReviewCard } from "@/components/ProjectReviewCard";
+import { ProjectPublishCard } from "@/components/ProjectPublishCard";
+import { ProjectQcCard } from "@/components/ProjectQcCard";
 import { styleDisplayName, useStyles } from "@/components/StyleSelect";
 import { formatBytes, formatRelative, isRecentFile } from "@/lib/format";
 import {
@@ -1052,6 +1056,19 @@ export default function ProjectDetailPage() {
                     setProject((p) => (p ? { ...p, brief: b } : p))
                   }
                 />
+                {/* Duyệt draft ghim ghi chú theo giây; Cắt short + Tái chế tỉ lệ đẻ project con */}
+                <ProjectReviewCard
+                  projectId={projectId}
+                  output={project?.output}
+                  version={project?.updatedAt}
+                  aiRunning={aiRunning}
+                />
+                <ProjectClipsCard
+                  projectId={projectId}
+                  width={project?.width}
+                  height={project?.height}
+                  onCreated={load}
+                />
               </div>
 
               <div className="flex flex-col gap-4">
@@ -1063,6 +1080,12 @@ export default function ProjectDetailPage() {
                   aiRunning={aiRunning}
                   version={project?.updatedAt}
                   onChanged={load}
+                />
+                {/* QC đo bản draft/final hiện có; Gói xuất bản soạn từ transcript */}
+                <ProjectQcCard projectId={projectId} onChanged={load} />
+                <ProjectPublishCard
+                  projectId={projectId}
+                  version={project?.updatedAt}
                 />
                 <Card title="Renders">
                   <FileTable files={renders} />

@@ -1,8 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Router } from "express";
-import { nanoid } from "nanoid";
 import { runAgent } from "../agent.js";
+import {
+  prepareEditSession,
+  scaffoldProjectFiles,
+  uniqueProjectId,
+} from "../childProject.js";
 import {
   GRADE_PRESETS,
   generateGradePreviews,
@@ -12,7 +16,6 @@ import {
 } from "../color.js";
 import { paths, repoRoot } from "../config.js";
 import * as db from "../db.js";
-import { buildEditPrompt } from "../editPrompt.js";
 import {
   MUSIC_MODES,
   SFX_MODES,
@@ -36,9 +39,7 @@ import {
   type SfxMode,
 } from "../meta.js";
 import { parseModelEffort } from "./providers.js";
-import { RECOMMENDED_TAG, readLibrary } from "./sfx.js";
-import { readMusicLibrary } from "./music.js";
-import { getStyle, styleExists } from "../styles.js";
+import { styleExists } from "../styles.js";
 import {
   HttpError,
   ensureDir,
@@ -75,9 +76,7 @@ router.post("/", (req, res) => {
   if (!name) throw new HttpError(400, "INVALID_NAME", "Thiếu name");
   if (!id) {
     // Không gửi id → tự sinh từ tên (bỏ dấu tiếng Việt, kebab-case), trùng thì thêm -2, -3…
-    const base = toKebabAscii(name) || "project";
-    id = base;
-    for (let n = 2; fs.existsSync(projectDirOf(id)); n++) id = `${base}-${n}`;
+    id = uniqueProjectId(name);
   }
   if (!isKebabCase(id)) {
     throw new HttpError(400, "INVALID_ID", "id phải là kebab-case (vd: tiktok-paper-gpt5)");
@@ -95,31 +94,8 @@ router.post("/", (req, res) => {
   }
 
   // Scaffold: index.html tối thiểu + compositions/ + assets/ + renders/ + hyperframes.json + meta.json
-  ensureDir(dir);
-  ensureDir(path.join(dir, "compositions"));
-  ensureDir(path.join(dir, "assets"));
-  ensureDir(path.join(dir, "renders"));
-
-  fs.writeFileSync(path.join(dir, "index.html"), scaffoldIndexHtml(id, name, width, height), "utf8");
-  // Format thật của HyperFrames CLI (DEFAULT_PROJECT_CONFIG trong hyperframes@0.7.x)
-  fs.writeFileSync(
-    path.join(dir, "hyperframes.json"),
-    JSON.stringify(
-      {
-        $schema: "https://hyperframes.heygen.com/schema/hyperframes.json",
-        registry: "https://raw.githubusercontent.com/heygen-com/hyperframes/main/registry",
-        paths: {
-          blocks: "compositions",
-          components: "compositions/components",
-          assets: "assets",
-        },
-        media: { autoProxy: true },
-      },
-      null,
-      2,
-    ) + "\n",
-    "utf8",
-  );
+  // (dùng chung với "cắt short"/"tái chế tỉ lệ" - xem childProject.ts)
+  scaffoldProjectFiles(id, name, width, height);
 
   const meta: ProjectMeta = {
     id,
@@ -192,9 +168,7 @@ router.post("/:id/clone", (req, res) => {
       : `${srcMeta.name} (bản sao)`;
 
   // Sinh id mới từ tên, dedupe
-  const base = toKebabAscii(name) || `${srcId}-copy`;
-  let newId = base;
-  for (let n = 2; fs.existsSync(projectDirOf(newId)); n++) newId = `${base}-${n}`;
+  const newId = uniqueProjectId(toKebabAscii(name) || `${srcId}-copy`);
 
   // Copy toàn bộ trừ renders/cache/verify - giữ compositions, assets (kèm mô tả), hyperframes.json
   copyDirFiltered(projectDirOf(srcId), projectDirOf(newId));
@@ -573,43 +547,9 @@ router.post("/:id/edit", (req, res) => {
   const extraNotes = typeof body.extraNotes === "string" ? body.extraNotes.trim() : "";
   const { model, effort } = parseModelEffort(body); // 400 nếu không hợp lệ
 
-  const brief = briefOf(meta);
-  const recommendedSfx =
-    brief.sfxMode === "recommended"
-      ? readLibrary().filter(
-          (e) =>
-            e.tags.includes(RECOMMENDED_TAG) && fs.existsSync(path.join(paths.sfxDir, e.file)),
-        )
-      : [];
-  // Thư viện nhạc nền - chỉ soạn vào prompt khi brief bật nhạc auto
-  const music =
-    brief.musicMode === "auto"
-      ? readMusicLibrary().filter((e) => fs.existsSync(path.join(paths.musicDir, e.file)))
-      : [];
-
-  const prompt = buildEditPrompt({
-    id,
-    meta,
-    brief,
-    assets: listProjectAssets(id),
-    recommendedSfx,
-    music,
-    // Style Design cưỡng chế: style đã chọn trong brief hoặc style default
-    style: getStyle(brief.styleId),
-    extraNotes,
-  });
-
-  const sessionId = `sess_${nanoid()}`;
-  // goal='final': phiên edit chỉ được coi là hoàn thành khi video final tồn tại thật
-  // (agent.ts gate trong finally - xem docs/API.md mục Chat)
-  db.createChatSession(
-    sessionId,
-    `Edit: ${meta.name || id}`,
-    id,
-    model ?? null,
-    effort ?? null,
-    "final",
-  );
+  // Soạn prompt (brief + assets + sfx/nhạc + Style Design) và mở phiên goal='final'
+  // - dùng chung với "cắt short"/"tái chế tỉ lệ" (xem childProject.ts)
+  const { sessionId, prompt } = prepareEditSession({ id, meta, extraNotes, model, effort });
 
   // Trả 202 NGAY, agent chạy nền - cùng pipeline với /api/chat (SSE kênh `agent`,
   // message đầu session được agent.ts tự prepend CLAUDE.md)
@@ -633,73 +573,8 @@ router.delete("/:id", (req, res) => {
   res.status(204).end();
 });
 
-// Format thật của composition gốc HyperFrames: root div có data-composition-id/start/duration/width/height,
-// GSAP CDN, timeline paused đăng ký vào window.__timelines[id] (object map, không phải array).
-function scaffoldIndexHtml(id: string, name: string, width: number, height: number): string {
-  return `<!doctype html>
-<html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=${width}, height=${height}" />
-    <title>${escapeHtml(name)}</title>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body {
-        width: ${width}px;
-        height: ${height}px;
-        overflow: hidden;
-        background: #101113;
-        font-family: Inter, system-ui, sans-serif;
-      }
-      #root {
-        position: relative;
-        width: ${width}px;
-        height: ${height}px;
-        overflow: hidden;
-        background: #101113;
-      }
-      .placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #ffffff;
-      }
-      .placeholder h1 { font-size: 64px; font-weight: 800; text-align: center; padding: 0 48px; }
-    </style>
-  </head>
-  <body>
-    <div
-      id="root"
-      data-composition-id="${escapeHtml(id)}"
-      data-start="0"
-      data-duration="5"
-      data-width="${width}"
-      data-height="${height}"
-    >
-      <div class="placeholder"><h1>${escapeHtml(name)}</h1></div>
-      <!-- Thêm scene: <div data-composition-id="s01" data-composition-src="compositions/s01.html" data-start="0" data-duration="3" data-track-index="1"></div> -->
-    </div>
-    <script>
-      window.__timelines = window.__timelines || {};
-      const tl = gsap.timeline({ paused: true });
-      // Anchor tween giữ đủ thời lượng slot, chống frame đen cuối composition
-      tl.to({}, { duration: 5 }, 0);
-      window.__timelines["${escapeHtml(id)}"] = tl;
-    </script>
-  </body>
-</html>
-`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+// Scaffold index.html + hyperframes.json đã chuyển sang childProject.ts
+// (scaffoldProjectFiles) để dùng chung với "cắt short" và "tái chế tỉ lệ khung"
+// - nội dung file sinh ra KHÔNG đổi.
 
 export default router;
