@@ -1,0 +1,720 @@
+"use client";
+
+/**
+ * Popup cập nhật hệ thống - xác nhận, tiến trình 4 bước, kết quả.
+ *
+ * VÌ SAO phải poll thay vì SSE: script update chạy DETACHED và tự kill chính
+ * server này, nên không có kết nối nào sống xuyên suốt để đẩy tiến trình.
+ * Trình tự thật của script (update/update.ps1):
+ *   1. pull    - server VẪN SỐNG  → poll GET /api/update/log, thấy tiến trình thật
+ *   2. stop    - server CHẾT từ đây
+ *   3. install - npm install, không gọi được API
+ *   4. restart - build + bật lại, server sống lại
+ * Nên: API bắt đầu fail = ĐÃ SANG BƯỚC TẮT MÁY (bình thường, không phải lỗi),
+ * chuyển sang chờ /api/health sống lại, rồi đọc log lần cuối để lấy kết quả
+ * thật của cả quãng vừa tắt trước khi reload trang.
+ */
+
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { Modal } from "@/components/Modal";
+import {
+  ApiError,
+  applyUpdate,
+  checkUpdate,
+  getUpdateLog,
+  type UpdateStatus,
+  type UpdateStep,
+} from "@/lib/api";
+import { useT } from "@/lib/i18n";
+
+const STEPS: readonly UpdateStep[] = ["pull", "stop", "install", "restart"];
+const STEP_LABEL: Record<UpdateStep, string> = {
+  pull: "update.step.pull",
+  stop: "update.step.stop",
+  install: "update.step.install",
+  restart: "update.step.restart",
+};
+
+const POLL_MS = 2_000; // nhịp poll log / health
+const LOG_TAIL = 200; // đủ để thấy đuôi bước pull
+const FINAL_TAIL = 400; // sau khi sống lại: lấy rộng hơn để có cả phần install
+/** Server còn sống mà quá lâu chưa thấy tắt → script có thể chết âm thầm. */
+const ALIVE_TIMEOUT_MS = 4 * 60 * 1000;
+/** Server đã tắt mà quá lâu chưa sống lại → npm install/build hỏng. */
+const DOWN_TIMEOUT_MS = 10 * 60 * 1000;
+const RELOAD_DELAY_MS = 2_500;
+
+type Phase = "confirm" | "running" | "done" | "failed";
+type FailReason = "script" | "timeout";
+
+/**
+ * Lấy phần log THUỘC LẦN CHẠY NÀY.
+ * VÌ SAO: start/update.log là file cộng dồn (Start-Transcript -Append) nên lần
+ * nào cũng có sẵn output của những lần trước - không lọc thì UI hiện log cũ và
+ * suy ra sai bước đang chạy. Neo bằng dòng cuối cùng của log CŨ, không so theo
+ * độ dài vì API chỉ trả ĐUÔI log (tail) - log dài ra thì dòng đầu bị đẩy đi.
+ */
+function newLinesSince(baseline: string[] | null, lines: string[]): string[] {
+  if (!baseline || baseline.length === 0) return lines;
+  let anchor = "";
+  for (let i = baseline.length - 1; i >= 0; i--) {
+    if (baseline[i].trim() !== "") {
+      anchor = baseline[i];
+      break;
+    }
+  }
+  if (!anchor) return lines;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i] === anchor) return lines.slice(i + 1);
+  }
+  // Không tìm thấy mốc cũ (log đã trôi hết khỏi tail) → coi tất cả là mới
+  return lines;
+}
+
+/** Bước gần nhất suy từ mốc `[STEP] <tên>` script ghi vào log. */
+function stepFromLines(lines: string[]): UpdateStep | null {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const raw = lines[i].split("[STEP] ")[1]?.trim();
+    if (raw && (STEPS as readonly string[]).includes(raw)) {
+      return raw as UpdateStep;
+    }
+  }
+  return null;
+}
+
+/** mm:ss cho đồng hồ đếm thời gian đã trôi. */
+function formatElapsed(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export function UpdateModal({
+  open,
+  status,
+  checking = false,
+  onClose,
+  onRecheck,
+}: {
+  open: boolean;
+  /** Trạng thái check mới nhất do UpdateBadge sở hữu (null = chưa check được). */
+  status: UpdateStatus | null;
+  /** Badge đang gọi check - khóa nút "Kiểm tra lại". */
+  checking?: boolean;
+  onClose: () => void;
+  /** Bắt badge check lại (force) - dùng ở nút "Kiểm tra lại". */
+  onRecheck: () => void;
+}) {
+  const { t, tf } = useT();
+  const [phase, setPhase] = useState<Phase>("confirm");
+  const [starting, setStarting] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [lines, setLines] = useState<string[]>([]);
+  const [stepIdx, setStepIdx] = useState(0);
+  const [serverDown, setServerDown] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [failReason, setFailReason] = useState<FailReason>("timeout");
+  const [newHash, setNewHash] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
+
+  const baselineRef = useRef<string[] | null>(null);
+  const startRef = useRef(0);
+  const mountedRef = useRef(true);
+  const logBoxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Mở lại popup sau khi đã đóng → về trạng thái xác nhận sạch sẽ.
+  // (Không reset khi đang chạy: lúc đó popup không cho đóng.)
+  useEffect(() => {
+    if (!open) return;
+    setPhase((p) => (p === "running" ? p : "confirm"));
+    setApplyError(null);
+    setShowLog(false);
+  }, [open]);
+
+  // Log tự cuộn xuống dòng mới nhất - người dùng thấy hệ thống đang làm gì
+  useEffect(() => {
+    const box = logBoxRef.current;
+    if (box) box.scrollTop = box.scrollHeight;
+  }, [lines]);
+
+  // Đồng hồ đếm thời gian đã trôi (quan trọng ở giai đoạn server tắt: không có
+  // log nào chạy, đồng hồ là bằng chứng duy nhất cho thấy UI vẫn đang theo dõi)
+  useEffect(() => {
+    if (phase !== "running") return;
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1_000);
+    return () => clearInterval(timer);
+  }, [phase]);
+
+  /** Server đã sống lại: đọc log lần cuối + lấy hash mới rồi báo thành công. */
+  const finish = useCallback(async () => {
+    setServerDown(false);
+    setStepIdx(STEPS.length - 1);
+    try {
+      const log = await getUpdateLog(FINAL_TAIL);
+      if (!mountedRef.current) return;
+      setLines(newLinesSince(baselineRef.current, log.lines));
+    } catch {
+      // Không đọc được log cuối - vẫn coi là xong vì server đã sống lại
+    }
+    if (!mountedRef.current) return;
+    setPhase("done");
+    try {
+      const s = await checkUpdate();
+      if (mountedRef.current) setNewHash(s.current || null);
+    } catch {
+      // Không lấy được hash mới - không ảnh hưởng kết quả
+    }
+  }, []);
+
+  // Vòng poll chính: log khi server còn sống → health khi server đã tắt
+  useEffect(() => {
+    if (phase !== "running") return;
+    let alive = true;
+    let sawDown = false;
+    let downAt = 0;
+    let curStep = 0;
+    const startedAt = Date.now();
+
+    const tick = async () => {
+      if (!alive) return;
+
+      if (!sawDown) {
+        try {
+          const log = await getUpdateLog(LOG_TAIL);
+          if (!alive) return;
+          const fresh = newLinesSince(baselineRef.current, log.lines);
+          setLines(fresh);
+          // Ưu tiên bước suy từ dòng MỚI; chỉ tin `step` của server khi không
+          // chụp được log cũ (không có mốc để lọc log của lần chạy trước).
+          const detected =
+            stepFromLines(fresh) ??
+            (baselineRef.current === null ? log.step : null);
+          const idx = detected ? STEPS.indexOf(detected) : -1;
+          if (idx > curStep) {
+            curStep = idx;
+            setStepIdx(idx);
+          }
+          // Script tự ghi "[LOI]" rồi thoát - bắt ngay, khỏi bắt người dùng chờ
+          if (fresh.some((l) => l.includes("[LOI]"))) {
+            alive = false;
+            setFailReason("script");
+            setPhase("failed");
+            return;
+          }
+          if (Date.now() - startedAt > ALIVE_TIMEOUT_MS) {
+            alive = false;
+            setFailReason("timeout");
+            setPhase("failed");
+          }
+        } catch {
+          if (!alive) return;
+          // API chết = script đã kill server. ĐÂY LÀ BƯỚC BÌNH THƯỜNG.
+          sawDown = true;
+          downAt = Date.now();
+          setServerDown(true);
+          if (curStep < 1) {
+            curStep = 1;
+            setStepIdx(1);
+          }
+        }
+        return;
+      }
+
+      // Giai đoạn server tắt: chờ sống lại. /api/health là endpoint public nên
+      // fetch thẳng, không cần token - lỗi mạng = vẫn đang tắt.
+      let up = false;
+      try {
+        const res = await fetch("/api/health", { cache: "no-store" });
+        up = res.ok;
+      } catch {
+        up = false;
+      }
+      if (!alive) return;
+      if (up) {
+        alive = false;
+        await finish();
+        return;
+      }
+      if (Date.now() - downAt > DOWN_TIMEOUT_MS) {
+        alive = false;
+        setFailReason("timeout");
+        setPhase("failed");
+      }
+    };
+
+    const timer = setInterval(tick, POLL_MS);
+    void tick();
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [phase, finish]);
+
+  // Xong thì tự tải lại - code mới chỉ vào trang sau khi reload
+  useEffect(() => {
+    if (phase !== "done") return;
+    const timer = setTimeout(() => location.reload(), RELOAD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
+  async function onApply() {
+    setApplyError(null);
+    setStarting(true);
+    // Chụp log CŨ trước khi chạy để lọc ra đúng phần của lần này
+    try {
+      const before = await getUpdateLog(2000);
+      baselineRef.current = before.exists ? before.lines : [];
+    } catch {
+      baselineRef.current = null;
+    }
+    try {
+      await applyUpdate();
+    } catch (err) {
+      setStarting(false);
+      if (err instanceof ApiError && err.code === "JOB_RUNNING") {
+        setApplyError(t("update.job-running"));
+      } else {
+        setApplyError(
+          err instanceof ApiError ? err.message : t("update.send-failed")
+        );
+      }
+      return;
+    }
+    startRef.current = Date.now();
+    setStarting(false);
+    setLines([]);
+    setStepIdx(0);
+    setServerDown(false);
+    setElapsed(0);
+    setNewHash(null);
+    setPhase("running");
+  }
+
+  // Đang chạy: chặn đóng bằng nền/Escape/nút X (bấm nhầm giữa chừng rất tệ).
+  // `dismissible={false}` ẩn luôn nút X - để nút hiện mà bấm không tác dụng
+  // thì người dùng tưởng giao diện treo.
+  const running = phase === "running";
+
+  const title =
+    phase === "running"
+      ? t("update.running-title")
+      : phase === "done"
+        ? t("update.success-title")
+        : phase === "failed"
+          ? t("update.failed-title")
+          : t("update.title");
+
+  return (
+    <Modal
+      open={open}
+      title={title}
+      onClose={onClose}
+      dismissible={!running}
+      footer={renderFooter()}
+    >
+      {phase === "confirm" && renderConfirm()}
+      {running && renderRunning()}
+      {phase === "done" && renderDone()}
+      {phase === "failed" && renderFailed()}
+    </Modal>
+  );
+
+  function renderFooter() {
+    if (running) return undefined; // không có lối thoát giữa chừng
+    if (phase === "done") {
+      return (
+        <button
+          type="button"
+          onClick={() => location.reload()}
+          className="btn btn-primary btn-sm"
+        >
+          {t("update.reload-now")}
+        </button>
+      );
+    }
+    if (phase === "failed") {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-secondary btn-sm"
+          >
+            {t("common.close")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPhase("confirm");
+              onRecheck();
+            }}
+            className="btn btn-primary btn-sm"
+          >
+            {t("update.check-now")}
+          </button>
+        </>
+      );
+    }
+    // Không có bản mới: popup chỉ còn việc cho kiểm tra lại
+    if (!status || status.upToDate) {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-secondary btn-sm"
+          >
+            {t("common.close")}
+          </button>
+          <button
+            type="button"
+            onClick={onRecheck}
+            disabled={checking}
+            className="btn btn-primary btn-sm"
+          >
+            {checking && (
+              <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+            )}
+            {t("update.check-now")}
+          </button>
+        </>
+      );
+    }
+    return (
+      <>
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn btn-secondary btn-sm"
+        >
+          {t("update.later")}
+        </button>
+        <button
+          type="button"
+          onClick={onApply}
+          disabled={starting}
+          className="btn btn-primary btn-sm"
+        >
+          {starting && (
+            <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+          )}
+          {starting ? t("update.starting") : t("update.apply-now")}
+        </button>
+      </>
+    );
+  }
+
+  function renderConfirm() {
+    const commits = status?.commits ?? [];
+    const latestHash = commits[0]?.hash ?? null;
+    const rest = status ? Math.max(0, status.behind - commits.length) : 0;
+
+    // Không có bản mới (hoặc check hỏng): chỉ báo trạng thái, không có gì để chạy
+    if (!status || status.upToDate) {
+      return (
+        <>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs">
+            <span className="text-[var(--text-muted)]">
+              {t("update.current-label")}
+            </span>
+            <span className="font-mono">{status?.current || "?"}</span>
+            {status && !status.error && (
+              <span className="inline-flex items-center gap-1 text-[var(--success)]">
+                <Check size={14} strokeWidth={3} />
+                {t("update.up-to-date")}
+              </span>
+            )}
+          </div>
+          {status?.error && (
+            <ErrorBanner
+              message={t("update.check-failed")}
+              detail={status.error}
+            />
+          )}
+        </>
+      );
+    }
+
+    return (
+      <>
+        {/* Hàng phiên bản: hash hiện tại -> hash mới nhất */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs">
+          <span className="text-[var(--text-muted)]">
+            {t("update.current-label")}
+          </span>
+          <span className="font-mono">{status?.current || "?"}</span>
+          <ArrowRight
+            size={14}
+            strokeWidth={2}
+            className="shrink-0 text-[var(--text-muted)]"
+          />
+          <span className="text-[var(--text-muted)]">
+            {t("update.latest-label")}
+          </span>
+          <span className="font-mono font-semibold text-[var(--primary)]">
+            {latestHash ?? tf("update.behind", { n: status?.behind ?? 0 })}
+          </span>
+          {latestHash && (
+            <span className="text-[var(--text-muted)]">
+              ({tf("update.behind", { n: status?.behind ?? 0 })})
+            </span>
+          )}
+        </div>
+
+        {/* Có gì mới */}
+        <div>
+          <p className="mb-1.5 text-xs font-semibold">{t("update.whats-new")}</p>
+          {commits.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              {status?.latestMessage || t("update.no-commits")}
+            </p>
+          ) : (
+            <ul className="max-h-48 overflow-y-auto rounded-[var(--radius)] border border-[var(--border)]">
+              {commits.map((c) => (
+                <li
+                  key={c.hash}
+                  className="flex items-start gap-2 border-b border-[var(--border)] px-3 py-1.5 text-xs last:border-b-0"
+                >
+                  <span className="shrink-0 font-mono text-[var(--text-muted)]">
+                    {c.hash}
+                  </span>
+                  <span className="min-w-0 break-words">{c.message}</span>
+                </li>
+              ))}
+              {rest > 0 && (
+                <li className="px-3 py-1.5 text-xs text-[var(--text-muted)]">
+                  {tf("update.commits-more", { n: rest })}
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+
+        <p className="text-xs text-[var(--text-muted)]">
+          {t("update.warn-restart")}
+        </p>
+        {applyError && <ErrorBanner message={applyError} />}
+      </>
+    );
+  }
+
+  function renderRunning() {
+    return (
+      <>
+        <Stepper current={stepIdx} done={false} />
+        <div
+          className="progress-indeterminate"
+          aria-label={t("update.running-title")}
+        />
+        <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+          <span className="truncate">
+            {tf("update.step-of", { n: stepIdx + 1 })} ·{" "}
+            {t(STEP_LABEL[STEPS[stepIdx]])}
+          </span>
+          <span className="shrink-0 font-mono">
+            {tf("update.elapsed", { time: formatElapsed(elapsed) })}
+          </span>
+        </div>
+
+        {/* Server tắt là ĐÚNG QUY TRÌNH - nói rõ để người dùng không hoảng */}
+        {serverDown && (
+          <p
+            aria-live="polite"
+            className="rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]"
+          >
+            {t("update.server-down")}
+          </p>
+        )}
+
+        <LogBox
+          boxRef={logBoxRef}
+          lines={lines}
+          empty={t("update.waiting-log")}
+        />
+      </>
+    );
+  }
+
+  function renderDone() {
+    return (
+      <>
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)]">
+            <Check size={20} strokeWidth={3} className="text-[var(--success)]" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{t("update.success-title")}</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              {newHash
+                ? `${tf("update.new-version", { hash: newHash })} · ${t("update.reloading")}`
+                : t("update.reloading")}
+            </p>
+          </div>
+        </div>
+        <Stepper current={STEPS.length - 1} done />
+        {lines.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowLog((v) => !v)}
+              className="inline-flex items-center gap-1 self-start text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+            >
+              {showLog ? (
+                <ChevronDown size={12} strokeWidth={2} />
+              ) : (
+                <ChevronRight size={12} strokeWidth={2} />
+              )}
+              {showLog ? t("update.hide-log") : t("update.view-log")}
+            </button>
+            {showLog && <LogBox lines={lines} empty={t("update.log-title")} />}
+          </>
+        )}
+      </>
+    );
+  }
+
+  function renderFailed() {
+    const message =
+      failReason === "script"
+        ? t("update.failed-script")
+        : t("update.failed-timeout");
+    // Bước pull chạy TRƯỚC khi tắt máy, nên hỏng ở đây = bản cũ còn nguyên
+    const safe = !serverDown && stepIdx === 0;
+    return (
+      <>
+        <ErrorBanner
+          message={message}
+          detail={lines.length > 0 ? lines.join("\n") : undefined}
+        />
+        {safe && (
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("update.failed-safe")}
+          </p>
+        )}
+        <p className="text-xs text-[var(--text-muted)]">
+          {t("update.log-hint")}
+        </p>
+        <LogBox lines={lines} empty={t("update.waiting-log")} />
+      </>
+    );
+  }
+}
+
+/**
+ * Stepper 4 bước, cùng phong cách PipelineTimeline: xong = tích xanh,
+ * đang chạy = spinner primary, chưa tới = chấm xám.
+ */
+function Stepper({ current, done }: { current: number; done: boolean }) {
+  const { t } = useT();
+  return (
+    <ol className="flex w-full min-w-0 items-start">
+      {STEPS.flatMap((step, i) => {
+        const passed = i < current || (i === current && done);
+        const active = i === current && !done;
+        const items = [];
+        if (i > 0) {
+          items.push(
+            <li
+              key={`c-${step}`}
+              aria-hidden="true"
+              className={`mx-1 mt-2 h-px min-w-2 flex-1 ${
+                i <= current ? "bg-[var(--success)]" : "bg-[var(--border)]"
+              }`}
+            />
+          );
+        }
+        items.push(
+          <li
+            key={step}
+            className="flex shrink-0 flex-col items-center gap-1"
+            aria-current={active ? "step" : undefined}
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-4 items-center justify-center"
+            >
+              {passed ? (
+                <Check
+                  size={14}
+                  strokeWidth={3.5}
+                  className="text-[var(--success)]"
+                />
+              ) : active ? (
+                <Loader2
+                  size={14}
+                  strokeWidth={2.5}
+                  className="animate-spin text-[var(--primary)]"
+                />
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-[var(--border)]" />
+              )}
+            </span>
+            <span
+              className={`text-center text-[10px] leading-tight ${
+                active
+                  ? "font-semibold text-[var(--text)]"
+                  : passed
+                    ? "text-[var(--text-muted)]"
+                    : "text-[var(--text-muted)] opacity-60"
+              }`}
+            >
+              {t(STEP_LABEL[step])}
+            </span>
+          </li>
+        );
+        return items;
+      })}
+    </ol>
+  );
+}
+
+/** Khối log mono, chiều cao cố định, cuộn dọc. */
+function LogBox({
+  lines,
+  empty,
+  boxRef,
+}: {
+  lines: string[];
+  empty: string;
+  boxRef?: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      ref={boxRef}
+      className="h-40 overflow-y-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
+    >
+      {lines.length === 0 ? (
+        <p className="font-mono text-[11px] text-[var(--text-muted)]">
+          {empty}
+        </p>
+      ) : (
+        <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-[var(--text-muted)]">
+          {lines.join("\n")}
+        </pre>
+      )}
+    </div>
+  );
+}

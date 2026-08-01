@@ -28,6 +28,7 @@ import {
   type ImageDraft,
 } from "@/components/ImageProjectForm";
 import { Modal } from "@/components/Modal";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressBar } from "@/components/ProgressBar";
 import { formatBytes, formatDateTime } from "@/lib/format";
@@ -491,13 +492,24 @@ export default function ImagesPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.images")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.images")}
+            <InfoHint
+              titleKey="help.images.title"
+              bodyKey="help.images.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("imagesPage.subtitle")}
         actions={
-          <Button onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} />
-            {t("imagesPage.create")}
-          </Button>
+          <>
+            <Button onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} />
+              {t("imagesPage.create")}
+            </Button>
+          </>
         }
       />
 

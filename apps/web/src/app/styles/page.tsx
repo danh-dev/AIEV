@@ -17,6 +17,7 @@ import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { TagInput } from "@/components/TagInput";
 import { refreshStyles } from "@/components/StyleSelect";
@@ -148,13 +149,24 @@ export default function StylesPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.styles")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.styles")}
+            <InfoHint
+              titleKey="help.styles.title"
+              bodyKey="help.styles.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("stylesPage.subtitle")}
         actions={
-          <Button onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} />
-            {t("stylesPage.create")}
-          </Button>
+          <>
+            <Button onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} />
+              {t("stylesPage.create")}
+            </Button>
+          </>
         }
       />
 

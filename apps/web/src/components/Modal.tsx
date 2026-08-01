@@ -11,6 +11,7 @@ export function Modal({
   children,
   footer,
   wide = false,
+  dismissible = true,
 }: {
   title: ReactNode;
   open: boolean;
@@ -19,16 +20,22 @@ export function Modal({
   footer?: ReactNode;
   /** true = modal rộng (lưới preview nhiều cột) - max-w 960px thay vì 640px. */
   wide?: boolean;
+  /**
+   * false = KHÔNG cho đóng: ẩn nút X, chặn Escape và click nền.
+   * Dùng cho thao tác không được bỏ dở giữa chừng (đang cập nhật hệ thống).
+   * Để nút X hiện mà bấm không tác dụng còn khó hiểu hơn là không có nút.
+   */
+  dismissible?: boolean;
 }) {
   const { t } = useT();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && dismissible) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   if (!open) return null;
 
@@ -36,7 +43,7 @@ export function Modal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--text)]/40 p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && dismissible) onClose();
       }}
     >
       {/* Form đơn lẻ giữ giới hạn chiều rộng cho dễ đọc (quy tắc full-width chỉ áp cho trang) */}
@@ -49,14 +56,16 @@ export function Modal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("common.close")}
-            className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-          >
-            <X size={16} strokeWidth={2} />
-          </button>
+          {dismissible && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("common.close")}
+              className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+            >
+              <X size={16} strokeWidth={2} />
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-3">{children}</div>
         {footer && (

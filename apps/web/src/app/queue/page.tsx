@@ -14,6 +14,7 @@ import { JobBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressBar } from "@/components/ProgressBar";
 import { formatJobDuration, formatRelative } from "@/lib/format";
@@ -170,7 +171,16 @@ export default function QueuePage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.queue")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.queue")}
+            <InfoHint
+            titleKey="help.queue.title"
+            bodyKey="help.queue.body"
+            size={14}
+          />
+          </span>
+        }
         subtitle={t("queue.subtitle")}
       />
 

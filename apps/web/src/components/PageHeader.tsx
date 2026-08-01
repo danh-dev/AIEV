@@ -6,7 +6,8 @@ export function PageHeader({
   center,
   actions,
 }: {
-  title: string;
+  /** ReactNode chứ không chỉ string - để gắn nút (i) chú thích ngay cạnh tiêu đề */
+  title: ReactNode;
   subtitle?: string;
   /** Nội dung giữa hàng header (vd timeline giai đoạn) - cùng hàng, wrap khi hẹp. */
   center?: ReactNode;

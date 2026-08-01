@@ -28,6 +28,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -241,7 +242,18 @@ export function ProjectReviewCard({
   const editLeft = REVIEW_TEXT_MAX - editText.length;
 
   return (
-    <Card title={t("review.title")}>
+    <Card
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          {t("review.title")}
+          <InfoHint
+            titleKey="help.review.title"
+            bodyKey="help.review.body"
+            size={14}
+          />
+        </span>
+      }
+    >
       {loadError && (
         <div className="mb-3">
           <ErrorBanner message={t("review.load-error")} detail={loadError} />

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# AI Edit Video by noti.vn — script khởi động (macOS / Linux)
+# AI Edit Video by noti.vn - script khởi động (macOS / Linux)
 # Tự kiểm tra môi trường -> cài dependencies (lần đầu) -> chạy server + web -> mở http://localhost:6868
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# .command chạy với PATH tối giản của macOS — thêm đường Homebrew (Apple Silicon
+# .command chạy với PATH tối giản của macOS - thêm đường Homebrew (Apple Silicon
 # /opt/homebrew, Intel /usr/local) để thấy brew/cloudflared/ffmpeg; server con kế thừa PATH này.
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 WEB_URL="http://localhost:6868"
@@ -27,7 +27,7 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 NODE_MAJOR="$(node --version | sed 's/^v//' | cut -d. -f1)"
 if [ "$NODE_MAJOR" -lt 20 ]; then
-  err "Node.js $(node --version) quá cũ — cần bản 20 trở lên."
+  err "Node.js $(node --version) quá cũ - cần bản 20 trở lên."
   exit 1
 fi
 ok "Node.js $(node --version)"
@@ -51,24 +51,24 @@ claude_authed() {
 }
 
 if ! command -v claude >/dev/null 2>&1; then
-  step "Chưa có Claude Code — đang cài (npm install -g @anthropic-ai/claude-code)..."
+  step "Chưa có Claude Code - đang cài (npm install -g @anthropic-ai/claude-code)..."
   npm install -g @anthropic-ai/claude-code --no-audit --no-fund \
     && ok "Đã cài Claude Code." \
-    || err "Không cài được Claude Code tự động — cài tay: npm install -g @anthropic-ai/claude-code"
+    || err "Không cài được Claude Code tự động - cài tay: npm install -g @anthropic-ai/claude-code"
 fi
 
 if command -v claude >/dev/null 2>&1 && ! claude_authed; then
   echo ""
-  printf '  \033[33mChưa đăng nhập Claude (subscription) — tính năng edit AI sẽ chưa dùng được.\033[0m\n'
-  printf '  Đăng nhập ngay? Claude Code sẽ mở — gõ \033[1m/login\033[0m trong đó, đăng nhập xong thoát (Ctrl+C 2 lần). [Y/n] '
+  printf '  \033[33mChưa đăng nhập Claude (subscription) - tính năng edit AI sẽ chưa dùng được.\033[0m\n'
+  printf '  Đăng nhập ngay? Claude Code sẽ mở - gõ \033[1m/login\033[0m trong đó, đăng nhập xong thoát (Ctrl+C 2 lần). [Y/n] '
   read -r REPLY_LOGIN || REPLY_LOGIN="n"
   if [ "$REPLY_LOGIN" != "n" ] && [ "$REPLY_LOGIN" != "N" ]; then
     claude || true
     if claude_authed; then ok "Đã đăng nhập Claude."; else
-      printf '  \033[33mVẫn chưa thấy đăng nhập — hệ thống vẫn chạy, đăng nhập sau bằng: claude → /login\033[0m\n'
+      printf '  \033[33mVẫn chưa thấy đăng nhập - hệ thống vẫn chạy, đăng nhập sau bằng: claude → /login\033[0m\n'
     fi
   else
-    printf '  \033[33mBỏ qua — đăng nhập sau bằng: claude → /login (hoặc điền ANTHROPIC_API_KEY vào .env)\033[0m\n'
+    printf '  \033[33mBỏ qua - đăng nhập sau bằng: claude → /login (hoặc điền ANTHROPIC_API_KEY vào .env)\033[0m\n'
   fi
 fi
 
@@ -76,9 +76,9 @@ fi
 export PATH="$ROOT/start/bin:$PATH"
 if ! command -v cloudflared >/dev/null 2>&1; then
   if command -v brew >/dev/null 2>&1; then
-    step "Chưa có cloudflared — đang cài (brew install cloudflared)..."
+    step "Chưa có cloudflared - đang cài (brew install cloudflared)..."
     brew install cloudflared && ok "Đã cài cloudflared." \
-      || err "Không cài được cloudflared qua brew — sẽ thử tải trực tiếp."
+      || err "Không cài được cloudflared qua brew - sẽ thử tải trực tiếp."
   fi
 fi
 if ! command -v cloudflared >/dev/null 2>&1; then
@@ -86,7 +86,7 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   ARCH="$(uname -m)"
   CF_PKG="cloudflared-darwin-amd64.tgz"
   [ "$ARCH" = "arm64" ] && CF_PKG="cloudflared-darwin-arm64.tgz"
-  step "Chưa có cloudflared — đang tải trực tiếp từ Cloudflare ($CF_PKG)..."
+  step "Chưa có cloudflared - đang tải trực tiếp từ Cloudflare ($CF_PKG)..."
   mkdir -p "$ROOT/start/bin"
   if curl -fsSL -o "$ROOT/start/bin/$CF_PKG" \
       "https://github.com/cloudflare/cloudflared/releases/latest/download/$CF_PKG" \
@@ -95,7 +95,7 @@ if ! command -v cloudflared >/dev/null 2>&1; then
     rm -f "$ROOT/start/bin/$CF_PKG"
     ok "Đã cài cloudflared vào start/bin/."
   else
-    err "Không tải được cloudflared — Tunnel tạm chưa dùng được (không ảnh hưởng phần còn lại)."
+    err "Không tải được cloudflared - Tunnel tạm chưa dùng được (không ảnh hưởng phần còn lại)."
   fi
 fi
 
@@ -117,18 +117,18 @@ if $WEB_UP && $API_UP; then
   [ -n "$(find "$ROOT/apps/server/src" -type f -newer "$ROOT/apps/server/dist" -print -quit 2>/dev/null)" ] && STALE=true
   [ -n "$(find "$ROOT/apps/web/src" -type f -newer "$ROOT/apps/web/.next" -print -quit 2>/dev/null)" ] && STALE=true
   if ! $STALE; then
-    ok "Hệ thống đang chạy sẵn — mở trình duyệt."
+    ok "Hệ thống đang chạy sẵn - mở trình duyệt."
     open_browser
     exit 0
   fi
-  step "Có code mới chưa build — dừng hệ thống để build lại..."
+  step "Có code mới chưa build - dừng hệ thống để build lại..."
   for port in 6868 6869; do
     lsof -ti tcp:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
   done
   sleep 1
 fi
 if $WEB_UP || $API_UP; then
-  step "Phát hiện hệ thống chạy dở dang — khởi động lại cho sạch..."
+  step "Phát hiện hệ thống chạy dở dang - khởi động lại cho sạch..."
   for port in 6868 6869; do
     lsof -ti tcp:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
   done
@@ -137,8 +137,8 @@ fi
 
 # 3. Cài dependencies lần đầu
 if [ ! -d "$ROOT/node_modules" ]; then
-  step "Lần chạy đầu tiên — đang cài dependencies (vài phút)..."
-  npm install --no-audit --no-fund || { err "npm install thất bại — xem log phía trên."; exit 1; }
+  step "Lần chạy đầu tiên - đang cài dependencies (vài phút)..."
+  npm install --no-audit --no-fund || { err "npm install thất bại - xem log phía trên."; exit 1; }
   ok "Đã cài dependencies."
 fi
 
@@ -185,5 +185,5 @@ for _ in $(seq 1 60); do
   fi
 done
 
-err "Hệ thống chưa phản hồi sau 2 phút — xem log: tail -f start/server.log"
+err "Hệ thống chưa phản hồi sau 2 phút - xem log: tail -f start/server.log"
 exit 1

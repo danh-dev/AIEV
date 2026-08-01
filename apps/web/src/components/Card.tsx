@@ -6,7 +6,8 @@ export function Card({
   children,
   className = "",
 }: {
-  title?: string;
+  /** ReactNode chứ không chỉ string - để gắn được nút (i) chú thích cạnh tiêu đề */
+  title?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;

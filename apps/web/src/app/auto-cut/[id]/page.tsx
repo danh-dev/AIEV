@@ -39,6 +39,7 @@ import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressBar } from "@/components/ProgressBar";
 import {
@@ -371,7 +372,18 @@ export default function AutoCutDetailPage() {
       {/* Kịch bản edit của cả phiên - đặt TRÊN danh sách đoạn vì nó quyết định
           mọi project con sẽ được edit thế nào */}
       {brief && (
-        <Card title={t("autocut.brief-card")}>
+        <Card
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              {t("autocut.brief-card")}
+              <InfoHint
+                titleKey="help.autocut-brief.title"
+                bodyKey="help.autocut-brief.body"
+                size={14}
+              />
+            </span>
+          }
+        >
           <div className="mb-3 flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             <p>{running ? t("autocut.brief-locked") : t("autocut.brief-hint")}</p>
             {createdCount > 0 && <p>{t("autocut.brief-applies-next")}</p>}
@@ -388,7 +400,16 @@ export default function AutoCutDetailPage() {
       )}
 
       <Card
-        title={t("autocut.segments")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("autocut.segments")}
+            <InfoHint
+              titleKey="help.autocut-segments.title"
+              bodyKey="help.autocut-segments.body"
+              size={14}
+            />
+          </span>
+        }
         actions={
           !running && (
             <div className="flex flex-wrap items-center gap-2">

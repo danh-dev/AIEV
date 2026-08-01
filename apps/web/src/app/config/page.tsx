@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { useT } from "@/lib/i18n";
 
@@ -244,7 +245,18 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
   ];
   const cpuOnly = !hw.nvenc && !hw.videotoolbox;
   return (
-    <Card title={t("config.hardware")}>
+    <Card
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          {t("config.hardware")}
+          <InfoHint
+            titleKey="help.config-hardware.title"
+            bodyKey="help.config-hardware.body"
+            size={14}
+          />
+        </span>
+      }
+    >
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
         {blocks.map((b) => (
           <div key={b.label} className="min-w-0">
@@ -375,7 +387,16 @@ export default function ConfigPage() {
   return (
     <div className="flex w-full flex-col gap-4">
       <PageHeader
-        title={t("nav.config")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.config")}
+            <InfoHint
+            titleKey="help.config.title"
+            bodyKey="help.config.body"
+            size={14}
+          />
+          </span>
+        }
         subtitle={t("config.subtitle")}
       />
 
@@ -393,7 +414,16 @@ export default function ConfigPage() {
 
       {settings && data && (
         <Card
-          title={t("config.render-settings")}
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              {t("config.render-settings")}
+              <InfoHint
+                titleKey="help.config-render.title"
+                bodyKey="help.config-render.body"
+                size={14}
+              />
+            </span>
+          }
           actions={
             <div className="flex items-center gap-3">
               {applied && (

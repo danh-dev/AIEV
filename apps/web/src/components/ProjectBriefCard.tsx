@@ -6,6 +6,7 @@ import { updateBrief, type Brief } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import {
   BriefFields,
   DEFAULT_BRIEF,
@@ -105,6 +106,19 @@ export function ProjectBriefCard({
   // Compact + chưa bấm "Chỉnh sửa" → chỉ hiện tóm tắt chỉ đọc
   const showSummary = compact && !expandedForm;
 
+  // Tiêu đề dùng chung cho cả hai nhánh render (tóm tắt / form đầy đủ) - chú
+  // thích (i) chỉ đặt ở tiêu đề card, các toggle bên trong đã có dòng mô tả riêng
+  const cardTitle = (
+    <span className="inline-flex items-center gap-1.5">
+      {t("brief.title")}
+      <InfoHint
+        titleKey="help.brief.title"
+        bodyKey="help.brief.body"
+        size={14}
+      />
+    </span>
+  );
+
   const summaryRowLabel = "w-24 shrink-0 pt-px text-xs text-[var(--text-muted)]";
   const summary = (
     <div className="flex flex-col gap-2 text-[13px]">
@@ -162,7 +176,7 @@ export function ProjectBriefCard({
   if (showSummary) {
     return (
       <Card
-        title={t("brief.title")}
+        title={cardTitle}
         actions={
           <Button
             variant="secondary"
@@ -181,7 +195,7 @@ export function ProjectBriefCard({
 
   return (
     <Card
-      title={t("brief.title")}
+      title={cardTitle}
       actions={
         compact ? (
           <Button

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { Router } from "express";
@@ -6,6 +8,12 @@ import * as db from "../db.js";
 import { nowIso } from "../util.js";
 
 const execFileAsync = promisify(execFile);
+
+/** Một commit sắp được kéo về - hiện trong popup "Có gì mới". */
+export interface UpdateCommit {
+  hash: string;
+  message: string;
+}
 
 /** Trạng thái cập nhật so với origin/main trên GitHub. */
 export interface UpdateStatus {
@@ -16,12 +24,18 @@ export interface UpdateStatus {
   upToDate: boolean;
   /** Message commit mới nhất trên origin/main (null khi đã mới nhất). */
   latestMessage: string | null;
+  /** Danh sách commit sắp về, mới nhất trước (tối đa 10) - rỗng khi đã mới nhất. */
+  commits: UpdateCommit[];
   checkedAt: string;
   /** false khi `git fetch origin` thất bại (offline…) - behind tính theo refs cũ. */
   fetchOk: boolean;
   /** Lỗi ngắn khi check thất bại (offline, không có git…) - không bao giờ 500. */
   error?: string;
 }
+
+/** Các bước script update phát ra qua mốc `[STEP] <tên>` trong start/update.log */
+export const UPDATE_STEPS = ["pull", "stop", "install", "restart"] as const;
+export type UpdateStep = (typeof UPDATE_STEPS)[number];
 
 async function git(args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, {
@@ -65,11 +79,27 @@ async function checkUpdate(): Promise<UpdateStatus> {
       Number(await git(["rev-list", "HEAD..origin/main", "--count"])) || 0;
     const latestMessage =
       behind > 0 ? await git(["log", "origin/main", "-1", "--format=%s"]) : null;
+    // Danh sách commit sắp về để popup nói rõ "có gì mới" thay vì chỉ một con số
+    let commits: UpdateCommit[] = [];
+    if (behind > 0) {
+      const raw = await git([
+        "log",
+        "HEAD..origin/main",
+        "-10",
+        "--format=%h\x1f%s",
+      ]);
+      commits = raw
+        .split("\n")
+        .map((l) => l.split("\x1f"))
+        .filter((p) => p.length === 2 && p[0])
+        .map(([hash, message]) => ({ hash, message }));
+    }
     return {
       current,
       behind,
       upToDate: behind === 0,
       latestMessage,
+      commits,
       checkedAt,
       fetchOk,
       ...(error ? { error } : {}),
@@ -81,6 +111,7 @@ async function checkUpdate(): Promise<UpdateStatus> {
       behind: 0,
       upToDate: true,
       latestMessage: null,
+      commits: [],
       checkedAt,
       fetchOk,
       error: error ?? shortError(err),
@@ -103,6 +134,57 @@ router.get("/check", async (req, res) => {
   const status = await checkUpdate();
   cached = { at: Date.now(), status };
   res.json(status);
+});
+
+/**
+ * GET /api/update/log?tail=200 - đuôi start/update.log + bước đang chạy.
+ *
+ * VÌ SAO cần: script update chạy DETACHED và tự kill server này, nên không thể
+ * đẩy tiến trình qua SSE. Script ghi mốc `[STEP] <tên>` vào log; UI poll endpoint
+ * này lúc server còn sống (bước pull), và gọi lại sau khi server hồi sinh để hiện
+ * kết quả thật của cả quãng server đã tắt.
+ */
+router.get("/log", (req, res) => {
+  const tail = Math.min(Math.max(Number(req.query.tail) || 200, 1), 2000);
+  const file = path.join(repoRoot, "start", "update.log");
+  if (!fs.existsSync(file)) {
+    res.json({ exists: false, lines: [], step: null, startedAt: null });
+    return;
+  }
+  let text = "";
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (err) {
+    res.json({ exists: true, lines: [], step: null, startedAt: null, error: shortError(err) });
+    return;
+  }
+
+  // Log là file CỘNG DỒN qua nhiều lần update - chỉ lấy từ dấu mốc lần chạy CUỐI,
+  // nếu không UI sẽ hiện lẫn output của lần cập nhật trước.
+  const all = text.split(/\r?\n/);
+  // Duyệt ngược tay thay vì findLastIndex - lib TS của server chưa bật ES2023
+  let startIdx = -1;
+  for (let i = all.length - 1; i >= 0; i--) {
+    if (all[i].includes("bắt đầu cập nhật")) {
+      startIdx = i;
+      break;
+    }
+  }
+  const run = startIdx >= 0 ? all.slice(startIdx) : all;
+
+  const stepLine = [...run].reverse().find((l) => l.includes("[STEP] "));
+  const raw = stepLine?.split("[STEP] ")[1]?.trim() ?? "";
+  const step = (UPDATE_STEPS as readonly string[]).includes(raw)
+    ? (raw as UpdateStep)
+    : null;
+
+  res.json({
+    exists: true,
+    // Bỏ dòng trống ở đuôi cho UI khỏi hiện khoảng trắng thừa
+    lines: run.slice(-tail).filter((l, i, a) => l.trim() !== "" || i < a.length - 1),
+    step,
+    startedAt: startIdx >= 0 ? (all[startIdx] ?? null) : null,
+  });
 });
 
 // POST /api/update/apply - spawn script update DETACHED rồi trả 202 ngay.

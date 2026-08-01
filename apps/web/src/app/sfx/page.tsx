@@ -32,6 +32,7 @@ import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { formatDurationMs } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -333,13 +334,24 @@ export default function SfxPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.sfx")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.sfx")}
+            <InfoHint
+              titleKey="help.sfx.title"
+              bodyKey="help.sfx.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("sfx.subtitle")}
         actions={
-          <Button onClick={() => setOpen(true)}>
-            <Upload size={15} strokeWidth={2} />
-            {t("sfx.add")}
-          </Button>
+          <>
+            <Button onClick={() => setOpen(true)}>
+              <Upload size={15} strokeWidth={2} />
+              {t("sfx.add")}
+            </Button>
+          </>
         }
       />
 

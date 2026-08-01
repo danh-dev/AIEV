@@ -1,4 +1,4 @@
-﻿# AI Edit Video by noti.vn — script khởi động
+﻿# AI Edit Video by noti.vn - script khởi động
 # Tự kiểm tra môi trường -> cài dependencies (lần đầu) -> chạy server + web -> mở http://localhost:6868
 
 $ErrorActionPreference = "Stop"
@@ -23,7 +23,7 @@ try {
     exit 1
 }
 if ([int]($nodeVer.Split(".")[0]) -lt 20) {
-    Write-Err "Node.js $nodeVer quá cũ — cần bản 20 trở lên."
+    Write-Err "Node.js $nodeVer quá cũ - cần bản 20 trở lên."
     exit 1
 }
 Write-Ok "Node.js v$nodeVer"
@@ -49,11 +49,11 @@ if ($webUp -and $apiUp) {
     $webNext = Get-ChildItem (Join-Path $root "apps\web\.next") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($webSrc -and (-not $webNext -or $webSrc.LastWriteTime -gt $webNext.LastWriteTime)) { $stale = $true }
     if (-not $stale) {
-        Write-Ok "Hệ thống đang chạy sẵn — mở trình duyệt."
+        Write-Ok "Hệ thống đang chạy sẵn - mở trình duyệt."
         Start-Process $WebUrl
         exit 0
     }
-    Write-Step "Có code mới chưa build — dừng hệ thống để build lại..."
+    Write-Step "Có code mới chưa build - dừng hệ thống để build lại..."
     foreach ($port in 6868, 6869) {
         Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty OwningProcess -Unique |
@@ -63,7 +63,7 @@ if ($webUp -and $apiUp) {
 }
 if ($webUp -or $apiUp) {
     # Trạng thái nửa vời (vd web sống nhưng backend chết) → dọn sạch rồi khởi động lại
-    Write-Step "Phát hiện hệ thống chạy dở dang — khởi động lại cho sạch..."
+    Write-Step "Phát hiện hệ thống chạy dở dang - khởi động lại cho sạch..."
     foreach ($port in 6868, 6869) {
         Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty OwningProcess -Unique |
@@ -74,9 +74,9 @@ if ($webUp -or $apiUp) {
 
 # 3. Cài dependencies lần đầu
 if (-not (Test-Path (Join-Path $root "node_modules"))) {
-    Write-Step "Lần chạy đầu tiên — đang cài dependencies (vài phút)..."
+    Write-Step "Lần chạy đầu tiên - đang cài dependencies (vài phút)..."
     npm install --no-audit --no-fund
-    if ($LASTEXITCODE -ne 0) { Write-Err "npm install thất bại — xem log phía trên."; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Err "npm install thất bại - xem log phía trên."; exit 1 }
     Write-Ok "Đã cài dependencies."
 }
 
@@ -103,14 +103,14 @@ if (-not (Test-Path $webNext) -or
     if ($LASTEXITCODE -ne 0) { Write-Err "Build web thất bại."; exit 1 }
 }
 
-# 4b. cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel — không bắt buộc)
+# 4b. cloudflared: tự cài nếu thiếu (cho tính năng Cloudflare Tunnel - không bắt buộc)
 if (-not (Get-Command cloudflared -ErrorAction SilentlyContinue)) {
-    Write-Step "Chưa có cloudflared — đang thử cài (winget)..."
+    Write-Step "Chưa có cloudflared - đang thử cài (winget)..."
     try {
         winget install --id Cloudflare.cloudflared --silent --accept-source-agreements --accept-package-agreements | Out-Null
         Write-Ok "Đã cài cloudflared."
     } catch {
-        Write-Host "  [!] Không tự cài được cloudflared — cài tay: winget install --id Cloudflare.cloudflared (chỉ cần cho Tunnel)" -ForegroundColor Yellow
+        Write-Host "  [!] Không tự cài được cloudflared - cài tay: winget install --id Cloudflare.cloudflared (chỉ cần cho Tunnel)" -ForegroundColor Yellow
     }
 }
 
@@ -119,16 +119,16 @@ $envFile = Join-Path $root ".env"
 if (-not (Test-Path $envFile)) {
     Copy-Item (Join-Path $root ".env.example") $envFile
     Write-Ok "Đã tạo file .env"
-    Write-Host "     Lưu ý: muốn dùng tính năng Chat AI, đăng nhập Claude Code trên máy này (subscription OAuth — lệnh 'claude' -> /login) hoặc mở file .env và điền ANTHROPIC_API_KEY." -ForegroundColor Yellow
+    Write-Host "     Lưu ý: muốn dùng tính năng Chat AI, đăng nhập Claude Code trên máy này (subscription OAuth - lệnh 'claude' -> /login) hoặc mở file .env và điền ANTHROPIC_API_KEY." -ForegroundColor Yellow
 }
 
 # 6. Chạy server + web trong cửa sổ riêng (giữ mở để xem log)
 Write-Step "Khởi động server (port 6869) + web (port 6868)..."
 Start-Process cmd -ArgumentList "/k", "title AI Edit Video - LOG && cd /d `"$root`" && npm run start" | Out-Null
 
-# 7. Mở firewall port 6868 (trang web) + 6869 (backend API — trang /m trên điện
+# 7. Mở firewall port 6868 (trang web) + 6869 (backend API - trang /m trên điện
 #    thoại upload file lớn gọi thẳng port này) cho tính năng "Kết nối điện thoại".
-#    Không có quyền admin thì lệnh fail im lặng — Windows sẽ tự hỏi Allow khi có
+#    Không có quyền admin thì lệnh fail im lặng - Windows sẽ tự hỏi Allow khi có
 #    kết nối đầu tiên.
 try {
     netsh advfirewall firewall show rule name="AIEV Web 6868" 2>$null | Out-Null
@@ -162,6 +162,6 @@ if ($ready) {
     Write-Host "  Muốn dừng : chạy start\stop.bat (hoặc đóng cửa sổ log)" -ForegroundColor DarkGray
     Start-Sleep -Seconds 2
 } else {
-    Write-Err "Hệ thống chưa phản hồi sau 2 phút — xem cửa sổ 'AI Edit Video - LOG' để biết lỗi."
+    Write-Err "Hệ thống chưa phản hồi sau 2 phút - xem cửa sổ 'AI Edit Video - LOG' để biết lỗi."
     exit 1
 }

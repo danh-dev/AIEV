@@ -18,6 +18,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -178,7 +179,18 @@ export function ProjectClipsCard({
 
   return (
     <>
-      <Card title={t("clips.title")}>
+      <Card
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("clips.title")}
+            <InfoHint
+              titleKey="help.clips.title"
+              bodyKey="help.clips.body"
+              size={14}
+            />
+          </span>
+        }
+      >
         {loadError && (
           <div className="mb-3">
             <ErrorBanner message={t("clips.load-error")} detail={loadError} />
@@ -377,7 +389,18 @@ export function ProjectClipsCard({
         )}
       </Card>
 
-      <Card title={t("clips.repurpose-title")}>
+      <Card
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("clips.repurpose-title")}
+            <InfoHint
+              titleKey="help.repurpose.title"
+              bodyKey="help.repurpose.body"
+              size={14}
+            />
+          </span>
+        }
+      >
         <p className="text-xs text-[var(--text-muted)]">
           {t("clips.repurpose-desc")}
         </p>

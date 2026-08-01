@@ -20,6 +20,7 @@ import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoCutCreateModal } from "@/components/AutoCutCreateModal";
 import {
@@ -80,13 +81,24 @@ export default function AutoCutPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.auto-cut")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.auto-cut")}
+            <InfoHint
+              titleKey="help.autocut.title"
+              bodyKey="help.autocut.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("autocut.subtitle")}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Scissors size={16} strokeWidth={2} />
-            {t("autocut.new")}
-          </Button>
+          <>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Scissors size={16} strokeWidth={2} />
+              {t("autocut.new")}
+            </Button>
+          </>
         }
       />
 

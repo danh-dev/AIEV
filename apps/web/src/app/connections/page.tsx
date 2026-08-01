@@ -47,6 +47,7 @@ import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { refreshProviders } from "@/components/ModelPicker";
 import { useT } from "@/lib/i18n";
@@ -215,6 +216,11 @@ function ProviderCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-medium text-[var(--text-muted)]">
             API key ({conn.key.envVar})
+            <InfoHint
+              className="ml-1.5 align-middle"
+              titleKey="help.connections-key.title"
+              bodyKey="help.connections-key.body"
+            />
           </span>
           <a
             href={conn.keyHelpUrl}
@@ -485,7 +491,14 @@ function TunnelCard() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold">{t("tunnel.title")}</h2>
+            <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold">
+              {t("tunnel.title")}
+              <InfoHint
+                titleKey="help.tunnel.title"
+                bodyKey="help.tunnel.body"
+                size={14}
+              />
+            </h2>
             {status && (
               <span className={`badge ${running ? "badge-success" : "badge-muted"}`}>
                 <span className="badge-dot" />
@@ -699,7 +712,19 @@ export default function ConnectionsPage() {
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <PageHeader title={t("nav.connections")} subtitle={t("conn.subtitle")} />
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.connections")}
+            <InfoHint
+            titleKey="help.connections.title"
+            bodyKey="help.connections.body"
+            size={14}
+          />
+          </span>
+        }
+        subtitle={t("conn.subtitle")}
+      />
 
       {error && (
         <ErrorBanner message={t("conn.load-error")} detail={error} />

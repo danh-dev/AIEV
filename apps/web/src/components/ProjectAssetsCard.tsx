@@ -51,6 +51,7 @@ import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import {
   MediaPreviewModal,
   RevealButton,
@@ -199,7 +200,21 @@ export function ProjectAssetsCard({
   showUpload?: boolean;
 }) {
   const { t, tf } = useT();
-  const cardTitle = title ?? t("assets.title");
+  const cardTitleText = title ?? t("assets.title");
+  // (i) chỉ gắn ở khối nguồn chính. Khối "Sound effect"/"Khác" chỉ liệt kê lại
+  // file AI tự sinh, không có dropzone lẫn nút QR nên chú thích đó sẽ sai chỗ.
+  const cardTitle = showUpload ? (
+    <span className="inline-flex items-center gap-1.5">
+      {cardTitleText}
+      <InfoHint
+        titleKey="help.project-assets.title"
+        bodyKey="help.project-assets.body"
+        size={14}
+      />
+    </span>
+  ) : (
+    cardTitleText
+  );
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);

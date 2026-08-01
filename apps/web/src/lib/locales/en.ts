@@ -30,6 +30,7 @@ export const en: Record<string, string> = {
   "nav.sfx": "Sound Effects",
   "nav.prompts": "Prompts",
   "nav.skills": "Skills",
+  "nav.source": "Source on GitHub",
   "nav.config": "Settings",
   "nav.connections": "Connections",
   "shell.backend-checking": "Checking backend…",
@@ -108,6 +109,44 @@ export const en: Record<string, string> = {
   "update.available": "Update available",
   "update.behind": "{n} changes",
   "update.apply": "Update",
+
+  // ===== Update modal =====
+  "update.title": "System update",
+  "update.current-label": "Running",
+  "update.latest-label": "New",
+  "update.whats-new": "What's new",
+  "update.no-commits": "Could not load the list of changes.",
+  "update.commits-more": "and {n} more older changes",
+  "update.warn-restart":
+    "The system will shut down and restart by itself, which takes about 1-3 minutes. Do not turn off the machine and keep this window open until it finishes.",
+  "update.apply-now": "Update now",
+  "update.later": "Later",
+  "update.starting": "Sending the update command…",
+  "update.step.pull": "Download update",
+  "update.step.stop": "Stop the system",
+  "update.step.install": "Install packages",
+  "update.step.restart": "Restart",
+  "update.step-of": "Step {n}/4",
+  "update.running-title": "Updating",
+  "update.waiting-log": "Waiting for the update script log…",
+  "update.server-down":
+    "The system is shutting down to install - this is a normal step, not an error. Do not close this window.",
+  "update.elapsed": "Elapsed {time}",
+  "update.log-title": "Update log",
+  "update.view-log": "View log",
+  "update.hide-log": "Hide log",
+  "update.success-title": "Update successful",
+  "update.new-version": "New version: {hash}",
+  "update.reloading": "The page will reload in a few seconds.",
+  "update.reload-now": "Reload now",
+  "update.failed-title": "The update did not finish",
+  "update.failed-timeout":
+    "Waited too long and the system did not come back up.",
+  "update.failed-script": "The update script reported an error and stopped.",
+  "update.failed-safe":
+    "The old system is still running normally - the script pulls the code before stopping anything, so a failure at this step does not break the version you are using.",
+  "update.log-hint": "The full log is in start/update.log.",
+  "update.badge-open": "Click to see the update details",
 
   // ===== Model picker =====
   "model.performer": "AI engine",
@@ -1197,4 +1236,154 @@ export const en: Record<string, string> = {
   "autocut.title-aria": "Title of segment {n}",
   "autocut.score": "Score {score}/10",
   "autocut.open-project": "Open project",
+
+  // ===== Chú thích chức năng (nút i) =====
+  "help.aria": "What this feature does",
+  // ===== ANCHOR:HELP_PROJECT =====
+  "help.pipeline.title": "The 6 stages of a video",
+  "help.pipeline.body":
+    "Shows where the video currently is: Analyze, Build scenes, Render draft, Assemble draft, Render final, Done.\nThe stage is derived from the files on disk and the jobs running right now. A pulsing dot means work is happening in the background and you do not need to do anything.\nStuck on one stage for a long time usually means a failed job or the AI waiting on your review - check the AI panel on the right or the Render Queue page.",
+  "help.render-final.title": "What does Render final do?",
+  "help.render-final.body":
+    "Exports the finished high quality video into the outputs folder - this is the file you actually publish.\nIt is blocked if automated QC has not run, the QC result is stale, or any check still fails; fix the issue and re-run QC first. A successful draft assembly is also required beforehand.\nA final render costs tens of minutes of machine time, so only hit it once the draft really looks right.",
+  "help.start-edit.title": "Start an AI edit",
+  "help.start-edit.body":
+    "Hands the whole build to the AI: it reads the brief and assets and keeps working until a final video exists, and you watch it live in the panel on the right.\nEvery click opens a new session and burns AI tokens; older sessions stay available for review.\nIf you only want a few fixes on an existing cut, the Review draft card is much faster and cheaper.",
+  "help.video-output.title": "Video output",
+  "help.video-output.body":
+    "Where you watch the latest finished video of this project - zoom in for a large view or open the file directly in the outputs folder.\nWhile the AI is building, this area shows a progress bar; the video appears on its own once the render is done, no page reload needed.",
+  "help.thumbnail.title": "Create thumbnail",
+  "help.thumbnail.body":
+    "Builds a cover image for the video: the system grabs a frame from the video, asks Gemini to paint a background in your Style Design, then composites the title and logo on top.\nThe background step calls Gemini, so it costs money on the API key set in Connections. Without a key you still get a thumbnail, just a simple gradient background from the style.\nIt takes about a minute and you have to wait for the dialog to finish. Running it again overwrites the previous cover.",
+  "help.publish.title": "Publishing pack",
+  "help.publish.body":
+    "Writes ready to use titles, descriptions and hashtags for TikTok, YouTube and Facebook, plus .srt/.vtt subtitles to download. Every block has its own copy button so you can paste straight into the platform.\nIt needs the video transcript, so run an AI edit first; without a transcript the system tells you and generates nothing.\nRegenerating replaces the previous text entirely, so copy anything you want to keep first.",
+  "help.review.title": "Review the draft",
+  "help.review.body":
+    "Watch the draft and pin a note at the exact second you are looking at, like \"text at 00:12 loses its diacritics\".\nWhen you send them, the AI gets the whole batch with timecodes and fixes only those spots instead of rebuilding the video - much faster and far fewer tokens.\nSending is disabled while an AI session for this project is running; wait for the current one to finish.",
+  "help.clips.title": "Cut shorts from a long video",
+  "help.clips.body":
+    "The AI reads the transcript, scores it and proposes the segments worth turning into shorts. Tick the ones you want and the system spins up a separate project for each.\nIt needs a transcript, so the video must go through an AI edit first. Each analysis run calls the AI, takes 1-3 minutes and costs tokens.\nThe source project is untouched - each short is a new project you can delete on its own.",
+  "help.repurpose.title": "Repurpose the aspect ratio",
+  "help.repurpose.body":
+    "Creates a new project with the same content in a different frame, for example turning the vertical TikTok cut into a landscape version for YouTube.\nOnly the source video and the brief are copied over; the layout still has to be re-edited for the new frame - tick \"AI edits automatically\" to start that right away.\nThe ratio the project already uses is disabled.",
+  "help.brief.title": "Edit brief",
+  "help.brief.body":
+    "This is the spec the AI reads before it builds anything: what the source footage is, what you want done, subtitles, highlights, key layout, style and sound effects on or off.\nThe clearer it is, the less the AI has to guess - the source description and the edit request matter most.\nThe brief is stored with the project and reused by every later session. Hitting start edit also saves whatever you were typing.",
+  "help.project-assets.title": "Sources & assets",
+  "help.project-assets.body":
+    "Where you drop the raw video, images and audio for the AI to use - drag onto the card or use the upload button. Connect phone shows a QR code so you can send footage straight from your phone over the same WiFi.\nGive every file a one line description: that is exactly what the AI reads to decide which shot goes where. Videos also get a color grading button to approve the look up front.\nDeleting an asset deletes the real file in the project and cannot be undone.",
+  "help.clean-junk.title": "Clean junk files",
+  "help.clean-junk.body":
+    "Removes the intermediate files produced while building: scene renders, verification frames, color preview cache, the assembled draft and the staging folder - usually the bulk of the disk usage.\nSource files (assets, scenes, brief, meta) and the final video in outputs are left untouched.\nThe system asks for confirmation and shows how much space it frees. Anything deleted has to be re-rendered if you need it again, and cleaning is refused while the project still has a running job.",
+  "help.clone.title": "Duplicate project",
+  "help.clone.body":
+    "Creates a new project with a full copy of this one's scenes, assets, brief and transcript - handy when you want a variant without touching what already works.\nRenders and exported videos are not copied, so the duplicate starts in an unbuilt state.\nYou land straight in the new project; just adjust the parts of the brief that differ and let the AI run, no need to rebuild from scratch.",
+  "help.qc.title": "What is automated QC?",
+  "help.qc.body": "Measures the draft with ffmpeg before the final render: loudness, clipping, black frames stuck between scenes, frozen picture, silent tail, audio/video drift.\nIf any check fails the system BLOCKS the final render, because a final takes tens of minutes and catching a fault there is the most wasteful outcome.\nThe covered-zone check cannot be decided by machine, so the system exports frames with the zones outlined in red for you to judge.",
+
+  // ===== ANCHOR:HELP_PAGES =====
+  "help.autocut.title": "What is Auto cut videos?",
+  "help.autocut.body":
+    "Feed in one long video and the system splits it into short segments, creating a separate Videos Project for each so you can keep editing.\nUse it when you have a livestream, podcast or long talk recording and want several clips for social.\nA session only cuts and creates projects - the text, captions and sound effects are still built inside each project afterwards.",
+
+  "help.autocut-mode.title": "How do the three cutting modes differ?",
+  "help.autocut-mode.body":
+    "By duration: splits evenly by the number of minutes you set - the fastest, since nothing has to understand the content.\nAI picks the best parts: reads the speech and scores each stretch, so it must transcribe first and takes longer than duration cutting, but the segments usually hold a complete thought.\nBy request: same as AI picking, except you describe what to look for, e.g. only the parts about pricing.",
+
+  "help.autocut-aspect.title": "What is the aspect ratio for?",
+  "help.autocut-aspect.body":
+    "Sets the frame of the clips you cut out: 9:16 for TikTok/Reels/Shorts, 16:9 for YouTube, 1:1 and 4:5 for Facebook/Instagram feeds.\nPick Keep original and the clips stay in the source frame, skipping the reframing step entirely, which is noticeably faster.\nAny other ratio means every segment has to be re-encoded, so a long video with many segments takes considerably more time.",
+
+  "help.autocut-layout.title": "Crop, fit or auto?",
+  "help.autocut-layout.body":
+    "Decides how the source picture is placed into the new frame when the two ratios do not match.\nCrop zooms in and trims the sides: the subject is large and reads well on a phone, but the edges are lost - text or objects near the border can disappear.\nFit shrinks the picture so the whole frame fits: nothing is lost, but the subject gets smaller and empty bands appear that need a background.\nAuto lets the system look at each segment and choose - crop and track the face when someone is talking, fit when the shot is busy.",
+
+  "help.autocut-background.title": "What is the background filler?",
+  "help.autocut-background.body":
+    "With fit the source does not cover the new frame, leaving empty bands top and bottom (or on the sides) - this picks what fills them.\nAI image gives the nicest background but calls Gemini, so it costs extra time and money on your API key.\nBlur reuses the source itself, scaled up and blurred: free, fast, works with any content.\nStyle color takes the background color of the selected style - flat, tidy, on-brand.",
+
+  "help.autocut-transcribe.title": "What is the transcript for?",
+  "help.autocut-transcribe.body":
+    "Turns the speech into timestamped text, used for captions, highlight keys and for the AI to understand the content.\nWith it on you never have to transcribe again while editing, but the analysis step takes longer - an hour of video can take a few minutes.\nBoth AI cutting modes need a transcript, so there this option turns itself on and cannot be unchecked.",
+
+  "help.autocut-autoedit.title": "What does running the AI edit right away mean?",
+  "help.autocut-autoedit.body":
+    "As soon as cutting finishes, the AI builds every child project using the Edit setup below, so you never open each project and press build.\nHandy when you cut a batch of clips of the same kind, but each project is its own AI session, so it burns real tokens and keeps the machine busy for a while.\nLeave it off if you would rather review the segments first and decide which ones are worth building.",
+
+  "help.autocut-segments.title": "Review the segments before cutting",
+  "help.autocut-segments.body":
+    "This is still only the cutting plan the system proposes - no file has been touched yet.\nUntick the segments you do not need and fix the titles before cutting, because each title becomes the name of a child project.\nOnly Cut & create projects does the real encoding, and that step takes time, so reviewing carefully here is far cheaper than cutting twice.",
+
+  "help.autocut-brief.title": "What is the edit setup for?",
+  "help.autocut-brief.body":
+    "Set once how EVERY video cut out of this session gets built: captions on or off, key layout, sound effects, background music.\nIt saves you opening ten child projects and changing the same thing ten times.\nIt only applies to segments cut AFTER the change - projects already created must be edited inside the project itself.",
+
+  "help.projects.title": "What is Videos Project for?",
+  "help.projects.body":
+    "Home for every video in progress: each project is one video with its own size, fps, edit brief and renders.\nClick a row to open a project and start building; tick the box on the left to run a bulk action across several projects at once.\nThe token column shows how much AI spend each project has racked up.",
+
+  "help.projects-junk.title": "What does cleaning junk files do?",
+  "help.projects-junk.body":
+    "Scans the renders/ folder of the selected projects and deletes stale drafts, temp frames and leftovers to win disk space back.\nFinished videos in outputs/ and your source files are never touched.\nYou get a confirmation with the total size first, but once deleted nothing comes back - you would have to render again.",
+
+  "help.projects-render.title": "Bulk final render",
+  "help.projects-render.body":
+    "Queues the final-render job for every selected project; they run one after another, not all at once.\nA final render is heavy and can take tens of minutes per video, so only press this once you have watched the draft and are happy.\nProjects that are not ready (no draft, QC not passing) fail immediately and are skipped, the rest still run.",
+
+  "help.projects-bulk-edit.title": "Bulk AI video build",
+  "help.projects-bulk-edit.body":
+    "Starts an AI build session for each selected project, using the edit brief already saved inside that project.\nThe extra notes box applies to the whole batch, e.g. change the tone or drop the captions.\nEach project is a separate session so it costs real tokens, and once running you have to open each project to stop it.",
+
+  "help.images.title": "What is Images Project for?",
+  "help.images.body":
+    "Where you create and manage AI images: each project is a set of images sharing one topic, ratio and style.\nUse it for thumbnails, illustrations to drop into a video, or backgrounds for a scene.\nEvery generation calls Gemini, so it costs money on the API key set up in Connections.",
+
+  "help.config.title": "What is the Config page for?",
+  "help.config.body":
+    "Tunes render speed and quality to what your machine can actually handle: worker count, GPU use, how many jobs run in parallel.\nEvery change saves instantly and applies to jobs started after it, no restart needed.\nPush the numbers past what the machine can take and renders stall or die midway - the starred value is the level measured on this very machine.",
+
+  "help.config-hardware.title": "Detected hardware",
+  "help.config-hardware.body":
+    "The system reads the CPU, RAM and GPU of the machine it runs on so it can recommend sensible levels.\nAn NVENC or VideoToolbox badge means the card has a dedicated video encoder, so GPU encoding will be much faster.\nWhen it says CPU only the two GPU-encode switches are locked - not a bug, this machine simply lacks that hardware.",
+
+  "help.config-render.title": "Render settings",
+  "help.config-render.body":
+    "These knobs trade speed against safety: more workers and higher concurrency go faster but eat RAM, and overdoing it kills jobs midway.\nGPU encoding is much faster but lower quality than CPU at the same file size - fine for drafts, think twice for finals. A lower draft fps only makes previews quicker and never touches the final render.\nWith the QC gate on the system blocks a final render while the draft has not passed the quality check; turn it off and it is on you.\nEvery change applies to jobs started afterwards; jobs already running keep the old settings.",
+
+  "help.connections.title": "What is the Connections page for?",
+  "help.connections.body":
+    "Set up the API keys for the AI providers the system uses: Claude to build videos, Gemini to generate images.\nWithout a connection the AI features on other pages either error out or show no model to pick.\nAt the bottom sits Cloudflare Tunnel, for opening this dashboard to the Internet when you need it from another machine.",
+
+  "help.connections-key.title": "What is the API key for?",
+  "help.connections-key.body":
+    "It is the password that lets the system call the AI service on your behalf - every build, chat or image generation is billed to this key.\nThe key is stored on this machine and takes effect immediately, no restart needed; the field only reveals the last few characters.\nFor Claude specifically, if this machine is already signed in to Claude Code the system just uses that account and needs no key.",
+
+  "help.tunnel.title": "What is Cloudflare Tunnel for?",
+  "help.tunnel.body":
+    "Creates a public web address pointing at the dashboard running on this machine, so you can open it from your phone or another computer without touching your router.\nUse it when you want to watch render progress while away from the desk.\nTurning it on opens a path from the Internet into your machine, and the dashboard has no login - anyone with the link gets in, so switch it off when you are done.",
+
+  "help.styles.title": "What is Style Design for?",
+  "help.styles.body":
+    "Where the shared look is declared: colors, fonts, effects. Every video and image the system makes follows the style you pick, so the output stays on-brand.\nMake one style per brand or per channel, then select it inside each project.\nEditing a style does not rebuild old videos - you have to render that project again for the change to show.",
+
+  "help.skills.title": "What are Skills?",
+  "help.skills.body":
+    "A skill is a written procedure the AI reads before building a video: how to do Vietnamese captions, how to pick sound effects, how to grade color.\nEditing a skill changes how the AI works on every video after that, so this is where know-how accumulates instead of being retyped in each chat.\nA new skill takes effect in the next AI session, no restart required.",
+
+  "help.prompts.title": "What are Prompts for?",
+  "help.prompts.body":
+    "A library of reusable request templates: open a prompt and drop it into a project's edit brief instead of typing it out again.\nGreat for the video formats you make over and over - save once, then just pick it next time.\nThese are plain text templates; editing one has no effect on projects that were already built.",
+
+  "help.queue.title": "What is the Render Queue for?",
+  "help.queue.body":
+    "Shows every render job waiting, running or finished, with percentage, current step, timing and the full log when something fails.\nSeveral jobs run in parallel up to the level set in Config, but two jobs of the SAME project never run together so they cannot overwrite each other's files.\nA running job can be canceled; cancel midway and the partial render is discarded, so it has to start over.",
+
+  "help.sfx.title": "What is Sound Effects for?",
+  "help.sfx.body":
+    "The shared sound library for every project: preview right here, add new files, tag and describe them so they can be found later.\nThe AI reads those descriptions and tags to pick effects that match the content, so the clearer the description the better the pick.\nThe hay-dung tag marks the recommended set - these are the files the AI reaches for first when building a video.",
+
+  "help.assets.title": "What is the Assets page for?",
+  "help.assets.body":
+    "The two shared file stores of the system: imports/ is where you drop source files (footage, images, audio), outputs/ is where finished videos land.\nUpload here when a file will be used by several projects, or so you can pick it as the source of an Auto cut session.\nDeleting a file in imports/ that a project still references makes the next render fail with a missing file.",
 };

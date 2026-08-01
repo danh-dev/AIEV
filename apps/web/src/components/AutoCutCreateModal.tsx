@@ -28,6 +28,7 @@ import {
 import { useUploadEvents } from "@/lib/useEvents";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StyleSelect } from "@/components/StyleSelect";
@@ -429,7 +430,14 @@ export function AutoCutCreateModal({
 
       {/* ---- 2. Cách cắt ---- */}
       <div>
-        <span className="label">{t("autocut.how")}</span>
+        <span className="label">
+          {t("autocut.how")}
+          <InfoHint
+            className="ml-1.5 align-middle"
+            titleKey="help.autocut-mode.title"
+            bodyKey="help.autocut-mode.body"
+          />
+        </span>
         <div className="flex flex-wrap gap-2">
           {MODES.map((m) => (
             <OptionCard
@@ -510,7 +518,14 @@ export function AutoCutCreateModal({
 
       {/* ---- 3. Đầu ra ---- */}
       <div>
-        <span className="label">{t("autocut.aspect")}</span>
+        <span className="label">
+          {t("autocut.aspect")}
+          <InfoHint
+            className="ml-1.5 align-middle"
+            titleKey="help.autocut-aspect.title"
+            bodyKey="help.autocut-aspect.body"
+          />
+        </span>
         <div className="flex flex-wrap gap-2">
           {ASPECTS.map((a) => {
             const size = aspectSize(a);
@@ -543,7 +558,14 @@ export function AutoCutCreateModal({
       {reframing ? (
         <>
           <div>
-            <span className="label">{t("autocut.layout")}</span>
+            <span className="label">
+              {t("autocut.layout")}
+              <InfoHint
+                className="ml-1.5 align-middle"
+                titleKey="help.autocut-layout.title"
+                bodyKey="help.autocut-layout.body"
+              />
+            </span>
             <div className="flex flex-wrap gap-2">
               {LAYOUTS.map((l) => (
                 <OptionCard
@@ -560,7 +582,14 @@ export function AutoCutCreateModal({
 
           {needBackground && (
             <div>
-              <span className="label">{t("autocut.background")}</span>
+              <span className="label">
+                {t("autocut.background")}
+                <InfoHint
+                  className="ml-1.5 align-middle"
+                  titleKey="help.autocut-background.title"
+                  bodyKey="help.autocut-background.body"
+                />
+              </span>
               <div className="flex flex-wrap gap-2">
                 {BACKGROUNDS.map((b) => (
                   <OptionCard
@@ -593,8 +622,11 @@ export function AutoCutCreateModal({
       {/* ---- 4. Tùy chọn ---- */}
       <div>
         <span className="label">{t("autocut.options")}</span>
-        <label className="flex items-start gap-2 text-xs">
+        {/* Nhãn dùng htmlFor thay vì bọc input, để nút (i) là anh em của nhãn
+            chứ không nằm TRONG <label> (bấm (i) sẽ tick nhầm checkbox) */}
+        <div className="flex items-start gap-2 text-xs">
           <input
+            id="autocut-transcribe"
             type="checkbox"
             className="checkbox mt-0.5"
             checked={transcribe}
@@ -602,16 +634,24 @@ export function AutoCutCreateModal({
             onChange={(e) => setTranscribe(e.target.checked)}
           />
           <span>
-            {t("autocut.transcribe")}
+            <label htmlFor="autocut-transcribe" className="cursor-pointer">
+              {t("autocut.transcribe")}
+            </label>
+            <InfoHint
+              className="ml-1.5 align-middle"
+              titleKey="help.autocut-transcribe.title"
+              bodyKey="help.autocut-transcribe.body"
+            />
             <span className="block text-[var(--text-muted)]">
               {transcribeLocked
                 ? t("autocut.transcribe-locked")
                 : t("autocut.transcribe-hint")}
             </span>
           </span>
-        </label>
-        <label className="mt-2 flex items-start gap-2 text-xs">
+        </div>
+        <div className="mt-2 flex items-start gap-2 text-xs">
           <input
+            id="autocut-auto-edit"
             type="checkbox"
             className="checkbox mt-0.5"
             checked={autoEdit}
@@ -619,12 +659,19 @@ export function AutoCutCreateModal({
             onChange={(e) => setAutoEdit(e.target.checked)}
           />
           <span>
-            {t("autocut.auto-edit")}
+            <label htmlFor="autocut-auto-edit" className="cursor-pointer">
+              {t("autocut.auto-edit")}
+            </label>
+            <InfoHint
+              className="ml-1.5 align-middle"
+              titleKey="help.autocut-autoedit.title"
+              bodyKey="help.autocut-autoedit.body"
+            />
             <span className="block text-[var(--text-muted)]">
               {t("autocut.auto-edit-hint")}
             </span>
           </span>
-        </label>
+        </div>
 
         {/* Kịch bản edit dùng chung cho cả phiên - cấu hình một lần, mọi video
             cắt ra edit được ngay, khỏi vào từng project chỉnh lại */}

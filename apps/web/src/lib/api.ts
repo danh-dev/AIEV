@@ -792,6 +792,12 @@ export const getOverview = () => request<Overview>("/api/overview");
 
 // ============ Update (cập nhật hệ thống từ GitHub) ============
 
+/** Một commit sắp được kéo về - hiện trong danh sách "Có gì mới" của popup. */
+export interface UpdateCommit {
+  hash: string;
+  message: string;
+}
+
 export interface UpdateStatus {
   /** Short hash HEAD hiện tại ("" nếu server check lỗi). */
   current: string;
@@ -799,6 +805,8 @@ export interface UpdateStatus {
   behind: number;
   upToDate: boolean;
   latestMessage: string | null;
+  /** Commit sắp về, mới nhất trước (tối đa 10) - rỗng khi đã mới nhất. */
+  commits?: UpdateCommit[];
   checkedAt: string;
   /** false khi `git fetch origin` thất bại - behind tính theo refs cũ. */
   fetchOk?: boolean;
@@ -806,11 +814,33 @@ export interface UpdateStatus {
   error?: string;
 }
 
+/** Bước script update đang chạy - server đọc từ mốc `[STEP] <tên>` trong log. */
+export type UpdateStep = "pull" | "stop" | "install" | "restart";
+
+/** Đuôi start/update.log của LẦN CHẠY GẦN NHẤT - /api/update/log. */
+export interface UpdateLog {
+  exists: boolean;
+  lines: string[];
+  step: UpdateStep | null;
+  /** Dòng mốc mở đầu lần chạy (server trả nguyên văn, không phải ISO). */
+  startedAt: string | null;
+  error?: string;
+}
+
 export const checkUpdate = (force = false) =>
   request<UpdateStatus>(`/api/update/check${force ? "?force=1" : ""}`);
 
+/**
+ * Đuôi log cập nhật. VÌ SAO cần: script update chạy detached và tự kill server
+ * này nên không thể đẩy tiến trình qua SSE - UI poll log lúc server còn sống
+ * (bước pull) và gọi lại một lần khi server hồi sinh để lấy kết quả thật.
+ */
+export const getUpdateLog = (tail = 200) =>
+  request<UpdateLog>(`/api/update/log?tail=${tail}`);
+
 /** 202 khi đã spawn script update; 409 JOB_RUNNING khi đang có job render. */
-export const applyUpdate = () => post<{ ok: true }>("/api/update/apply");
+export const applyUpdate = () =>
+  post<{ ok: true; logHint: string }>("/api/update/apply");
 
 // ============ Usage (token AI) ============
 

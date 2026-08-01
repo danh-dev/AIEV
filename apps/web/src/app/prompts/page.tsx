@@ -21,6 +21,7 @@ import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -160,15 +161,26 @@ export default function PromptsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.prompts")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.prompts")}
+            <InfoHint
+              titleKey="help.prompts.title"
+              bodyKey="help.prompts.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("prompts.subtitle")}
         actions={
-          <Button
-            onClick={() => setEditor({ id: null, name: "", content: "" })}
-          >
-            <Plus size={16} strokeWidth={2} />
-            {t("prompts.create")}
-          </Button>
+          <>
+            <Button
+              onClick={() => setEditor({ id: null, name: "", content: "" })}
+            >
+              <Plus size={16} strokeWidth={2} />
+              {t("prompts.create")}
+            </Button>
+          </>
         }
       />
 

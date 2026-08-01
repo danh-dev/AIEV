@@ -10,6 +10,7 @@ import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { SkillGenerateModal } from "@/components/SkillGenerateModal";
 import { formatBytes, formatRelative, KEBAB_RE } from "@/lib/format";
@@ -80,7 +81,16 @@ export default function SkillsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.skills")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.skills")}
+            <InfoHint
+              titleKey="help.skills.title"
+              bodyKey="help.skills.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("skills.subtitle")}
         actions={
           <div className="flex items-center gap-2">

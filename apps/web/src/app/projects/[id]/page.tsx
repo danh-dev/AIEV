@@ -66,6 +66,7 @@ import {
 } from "@/components/ModelPicker";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import {
   MediaPreviewModal,
   RevealButton,
@@ -73,7 +74,7 @@ import {
 } from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
-import { PipelineTimeline } from "@/components/PipelineTimeline";
+import { deriveStage, PipelineTimeline } from "@/components/PipelineTimeline";
 import {
   DEFAULT_BRIEF,
   ProjectBriefCard,
@@ -276,7 +277,18 @@ function VideoOutputCard({
   }, [zoomed]);
 
   return (
-    <Card title={t("project.video-output")}>
+    <Card
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          {t("project.video-output")}
+          <InfoHint
+            titleKey="help.video-output.title"
+            bodyKey="help.video-output.body"
+            size={14}
+          />
+        </span>
+      }
+    >
       {aiRunning && (
         <div
           className={`flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3 ${
@@ -335,10 +347,17 @@ function VideoOutputCard({
             <span className="text-xs font-medium text-[var(--text-muted)]">
               Thumbnail
             </span>
-            <Button variant="secondary" small onClick={openThumbModal}>
-              <ImageIcon size={13} strokeWidth={2} />
-              {t("project.create-thumb")}
-            </Button>
+            {/* (i) đặt NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
+            <span className="flex shrink-0 items-center gap-1.5">
+              <Button variant="secondary" small onClick={openThumbModal}>
+                <ImageIcon size={13} strokeWidth={2} />
+                {t("project.create-thumb")}
+              </Button>
+              <InfoHint
+                titleKey="help.thumbnail.title"
+                bodyKey="help.thumbnail.body"
+              />
+            </span>
           </div>
           {thumbRevealError && (
             <p className="mt-2 text-xs text-[var(--danger)]">{thumbRevealError}</p>
@@ -822,6 +841,21 @@ export default function ProjectDetailPage() {
   // Phiên AI của project đang chạy → card Video output hiện trạng thái sống
   const aiRunning = (chatSessions ?? []).some((s) => s.status === "running");
 
+  // Timeline tự ẩn khi chưa có gì để hiện (deriveStage trả null). Tính trước ở
+  // đây để nút (i) đi kèm cũng ẩn theo - không để icon lơ lửng một mình.
+  const pipelineInput = project
+    ? {
+        metaStatus: project.status,
+        hasOutput: project.output != null,
+        scenes,
+        renders,
+        jobs,
+        sessionRunning: aiRunning,
+      }
+    : null;
+  const showPipeline =
+    pipelineInput !== null && deriveStage(pipelineInput) !== null;
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header chừa chỗ panel AI ghim phải như vùng nội dung - không thì timeline chui xuống dưới panel */}
@@ -834,15 +868,17 @@ export default function ProjectDetailPage() {
             : undefined
         }
         center={
-          project ? (
-            <PipelineTimeline
-              metaStatus={project.status}
-              hasOutput={project.output != null}
-              scenes={scenes}
-              renders={renders}
-              jobs={jobs}
-              sessionRunning={aiRunning}
-            />
+          pipelineInput && showPipeline ? (
+            <div className="flex items-start gap-1.5">
+              <div className="min-w-0 flex-1">
+                <PipelineTimeline {...pipelineInput} />
+              </div>
+              <InfoHint
+                titleKey="help.pipeline.title"
+                bodyKey="help.pipeline.body"
+                className="mt-px"
+              />
+            </div>
           ) : undefined
         }
         actions={
@@ -923,28 +959,36 @@ export default function ProjectDetailPage() {
               {tf("project.tags-error", { error: tagError })}
             </span>
           )}
-          <Button
-            variant="secondary"
-            small
-            className="ml-auto"
-            onClick={() => setCloneOpen(true)}
-          >
-            <Copy size={14} strokeWidth={2} />
-            {t("clone.action")}
-          </Button>
-          {started && (
-            <Button
-              variant="secondary"
-              small
-              onClick={() => {
-                setStartError(null);
-                setExtraNotes("");
-                setEditOpen(true);
-              }}
-            >
-              <Sparkles size={14} strokeWidth={2} />
-              {t("project.start-edit-new-session")}
+          {/* (i) luôn nằm NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            <Button variant="secondary" small onClick={() => setCloneOpen(true)}>
+              <Copy size={14} strokeWidth={2} />
+              {t("clone.action")}
             </Button>
+            <InfoHint
+              titleKey="help.clone.title"
+              bodyKey="help.clone.body"
+            />
+          </span>
+          {started && (
+            <span className="flex shrink-0 items-center gap-1.5">
+              <Button
+                variant="secondary"
+                small
+                onClick={() => {
+                  setStartError(null);
+                  setExtraNotes("");
+                  setEditOpen(true);
+                }}
+              >
+                <Sparkles size={14} strokeWidth={2} />
+                {t("project.start-edit-new-session")}
+              </Button>
+              <InfoHint
+                titleKey="help.start-edit.title"
+                bodyKey="help.start-edit.body"
+              />
+            </span>
           )}
         </div>
       )}
@@ -999,17 +1043,25 @@ export default function ProjectDetailPage() {
               </div>
             </div>
 
-            <Button
-              className="h-12 w-full text-[15px]"
-              onClick={() => {
-                setStartError(null);
-                setExtraNotes("");
-                setEditOpen(true);
-              }}
-            >
-              <Sparkles size={18} strokeWidth={2} />
-              {t("project.start-edit")}
-            </Button>
+            {/* Nút CTA vẫn kéo hết bề ngang (flex-1), (i) đứng riêng bên cạnh */}
+            <div className="flex items-center gap-2">
+              <Button
+                className="h-12 flex-1 text-[15px]"
+                onClick={() => {
+                  setStartError(null);
+                  setExtraNotes("");
+                  setEditOpen(true);
+                }}
+              >
+                <Sparkles size={18} strokeWidth={2} />
+                {t("project.start-edit")}
+              </Button>
+              <InfoHint
+                titleKey="help.start-edit.title"
+                bodyKey="help.start-edit.body"
+                size={15}
+              />
+            </div>
           </>
         ) : (
           /* Đã started: 3 cột dọc tự xếp - mỗi cột flex-col, card nối nhau
@@ -1228,6 +1280,10 @@ export default function ProjectDetailPage() {
                 <Play size={14} strokeWidth={2} />
                 {t("project.render-final")}
               </Button>
+              <InfoHint
+                titleKey="help.render-final.title"
+                bodyKey="help.render-final.body"
+              />
               <Button
                 variant="destructive"
                 small
@@ -1286,23 +1342,31 @@ export default function ProjectDetailPage() {
                       />
                       {t("project.menu-assemble-draft")}
                     </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={cleaning}
-                      className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        onCleanJunk();
-                      }}
-                    >
-                      <Trash2
-                        size={14}
-                        strokeWidth={2}
-                        className="shrink-0 text-[var(--text-muted)]"
+                    {/* (i) là item riêng cạnh menu item - không lồng vào button */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={cleaning}
+                        className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          onCleanJunk();
+                        }}
+                      >
+                        <Trash2
+                          size={14}
+                          strokeWidth={2}
+                          className="shrink-0 text-[var(--text-muted)]"
+                        />
+                        {cleaning ? t("junk.cleaning") : t("junk.clean")}
+                      </button>
+                      <InfoHint
+                        titleKey="help.clean-junk.title"
+                        bodyKey="help.clean-junk.body"
+                        className="mr-1"
                       />
-                      {cleaning ? t("junk.cleaning") : t("junk.clean")}
-                    </button>
+                    </div>
                   </div>
                 )}
               </div>

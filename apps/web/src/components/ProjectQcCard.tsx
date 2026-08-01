@@ -23,6 +23,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { MediaPreviewModal } from "@/components/MediaPreviewModal";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -142,7 +143,12 @@ export function ProjectQcCard({
 
   return (
     <Card
-      title={t("qc.title")}
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          {t("qc.title")}
+          <InfoHint titleKey="help.qc.title" bodyKey="help.qc.body" size={14} />
+        </span>
+      }
       actions={
         <div className="flex shrink-0 items-center gap-2">
           {report && (

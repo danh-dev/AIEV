@@ -30,6 +30,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -215,7 +216,19 @@ export function ProjectPublishCard({
   );
 
   return (
-    <Card title={t("publish.title")} actions={generateButton}>
+    <Card
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          {t("publish.title")}
+          <InfoHint
+            titleKey="help.publish.title"
+            bodyKey="help.publish.body"
+            size={14}
+          />
+        </span>
+      }
+      actions={generateButton}
+    >
       {error && <ErrorBanner message={error.message} detail={error.detail} />}
 
       {/* Chưa có transcript là trạng thái BÌNH THƯỜNG của project mới - chỉ

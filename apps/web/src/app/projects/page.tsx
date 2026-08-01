@@ -31,6 +31,7 @@ import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { InfoHint } from "@/components/InfoHint";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { TagInput } from "@/components/TagInput";
@@ -478,13 +479,24 @@ export default function ProjectsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t("nav.projects")}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            {t("nav.projects")}
+            <InfoHint
+              titleKey="help.projects.title"
+              bodyKey="help.projects.body"
+              size={14}
+            />
+          </span>
+        }
         subtitle={t("projects.subtitle")}
         actions={
-          <Button onClick={openCreate}>
-            <Plus size={16} strokeWidth={2} />
-            {t("projects.create")}
-          </Button>
+          <>
+            <Button onClick={openCreate}>
+              <Plus size={16} strokeWidth={2} />
+              {t("projects.create")}
+            </Button>
+          </>
         }
       />
 
@@ -544,15 +556,22 @@ export default function ProjectsPage() {
             >
               {t("common.deselect")}
             </Button>
-            <Button
-              variant="secondary"
-              small
-              disabled={junkBusy || renderBusy}
-              onClick={onBulkCleanJunk}
-            >
-              <Trash2 size={14} strokeWidth={2} />
-              {junkBusy ? t("junk.cleaning") : t("junk.clean")}
-            </Button>
+            {/* Nút (i) đặt CẠNH nút thao tác (không lồng trong <button>) */}
+            <span className="inline-flex items-center gap-1">
+              <Button
+                variant="secondary"
+                small
+                disabled={junkBusy || renderBusy}
+                onClick={onBulkCleanJunk}
+              >
+                <Trash2 size={14} strokeWidth={2} />
+                {junkBusy ? t("junk.cleaning") : t("junk.clean")}
+              </Button>
+              <InfoHint
+                titleKey="help.projects-junk.title"
+                bodyKey="help.projects-junk.body"
+              />
+            </span>
             <Button
               variant="destructive"
               small
@@ -562,24 +581,36 @@ export default function ProjectsPage() {
               <Trash2 size={14} strokeWidth={2} />
               {t("common.delete-selected")}
             </Button>
-            <Button
-              small
-              disabled={junkBusy || renderBusy}
-              onClick={onBulkRenderFinal}
-            >
-              <Play size={14} strokeWidth={2} />
-              {renderBusy
-                ? t("projects.creating-jobs")
-                : tf("projects.render-final-n", { n: selected.size })}
-            </Button>
-            <Button
-              small
-              disabled={junkBusy || renderBusy}
-              onClick={openBulkEdit}
-            >
-              <Sparkles size={14} strokeWidth={2} />
-              {tf("projects.make-video-n", { n: selected.size })}
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button
+                small
+                disabled={junkBusy || renderBusy}
+                onClick={onBulkRenderFinal}
+              >
+                <Play size={14} strokeWidth={2} />
+                {renderBusy
+                  ? t("projects.creating-jobs")
+                  : tf("projects.render-final-n", { n: selected.size })}
+              </Button>
+              <InfoHint
+                titleKey="help.projects-render.title"
+                bodyKey="help.projects-render.body"
+              />
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Button
+                small
+                disabled={junkBusy || renderBusy}
+                onClick={openBulkEdit}
+              >
+                <Sparkles size={14} strokeWidth={2} />
+                {tf("projects.make-video-n", { n: selected.size })}
+              </Button>
+              <InfoHint
+                titleKey="help.projects-bulk-edit.title"
+                bodyKey="help.projects-bulk-edit.body"
+              />
+            </span>
           </div>
         ) : (
           tagCounts.length > 0 && (

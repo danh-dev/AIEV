@@ -30,6 +30,7 @@ export const vi: Record<string, string> = {
   "nav.sfx": "Sound Effects",
   "nav.prompts": "Prompts",
   "nav.skills": "Skills",
+  "nav.source": "Mã nguồn GitHub",
   "nav.config": "Cấu hình",
   "nav.connections": "Kết nối",
   "shell.backend-checking": "Đang kiểm tra backend…",
@@ -108,6 +109,44 @@ export const vi: Record<string, string> = {
   "update.available": "Có bản cập nhật",
   "update.behind": "{n} thay đổi",
   "update.apply": "Cập nhật",
+
+  // ===== Update modal =====
+  "update.title": "Cập nhật hệ thống",
+  "update.current-label": "Đang chạy",
+  "update.latest-label": "Bản mới",
+  "update.whats-new": "Có gì mới",
+  "update.no-commits": "Không lấy được danh sách thay đổi.",
+  "update.commits-more": "và {n} thay đổi cũ hơn nữa",
+  "update.warn-restart":
+    "Hệ thống sẽ tự tắt rồi khởi động lại, mất khoảng 1-3 phút. Đừng tắt máy và giữ nguyên cửa sổ này cho tới khi xong.",
+  "update.apply-now": "Cập nhật ngay",
+  "update.later": "Để sau",
+  "update.starting": "Đang gửi lệnh cập nhật…",
+  "update.step.pull": "Tải bản mới",
+  "update.step.stop": "Dừng hệ thống",
+  "update.step.install": "Cài đặt gói",
+  "update.step.restart": "Khởi động lại",
+  "update.step-of": "Bước {n}/4",
+  "update.running-title": "Đang cập nhật",
+  "update.waiting-log": "Đang chờ log từ script cập nhật…",
+  "update.server-down":
+    "Hệ thống đang tắt để cài đặt - đây là bước bình thường, không phải lỗi. Đừng đóng cửa sổ này.",
+  "update.elapsed": "Đã trôi {time}",
+  "update.log-title": "Nhật ký cập nhật",
+  "update.view-log": "Xem log",
+  "update.hide-log": "Ẩn log",
+  "update.success-title": "Cập nhật thành công",
+  "update.new-version": "Phiên bản mới: {hash}",
+  "update.reloading": "Trang sẽ tự tải lại sau vài giây.",
+  "update.reload-now": "Tải lại ngay",
+  "update.failed-title": "Cập nhật chưa hoàn tất",
+  "update.failed-timeout":
+    "Chờ quá lâu mà hệ thống không khởi động lại xong.",
+  "update.failed-script": "Script cập nhật báo lỗi và đã dừng.",
+  "update.failed-safe":
+    "Hệ thống cũ vẫn chạy bình thường - script kéo code trước rồi mới tắt máy, nên lỗi ở bước này không làm hỏng bản đang dùng.",
+  "update.log-hint": "Log đầy đủ nằm ở file start/update.log.",
+  "update.badge-open": "Bấm để xem chi tiết bản cập nhật",
 
   // ===== Model picker =====
   "model.performer": "AI thực hiện",
@@ -1192,4 +1231,154 @@ export const vi: Record<string, string> = {
   "autocut.title-aria": "Tiêu đề đoạn {n}",
   "autocut.score": "Điểm {score}/10",
   "autocut.open-project": "Mở project",
+
+  // ===== Chú thích chức năng (nút i) =====
+  "help.aria": "Xem chức năng này dùng để làm gì",
+  // ===== ANCHOR:HELP_PROJECT =====
+  "help.pipeline.title": "6 giai đoạn của một video",
+  "help.pipeline.body":
+    "Cho biết video đang ở bước nào: Phân tích, Dựng scene, Render draft, Lắp draft, Render final, Hoàn thành.\nHệ thống tự suy giai đoạn từ file đã có và job đang chạy. Chấm nhấp nháy nghĩa là đang có việc chạy nền, bạn không cần bấm thêm gì.\nĐứng lâu ở một bước thường là job lỗi hoặc AI đang chờ bạn duyệt - xem panel AI bên phải hoặc trang Render Queue để biết lý do.",
+  "help.render-final.title": "Render final là gì?",
+  "help.render-final.body":
+    "Xuất bản video hoàn chỉnh chất lượng cao vào thư mục outputs - đây là file bạn đem đi đăng.\nBị chặn nếu QC tự động chưa chạy, kết quả QC đã cũ, hoặc còn hạng mục không đạt; phải sửa rồi đo QC lại mới render được. Cũng cần có một lượt lắp draft thành công trước đó.\nMột lượt final tốn hàng chục phút máy chạy, nên hãy xem draft thật ưng rồi mới bấm.",
+  "help.start-edit.title": "Bắt đầu edit bằng AI",
+  "help.start-edit.body":
+    "Giao cả việc dựng video cho AI: nó đọc brief và asset rồi tự làm tới khi ra video final, bạn theo dõi trực tiếp ở panel bên phải.\nMỗi lần bấm là mở một phiên mới và tốn token AI; các phiên cũ vẫn giữ nguyên để xem lại.\nNếu chỉ muốn sửa vài chỗ trên bản đã có, dùng card Duyệt bản draft sẽ nhanh và rẻ hơn nhiều.",
+  "help.video-output.title": "Video output",
+  "help.video-output.body":
+    "Chỗ xem video thành phẩm mới nhất của project - bấm phóng to để xem lớn hoặc mở thẳng file trong thư mục outputs.\nKhi AI đang dựng, khu này hiện thanh tiến trình; video tự xuất hiện lúc render xong, không cần tải lại trang.",
+  "help.thumbnail.title": "Tạo thumbnail",
+  "help.thumbnail.body":
+    "Tạo ảnh bìa cho video: hệ thống cắt một khung hình từ video, nhờ Gemini vẽ nền theo Style Design rồi ghép tiêu đề và logo lên.\nBước vẽ nền gọi Gemini nên tốn phí theo API key ở trang Kết nối. Không có key thì vẫn tạo được ảnh bìa, chỉ là nền gradient đơn giản theo style.\nMất khoảng một phút và phải chờ hộp thoại chạy xong. Tạo lại sẽ ghi đè ảnh bìa cũ.",
+  "help.publish.title": "Gói xuất bản",
+  "help.publish.body":
+    "Soạn sẵn tiêu đề, mô tả và hashtag riêng cho TikTok, YouTube, Facebook, kèm phụ đề .srt/.vtt để tải về. Mỗi phần có nút copy để dán thẳng lên nền tảng.\nCần transcript của video nên phải chạy edit bằng AI trước; chưa có transcript thì hệ thống báo và không soạn được.\nSoạn lại sẽ thay toàn bộ nội dung cũ, nên copy phần bạn muốn giữ trước khi bấm.",
+  "help.review.title": "Duyệt bản draft",
+  "help.review.body":
+    "Xem bản draft rồi ghim ghi chú ngay tại giây đang xem, kiểu \"chữ ở 00:12 bị cụt dấu\".\nBấm gửi thì AI nhận cả loạt ghi chú kèm mốc thời gian và chỉ sửa đúng những chỗ đó thay vì dựng lại cả video - nhanh hơn và tốn ít token hơn nhiều.\nKhông gửi được khi phiên AI của project đang chạy; chờ phiên hiện tại xong đã.",
+  "help.clips.title": "Cắt short từ video dài",
+  "help.clips.body":
+    "AI đọc transcript, chấm điểm rồi đề xuất những đoạn đáng cắt thành short. Bạn tick đoạn nào, hệ thống đẻ ra một project riêng cho đoạn đó.\nCần transcript nên video phải qua edit bằng AI trước. Lượt phân tích gọi AI, mất 1-3 phút và tốn token.\nProject gốc không bị đụng tới - short là project mới, không thích thì xóa riêng.",
+  "help.repurpose.title": "Tái chế tỉ lệ khung",
+  "help.repurpose.body":
+    "Tạo project mới cùng nội dung nhưng khác khung hình, ví dụ lấy bản dọc TikTok làm thêm bản ngang cho YouTube.\nHệ thống chỉ chép video nguồn và brief sang project con; vẫn phải edit lại cho bố cục hợp khung mới - tick \"AI tự edit\" để nó chạy luôn sau khi tạo.\nTỉ lệ trùng với project hiện tại sẽ bị khóa.",
+  "help.brief.title": "Kịch bản edit (Brief)",
+  "help.brief.body":
+    "Đây là bản yêu cầu AI đọc trước khi dựng: mô tả video nguồn, việc bạn muốn làm, bật tắt phụ đề, highlight, bố cục key, style và sound effect.\nViết càng rõ thì AI càng ít đoán sai - phần mô tả nguồn và yêu cầu edit là quan trọng nhất.\nBrief lưu trong project và dùng lại cho mọi phiên edit sau. Bấm bắt đầu edit thì bản đang gõ dở cũng được lưu tự động.",
+  "help.project-assets.title": "Nguồn & Asset",
+  "help.project-assets.body":
+    "Nơi bỏ video, ảnh, âm thanh gốc vào cho AI dùng - kéo thả vào card hoặc bấm tải lên. Nút Kết nối điện thoại hiện mã QR để quay xong gửi thẳng từ điện thoại sang, chỉ cần chung WiFi.\nMỗi file nên viết một dòng mô tả vì AI đọc đúng dòng đó để biết dùng cảnh nào vào đâu. Riêng video có thêm nút chỉnh màu để duyệt trước tông màu.\nXóa asset là xóa file thật trong project, không hoàn tác được.",
+  "help.clean-junk.title": "Xóa file rác",
+  "help.clean-junk.body":
+    "Dọn các file trung gian sinh ra lúc dựng: scene render, frame kiểm tra, cache preview màu, bản draft lắp ráp và thư mục staging - đây thường là phần chiếm đĩa nhiều nhất.\nFile nguồn (asset, scene, brief, meta) và video final trong outputs được giữ nguyên.\nHệ thống hỏi lại kèm dung lượng sẽ giải phóng trước khi xóa. Xóa rồi mà cần lại thì phải render lại, và không xóa được khi project còn job đang chạy.",
+  "help.clone.title": "Nhân bản project",
+  "help.clone.body":
+    "Tạo project mới chép nguyên scene, asset, brief và transcript của project này - hợp khi muốn làm một bản khác mà không phá bản đang có.\nKhông chép file render và video đã xuất, nên bản sao bắt đầu ở trạng thái chưa dựng.\nChép xong hệ thống mở thẳng project mới; chỉ cần sửa phần brief khác đi rồi cho AI chạy, không phải dựng lại từ đầu.",
+  "help.qc.title": "QC tự động là gì?",
+  "help.qc.body": "Đo chất lượng bản draft bằng ffmpeg trước khi render final: âm lượng, clipping, frame đen kẹt giữa scene, đứng hình, đuôi im lặng, lệch tiếng/hình.\nCòn hạng mục không đạt thì hệ thống CHẶN render final, vì final tốn hàng chục phút - phát hiện lỗi ở đó là lãng phí nhất.\nRiêng mục vùng bị giao diện che thì máy không tự kết luận được, hệ thống trích ảnh khoanh đỏ để bạn tự soi.",
+
+  // ===== ANCHOR:HELP_PAGES =====
+  "help.autocut.title": "Auto cut videos là gì?",
+  "help.autocut.body":
+    "Đưa một video dài vào, hệ thống tự chia thành nhiều đoạn ngắn và tạo cho mỗi đoạn một Videos Project riêng để edit tiếp.\nDùng khi bạn có bản ghi livestream, podcast hay buổi nói chuyện dài và muốn cắt ra nhiều clip đăng mạng xã hội.\nPhiên cắt chỉ lo cắt và tạo project - phần dựng chữ, phụ đề, sound effect vẫn làm trong từng project sau đó.",
+
+  "help.autocut-mode.title": "Ba cách cắt khác nhau thế nào?",
+  "help.autocut-mode.body":
+    "Theo thời lượng: chia đều theo số phút bạn đặt, nhanh nhất vì máy không cần hiểu nội dung.\nAI chọn đoạn hay: đọc lời thoại rồi chấm điểm từng đoạn, nên bắt buộc tạo transcript trước và lâu hơn cắt theo thời lượng, bù lại đoạn lấy ra thường trọn ý.\nTheo yêu cầu: giống AI chọn đoạn nhưng bạn tả muốn tìm gì, ví dụ chỉ lấy các đoạn nói về giá.",
+
+  "help.autocut-aspect.title": "Tỉ lệ khung hình để làm gì?",
+  "help.autocut-aspect.body":
+    "Chọn khung cho các clip cắt ra: 9:16 cho TikTok/Reels/Shorts, 16:9 cho YouTube, 1:1 và 4:5 cho feed Facebook/Instagram.\nChọn Giữ nguyên thì clip giữ đúng khung của video gốc và bỏ qua bước đổi khung, nên cắt nhanh hơn hẳn.\nĐổi sang khung khác gốc thì mỗi đoạn phải encode lại - video dài nhiều đoạn sẽ tốn thêm kha khá thời gian.",
+
+  "help.autocut-layout.title": "Crop, fit hay tự động?",
+  "help.autocut-layout.body":
+    "Quyết định hình gốc được đặt vào khung mới thế nào khi hai tỉ lệ không khớp.\nCrop phóng to rồi cắt bớt rìa: chủ thể to, xem trên điện thoại đã mắt, nhưng mất phần mép - chữ hay đồ vật sát viền có thể bay mất.\nFit thu nhỏ cho lọt trọn khung: không mất gì nhưng chủ thể nhỏ lại và sinh vùng trống phải lấp nền.\nTự động để hệ thống nhìn từng đoạn rồi chọn giúp - đoạn có người nói thì crop bám mặt, đoạn nhiều chi tiết thì fit.",
+
+  "help.autocut-background.title": "Nền lấp phần trống là gì?",
+  "help.autocut-background.body":
+    "Khi dùng fit, hình gốc không phủ hết khung mới nên còn dải trống trên dưới (hoặc hai bên) - lấy gì lấp phần đó thì chọn ở đây.\nẢnh AI cho nền đẹp nhất nhưng phải gọi Gemini nên tốn thêm thời gian và tiền theo API key của bạn.\nLàm mờ dùng chính hình gốc phóng to rồi làm nhòe: miễn phí, nhanh, hợp mọi nội dung.\nMàu theo Style lấy màu nền của style đã chọn - phẳng, gọn, giữ đúng nhận diện.",
+
+  "help.autocut-transcribe.title": "Tạo lời thoại (transcript) để làm gì?",
+  "help.autocut-transcribe.body":
+    "Bóc lời nói trong video thành văn bản có mốc thời gian, dùng cho phụ đề, chọn key nổi bật và để AI hiểu nội dung.\nBật thì lúc edit khỏi phải bóc lại, đổi lại bước phân tích lâu hơn - video một tiếng có thể mất vài phút.\nHai cách cắt bằng AI bắt buộc phải có transcript nên ở đó tùy chọn này tự bật và không tắt được.",
+
+  "help.autocut-autoedit.title": "Chạy AI edit luôn nghĩa là gì?",
+  "help.autocut-autoedit.body":
+    "Cắt xong là AI dựng luôn từng project con theo Cấu hình edit bên dưới, bạn không phải mở từng project bấm tạo video.\nTiện khi cắt hàng loạt clip cùng kiểu, nhưng mỗi project là một phiên AI riêng nên tốn token thật và máy chạy khá lâu.\nĐể tắt nếu muốn duyệt lại từng đoạn rồi mới quyết định dựng cái nào.",
+
+  "help.autocut-segments.title": "Duyệt các đoạn trước khi cắt",
+  "help.autocut-segments.body":
+    "Đây mới là kế hoạch cắt hệ thống đề xuất, chưa động vào file nào cả.\nBỏ tích đoạn không cần và sửa tiêu đề trước khi cắt - tiêu đề này thành tên của project con.\nChỉ nút Cắt và tạo project mới thật sự encode, mà bước đó tốn thời gian nên duyệt kỹ ở đây rẻ hơn nhiều so với cắt lại.",
+
+  "help.autocut-brief.title": "Cấu hình edit dùng để làm gì?",
+  "help.autocut-brief.body":
+    "Đặt một lần cách dựng cho TẤT CẢ video cắt ra từ phiên này: có phụ đề không, bố cục key, sound effect, nhạc nền.\nĐỡ phải mở mười project con chỉnh đi chỉnh lại cùng một thứ.\nCấu hình chỉ áp cho các đoạn cắt SAU khi sửa - project đã tạo rồi thì phải vào chính project đó đổi.",
+
+  "help.projects.title": "Videos Project để làm gì?",
+  "help.projects.body":
+    "Chỗ chứa mọi video đang làm: mỗi project là một video với kích thước, fps, kịch bản edit và bản render riêng.\nBấm vào một hàng để mở project và bắt đầu dựng; tích ô đầu hàng để làm hàng loạt trên nhiều project cùng lúc.\nCột token cho biết project đó đã tiêu bao nhiêu tiền AI.",
+
+  "help.projects-junk.title": "Xóa file rác làm gì?",
+  "help.projects-junk.body":
+    "Quét thư mục renders/ của các project đang chọn rồi xóa bản draft cũ, frame tạm và file thừa để lấy lại dung lượng ổ đĩa.\nVideo thành phẩm trong outputs/ và file nguồn không bị đụng tới.\nHệ thống hỏi lại kèm tổng dung lượng trước khi xóa, nhưng đã xóa thì không hoàn tác được - muốn có lại phải render lại.",
+
+  "help.projects-render.title": "Render final hàng loạt",
+  "help.projects-render.body":
+    "Đẩy job dựng bản cuối của mọi project đang chọn vào hàng đợi, chạy lần lượt chứ không cùng lúc.\nBản final nặng máy, mỗi video có thể mất hàng chục phút - chỉ nên bấm khi đã xem draft và thấy ổn.\nProject chưa đủ điều kiện (chưa có draft, QC chưa đạt) bị báo lỗi ngay và bỏ qua, các project còn lại vẫn chạy.",
+
+  "help.projects-bulk-edit.title": "Tạo video bằng AI hàng loạt",
+  "help.projects-bulk-edit.body":
+    "Khởi động phiên AI dựng video cho từng project đang chọn, dùng đúng kịch bản edit đã lưu trong mỗi project.\nÔ ghi chú thêm là yêu cầu áp cho cả loạt, ví dụ đổi tông giọng hay bỏ phụ đề.\nMỗi project là một phiên riêng nên tốn token thật; đã chạy rồi thì phải vào từng project để dừng.",
+
+  "help.images.title": "Images Project để làm gì?",
+  "help.images.body":
+    "Chỗ tạo và quản lý ảnh bằng AI: mỗi dự án là một bộ ảnh cùng chủ đề, cùng tỉ lệ và cùng style.\nDùng khi cần thumbnail, ảnh minh họa chèn vào video hay ảnh nền cho scene.\nMỗi lượt tạo ảnh gọi Gemini nên tốn tiền theo API key khai ở trang Kết nối.",
+
+  "help.config.title": "Trang Cấu hình để làm gì?",
+  "help.config.body":
+    "Chỉnh tốc độ và chất lượng render cho vừa sức máy của bạn: số worker, dùng GPU, chạy song song bao nhiêu job.\nMọi thay đổi lưu ngay và áp cho các job chạy sau đó, không cần khởi động lại.\nĐặt quá tay so với máy thì render dễ đứng hoặc chết giữa chừng - mốc có dấu sao là mức đo được cho chính máy này.",
+
+  "help.config-hardware.title": "Phần cứng phát hiện được",
+  "help.config-hardware.body":
+    "Hệ thống tự đọc CPU, RAM và GPU của máy đang chạy để biết nên khuyên bạn đặt mức nào.\nNhãn NVENC hay VideoToolbox nghĩa là card có bộ mã hóa video riêng, bật encode GPU sẽ nhanh hơn nhiều.\nHiện Chỉ CPU thì hai công tắc encode GPU bị khóa - không phải lỗi, máy này chưa có phần cứng đó.",
+
+  "help.config-render.title": "Cài đặt render",
+  "help.config-render.body":
+    "Mấy nút này đánh đổi giữa nhanh và chắc: worker và concurrency càng cao càng nhanh nhưng ăn RAM, quá sức máy là job chết giữa chừng.\nEncode GPU nhanh hơn hẳn nhưng cùng dung lượng thì chất lượng thấp hơn CPU - hợp với draft, cân nhắc kỹ với final. Draft fps thấp chỉ làm bản xem thử nhanh hơn, không đụng tới bản final.\nCổng QC bật thì hệ thống chặn render final khi bản draft chưa đạt kiểm tra chất lượng; tắt đi là bạn tự chịu trách nhiệm.\nMọi thay đổi áp ngay cho job chạy sau, job đang chạy vẫn giữ cấu hình cũ.",
+
+  "help.connections.title": "Trang Kết nối để làm gì?",
+  "help.connections.body":
+    "Khai báo khóa API cho các nhà cung cấp AI mà hệ thống dùng: Claude để dựng video, Gemini để tạo ảnh.\nChưa kết nối thì các chức năng AI ở trang khác sẽ báo lỗi hoặc không hiện model nào để chọn.\nCuối trang còn có Cloudflare Tunnel để mở dashboard này ra Internet khi cần xem từ máy khác.",
+
+  "help.connections-key.title": "Khóa API dùng làm gì?",
+  "help.connections-key.body":
+    "Là mật khẩu để hệ thống gọi được dịch vụ AI thay bạn - mọi lượt dựng video, chat hay tạo ảnh đều tính tiền vào khóa này.\nKhóa lưu trên chính máy này và hiệu lực ngay, không cần khởi động lại; ô hiển thị chỉ để lộ vài ký tự cuối.\nRiêng Claude, nếu máy đã đăng nhập Claude Code thì hệ thống dùng luôn tài khoản đó, khỏi cần khóa.",
+
+  "help.tunnel.title": "Cloudflare Tunnel để làm gì?",
+  "help.tunnel.body":
+    "Tạo một địa chỉ web công khai trỏ về dashboard đang chạy trên máy này, để bạn mở từ điện thoại hay máy khác mà không phải cấu hình router.\nDùng khi muốn theo dõi tiến trình render lúc không ngồi trước máy.\nBật là mở đường từ Internet vào máy bạn, mà dashboard chưa có đăng nhập - ai có link đều vào được, nên tắt ngay khi dùng xong.",
+
+  "help.styles.title": "Style Design để làm gì?",
+  "help.styles.body":
+    "Nơi khai báo bộ nhận diện dùng chung: màu, font, hiệu ứng. Mọi video và ảnh sinh ra đều bám theo style bạn chọn nên sản phẩm luôn cùng một tông.\nTạo mỗi thương hiệu hoặc mỗi kênh một style, rồi chọn lại ở từng project.\nSửa style không tự dựng lại video cũ - phải render lại project đó thì thay đổi mới có hiệu lực.",
+
+  "help.skills.title": "Skills là gì?",
+  "help.skills.body":
+    "Skill là bản hướng dẫn quy trình mà AI đọc trước khi dựng video: cách làm phụ đề tiếng Việt, cách chọn sound effect, cách chỉnh màu.\nSửa skill là sửa cách AI làm việc cho mọi video sau đó, nên đây là chỗ tích lũy kinh nghiệm thay vì nhắc lại trong từng lần chat.\nSkill mới có hiệu lực ở phiên AI kế tiếp, không cần khởi động lại hệ thống.",
+
+  "help.prompts.title": "Prompts để làm gì?",
+  "help.prompts.body":
+    "Thư viện câu yêu cầu mẫu để dùng lại: mở một prompt rồi đổ nội dung vào ô Kịch bản edit của project thay vì gõ lại từ đầu.\nHợp với những kiểu video bạn làm đi làm lại - lưu một lần, lần sau chọn là xong.\nĐây chỉ là văn bản mẫu, sửa prompt không ảnh hưởng tới project đã dựng.",
+
+  "help.queue.title": "Render Queue để làm gì?",
+  "help.queue.body":
+    "Xem mọi job render đang chờ, đang chạy và đã xong - kèm phần trăm, bước hiện tại, thời gian và log đầy đủ khi lỗi.\nNhiều job chạy song song theo mức đặt ở trang Cấu hình, nhưng hai job của CÙNG một project không bao giờ chạy đồng thời để tránh giẫm lên file của nhau.\nJob đang chạy có thể hủy; hủy giữa chừng thì bản render dở bị bỏ, phải chạy lại từ đầu.",
+
+  "help.sfx.title": "Sound Effects để làm gì?",
+  "help.sfx.body":
+    "Thư viện âm thanh dùng chung cho mọi project: nghe thử ngay tại đây, thêm file mới, gắn tag và mô tả để sau này tìm lại.\nAI đọc mô tả và tag để tự chọn hiệu ứng khớp nội dung, nên tả càng rõ càng chọn đúng.\nTag hay-dung đánh dấu bộ đề xuất - đây là những file AI ưu tiên lấy khi dựng video.",
+
+  "help.assets.title": "Trang Assets để làm gì?",
+  "help.assets.body":
+    "Hai kho file dùng chung của cả hệ thống: imports/ là nơi bạn bỏ file nguồn vào (footage quay, ảnh, audio), outputs/ là nơi video thành phẩm được xuất ra.\nTải file lên đây khi muốn dùng cho nhiều project, hoặc để chọn làm nguồn cho một phiên Auto cut.\nXóa file trong imports/ mà project đang tham chiếu thì lần render sau sẽ lỗi thiếu file.",
 };

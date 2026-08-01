@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cloudflare Tunnel cho AI Edit Video — mở đường Internet về http://localhost:6868
+# Cloudflare Tunnel cho AI Edit Video - mở đường Internet về http://localhost:6868
 # Có TUNNEL_DOMAIN trong .env → chạy named tunnel; chưa có → Quick Tunnel (URL ngẫu nhiên).
 set -u
 
@@ -37,7 +37,7 @@ if [ -n "$TUNNEL_DOMAIN" ]; then
 else
   # 3b. Chưa có TUNNEL_DOMAIN → Quick Tunnel (URL ngẫu nhiên *.trycloudflare.com)
   echo "  Chưa điền TUNNEL_DOMAIN trong .env → chạy Quick Tunnel (URL ngẫu nhiên)."
-  printf '  \033[33m[CANH BAO] URL này public trên Internet và dashboard CHƯA có đăng nhập —\033[0m\n'
+  printf '  \033[33m[CANH BAO] URL này public trên Internet và dashboard CHƯA có đăng nhập -\033[0m\n'
   printf '  \033[33mchỉ dùng tạm thời, đừng chia sẻ link. Muốn domain riêng + QR tự động: điền TUNNEL_DOMAIN vào .env.\033[0m\n'
   echo ""
   exec cloudflared tunnel --url http://localhost:6868

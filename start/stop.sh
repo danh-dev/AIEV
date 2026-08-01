@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI Edit Video by noti.vn — dừng hệ thống (macOS / Linux)
+# AI Edit Video by noti.vn - dừng hệ thống (macOS / Linux)
 set -u
 
 echo "  Đang dừng AI Edit Video..."

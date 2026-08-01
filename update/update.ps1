@@ -1,4 +1,4 @@
-﻿# AI Edit Video — cập nhật bản mới nhất từ GitHub rồi khởi động lại
+﻿# AI Edit Video - cập nhật bản mới nhất từ GitHub rồi khởi động lại
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -11,11 +11,17 @@ function Stop-UpdateLog {
     try { Stop-Transcript | Out-Null } catch {}
 }
 
+# Mốc phân tách các lần chạy. Transcript ghi -Append nên log là file CỘNG DỒN;
+# thiếu dòng này thì GET /api/update/log không biết lần chạy mới bắt đầu từ đâu
+# và trả về bước của lần cập nhật TRƯỚC (update.sh đã có dòng tương đương).
+Write-Host ("===== " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + " - bắt đầu cập nhật =====")
+
 Write-Host ""
-Write-Host "  AI Edit Video — CAP NHAT" -ForegroundColor White
+Write-Host "  AI Edit Video - CAP NHAT" -ForegroundColor White
 Write-Host "  =========================" -ForegroundColor DarkGray
 
-# 1. Kéo bản mới TRƯỚC KHI dừng hệ thống — pull fail thì hệ thống cũ vẫn chạy
+# 1. Kéo bản mới TRƯỚC KHI dừng hệ thống - pull fail thì hệ thống cũ vẫn chạy
+Write-Host "[STEP] pull"
 Write-Host "  -> Đang kéo bản mới nhất từ GitHub..." -ForegroundColor Cyan
 git fetch origin
 if ($LASTEXITCODE -ne 0) {
@@ -26,8 +32,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 git pull --ff-only
 if ($LASTEXITCODE -ne 0) {
-    # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) — stash rồi pull lại
-    # Backup dữ liệu người dùng TRƯỚC khi stash — skill tự tạo là file untracked,
+    # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) - stash rồi pull lại
+    # Backup dữ liệu người dùng TRƯỚC khi stash - skill tự tạo là file untracked,
     # `git stash -u` sẽ gom mất; styles/library.json bị server ghi đè nên cũng dirty.
     $bk = Join-Path $root ("start\backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
     New-Item -ItemType Directory -Force $bk | Out-Null
@@ -39,11 +45,11 @@ if ($LASTEXITCODE -ne 0) {
             Copy-Item $src $dst -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
-    Write-Host "  -> Pull thất bại — đã backup dữ liệu vào $bk rồi stash thay đổi cục bộ..." -ForegroundColor Yellow
+    Write-Host "  -> Pull thất bại - đã backup dữ liệu vào $bk rồi stash thay đổi cục bộ..." -ForegroundColor Yellow
     git stash push -u -m "aiev-auto-stash"
     git pull --ff-only
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "  [LOI] Vẫn không pull được — xem chi tiết trong start\update.log. Hệ thống cũ vẫn chạy bình thường." -ForegroundColor Red
+        Write-Host "  [LOI] Vẫn không pull được - xem chi tiết trong start\update.log. Hệ thống cũ vẫn chạy bình thường." -ForegroundColor Red
         Write-Host "        Chạy 'git status' xem file nào đổi, 'git stash list' xem bản stash." -ForegroundColor Yellow
         Stop-UpdateLog
         Read-Host "  Enter để thoát"
@@ -52,6 +58,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 2. Pull OK → giờ mới dừng hệ thống để build lại (tránh file bị khóa)
+Write-Host "[STEP] stop"
 Write-Host "  -> Dừng hệ thống đang chạy..." -ForegroundColor Cyan
 foreach ($port in 6868, 6869) {
     Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
@@ -60,16 +67,18 @@ foreach ($port in 6868, 6869) {
 }
 
 # 3. Cài dependencies mới (nếu có)
+Write-Host "[STEP] install"
 Write-Host "  -> npm install..." -ForegroundColor Cyan
 npm install --no-audit --no-fund
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  [LOI] npm install thất bại — xem start\update.log." -ForegroundColor Red
+    Write-Host "  [LOI] npm install thất bại - xem start\update.log." -ForegroundColor Red
     Stop-UpdateLog
     Read-Host "  Enter để thoát"
     exit 1
 }
 
-# 4. Khởi động lại — start.ps1 tự build lại phần code mới rồi mở trình duyệt
+# 4. Khởi động lại - start.ps1 tự build lại phần code mới rồi mở trình duyệt
 Write-Host "  [OK] Đã cập nhật. Đang khởi động..." -ForegroundColor Green
 Stop-UpdateLog
+Write-Host "[STEP] restart"
 & (Join-Path $root "start\start.ps1")
