@@ -1278,6 +1278,8 @@ export const vi: Record<string, string> = {
   "help.qc.body": "Đo chất lượng bản draft bằng ffmpeg trước khi render final: âm lượng, clipping, frame đen kẹt giữa scene, đứng hình, đuôi im lặng, lệch tiếng/hình.\nCòn hạng mục không đạt thì hệ thống CHẶN render final, vì final tốn hàng chục phút - phát hiện lỗi ở đó là lãng phí nhất.\nRiêng mục vùng bị giao diện che thì máy không tự kết luận được, hệ thống trích ảnh khoanh đỏ để bạn tự soi.",
 
   // ===== ANCHOR:HELP_PAGES =====
+  "help.phone-tunnel.title": "Bật Internet để làm gì?",
+  "help.phone-tunnel.body": "Mặc định mã QR chỉ dùng được khi điện thoại và máy tính CÙNG mạng WiFi. Bật nút này là mở một đường từ Internet vào máy qua Cloudflare, để điện thoại dùng 4G/5G hoặc ở nơi khác vẫn gửi video/ảnh thẳng vào project được.\nChưa cấu hình domain riêng thì hệ thống dùng Quick Tunnel: địa chỉ ngẫu nhiên dạng xxx.trycloudflare.com và ĐỔI mỗi lần bật lại. Muốn địa chỉ cố định thì khai domain ở tab Kết nối.\nVề an toàn: link tải lên mang một mã riêng và tự hết hiệu lực ngay khi bạn đóng cửa sổ QR này, nên người có link cũ không vào lại được. Nhưng đường tunnel thì VẪN CHẠY cho tới khi bạn bấm tắt - đóng cửa sổ QR không tắt nó.",
   "help.autocut.title": "Auto cut videos là gì?",
   "help.autocut.body":
     "Đưa một video dài vào, hệ thống tự chia thành nhiều đoạn ngắn và tạo cho mỗi đoạn một Videos Project riêng để edit tiếp.\nDùng khi bạn có bản ghi livestream, podcast hay buổi nói chuyện dài và muốn cắt ra nhiều clip đăng mạng xã hội.\nPhiên cắt chỉ lo cắt và tạo project - phần dựng chữ, phụ đề, sound effect vẫn làm trong từng project sau đó.",

@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { InfoHint } from "@/components/InfoHint";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -300,28 +301,43 @@ export function PhoneConnectModal({
 
           {/* Dùng ngoài mạng LAN (4G/5G) - bật Cloudflare Tunnel ngay tại đây */}
           {tunnel && !tunnel.installed && (
-            <p className="text-xs text-[var(--text-muted)]">
-              {t("phone.tunnel-missing")}{" "}
-              <Link
-                href="/connections"
-                className="font-medium text-[var(--primary)] hover:underline"
-              >
-                {t("nav.connections")} →
-              </Link>
+            <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+              <span className="min-w-0 flex-1">
+                {t("phone.tunnel-missing")}{" "}
+                <Link
+                  href="/connections"
+                  className="font-medium text-[var(--primary)] hover:underline"
+                >
+                  {t("nav.connections")} →
+                </Link>
+              </span>
+              <InfoHint
+                titleKey="help.phone-tunnel.title"
+                bodyKey="help.phone-tunnel.body"
+              />
             </p>
           )}
 
+          {/* (i) đặt cạnh nút chứ KHÔNG lồng trong nút - lồng button trong
+              button là HTML không hợp lệ và bấm (i) sẽ kích hoạt luôn tunnel. */}
           {tunnel?.installed && !tunnel.running && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm self-end"
-              onClick={() => void handleStartTunnel()}
-              disabled={tunnelBusy !== null}
-            >
-              {tunnelBusy === "start"
-                ? t("phone.tunnel-starting")
-                : t("phone.tunnel-start")}
-            </button>
+            <div className="flex items-center justify-end gap-2">
+              <InfoHint
+                titleKey="help.phone-tunnel.title"
+                bodyKey="help.phone-tunnel.body"
+                size={14}
+              />
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => void handleStartTunnel()}
+                disabled={tunnelBusy !== null}
+              >
+                {tunnelBusy === "start"
+                  ? t("phone.tunnel-starting")
+                  : t("phone.tunnel-start")}
+              </button>
+            </div>
           )}
 
           {/* Tunnel đã chạy sẵn nhưng QR đang trỏ IP LAN → mời đổi sang link Internet */}
