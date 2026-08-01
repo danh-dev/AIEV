@@ -1035,6 +1035,9 @@ export default function ProjectDetailPage() {
                 <ProjectBriefCard
                   projectId={projectId}
                   brief={project?.brief}
+                  // Project đã xong: Kịch bản edit rất dài mà hiếm khi cần đọc
+                  // lại -> thu gọn thành tóm tắt, bấm "Sửa" để mở đầy đủ.
+                  compact={project?.status === "done"}
                   onDraftChange={setBriefDraft}
                   onSaved={(b) =>
                     setProject((p) => (p ? { ...p, brief: b } : p))
@@ -1103,6 +1106,9 @@ export default function ProjectDetailPage() {
                 <ProjectBriefCard
                   projectId={projectId}
                   brief={project?.brief}
+                  // Project đã xong: Kịch bản edit rất dài mà hiếm khi cần đọc
+                  // lại -> thu gọn thành tóm tắt, bấm "Sửa" để mở đầy đủ.
+                  compact={project?.status === "done"}
                   onDraftChange={setBriefDraft}
                   onSaved={(b) =>
                     setProject((p) => (p ? { ...p, brief: b } : p))

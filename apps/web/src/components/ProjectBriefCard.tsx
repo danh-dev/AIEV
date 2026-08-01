@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronUp, Minus, Pencil, Save } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Minus, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { updateBrief, type Brief } from "@/lib/api";
 import { Card } from "@/components/Card";
@@ -178,13 +178,15 @@ export function ProjectBriefCard({
       <Card
         title={cardTitle}
         actions={
+          // Nhãn nói về việc MỞ RỘNG chứ không phải "Sửa": ở project đã xong,
+          // người dùng bấm vào đây chủ yếu để xem lại cấu hình đã dùng.
           <Button
             variant="secondary"
             small
             onClick={() => setExpandedForm(true)}
           >
-            <Pencil size={13} strokeWidth={2} />
-            {t("common.edit")}
+            <ChevronDown size={13} strokeWidth={2} />
+            {t("brief.expand")}
           </Button>
         }
       >

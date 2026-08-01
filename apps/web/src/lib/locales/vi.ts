@@ -409,6 +409,7 @@ export const vi: Record<string, string> = {
 
   // ===== Brief card =====
   "brief.title": "Kịch bản edit (Brief)",
+  "brief.expand": "Xem chi tiết",
   "brief.collapse": "Thu gọn",
   "brief.save": "Lưu brief",
   "brief.saved": "Đã lưu brief.",

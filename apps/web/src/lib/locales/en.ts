@@ -409,6 +409,7 @@ export const en: Record<string, string> = {
 
   // ===== Brief card =====
   "brief.title": "Edit script (Brief)",
+  "brief.expand": "Show details",
   "brief.collapse": "Collapse",
   "brief.save": "Save brief",
   "brief.saved": "Brief saved.",
