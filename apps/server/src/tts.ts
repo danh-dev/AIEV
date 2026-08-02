@@ -34,10 +34,69 @@ export interface TtsModel {
   label: string;
 }
 
+/**
+ * Giới tính giọng. Google KHÔNG công bố dữ liệu này - họ chỉ cho nhãn phong cách
+ * ("Bright", "Firm"...). Con số ở đây là ĐO THẬT: đọc cùng một câu tiếng Việt
+ * bằng cả 30 giọng, đo tần số cơ bản (F0) từ sóng âm, rồi đối chiếu với nhận
+ * định nghe lại. 16 nam / 13 nữ / 1 trung tính.
+ */
+export type TtsGender = "nam" | "nu" | "trung-tinh";
+
 export interface TtsVoice {
   name: string;
   label: string;
+  gender: TtsGender;
+  /** F0 trung vị đo được (Hz) - để UI gợi ý "giọng nữ trầm", "giọng nam cao" */
+  f0: number;
 }
+
+/**
+ * Mã ngôn ngữ hợp lệ của speechConfig.languageCode, lấy từ discovery document
+ * chính thức của Google (v1beta).
+ *
+ * HAI ĐIỀU ĐÃ KIỂM CHỨNG, đừng bỏ đi vì tưởng là thiếu sót:
+ *
+ * 1. API KHÔNG kiểm giá trị này. Gửi "klingon" hay "xx-YY" vẫn trả 200 kèm
+ *    audio. Nên đây là danh sách để người dùng chọn, không phải để tin.
+ * 2. Mọi giọng đọc được MỌI ngôn ngữ - không có "giọng tiếng Việt" riêng và
+ *    "giọng tiếng Anh" riêng. Đã dựng cả 30 giọng ở vi/en/ja: 90/90 thành công,
+ *    và bộ nhận diện xác nhận vẫn cùng một người nói. Vì vậy KHÔNG lọc giọng
+ *    theo ngôn ngữ - hai ô chọn đó độc lập với nhau.
+ */
+export const TTS_LANGUAGES = [
+  { code: "vi-VN", label: "Tiếng Việt (Việt Nam)" },
+  { code: "en-US", label: "English (US)" },
+  { code: "en-GB", label: "English (UK)" },
+  { code: "en-AU", label: "English (Australia)" },
+  { code: "en-IN", label: "English (India)" },
+  { code: "ja-JP", label: "日本語 (Nhật)" },
+  { code: "ko-KR", label: "한국어 (Hàn)" },
+  { code: "cmn-CN", label: "中文 (Trung)" },
+  { code: "th-TH", label: "ไทย (Thái)" },
+  { code: "id-ID", label: "Bahasa Indonesia" },
+  { code: "hi-IN", label: "हिन्दी (Ấn Độ)" },
+  { code: "fr-FR", label: "Français" },
+  { code: "de-DE", label: "Deutsch" },
+  { code: "es-ES", label: "Español (España)" },
+  { code: "es-US", label: "Español (US)" },
+  { code: "pt-BR", label: "Português (Brasil)" },
+  { code: "it-IT", label: "Italiano" },
+  { code: "nl-NL", label: "Nederlands" },
+  { code: "pl-PL", label: "Polski" },
+  { code: "ru-RU", label: "Русский" },
+  { code: "tr-TR", label: "Türkçe" },
+  { code: "ar-XA", label: "العربية" },
+  { code: "fr-CA", label: "Français (Canada)" },
+  { code: "bn-IN", label: "বাংলা" },
+  { code: "gu-IN", label: "ગુજરાતી" },
+  { code: "kn-IN", label: "ಕನ್ನಡ" },
+  { code: "ml-IN", label: "മലയാളം" },
+  { code: "mr-IN", label: "मराठी" },
+  { code: "ta-IN", label: "தமிழ்" },
+  { code: "te-IN", label: "తెలుగు" },
+] as const;
+
+export const DEFAULT_TTS_LANGUAGE = "vi-VN";
 
 /** Danh sách tĩnh - fallback khi không có key hoặc gọi Google lỗi */
 export const TTS_MODELS: TtsModel[] = [
@@ -61,37 +120,43 @@ export const TTS_MODELS: TtsModel[] = [
  * discovery document không có RPC nào về voice. Danh sách này được làm tươi bằng
  * cách hỏi ngược API (xem probeVoiceNames), còn nhãn thì phải tự nuôi ở đây.
  */
-const VOICE_CATALOG: Array<{ name: string; style: string }> = [
-  { name: "Zephyr", style: "trong trẻo, tươi sáng" },
-  { name: "Puck", style: "vui tươi, hào hứng" },
-  { name: "Charon", style: "truyền đạt, rành mạch" },
-  { name: "Kore", style: "chắc chắn, dứt khoát" },
-  { name: "Fenrir", style: "sôi nổi, dễ phấn khích" },
-  { name: "Leda", style: "trẻ trung" },
-  { name: "Orus", style: "chắc chắn, quả quyết" },
-  { name: "Aoede", style: "nhẹ nhàng, thoáng" },
-  { name: "Callirrhoe", style: "thư thái, dễ chịu" },
-  { name: "Autonoe", style: "tươi sáng" },
-  { name: "Enceladus", style: "nhiều hơi thở, thủ thỉ" },
-  { name: "Iapetus", style: "rõ ràng, sáng tiếng" },
-  { name: "Umbriel", style: "thư thái" },
-  { name: "Algieba", style: "mượt mà" },
-  { name: "Despina", style: "mượt mà, êm" },
-  { name: "Erinome", style: "rõ ràng" },
-  { name: "Algenib", style: "khàn, sạn" },
-  { name: "Rasalgethi", style: "truyền đạt, học thuật" },
-  { name: "Laomedeia", style: "hào hứng" },
-  { name: "Achernar", style: "dịu, nhỏ nhẹ" },
-  { name: "Alnilam", style: "chắc, đanh" },
-  { name: "Schedar", style: "đều đều, điềm tĩnh" },
-  { name: "Gacrux", style: "trầm, từng trải" },
-  { name: "Pulcherrima", style: "chủ động, đẩy tới" },
-  { name: "Achird", style: "thân thiện" },
-  { name: "Zubenelgenubi", style: "tự nhiên, đời thường" },
-  { name: "Vindemiatrix", style: "hiền hòa, êm ái" },
-  { name: "Sadachbia", style: "sống động" },
-  { name: "Sadaltager", style: "am hiểu, chững chạc" },
-  { name: "Sulafat", style: "ấm áp" },
+const VOICE_CATALOG: Array<{
+  name: string;
+  style: string;
+  gender: TtsGender;
+  /** Tần số cơ bản trung vị ĐO ĐƯỢC (Hz) - căn cứ để xếp giới tính */
+  f0: number;
+}> = [
+  { name: "Zephyr", style: "trong trẻo, tươi sáng", gender: "nu", f0: 196 },
+  { name: "Puck", style: "vui tươi, hào hứng", gender: "nam", f0: 115 },
+  { name: "Charon", style: "truyền đạt, rành mạch", gender: "nam", f0: 126 },
+  { name: "Kore", style: "chắc chắn, dứt khoát", gender: "nu", f0: 207 },
+  { name: "Fenrir", style: "sôi nổi, dễ phấn khích", gender: "nam", f0: 128 },
+  { name: "Leda", style: "trẻ trung", gender: "nu", f0: 206 },
+  { name: "Orus", style: "chắc chắn, quả quyết", gender: "nam", f0: 130 },
+  { name: "Aoede", style: "nhẹ nhàng, thoáng", gender: "nu", f0: 180 },
+  { name: "Callirrhoe", style: "thư thái, dễ chịu", gender: "nu", f0: 203 },
+  { name: "Autonoe", style: "tươi sáng", gender: "nu", f0: 183 },
+  { name: "Enceladus", style: "nhiều hơi thở, thủ thỉ", gender: "nam", f0: 114 },
+  { name: "Iapetus", style: "rõ ràng, sáng tiếng", gender: "nam", f0: 137 },
+  { name: "Umbriel", style: "thư thái", gender: "nam", f0: 131 },
+  { name: "Algieba", style: "mượt mà", gender: "nam", f0: 109 },
+  { name: "Despina", style: "mượt mà, êm", gender: "nu", f0: 222 },
+  { name: "Erinome", style: "rõ ràng", gender: "nu", f0: 214 },
+  { name: "Algenib", style: "khàn, sạn", gender: "nam", f0: 126 },
+  { name: "Rasalgethi", style: "truyền đạt, học thuật", gender: "nam", f0: 141 },
+  { name: "Laomedeia", style: "hào hứng", gender: "nu", f0: 182 },
+  { name: "Achernar", style: "dịu, nhỏ nhẹ", gender: "nu", f0: 219 },
+  { name: "Alnilam", style: "chắc, đanh", gender: "nam", f0: 117 },
+  { name: "Schedar", style: "đều đều, điềm tĩnh", gender: "nam", f0: 136 },
+  { name: "Gacrux", style: "trầm, từng trải", gender: "nu", f0: 152 },
+  { name: "Pulcherrima", style: "chủ động, đẩy tới", gender: "trung-tinh", f0: 131 },
+  { name: "Achird", style: "thân thiện", gender: "nam", f0: 142 },
+  { name: "Zubenelgenubi", style: "tự nhiên, đời thường", gender: "nam", f0: 141 },
+  { name: "Vindemiatrix", style: "hiền hòa, êm ái", gender: "nu", f0: 191 },
+  { name: "Sadachbia", style: "sống động", gender: "nam", f0: 125 },
+  { name: "Sadaltager", style: "am hiểu, chững chạc", gender: "nam", f0: 125 },
+  { name: "Sulafat", style: "ấm áp", gender: "nu", f0: 231 },
 ];
 
 export const DEFAULT_TTS_VOICE = "Kore";
@@ -226,12 +291,16 @@ async function probeVoiceNames(key: string): Promise<string[]> {
  * phải chờ sửa code. Cache 1 giờ như danh sách model ảnh.
  */
 export async function listVoices(): Promise<TtsVoice[]> {
-  const labeled = (name: string, style?: string): TtsVoice => ({
+  const labeled = (name: string, style?: string, gender?: TtsGender, f0?: number): TtsVoice => ({
     name,
     label: style ? `${name} - ${style}` : name,
+    // Giọng mới Google thêm sau này chưa có số đo -> để "trung-tinh" chứ không
+    // đoán theo tên. Đoán sai giới tính khó chịu hơn là nói "chưa rõ".
+    gender: gender ?? "trung-tinh",
+    f0: f0 ?? 0,
   });
   const key = geminiApiKey();
-  if (!key) return VOICE_CATALOG.map((v) => labeled(v.name, v.style));
+  if (!key) return VOICE_CATALOG.map((v) => labeled(v.name, v.style, v.gender, v.f0));
   if (voicesCache && Date.now() - voicesCache.at < LIST_CACHE_MS) return voicesCache.list;
 
   let allowed: string[] = [];
@@ -240,14 +309,14 @@ export async function listVoices(): Promise<TtsVoice[]> {
   } catch {
     /* mạng lỗi - dùng catalog tĩnh, không chặn UI */
   }
-  if (allowed.length === 0) return VOICE_CATALOG.map((v) => labeled(v.name, v.style));
+  if (allowed.length === 0) return VOICE_CATALOG.map((v) => labeled(v.name, v.style, v.gender, v.f0));
 
   // API trả tên viết thường; catalog giữ dạng viết hoa đẹp để hiện lên UI
   const allowedLc = new Set(allowed.map((s) => s.toLowerCase()));
   const inCatalog = new Set(VOICE_CATALOG.map((v) => v.name.toLowerCase()));
   const list: TtsVoice[] = [];
   for (const v of VOICE_CATALOG) {
-    if (allowedLc.has(v.name.toLowerCase())) list.push(labeled(v.name, v.style));
+    if (allowedLc.has(v.name.toLowerCase())) list.push(labeled(v.name, v.style, v.gender, v.f0));
   }
   for (const name of allowed) {
     if (inCatalog.has(name.toLowerCase())) continue;
@@ -434,6 +503,8 @@ interface RawAudio {
 async function callTtsOnce(input: {
   text: string;
   voice: string;
+  /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
+  language?: string;
   model: string;
   timeoutMs: number;
   isCanceled?: () => boolean;
@@ -471,6 +542,12 @@ async function callTtsOnce(input: {
             responseModalities: ["AUDIO"],
             speechConfig: {
               voiceConfig: { prebuiltVoiceConfig: { voiceName: input.voice } },
+              // Ghi rõ ngôn ngữ cho tường minh. ĐO ĐƯỢC: trường này KHÔNG đổi
+              // kết quả - thử mù 48 lượt trên văn bản tiếng Anh với vi-VN và
+              // en-US, không lượt nào nghe ra khác biệt giọng vùng miền. Model
+              // đi theo ngôn ngữ của CHÍNH văn bản. Giữ lại vì API có nhận, và
+              // vì nó nói rõ ý định cho người đọc code sau này.
+              ...(input.language ? { languageCode: input.language } : {}),
             },
           },
         }),
@@ -570,6 +647,8 @@ function pcmSeconds(bytes: number, sampleRate: number, channels: number): number
 async function synthRaw(input: {
   text: string;
   voice: string;
+  /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
+  language?: string;
   model?: string | null;
   style?: string;
   onLog?: (line: string) => void;
@@ -595,6 +674,7 @@ async function synthRaw(input: {
       text,
       voice,
       model,
+      language: input.language,
       timeoutMs,
       isCanceled: input.isCanceled,
     });
@@ -656,6 +736,8 @@ export function pcmToWavBuffer(pcm: Buffer, sampleRate: number, channels: number
 export async function synthChunk(input: {
   text: string;
   voice: string;
+  /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
+  language?: string;
   model?: string | null;
   style?: string;
   outPcmAbs: string;
@@ -671,6 +753,8 @@ export async function synthChunk(input: {
 export async function synthPreviewWav(input: {
   text: string;
   voice: string;
+  /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
+  language?: string;
   model?: string | null;
   style?: string;
 }): Promise<{ wav: Buffer; durationSec: number; model: string }> {
@@ -754,6 +838,8 @@ async function probeSeconds(
 export async function synthScript(input: {
   chunks: string[];
   voice: string;
+  /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
+  language?: string;
   model?: string | null;
   style?: string;
   workDir: string;
@@ -785,6 +871,7 @@ export async function synthScript(input: {
       voice: input.voice,
       model: input.model,
       style: input.style,
+      language: input.language,
       onLog: input.onLog,
       isCanceled: input.isCanceled,
     });

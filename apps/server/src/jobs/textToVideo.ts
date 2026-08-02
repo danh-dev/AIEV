@@ -80,6 +80,7 @@ async function build(ctx: JobCtx, meta: TextToVideoMeta): Promise<void> {
     voice: meta.voice.name,
     model: meta.voice.model,
     style: meta.voice.style,
+    language: meta.voice.language,
     workDir: voiceDir,
     outWavAbs: wavAbs,
     onProgress: (done, total) => {

@@ -74,10 +74,17 @@ export interface TextToVideoVoice {
    * chênh tới 2,6 lần, nên đổi giữa chừng là phải tổng hợp lại toàn bộ.
    */
   style: string;
+  /**
+   * Mã ngôn ngữ (speechConfig.languageCode), vd "vi-VN".
+   *
+   * ĐO ĐƯỢC: trường này không đổi kết quả - model đi theo ngôn ngữ của chính
+   * kịch bản. Giữ để ghi rõ ý định và phòng khi Google bắt đầu thực thi nó.
+   */
+  language: string;
 }
 
 export function defaultVoice(): TextToVideoVoice {
-  return { model: null, name: "Kore", style: "" };
+  return { model: null, name: "Kore", style: "", language: "vi-VN" };
 }
 
 export interface TextToVideoOutput {
@@ -208,6 +215,10 @@ export function readTextToVideo(id: string): TextToVideoMeta {
       model: typeof voice.model === "string" ? voice.model : null,
       name: typeof voice.name === "string" && voice.name ? voice.name : base.voice.name,
       style: typeof voice.style === "string" ? voice.style : "",
+      language:
+        typeof voice.language === "string" && voice.language.trim()
+          ? voice.language.trim()
+          : base.voice.language,
     },
     scriptModel: typeof raw.scriptModel === "string" && raw.scriptModel ? raw.scriptModel : null,
     output: {

@@ -4,6 +4,7 @@ import {
   listTtsModels,
   listVoices,
   synthPreviewWav,
+  TTS_LANGUAGES,
 } from "../tts.js";
 import { HttpError } from "../util.js";
 
@@ -20,10 +21,14 @@ import { HttpError } from "../util.js";
  * giọng bịa (bị chặn trước khi sinh audio).
  */
 
-/** Câu đọc thử mặc định - cố ý nhiều dấu khó để nghe rõ giọng xử lý tiếng Việt thế nào */
-const PREVIEW_DEFAULT_TEXT =
-  "Xin chào, đây là giọng đọc thử của hệ thống dựng video tự động. " +
-  "Những chữ khó đọc như khuỷu tay, ngoằn ngoèo, quyến rũ, nghiêng ngả, tuyệt vời.";
+/**
+ * Câu đọc thử mặc định - CỐ Ý NGẮN.
+ *
+ * Nghe thử chỉ để biết chất giọng có hợp không, mà mỗi lần nghe là một lần gọi
+ * API tính tiền và chờ vài giây. Câu dài làm người dùng ngại bấm thử, nên cuối
+ * cùng họ chọn giọng bằng cách đoán qua cái tên.
+ */
+export const PREVIEW_DEFAULT_TEXT = "Đây là hệ thống làm video AI by noti.vn";
 
 /**
  * Trần độ dài câu đọc thử. Đọc thử chỉ để nghe chất giọng, không phải để tổng
@@ -77,6 +82,17 @@ router.get("/voices", async (_req, res) => {
   res.json(await listVoices());
 });
 
+/**
+ * GET /api/tts/languages - danh sách mã ngôn ngữ hợp lệ.
+ *
+ * Tĩnh hoàn toàn: Google không có endpoint liệt kê, danh sách lấy từ discovery
+ * document. Và API KHÔNG kiểm giá trị này (gửi bừa vẫn trả 200), nên đây thuần
+ * là danh sách cho người dùng chọn.
+ */
+router.get("/languages", (_req, res) => {
+  res.json(TTS_LANGUAGES.map((l) => ({ ...l })));
+});
+
 // POST /api/tts/preview { voice, model?, style?, text? } → bytes audio/wav
 router.post("/preview", async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -93,6 +109,8 @@ router.post("/preview", async (req, res) => {
   }
   const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : null;
   const style = typeof body.style === "string" ? body.style.trim() : "";
+  const language =
+    typeof body.language === "string" && body.language.trim() ? body.language.trim() : undefined;
   if (style.length > PREVIEW_MAX_CHARS) {
     throw new HttpError(
       400,
@@ -118,6 +136,7 @@ router.post("/preview", async (req, res) => {
     voice: voice || DEFAULT_TTS_VOICE,
     model,
     style,
+    language,
   });
 
   res.setHeader("content-type", "audio/wav");

@@ -21,6 +21,7 @@ import {
   ExternalLink,
   FileText,
   Link2,
+  Download,
   Loader2,
   MessageSquare,
   Plus,
@@ -43,8 +44,10 @@ import {
   getChatSessions,
   getJob,
   getJobs,
+  getProject,
   getTextToVideoSession,
   isTextToVideoJob,
+  mediaUrl,
   scriptChars,
   scriptTextToVideo,
   updateTextToVideo,
@@ -56,6 +59,7 @@ import {
   type Brief,
   type ChatSession,
   type Job,
+  type ProjectDetail,
   type ScriptChunk,
   type TextSourceKind,
   type TextToVideoAspect,
@@ -137,6 +141,78 @@ function deriveTtvStage(m: TextToVideoMeta): {
   const hasSource =
     m.article !== null || m.source.text.trim() !== "" || m.source.url.trim() !== "";
   return { stage: hasSource ? 2 : 1, active: false, complete: false };
+}
+
+/**
+ * Kết quả của phiên: video xem và tải ngay tại chỗ.
+ *
+ * Phiên vẫn sinh ra một Videos Project thật (pipeline dựng video nằm ở đó), NHƯNG
+ * người dùng không phải sang bên ấy mới xem được thành phẩm. Đường link sang
+ * project giữ lại ở dạng phụ, cho ai cần các thao tác nâng cao (render lại, QC,
+ * cắt short, xuất phụ đề).
+ */
+function ResultBlock({ projectId }: { projectId: string }) {
+  const { t } = useT();
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    getProject(projectId)
+      .then((p) => {
+        setProject(p);
+        setErr(null);
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  }, [projectId]);
+
+  useEffect(reload, [reload]);
+  // AI dựng xong thì meta.output mới có - bám cả job lẫn phiên agent để video
+  // tự hiện ra, không bắt người dùng F5 đoán lúc nào xong
+  useJobEvents((e) => {
+    if (e.projectId === projectId) reload();
+  });
+  useAgentEvents((e) => {
+    if (e.kind === "done" || e.kind === "result") reload();
+  });
+
+  const output = project?.output ?? null;
+  const url = output
+    ? `${mediaUrl(output)}?v=${encodeURIComponent(project?.updatedAt ?? "")}`
+    : null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {err && <p className="text-xs text-[var(--danger)]">{err}</p>}
+      {url ? (
+        <>
+          <video
+            controls
+            src={url}
+            className="max-h-[420px] w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <a href={url} download className="btn btn-primary btn-sm">
+              <Download size={14} strokeWidth={2} />
+              {t("ttv.download")}
+            </a>
+            <span className="text-xs text-[var(--text-muted)]">{output}</span>
+          </div>
+        </>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+          <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+          {t("ttv.result-waiting")}
+        </p>
+      )}
+      <Link
+        href={`/projects/${projectId}`}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--primary)]"
+      >
+        <ExternalLink size={13} strokeWidth={2} />
+        {t("ttv.open-project-advanced")}
+      </Link>
+    </div>
+  );
 }
 
 /**
@@ -1013,7 +1089,6 @@ export default function TextToVideoDetailPage() {
               <VoicePicker
                 value={voice}
                 onChange={patchVoice}
-                previewText={script[0]?.text ?? ""}
                 disabled={locked}
               />
             </Card>
@@ -1158,21 +1233,11 @@ export default function TextToVideoDetailPage() {
                     </p>
                   </>
                 ) : session.projectId ? (
-                  <>
-                    <p className="text-sm">{t("ttv.project-created")}</p>
-                    <div>
-                      <Link
-                        href={`/projects/${session.projectId}`}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-                      >
-                        <ExternalLink size={14} strokeWidth={2} />
-                        {t("ttv.open-project")}
-                      </Link>
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {t("ttv.rebuild-disabled")}
-                    </p>
-                  </>
+                  // Video xem và tải NGAY TẠI ĐÂY. Trước đây chỗ này chỉ có một
+                  // đường link sang Videos Project, nên xong một phiên là người
+                  // dùng bị đá sang tab khác rồi phải tự mò lại project nào là
+                  // của phiên nào.
+                  <ResultBlock projectId={session.projectId} />
                 ) : (
                   <p className="text-xs text-[var(--text-muted)]">
                     {canBuild

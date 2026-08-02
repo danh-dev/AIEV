@@ -2220,6 +2220,14 @@ export interface TextToVideoVoice {
   name: string;
   /** "Cách đọc" bằng lời - đổi cái này là toàn bộ thời lượng đọc đổi theo. */
   style: string;
+  /**
+   * Mã ngôn ngữ gửi kèm khi tổng hợp (speechConfig.languageCode), vd "vi-VN".
+   * KHÔNG phải bộ lọc giọng: cả 30 giọng đều đọc được mọi ngôn ngữ và giữ
+   * nguyên chất giọng. Đo thực tế còn cho thấy đổi giá trị này không tạo khác
+   * biệt nghe được - model đọc theo ngôn ngữ của chính kịch bản. Giữ lại vì đây
+   * là field hợp lệ của API và để ghi rõ ý định của phiên.
+   */
+  language: string;
 }
 
 export interface TextToVideoOutput {
@@ -2297,9 +2305,25 @@ export interface TtsModel {
   label: string;
 }
 
+/**
+ * Giới tính nghe được của một giọng. "trung-tinh" = lưỡng tính thật: đo âm học
+ * ra nam nhưng người nghe lại thấy nữ, và các lần tổng hợp khác nhau đảo qua
+ * lại - UI phải nói rõ chỗ này thay vì xếp bừa vào nam hay nữ.
+ */
+export type TtsGender = "nam" | "nu" | "trung-tinh";
+
 /** Một giọng đọc - GET /api/tts/voices. */
 export interface TtsVoice {
   name: string;
+  label: string;
+  gender: TtsGender;
+  /** Tần số cơ bản (median f0, Hz) ĐO ĐƯỢC từ audio thật, không phải nhãn tay. */
+  f0: number;
+}
+
+/** Một ngôn ngữ chọn được - GET /api/tts/languages. */
+export interface TtsLanguage {
+  code: string;
   label: string;
 }
 
@@ -2432,6 +2456,13 @@ export const getTtsModels = () => request<TtsModel[]>("/api/tts/models");
 export const getTtsVoices = () => request<TtsVoice[]>("/api/tts/voices");
 
 /**
+ * Danh sách mã ngôn ngữ. Tĩnh và miễn phí (server trả từ discovery document),
+ * KHÔNG dùng để lọc giọng - giọng và ngôn ngữ là hai lựa chọn độc lập.
+ */
+export const getTtsLanguages = () =>
+  request<TtsLanguage[]>("/api/tts/languages");
+
+/**
  * Nghe thử một giọng - trả về BYTES audio/wav nên không đi qua request<T>
  * (helper đó luôn parse JSON). Mỗi lần gọi là một lần tổng hợp thật, tốn tiền:
  * chỉ gọi khi người dùng bấm nút, không tự phát khi rê chuột hay lúc mở trang.
@@ -2440,6 +2471,9 @@ export async function previewTtsVoice(input: {
   voice: string;
   model?: string | null;
   style?: string;
+  /** Mã ngôn ngữ - gửi kèm để bản nghe thử khớp cấu hình đang chọn. */
+  language?: string;
+  /** Bỏ trống → server đọc câu mẫu ngắn cố định (~5s). Đừng gửi cả kịch bản. */
   text?: string;
 }): Promise<Blob> {
   const token = await ensureToken();

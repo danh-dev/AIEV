@@ -1495,7 +1495,11 @@ export const en: Record<string, string> = {
   "ttv.name": "Session name (optional)",
   "ttv.name-placeholder": "Leave empty to use the article title",
 
+  "ttv.download": "Download video",
+  "ttv.result-waiting": "The AI is building the video - it will appear here when done.",
+  "ttv.open-project-advanced": "Open project (re-render, QC, clips…)",
   "ttv.back": "Session list",
+  "project.back": "Project list",
   "ttv.not-found": "This session was not found.",
   "ttv.action-error": "Could not run this step.",
   "ttv.save-error": "Could not save the session changes.",
@@ -1555,7 +1559,25 @@ export const en: Record<string, string> = {
   "ttv.voice.style-default": "Default delivery",
   "ttv.voice.model": "TTS model",
   "ttv.voice.model-default": "Server default",
+  "ttv.voice.language": "Language",
+  "ttv.voice.language-hint":
+    "All 30 voices read every language and stay the same speaker - the voice follows whatever language the script is written in. This setting only states the intent; it does not change the timbre or add an accent.",
   "ttv.voice.voice": "Voice",
+  "ttv.voice.filter-aria": "Filter voices by gender",
+  "ttv.voice.filter.all": "All",
+  "ttv.voice.gender.male": "Male",
+  "ttv.voice.gender.female": "Female",
+  "ttv.voice.gender.neutral": "Androgynous",
+  "ttv.voice.q.male-low": "deep male",
+  "ttv.voice.q.male": "male",
+  "ttv.voice.q.male-high": "high male",
+  "ttv.voice.q.female-low": "deep female",
+  "ttv.voice.q.female": "female",
+  "ttv.voice.q.female-high": "high female",
+  "ttv.voice.q.neutral": "androgynous",
+  "ttv.voice.f0-title": "Measured pitch: {f0} Hz",
+  "ttv.voice.neutral-note":
+    "Genuinely androgynous: repeat generations come out male or female (the acoustics measure male, listeners hear female). Preview it a few times before committing.",
   "ttv.voice.search": "Search by name or timbre",
   "ttv.voice.none": "No voices could be loaded.",
   "ttv.voice.no-match": "No voice matches.",
@@ -1595,9 +1617,6 @@ export const en: Record<string, string> = {
   "ttv.build-need-voice": "Not ready yet: pick a voice in step 3 first.",
   "ttv.voicing-hint": "Synthesising the narration from the script…",
   "ttv.building-hint": "Generating the transcript and building the Videos Project…",
-  "ttv.project-created": "This session has created its Videos Project.",
-  "ttv.rebuild-disabled":
-    "Each session builds once. To keep working on it, edit that project directly, or create a new session.",
   "ttv.voice-file": "Voice file",
   "ttv.transcript-file": "Transcript",
 
@@ -1627,10 +1646,13 @@ export const en: Record<string, string> = {
     "It is the Claude model that writes the narration from the article. A stronger model reads more fluently but takes longer; \"Claude Code default\" is fine for most articles.\nIt runs on the Claude Code account signed in on this machine (your subscription), so no separate API key is needed.\nYour choice is saved immediately - the next \"Rewrite\" uses the same model.",
   "help.ttv-voice.title": "How do I pick a voice?",
   "help.ttv-voice.body":
-    "There are around 30 voices and the name tells you nothing about the timbre, so press play to hear one.\nEvery preview is a real synthesis: a few seconds and real money, so it only plays on click, and only one at a time.\nType in the search box to filter by name or by the timbre description.",
+    "There are 30 voices and the name tells you nothing about the timbre, so press play to hear one.\nEvery preview is a real synthesis: a few seconds and real money, so it only plays on click, and only one at a time.\nNarrow the list with the Male / Female / Androgynous buttons, or type in the search box to filter by name or timbre description.\nThe \"deep\" / \"high\" qualifier comes from the pitch MEASURED off real audio, not a hand-written tag - hover it to see the value in Hz.",
   "help.ttv-voice-model.title": "What does the TTS model change?",
   "help.ttv-voice-model.body":
     "It is the model that actually reads the script. Different models differ in timbre, speed and price.\nLeaving it on \"Server default\" is the safe choice - the server always points at the model currently in good standing.",
+  "help.ttv-voice-language.title": "Does picking a language change the voice?",
+  "help.ttv-voice-language.body":
+    "No. Voice and language are independent choices: all 30 voices read every language, and each one still sounds like the same speaker.\nIn a blind listening test (48 judgments), changing the language code produced NO audible difference - the model follows the language of the script itself, not this field.\nSo this is only where you record the intent for the session, and it is why the voice list is not filtered by language.",
   "help.ttv-voice-style.title": "How does \"Reading style\" work?",
   "help.ttv-voice-style.body":
     "It is one sentence describing how you want it read: slow, upbeat, like telling a story…\nIt directly affects the reading SPEED, so changing it changes the video duration - up to 2.6x for the same script.\nChanging it after synthesis means re-reading everything and re-timing every cue from scratch.",

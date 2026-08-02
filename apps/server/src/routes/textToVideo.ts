@@ -117,6 +117,10 @@ router.patch("/:id", (req, res) => {
       model: typeof v.model === "string" && v.model ? v.model : null,
       name: typeof v.name === "string" && v.name.trim() ? v.name.trim() : cur.voice.name,
       style: typeof v.style === "string" ? v.style : cur.voice.style,
+      language:
+        typeof v.language === "string" && v.language.trim()
+          ? v.language.trim()
+          : cur.voice.language,
     };
   }
 

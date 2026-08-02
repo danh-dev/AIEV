@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * Chọn giọng đọc cho tab "Text to video": model TTS + giọng + "cách đọc".
+ * Chọn giọng đọc cho tab "Text to video": model TTS + ngôn ngữ + giọng + "cách đọc".
  *
- * Vì sao không dùng một <select> khổng lồ: có khoảng 30 giọng, mỗi giọng chỉ
- * khác nhau ở CHẤT giọng - nhìn tên không đoán được. Người dùng cần lọc theo
- * chữ và NGHE THỬ trước khi chọn, việc đó một select không làm được.
+ * Vì sao không dùng một <select> khổng lồ: có 30 giọng, mỗi giọng chỉ khác nhau
+ * ở CHẤT giọng - nhìn tên không đoán được. Người dùng cần lọc và NGHE THỬ trước
+ * khi chọn, việc đó một select không làm được.
+ *
+ * Vì sao nhóm theo GIỚI TÍNH chứ không theo chữ cái đầu: không ai đi tìm "giọng
+ * bắt đầu bằng chữ K", người ta tìm "một giọng nam". Chữ cái đầu là thông tin
+ * duy nhất mà cái tên tự nó đã nói ra - nhóm theo nó là nhóm theo con số không.
  *
  * Nghe thử tốn tiền (mỗi lần bấm là một lần tổng hợp thật) nên: chỉ phát khi
  * bấm nút, không tự phát lúc mở trang hay khi rê chuột, và mỗi lúc chỉ một
@@ -14,6 +18,7 @@
 
 import {
   AlertTriangle,
+  Globe,
   Loader2,
   Play,
   Search,
@@ -22,10 +27,13 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
+  getTtsLanguages,
   getTtsModels,
   getTtsVoices,
   previewTtsVoice,
   type TextToVideoVoice,
+  type TtsGender,
+  type TtsLanguage,
   type TtsModel,
   type TtsVoice,
 } from "@/lib/api";
@@ -33,10 +41,46 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
 import { useT } from "@/lib/i18n";
 
-/** Chữ cái đầu của tên giọng - nhóm để mắt quét theo cụm thay vì đọc cả 30 dòng. */
-function groupKey(name: string): string {
-  const c = name.trim().charAt(0).toUpperCase();
-  return /[A-Z]/.test(c) ? c : "#";
+/** Thứ tự nhóm hiện trên màn hình - nam trước vì đông nhất, lạ nhất để cuối. */
+const GENDERS: TtsGender[] = ["nam", "nu", "trung-tinh"];
+
+const GENDER_LABEL_KEY: Record<TtsGender, string> = {
+  nam: "ttv.voice.gender.male",
+  nu: "ttv.voice.gender.female",
+  "trung-tinh": "ttv.voice.gender.neutral",
+};
+
+/**
+ * Ngưỡng cao độ (median f0 đo được, Hz) để gắn thêm chữ "trầm"/"cao".
+ *
+ * Không có ngưỡng chung cho cả hai giới: giọng nam nói thường 85-155 Hz, giọng
+ * nữ 165-255 Hz - lấy một mốc duy nhất thì mọi giọng nam đều thành "trầm" và
+ * mọi giọng nữ đều thành "cao", tức là không nói thêm được gì.
+ *
+ * Nên mỗi giới có mốc riêng, đặt sao cho chỉ hai đầu mút được gắn nhãn còn khúc
+ * giữa để trống - nhãn chỉ có giá trị khi nó hiếm. Với dữ liệu thật hiện tại:
+ * - nam: <120 → 4 giọng trầm (Algieba 109 thấp nhất), ≥135 → 5 giọng cao,
+ *   7 giọng còn lại nằm giữa (baritone thường) nên không gắn gì.
+ * - nữ: <185 → 4 giọng trầm (Gacrux 152 là contralto, thấp hơn giọng nữ kế
+ *   tiếp tới 28 Hz), ≥215 → 3 giọng cao, 6 giọng ở giữa.
+ *
+ * Giọng trung tính KHÔNG gắn cao/thấp: hai mốc trên là mốc trong-nội-bộ-một-giới,
+ * mà giọng lưỡng tính thì không có "giới" nào để so - gắn vào là bịa.
+ */
+const PITCH_BANDS: Record<"nam" | "nu", { low: number; high: number }> = {
+  nam: { low: 120, high: 135 },
+  nu: { low: 185, high: 215 },
+};
+
+/** Key dictionary cho chữ mô tả giọng, vd "nữ trầm". */
+function qualifierKey(v: TtsVoice): string {
+  if (v.gender === "trung-tinh") return "ttv.voice.q.neutral";
+  const band = PITCH_BANDS[v.gender];
+  const suffix =
+    v.f0 < band.low ? "-low" : v.f0 >= band.high ? "-high" : "";
+  return v.gender === "nam"
+    ? `ttv.voice.q.male${suffix}`
+    : `ttv.voice.q.female${suffix}`;
 }
 
 /**
@@ -52,23 +96,23 @@ function timbre(v: TtsVoice): string {
 export function VoicePicker({
   value,
   onChange,
-  /** Câu mẫu để nghe thử - thường là đoạn đầu kịch bản; rỗng thì server tự chọn. */
-  previewText = "",
   disabled = false,
 }: {
   value: TextToVideoVoice;
   /** Chỉ gửi phần vừa đổi - cha tự merge để không nuốt thay đổi song song. */
   onChange: (patch: Partial<TextToVideoVoice>) => void;
-  previewText?: string;
   disabled?: boolean;
 }) {
   const { t, tf } = useT();
 
   const [models, setModels] = useState<TtsModel[] | null>(null);
   const [voices, setVoices] = useState<TtsVoice[] | null>(null);
+  const [languages, setLanguages] = useState<TtsLanguage[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
+  /** null = chip "Tất cả". */
+  const [genderFilter, setGenderFilter] = useState<TtsGender | null>(null);
 
   // Nghe thử: một audio element dùng chung - mỗi lúc chỉ một giọng được phát
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -79,17 +123,19 @@ export function VoicePicker({
 
   useEffect(() => {
     let alive = true;
-    Promise.all([getTtsModels(), getTtsVoices()])
-      .then(([m, v]) => {
+    Promise.all([getTtsModels(), getTtsVoices(), getTtsLanguages()])
+      .then(([m, v, l]) => {
         if (!alive) return;
         setModels(m);
         setVoices(v);
+        setLanguages(l);
         setLoadError(null);
       })
       .catch((e) => {
         if (!alive) return;
         setModels([]);
         setVoices([]);
+        setLanguages([]);
         setLoadError(e instanceof Error ? e.message : String(e));
       });
     return () => {
@@ -129,11 +175,15 @@ export function VoicePicker({
     setLoadingVoice(name);
     setPreviewError(null);
     try {
+      // KHÔNG gửi đoạn kịch bản thật: nghe thử chỉ cần đủ để biết chất giọng.
+      // Bỏ trống thì server đọc câu mẫu ngắn cố định (~5s) - nhanh hơn và rẻ
+      // hơn nhiều so với tổng hợp cả một đoạn 400-800 ký tự chỉ để nghe vài
+      // giây đầu. Ngôn ngữ vẫn gửi kèm để bản thử khớp cấu hình đang chọn.
       const blob = await previewTtsVoice({
         voice: name,
         model: value.model,
         style: value.style,
-        ...(previewText.trim() ? { text: previewText.trim().slice(0, 300) } : {}),
+        language: value.language,
       });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -155,24 +205,36 @@ export function VoicePicker({
 
   const list = voices ?? [];
   const q = query.trim().toLowerCase();
-  const filtered = q
+  // Lọc chữ TRƯỚC, đếm chip sau: con số trên chip phải nói về đúng cái danh
+  // sách đang thấy, không thì bấm "Nam (16)" mà ra 2 giọng là chip nói dối.
+  const searched = q
     ? list.filter(
         (v) =>
           v.name.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)
       )
     : list;
 
-  // Nhóm theo chữ cái đầu, giữ thứ tự bảng chữ cái
-  const groups = new Map<string, TtsVoice[]>();
-  for (const v of [...filtered].sort((a, b) => a.name.localeCompare(b.name))) {
-    const k = groupKey(v.name);
-    const bucket = groups.get(k);
-    if (bucket) bucket.push(v);
-    else groups.set(k, [v]);
-  }
-  const groupList = [...groups.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0])
-  );
+  const counts: Record<TtsGender, number> = {
+    nam: 0,
+    nu: 0,
+    "trung-tinh": 0,
+  };
+  for (const v of searched) counts[v.gender] += 1;
+
+  const filtered = genderFilter
+    ? searched.filter((v) => v.gender === genderFilter)
+    : searched;
+
+  // Nhóm theo giới tính, trong mỗi nhóm xếp theo tên cho dễ quét
+  const groupList = GENDERS.map(
+    (g) =>
+      [
+        g,
+        filtered
+          .filter((v) => v.gender === g)
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      ] as const
+  ).filter(([, items]) => items.length > 0);
 
   // Bản ghi của giọng đang chọn - để lấy mô tả chất giọng cho dòng tóm tắt
   const selected = list.find((v) => v.name === value.name) ?? null;
@@ -184,6 +246,11 @@ export function VoicePicker({
     value.model !== null &&
     models !== null &&
     !models.some((m) => m.id === value.model);
+  const languageMissing =
+    value.language !== "" &&
+    languages !== null &&
+    languages.length > 0 &&
+    !languages.some((l) => l.code === value.language);
 
   return (
     <div className="flex flex-col gap-4">
@@ -210,8 +277,11 @@ export function VoicePicker({
               {value.name}
             </span>
             {selected && (
-              <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
-                · {timbre(selected)}
+              <span
+                className="min-w-0 truncate text-xs text-[var(--text-muted)]"
+                title={tf("ttv.voice.f0-title", { f0: selected.f0 })}
+              >
+                · {t(qualifierKey(selected))} · {timbre(selected)}
               </span>
             )}
             <span className="ml-auto min-w-0 max-w-full truncate text-xs text-[var(--text-muted)]">
@@ -252,7 +322,39 @@ export function VoicePicker({
         </select>
       </div>
 
-      {/* 2. Danh sách giọng - lọc bằng ô tìm, nghe thử từng giọng */}
+      {/* 2. Ngôn ngữ - ĐỘC LẬP với giọng, cố ý không dùng để lọc danh sách giọng */}
+      <div>
+        <label className="label" htmlFor="ttv-tts-language">
+          {t("ttv.voice.language")}
+          <InfoHint
+            className="ml-1.5 align-middle"
+            titleKey="help.ttv-voice-language.title"
+            bodyKey="help.ttv-voice-language.body"
+          />
+        </label>
+        <select
+          id="ttv-tts-language"
+          className="input"
+          value={value.language}
+          disabled={disabled}
+          onChange={(e) => onChange({ language: e.target.value })}
+        >
+          {languageMissing && (
+            <option value={value.language}>{value.language}</option>
+          )}
+          {(languages ?? []).map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+          <Globe size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
+          {t("ttv.voice.language-hint")}
+        </p>
+      </div>
+
+      {/* 3. Danh sách giọng - lọc theo giới tính + ô tìm, nghe thử từng giọng */}
       <div>
         <span className="label">
           {t("ttv.voice.voice")}
@@ -262,6 +364,35 @@ export function VoicePicker({
             bodyKey="help.ttv-voice.body"
           />
         </span>
+
+        <div
+          role="group"
+          aria-label={t("ttv.voice.filter-aria")}
+          className="mb-2 flex flex-wrap gap-1.5"
+        >
+          {([null, ...GENDERS] as (TtsGender | null)[]).map((g) => {
+            const active = genderFilter === g;
+            const label = g ? t(GENDER_LABEL_KEY[g]) : t("ttv.voice.filter.all");
+            const n = g ? counts[g] : searched.length;
+            return (
+              <button
+                key={g ?? "all"}
+                type="button"
+                aria-pressed={active}
+                disabled={disabled}
+                onClick={() => setGenderFilter(g)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  active
+                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {label}
+                <span className="ml-1 tabular-nums opacity-70">{n}</span>
+              </button>
+            );
+          })}
+        </div>
 
         <div className="relative mb-2">
           <Search
@@ -310,11 +441,26 @@ export function VoicePicker({
                 {tf("ttv.voice.missing", { name: value.name })}
               </p>
             )}
-            {groupList.map(([letter, items]) => (
-              <div key={letter} className="mb-2 last:mb-0">
+            {groupList.map(([gender, items]) => (
+              <div key={gender} className="mb-2 last:mb-0">
                 <p className="px-1 pb-1 text-[11px] font-semibold tracking-wide text-[var(--text-muted)] uppercase">
-                  {letter}
+                  {t(GENDER_LABEL_KEY[gender])}
+                  <span className="ml-1 tabular-nums opacity-70">
+                    {items.length}
+                  </span>
                 </p>
+                {/* Giọng lưỡng tính đảo giới giữa các lần tổng hợp - báo trước ở
+                    ngay đầu nhóm, đừng để người dùng phát hiện lúc render xong */}
+                {gender === "trung-tinh" && (
+                  <p className="mb-1 flex items-start gap-1.5 px-1 text-[11px] leading-snug text-[var(--text-muted)]">
+                    <AlertTriangle
+                      size={12}
+                      strokeWidth={2}
+                      className="mt-0.5 shrink-0 text-[var(--danger)]"
+                    />
+                    {t("ttv.voice.neutral-note")}
+                  </p>
+                )}
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 2xl:grid-cols-3">
                   {items.map((v) => {
                     const active = value.name === v.name;
@@ -344,8 +490,16 @@ export function VoicePicker({
                           >
                             {v.name}
                           </span>
-                          <span className="block truncate text-[11px] leading-snug text-[var(--text-muted)]">
-                            {timbre(v)}
+                          {/* Số Hz để trong title chứ không hiện ra: người chọn
+                              giọng cần biết "nữ trầm", không cần biết 152.
+                              Cho xuống dòng chứ KHÔNG cắt bằng "…": cột này hẹp,
+                              cắt đi thì "nam trầm · mượt mà" chỉ còn "nam trầm ·
+                              mu…" - mất đúng phần mô tả chất giọng cần đọc. */}
+                          <span
+                            className="block text-[11px] leading-snug text-[var(--text-muted)]"
+                            title={tf("ttv.voice.f0-title", { f0: v.f0 })}
+                          >
+                            {t(qualifierKey(v))} · {timbre(v)}
                           </span>
                         </button>
                         <button
@@ -389,7 +543,7 @@ export function VoicePicker({
         </p>
       </div>
 
-      {/* 3. Cách đọc - prompt tự do, đổi là thời lượng đổi theo */}
+      {/* 4. Cách đọc - prompt tự do, đổi là thời lượng đổi theo */}
       <div>
         <label className="label" htmlFor="ttv-voice-style">
           {t("ttv.voice.style")}

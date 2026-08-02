@@ -1492,7 +1492,11 @@ export const vi: Record<string, string> = {
   "ttv.name": "Tên phiên (tùy chọn)",
   "ttv.name-placeholder": "Bỏ trống để lấy theo tiêu đề bài",
 
+  "ttv.download": "Tải video về",
+  "ttv.result-waiting": "AI đang dựng video - xong sẽ hiện ngay ở đây.",
+  "ttv.open-project-advanced": "Mở project (render lại, QC, cắt short…)",
   "ttv.back": "Danh sách phiên",
+  "project.back": "Danh sách project",
   "ttv.not-found": "Không tìm thấy phiên này.",
   "ttv.action-error": "Không chạy được bước này.",
   "ttv.save-error": "Không lưu được thay đổi của phiên.",
@@ -1552,7 +1556,25 @@ export const vi: Record<string, string> = {
   "ttv.voice.style-default": "Cách đọc mặc định",
   "ttv.voice.model": "Model đọc",
   "ttv.voice.model-default": "Mặc định của server",
+  "ttv.voice.language": "Ngôn ngữ",
+  "ttv.voice.language-hint":
+    "Cả 30 giọng đều đọc được mọi ngôn ngữ và vẫn là cùng một người nói - giọng sẽ đọc theo đúng ngôn ngữ của kịch bản. Mục này chỉ ghi rõ ý định, không đổi chất giọng cũng không thêm chất vùng miền.",
   "ttv.voice.voice": "Giọng",
+  "ttv.voice.filter-aria": "Lọc giọng theo giới tính",
+  "ttv.voice.filter.all": "Tất cả",
+  "ttv.voice.gender.male": "Nam",
+  "ttv.voice.gender.female": "Nữ",
+  "ttv.voice.gender.neutral": "Trung tính",
+  "ttv.voice.q.male-low": "nam trầm",
+  "ttv.voice.q.male": "nam",
+  "ttv.voice.q.male-high": "nam cao",
+  "ttv.voice.q.female-low": "nữ trầm",
+  "ttv.voice.q.female": "nữ",
+  "ttv.voice.q.female-high": "nữ cao",
+  "ttv.voice.q.neutral": "trung tính",
+  "ttv.voice.f0-title": "Cao độ đo được: {f0} Hz",
+  "ttv.voice.neutral-note":
+    "Giọng lưỡng tính thật: mỗi lần tổng hợp có thể ra nam hoặc nữ (đo âm học ra nam, người nghe lại thấy nữ). Nghe thử vài lần trước khi chốt.",
   "ttv.voice.search": "Tìm giọng theo tên hoặc chất giọng",
   "ttv.voice.none": "Chưa lấy được giọng nào.",
   "ttv.voice.no-match": "Không có giọng nào khớp.",
@@ -1591,9 +1613,6 @@ export const vi: Record<string, string> = {
   "ttv.build-need-voice": "Chưa dựng được: chọn giọng đọc ở bước 3 trước.",
   "ttv.voicing-hint": "Đang tổng hợp giọng đọc từ kịch bản…",
   "ttv.building-hint": "Đang tạo transcript và dựng Videos Project…",
-  "ttv.project-created": "Phiên này đã tạo xong Videos Project.",
-  "ttv.rebuild-disabled":
-    "Mỗi phiên chỉ dựng một lần. Muốn sửa tiếp thì làm trong chính project đó, hoặc tạo phiên mới.",
   "ttv.voice-file": "File giọng đọc",
   "ttv.transcript-file": "Transcript",
 
@@ -1623,10 +1642,13 @@ export const vi: Record<string, string> = {
     "Là model Claude ngồi viết lời đọc từ nội dung bài. Model mạnh viết mạch lạc hơn nhưng chậm hơn; để \"Mặc định của Claude Code\" là đủ dùng cho phần lớn bài.\nNó chạy bằng tài khoản Claude Code đã đăng nhập trên máy (gói subscription) nên không cần API key riêng.\nĐổi model xong là lưu ngay - lần bấm \"Viết lại\" sau vẫn dùng đúng model bạn chọn.",
   "help.ttv-voice.title": "Chọn giọng thế nào?",
   "help.ttv-voice.body":
-    "Có khoảng 30 giọng, nhìn tên không đoán được chất giọng nên hãy bấm nút phát để nghe thử.\nMỗi lần nghe thử là một lần tổng hợp thật: mất vài giây và tốn phí, nên chỉ phát khi bạn bấm, và mỗi lúc chỉ một giọng.\nGõ vào ô tìm để lọc theo tên hoặc theo mô tả chất giọng.",
+    "Có 30 giọng, nhìn tên không đoán được chất giọng nên hãy bấm nút phát để nghe thử.\nMỗi lần nghe thử là một lần tổng hợp thật: mất vài giây và tốn phí, nên chỉ phát khi bạn bấm, và mỗi lúc chỉ một giọng.\nLọc nhanh bằng các nút Nam / Nữ / Trung tính, hoặc gõ vào ô tìm để lọc theo tên hoặc mô tả chất giọng.\nChữ \"trầm\" / \"cao\" đi kèm là cao độ ĐO ĐƯỢC từ audio thật, không phải nhãn đặt tay - rê chuột vào để xem số Hz.",
   "help.ttv-voice-model.title": "Model đọc để làm gì?",
   "help.ttv-voice-model.body":
     "Là mô hình TTS thực sự đọc kịch bản. Model khác nhau thì chất giọng, tốc độ và giá khác nhau.\nĐể \"Mặc định của server\" là an toàn nhất - server luôn trỏ vào model đang dùng tốt.",
+  "help.ttv-voice-language.title": "Chọn ngôn ngữ có đổi giọng không?",
+  "help.ttv-voice-language.body":
+    "Không. Giọng và ngôn ngữ là hai lựa chọn độc lập: cả 30 giọng đều đọc được mọi ngôn ngữ, và giọng nào vẫn ra người đó.\nTrong thử nghiệm nghe mù (48 lượt đánh giá), đổi mã ngôn ngữ KHÔNG tạo ra khác biệt nào nghe được - model đọc theo ngôn ngữ của chính kịch bản, không theo ô này.\nVì vậy đây chỉ là chỗ ghi rõ ý định của phiên, và cũng là lý do danh sách giọng không bị lọc theo ngôn ngữ.",
   "help.ttv-voice-style.title": "\"Cách đọc\" hoạt động ra sao?",
   "help.ttv-voice-style.body":
     "Là một câu mô tả bạn muốn giọng đọc thế nào: chậm rãi, hào hứng, như đang kể chuyện…\nNó ảnh hưởng trực tiếp tới TỐC ĐỘ đọc, nên đổi cách đọc là thời lượng video đổi theo - chênh tới 2,6 lần với cùng một kịch bản.\nĐổi cách đọc sau khi đã tổng hợp giọng thì phải đọc lại và mọi mốc thời gian phải tính lại từ đầu.",

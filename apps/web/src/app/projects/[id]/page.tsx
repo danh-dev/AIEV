@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   Check,
   Clapperboard,
   Copy,
@@ -863,21 +864,27 @@ export default function ProjectDetailPage() {
         }
         actions={
           /* Nút job/Xóa đã chuyển vào panel AI (panel ghim phải che mất chỗ này)
-             - chỉ giữ nút toggle panel cho màn nhỏ */
-          <Button
-            variant="secondary"
-            className="xl:hidden"
-            onClick={() => setPanelOpen((o) => !o)}
-            aria-expanded={panelOpen}
-          >
-            <MessageSquare size={15} strokeWidth={2} />
-            AI
-            {chatSessions && chatSessions.length > 0 && (
-              <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-xs font-semibold leading-none text-[var(--primary)]">
-                {chatSessions.length}
-              </span>
-            )}
-          </Button>
+             - chỉ giữ đường quay lại và nút toggle panel cho màn nhỏ */
+          <>
+            <Button variant="secondary" onClick={() => router.push("/projects")}>
+              <ArrowLeft size={15} strokeWidth={2} />
+              {t("project.back")}
+            </Button>
+            <Button
+              variant="secondary"
+              className="xl:hidden"
+              onClick={() => setPanelOpen((o) => !o)}
+              aria-expanded={panelOpen}
+            >
+              <MessageSquare size={15} strokeWidth={2} />
+              AI
+              {chatSessions && chatSessions.length > 0 && (
+                <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-xs font-semibold leading-none text-[var(--primary)]">
+                  {chatSessions.length}
+                </span>
+              )}
+            </Button>
+          </>
         }
       />
       </div>
