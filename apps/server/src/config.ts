@@ -174,6 +174,12 @@ export const paths = {
   /** File upload của style (logo, font) - serve qua /media/assets/styles/files/ */
   stylesFilesDir: path.join(repoRoot, "assets", "styles", "files"),
   sfxDir: path.join(repoRoot, "assets", "sound-effects"),
+  /**
+   * Giọng đã nhân bản: library.json + mỗi giọng một thư mục chứa file mẫu.
+   * Nằm trong assets/ (không phải data/) để người dùng sao lưu / mang sang máy
+   * khác được - mẫu ghi âm là thứ họ tự tạo ra, không phải cache sinh lại được.
+   */
+  voicesDir: path.join(repoRoot, "assets", "voices"),
   /** Thư viện nhạc nền dùng chung (library.json + file nhạc) */
   musicDir: path.join(repoRoot, "assets", "music"),
   outputsDir: path.join(repoRoot, "outputs"),
@@ -194,6 +200,7 @@ export function ensureBaseDirs(): void {
     paths.stylesDir,
     paths.stylesFilesDir,
     paths.sfxDir,
+    paths.voicesDir,
     paths.musicDir,
     paths.outputsDir,
     paths.importsDir,

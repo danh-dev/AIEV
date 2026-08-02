@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { geminiApiKey } from "../gemini.js";
 import {
   DEFAULT_TTS_VOICE,
   listTtsModels,
@@ -6,6 +7,14 @@ import {
   synthPreviewWav,
   TTS_LANGUAGES,
 } from "../tts.js";
+import { listLocalVoices, probeLocalEngine, synthLocalPreviewWav } from "../ttsLocal.js";
+import {
+  isTtsEngine,
+  previewTextFor,
+  TTS_ENGINES,
+  type TtsEngine,
+  type TtsVoice,
+} from "../ttsTypes.js";
 import { HttpError } from "../util.js";
 
 /**
@@ -22,13 +31,17 @@ import { HttpError } from "../util.js";
  */
 
 /**
- * Câu đọc thử mặc định - CỐ Ý NGẮN.
+ * Câu đọc thử mặc định - CỐ Ý NGẮN, và CÓ HAI BẢN theo ngôn ngữ giao diện.
  *
  * Nghe thử chỉ để biết chất giọng có hợp không, mà mỗi lần nghe là một lần gọi
  * API tính tiền và chờ vài giây. Câu dài làm người dùng ngại bấm thử, nên cuối
  * cùng họ chọn giọng bằng cách đoán qua cái tên.
+ *
+ * Đang xem giao diện tiếng Anh mà bấm nghe thử lại ra một câu tiếng Việt thì
+ * không đánh giá được giọng - nên câu mẫu đi theo ngôn ngữ đang hiện, xem
+ * previewTextFor() trong ttsTypes.ts.
  */
-export const PREVIEW_DEFAULT_TEXT = "Đây là hệ thống làm video AI by noti.vn";
+export { PREVIEW_TEXT } from "../ttsTypes.js";
 
 /**
  * Trần độ dài câu đọc thử. Đọc thử chỉ để nghe chất giọng, không phải để tổng
@@ -77,9 +90,67 @@ router.get("/models", async (_req, res) => {
   res.json(await listTtsModels());
 });
 
-// GET /api/tts/voices → TtsVoice[]
-router.get("/voices", async (_req, res) => {
-  res.json(await listVoices());
+/**
+ * GET /api/tts/engines - engine nào dùng được TRÊN MÁY NÀY.
+ *
+ * Web KHÔNG được tự suy: có key Gemini chưa, cài Python chưa, có torch chưa -
+ * đó là chuyện của máy chạy server. Trả cả `reason` dạng mã để web tự dịch sang
+ * ngôn ngữ đang hiện, và `detail` là dữ liệu kỹ thuật thô (không dịch).
+ */
+router.get("/engines", async (_req, res) => {
+  const local = await probeLocalEngine();
+  const hasKey = Boolean(geminiApiKey());
+  res.json(
+    TTS_ENGINES.map((engine) =>
+      engine === "gemini"
+        ? {
+            engine,
+            available: hasKey,
+            // Gemini KHÔNG nhân bản giọng: API chỉ nhận 30 tên giọng dựng sẵn,
+            // không có đường đưa mẫu ghi âm vào.
+            canClone: false,
+            reason: hasKey ? null : "NO_GEMINI_KEY",
+            detail: hasKey ? "GEMINI_API_KEY đã có trong .env" : "",
+          }
+        : {
+            engine,
+            available: local.available,
+            canClone: local.canClone,
+            reason: local.reason,
+            detail: local.detail,
+          },
+    ),
+  );
+});
+
+/**
+ * GET /api/tts/voices?engine=... → TtsVoice[]
+ *
+ * Không truyền engine thì trả về giọng của CẢ HAI engine trong một lần gọi -
+ * người dùng thấy hết lựa chọn mà không phải bấm qua lại để biết mình có gì.
+ * Engine chưa dùng được thì phần của nó rỗng, KHÔNG ném lỗi: thiếu key Gemini
+ * mà làm hỏng luôn danh sách giọng offline thì vô lý.
+ */
+router.get("/voices", async (req, res) => {
+  const want = req.query.engine;
+  if (want !== undefined && !isTtsEngine(want)) {
+    throw new HttpError(
+      400,
+      "INVALID_ENGINE",
+      `Engine không hợp lệ: "${String(want).slice(0, 40)}". Chỉ nhận ${TTS_ENGINES.join(", ")}.`,
+    );
+  }
+  const engine = want as TtsEngine | undefined;
+
+  const jobs: Array<Promise<TtsVoice[]>> = [];
+  if (!engine || engine === "gemini") {
+    jobs.push(listVoices().catch(() => [] as TtsVoice[]));
+  }
+  if (!engine || engine === "vieneu") {
+    jobs.push(listLocalVoices().catch(() => [] as TtsVoice[]));
+  }
+  const lists = await Promise.all(jobs);
+  res.json(lists.flat());
 });
 
 /**
@@ -93,15 +164,23 @@ router.get("/languages", (_req, res) => {
   res.json(TTS_LANGUAGES.map((l) => ({ ...l })));
 });
 
-// POST /api/tts/preview { voice, model?, style?, text? } → bytes audio/wav
+// POST /api/tts/preview { voice, engine?, model?, style?, language?, uiLang?, text? } → bytes audio/wav
 router.post("/preview", async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
 
+  const engine: TtsEngine = isTtsEngine(body.engine) ? body.engine : "gemini";
   const voice = typeof body.voice === "string" ? body.voice.trim() : "";
   if (!voice) {
     throw new HttpError(400, "VOICE_REQUIRED", "Thiếu tên giọng cần nghe thử (voice)");
   }
-  if (!/^[a-z][a-z0-9-]{1,40}$/i.test(voice)) {
+  // Giọng Gemini là tên Latin không dấu; giọng offline có thể là tên tiếng Việt
+  // CÓ DẤU ("Minh Đức") hoặc id kebab của giọng nhân bản - nên chỉ ràng buộc độ
+  // dài và chặn ký tự đường dẫn, không ép về bảng chữ cái ASCII.
+  if (engine === "gemini") {
+    if (!/^[a-z][a-z0-9-]{1,40}$/i.test(voice)) {
+      throw new HttpError(400, "INVALID_VOICE", `Tên giọng không hợp lệ: "${voice.slice(0, 40)}"`);
+    }
+  } else if (voice.length > 80 || /[\\/\r\n\0]/.test(voice)) {
     throw new HttpError(400, "INVALID_VOICE", `Tên giọng không hợp lệ: "${voice.slice(0, 40)}"`);
   }
   if ("model" in body && body.model !== null && body.model !== undefined && typeof body.model !== "string") {
@@ -127,17 +206,22 @@ router.post("/preview", async (req, res) => {
       `Câu đọc thử tối đa ${PREVIEW_MAX_CHARS} ký tự (đang ${raw.length}). Đọc thử chỉ để nghe chất giọng - cả bài thì chạy bước tổng hợp giọng đọc.`,
     );
   }
-  const text = raw || PREVIEW_DEFAULT_TEXT;
+  const text = raw || previewTextFor(body.uiLang);
 
-  checkPreviewRate();
+  // Chỉ chặn tần suất với Gemini: engine chạy trên máy không tốn tiền, mà giới
+  // hạn "30 lần / 10 phút" ở đó chỉ tổ cản người dùng thử giọng cho kỹ.
+  if (engine === "gemini") checkPreviewRate();
 
-  const { wav, durationSec, model: modelUsed } = await synthPreviewWav({
-    text,
-    voice: voice || DEFAULT_TTS_VOICE,
-    model,
-    style,
-    language,
-  });
+  const { wav, durationSec, model: modelUsed } =
+    engine === "vieneu"
+      ? await synthLocalPreviewWav({ text, voice })
+      : await synthPreviewWav({
+          text,
+          voice: voice || DEFAULT_TTS_VOICE,
+          model,
+          style,
+          language,
+        });
 
   res.setHeader("content-type", "audio/wav");
   res.setHeader("content-length", String(wav.length));

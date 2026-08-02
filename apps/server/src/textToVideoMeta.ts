@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { paths } from "./config.js";
 import { defaultBrief, briefOf, type Brief, type ProjectMeta } from "./meta.js";
+import { DEFAULT_TTS_ENGINE, isTtsEngine, type TtsEngine } from "./ttsTypes.js";
 import { isKebabCase } from "./util.js";
 
 /**
@@ -65,7 +66,16 @@ export const TTS_CHUNK_MAX_CHARS = 800;
 export const TTS_CHUNK_SAFE_MIN_CHARS = 30;
 
 export interface TextToVideoVoice {
-  /** Model TTS, vd "gemini-2.5-flash-preview-tts" - null = mặc định của server */
+  /**
+   * Engine đọc: "gemini" (API, tốn tiền) hay "vieneu" (chạy trên máy, miễn phí,
+   * nhân bản được giọng). Phiên cũ không có field này -> đọc lên thành "gemini"
+   * để bản ghi cũ không đổi giọng sau khi cập nhật.
+   */
+  engine: TtsEngine;
+  /**
+   * Model TTS, vd "gemini-2.5-flash-preview-tts" - null = mặc định của server.
+   * Engine "vieneu" chỉ có một model nên field này bị bỏ qua.
+   */
   model: string | null;
   /** Tên giọng, vd "Kore" (API nhận không phân biệt hoa thường) */
   name: string;
@@ -84,7 +94,7 @@ export interface TextToVideoVoice {
 }
 
 export function defaultVoice(): TextToVideoVoice {
-  return { model: null, name: "Kore", style: "", language: "vi-VN" };
+  return { engine: DEFAULT_TTS_ENGINE, model: null, name: "Kore", style: "", language: "vi-VN" };
 }
 
 export interface TextToVideoOutput {
@@ -212,6 +222,8 @@ export function readTextToVideo(id: string): TextToVideoMeta {
     article: (raw.article as ExtractedArticle | null) ?? null,
     script: Array.isArray(raw.script) ? (raw.script as ScriptChunk[]) : [],
     voice: {
+      // Bản ghi cũ (trước khi có engine offline) không có field này
+      engine: isTtsEngine(voice.engine) ? voice.engine : DEFAULT_TTS_ENGINE,
       model: typeof voice.model === "string" ? voice.model : null,
       name: typeof voice.name === "string" && voice.name ? voice.name : base.voice.name,
       style: typeof voice.style === "string" ? voice.style : "",

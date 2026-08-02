@@ -6,6 +6,8 @@ import {
   TTS_CHUNK_MIN_CHARS,
   TTS_CHUNK_SAFE_MIN_CHARS,
 } from "./textToVideoMeta.js";
+import { synthLocalChunkWav } from "./ttsLocal.js";
+import type { TtsEngine, TtsGender, TtsVoice } from "./ttsTypes.js";
 import { HttpError, ensureDir, execFileCaptureAll } from "./util.js";
 
 /**
@@ -39,16 +41,11 @@ export interface TtsModel {
  * ("Bright", "Firm"...). Con số ở đây là ĐO THẬT: đọc cùng một câu tiếng Việt
  * bằng cả 30 giọng, đo tần số cơ bản (F0) từ sóng âm, rồi đối chiếu với nhận
  * định nghe lại. 16 nam / 13 nữ / 1 trung tính.
+ *
+ * Kiểu đã dời sang ttsTypes.ts để engine offline dùng chung; xuất lại ở đây cho
+ * code cũ import theo đường cũ vẫn chạy.
  */
-export type TtsGender = "nam" | "nu" | "trung-tinh";
-
-export interface TtsVoice {
-  name: string;
-  label: string;
-  gender: TtsGender;
-  /** F0 trung vị đo được (Hz) - để UI gợi ý "giọng nữ trầm", "giọng nam cao" */
-  f0: number;
-}
+export type { TtsGender, TtsVoice } from "./ttsTypes.js";
 
 /**
  * Mã ngôn ngữ hợp lệ của speechConfig.languageCode, lấy từ discovery document
@@ -292,12 +289,23 @@ async function probeVoiceNames(key: string): Promise<string[]> {
  */
 export async function listVoices(): Promise<TtsVoice[]> {
   const labeled = (name: string, style?: string, gender?: TtsGender, f0?: number): TtsVoice => ({
+    engine: "gemini",
     name,
+    // Giọng Gemini không có tên riêng để hiển thị - chính tên là tên
+    title: name,
     label: style ? `${name} - ${style}` : name,
     // Giọng mới Google thêm sau này chưa có số đo -> để "trung-tinh" chứ không
     // đoán theo tên. Đoán sai giới tính khó chịu hơn là nói "chưa rõ".
     gender: gender ?? "trung-tinh",
     f0: f0 ?? 0,
+    kind: "preset",
+    // Gemini không phân vùng miền: đã dựng thử cả 30 giọng ở nhiều ngôn ngữ,
+    // không giọng nào mang giọng vùng miền cố định.
+    region: null,
+    // Web dịch mô tả chất giọng theo key này; giọng Google thêm sau chưa có key
+    // nên để null và web sẽ lùi về `label`.
+    timbreKey: style ? name.toLowerCase() : null,
+    note: "",
   });
   const key = geminiApiKey();
   if (!key) return VOICE_CATALOG.map((v) => labeled(v.name, v.style, v.gender, v.f0));
@@ -838,6 +846,12 @@ async function probeSeconds(
 export async function synthScript(input: {
   chunks: string[];
   voice: string;
+  /**
+   * Engine đọc. Chỉ khâu SINH TIẾNG của từng đoạn là khác nhau; cắt lặng hai
+   * đầu, chèn nhịp nghỉ và ghép file thì dùng chung - hai engine mà hai cách
+   * ghép là chắc chắn nhịp đọc lệch nhau, người dùng nghe ra ngay.
+   */
+  engine?: TtsEngine;
   /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
   language?: string;
   model?: string | null;
@@ -866,41 +880,74 @@ export async function synthScript(input: {
     const wavAbs = path.join(input.workDir, wavName);
 
     input.onLog?.(`[tts] đoạn ${i + 1}/${total} (${chunks[i].length} ký tự)`);
-    const audio = await synthRaw({
-      text: chunks[i],
-      voice: input.voice,
-      model: input.model,
-      style: input.style,
-      language: input.language,
-      onLog: input.onLog,
-      isCanceled: input.isCanceled,
-    });
-    fs.writeFileSync(pcmAbs, audio.pcm);
 
-    // PCM thô -> WAV: cờ định dạng đầu vào PHẢI đứng TRƯỚC -i, nếu không ffmpeg
-    // coi file là container và bỏ cuộc vì không có header.
-    await runFfmpeg(
-      [
-        "-f",
-        "s16le",
-        "-ar",
-        String(audio.sampleRate),
-        "-ac",
-        String(audio.channels),
-        "-i",
-        pcmAbs,
-        "-af",
-        TRIM_FILTER,
-        "-ar",
-        String(OUT_SAMPLE_RATE),
-        "-ac",
-        "1",
-        "-c:a",
-        "pcm_s16le",
-        wavAbs,
-      ],
-      { timeoutMs: 120_000, isCanceled: input.isCanceled },
-    );
+    if (input.engine === "vieneu") {
+      // Engine trên máy đã trả thẳng WAV 48kHz mono (đúng OUT_SAMPLE_RATE) nên
+      // không phải dựng header hay đổi tần số - nhưng VẪN đi qua TRIM_FILTER
+      // như đường Gemini: mọi engine đều để lại chút lặng ở hai đầu, mà chỗ nối
+      // hở nửa giây thì nghe rõ hơn bất kỳ khác biệt chất giọng nào.
+      const rawWavAbs = path.join(input.workDir, `raw-${idx}.wav`);
+      await synthLocalChunkWav({
+        text: chunks[i],
+        voice: input.voice,
+        outWavAbs: rawWavAbs,
+        onLog: input.onLog,
+        isCanceled: input.isCanceled,
+      });
+      await runFfmpeg(
+        [
+          "-i",
+          rawWavAbs,
+          "-af",
+          TRIM_FILTER,
+          "-ar",
+          String(OUT_SAMPLE_RATE),
+          "-ac",
+          "1",
+          "-c:a",
+          "pcm_s16le",
+          wavAbs,
+        ],
+        { timeoutMs: 120_000, isCanceled: input.isCanceled },
+      );
+      fs.rmSync(rawWavAbs, { force: true });
+    } else {
+      const audio = await synthRaw({
+        text: chunks[i],
+        voice: input.voice,
+        model: input.model,
+        style: input.style,
+        language: input.language,
+        onLog: input.onLog,
+        isCanceled: input.isCanceled,
+      });
+      fs.writeFileSync(pcmAbs, audio.pcm);
+
+      // PCM thô -> WAV: cờ định dạng đầu vào PHẢI đứng TRƯỚC -i, nếu không ffmpeg
+      // coi file là container và bỏ cuộc vì không có header.
+      await runFfmpeg(
+        [
+          "-f",
+          "s16le",
+          "-ar",
+          String(audio.sampleRate),
+          "-ac",
+          String(audio.channels),
+          "-i",
+          pcmAbs,
+          "-af",
+          TRIM_FILTER,
+          "-ar",
+          String(OUT_SAMPLE_RATE),
+          "-ac",
+          "1",
+          "-c:a",
+          "pcm_s16le",
+          wavAbs,
+        ],
+        { timeoutMs: 120_000, isCanceled: input.isCanceled },
+      );
+    }
     partNames.push(wavName);
     chunkDurations.push(await probeSeconds(wavAbs, input.isCanceled));
     fs.rmSync(pcmAbs, { force: true });

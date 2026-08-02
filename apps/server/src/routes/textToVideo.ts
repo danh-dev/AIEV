@@ -7,6 +7,7 @@ import { extractArticleFromUrl } from "../article.js";
 import { generateText } from "../aiText.js";
 import { applyBriefPatch } from "../meta.js";
 import { chunkForTts } from "../tts.js";
+import { isTtsEngine } from "../ttsTypes.js";
 import {
   TTS_CHARS_PER_SEC_ESTIMATE,
   defaultTextToVideoMeta,
@@ -114,6 +115,10 @@ router.patch("/:id", (req, res) => {
   if (body.voice && typeof body.voice === "object") {
     const v = body.voice as Record<string, unknown>;
     patch.voice = {
+      // Đổi engine mà không gửi kèm tên giọng là ca gãy kinh điển: giọng cũ
+      // thuộc engine cũ nên engine mới không có nó. Web luôn gửi cả hai, còn ở
+      // đây chỉ giữ nguyên giá trị cũ khi client không nói gì.
+      engine: isTtsEngine(v.engine) ? v.engine : cur.voice.engine,
       model: typeof v.model === "string" && v.model ? v.model : null,
       name: typeof v.name === "string" && v.name.trim() ? v.name.trim() : cur.voice.name,
       style: typeof v.style === "string" ? v.style : cur.voice.style,

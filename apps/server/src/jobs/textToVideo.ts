@@ -77,6 +77,7 @@ async function build(ctx: JobCtx, meta: TextToVideoMeta): Promise<void> {
   const chunks = meta.script.map((c) => c.text.trim()).filter(Boolean);
   const synth = await synthScript({
     chunks,
+    engine: meta.voice.engine,
     voice: meta.voice.name,
     model: meta.voice.model,
     style: meta.voice.style,

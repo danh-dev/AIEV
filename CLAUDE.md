@@ -62,7 +62,8 @@ Edit-Video-AI/
 │   ├── brand/                 ← logo, favicon, brand-tokens.css
 │   ├── styles/                ← Style Design (styles.json + font files)
 │   ├── prompts/               ← thư viện prompt mẫu
-│   └── sound-effects/         ← thư viện sound effect dùng chung (library.json)
+│   ├── sound-effects/         ← thư viện sound effect dùng chung (library.json)
+│   └── voices/                ← giọng đã nhân bản (gitignore - là giọng thật của người dùng)
 ├── docs/                      ← tài liệu (API.md — contract backend)
 ├── start/                     ← script khởi động (start.ps1)
 ├── imports/                   ← file người dùng đưa vào (footage gốc…)
@@ -80,6 +81,9 @@ Edit-Video-AI/
 
 - **Node 20+**, **FFmpeg trên PATH**, **Chrome mới nhất** (HyperFrames và Remotion đều render qua headless Chromium).
 - Xác thực Claude cho Chat/AI: tự dùng **subscription OAuth** của Claude Code đã đăng nhập trên máy (`~/.claude/.credentials.json`); hoặc `ANTHROPIC_API_KEY` trong `.env` nếu muốn dùng API key.
+- Giọng đọc có **hai engine chạy song song**, người dùng chọn từng phiên:
+  - **Gemini TTS** (mặc định) - cần `GEMINI_API_KEY`, 30 giọng dựng sẵn, tốn tiền theo lượt.
+  - **VieNeu-TTS** (`pip install vieneu`, Apache 2.0) - chạy thẳng trên máy, miễn phí, không cần mạng, 14 giọng tiếng Việt có phân vùng miền, và là engine **duy nhất nhân bản được giọng**. Nhân bản cần thêm `pip install torch torchaudio`. Đọc chậm hơn, khoảng bằng thời gian thật.
 - Máy Windows: mọi script phải chạy được trên PowerShell; đường dẫn trong code luôn dùng `path.join`, không hardcode `/` hay `\`.
 
 ## 4. Lệnh thường dùng

@@ -14,10 +14,17 @@
  * Hẹp hơn xl thì lưới xẹp về một cột theo đúng thứ tự 1→5 như cũ.
  *
  * Thanh bước dùng chung StepperBar với Videos Project - không tự vẽ thanh thứ hai.
+ *
+ * Phiên dựng xong (status "done") thì bốn khối nhập liệu tự gấp lại còn một dòng
+ * tóm tắt, khối kết quả mở ra: lúc đó người dùng vào trang là để XEM video vừa
+ * ra, không phải để sửa nguồn hay kịch bản nữa. Gấp/mở vẫn bấm tay được và ý
+ * người dùng luôn thắng mặc định - xem `sectionOverride`.
  */
 
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   FileText,
   Link2,
@@ -34,7 +41,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   buildTextToVideo,
   deleteTextToVideo,
@@ -82,7 +89,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
-import { StyleSelect } from "@/components/StyleSelect";
+import { StyleSelect, styleDisplayName, useStyles } from "@/components/StyleSelect";
 import { VoicePicker } from "@/components/VoicePicker";
 import { BriefFields, DEFAULT_BRIEF } from "@/components/BriefFields";
 // clock() (giây → mm:ss) đã có sẵn ở đây, lib/format.ts chưa có helper tương đương
@@ -108,6 +115,15 @@ interface Patch {
   script?: ScriptChunk[];
   scriptModel?: string | null;
 }
+
+/** Năm khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
+type SectionKey = "source" | "script" | "voice" | "config" | "build";
+
+/**
+ * Các khối NHẬP LIỆU - phiên xong rồi thì không ai sửa nữa nên gấp mặc định.
+ * Khối "build" cố tình không nằm ở đây: nó chứa video thành phẩm, luôn mở.
+ */
+const SETUP_SECTIONS: SectionKey[] = ["source", "script", "voice", "config"];
 
 // Giá trị là KEY dictionary - StepperBar tự dịch bằng t() lúc render.
 const STAGE_LABELS = [
@@ -141,6 +157,76 @@ function deriveTtvStage(m: TextToVideoMeta): {
   const hasSource =
     m.article !== null || m.source.text.trim() !== "" || m.source.url.trim() !== "";
   return { stage: hasSource ? 2 : 1, active: false, complete: false };
+}
+
+/**
+ * Card gấp lại được - dùng cho cả năm khối của phiên.
+ *
+ * Gấp rồi vẫn phải biết bên trong đang chứa gì, nên chỗ thân card đổi thành MỘT
+ * DÒNG tóm tắt. Một thanh trắng chỉ có tiêu đề "1. Nguồn" thì người dùng phải mở
+ * từng khối ra mới nhớ nổi phiên này lấy nguồn từ đâu - gấp kiểu đó chỉ giấu đi
+ * chứ không giúp gì.
+ *
+ * Thân card giữ nguyên trong DOM và chỉ bị `hidden`, KHÔNG tháo ra: bên trong có
+ * VoicePicker, StyleSelect và ResultBlock tự đi lấy dữ liệu, tháo ra lắp lại là
+ * bắt chúng fetch lại từ đầu mỗi lần bấm gấp/mở.
+ */
+function CollapsibleCard({
+  id,
+  title,
+  summary,
+  collapsed,
+  onToggle,
+  actions,
+  children,
+}: {
+  /** id vùng nội dung - nút gấp/mở trỏ vào đây bằng aria-controls */
+  id: string;
+  title: ReactNode;
+  /** Một dòng cho biết bên trong có gì - chỉ hiện lúc đang gấp */
+  summary: ReactNode;
+  collapsed: boolean;
+  onToggle: () => void;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const { t } = useT();
+  const label = collapsed ? t("ttv.section.expand") : t("ttv.section.collapse");
+  return (
+    <Card
+      title={title}
+      actions={
+        // min-w-0 + flex-wrap: cột hẹp thì nút hành động xuống hàng chứ không đẩy
+        // nút gấp/mở tràn ra khỏi card
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          {/* Gấp rồi thì giấu nút hành động: bấm "Viết lại" trong khi không nhìn
+              thấy kịch bản cũ là ghi đè bản đang có mà không kịp biết mình mất gì */}
+          {!collapsed && actions}
+          <Button
+            variant="secondary"
+            small
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            aria-controls={id}
+          >
+            {collapsed ? (
+              <ChevronRight size={14} strokeWidth={2} />
+            ) : (
+              <ChevronDown size={14} strokeWidth={2} />
+            )}
+            {label}
+          </Button>
+        </div>
+      }
+    >
+      {collapsed && (
+        <p className="truncate text-xs text-[var(--text-muted)]">{summary}</p>
+      )}
+      <div id={id} hidden={collapsed}>
+        {children}
+      </div>
+    </Card>
+  );
 }
 
 /**
@@ -390,6 +476,21 @@ export default function TextToVideoDetailPage() {
   // Job dựng video mới nhất của phiên - nguồn hiển thị % và tên bước
   const [job, setJob] = useState<Job | null>(null);
   const buildJobId = useRef<string | null>(null);
+
+  // Khối nào người dùng đã TỰ TAY gấp/mở - chỉ ghi khi có click, khối chưa bấm
+  // thì vắng mặt ở đây và chạy theo mặc định suy từ status.
+  //
+  // Cố tình KHÔNG có useEffect nào đồng bộ trạng thái gấp theo status: trang này
+  // bám SSE job + agent, mỗi dòng log hay mỗi lần job đổi tiến trình là một lần
+  // render mới. Effect kiểu đó sẽ đóng sập đúng cái khối người dùng vừa mở ra,
+  // mà lỗi ấy trông như trang tự nhiên "nhảy" chứ không ai đoán ra là do SSE.
+  const [sectionOverride, setSectionOverride] = useState<
+    Partial<Record<SectionKey, boolean>>
+  >({});
+
+  // Tên Style Design cho dòng tóm tắt của khối Cấu hình. Dùng chung cache
+  // module-level với StyleSelect ngay trong khối đó - không thêm request nào.
+  const { data: stylesData } = useStyles();
 
   // Panel AI ghim phải - giống Videos Project. Dưới xl là drawer bật/tắt.
   const [panelOpen, setPanelOpen] = useState(false);
@@ -664,6 +765,68 @@ export default function TextToVideoDetailPage() {
     ) ?? null;
   const activeSession =
     chatSessions?.find((s) => s.sessionId === activeSessionId) ?? null;
+  const statusLabel = TEXT_TO_VIDEO_STATUS_LABEL[session.status]
+    ? t(TEXT_TO_VIDEO_STATUS_LABEL[session.status])
+    : String(session.status);
+
+  // ---- Gấp/mở từng khối ----
+
+  const done = session.status === "done";
+
+  /**
+   * Mặc định KHI CHƯA AI BẤM: phiên xong thì gấp mấy khối nhập liệu lại cho gọn
+   * màn hình, khối kết quả vẫn mở để thấy ngay video vừa ra. Chưa xong thì mở
+   * hết như cũ - gấp cái ô người dùng đang gõ dở là phá đám.
+   */
+  function defaultCollapsed(key: SectionKey): boolean {
+    return done && key !== "build";
+  }
+
+  /** Đã bấm tay thì lấy đúng ý người dùng, chưa bấm mới rơi xuống mặc định. */
+  function sectionCollapsed(key: SectionKey): boolean {
+    return sectionOverride[key] ?? defaultCollapsed(key);
+  }
+
+  function toggleSection(key: SectionKey) {
+    // Đảo dựa trên state trong updater chứ không trên biến của lần render này -
+    // giữa lúc bấm vẫn có thể có sự kiện SSE chen vào làm render lại.
+    setSectionOverride((o) => ({
+      ...o,
+      [key]: !(o[key] ?? defaultCollapsed(key)),
+    }));
+  }
+
+  // Còn khối nhập liệu nào đang gấp thì nói cho người dùng biết vì sao trang gọn
+  // hẳn lại. Mở hết ra rồi thì dòng này tự biến mất, không nhắc thừa.
+  const anyCollapsed = SETUP_SECTIONS.some((k) => sectionCollapsed(k));
+
+  // ---- Một dòng tóm tắt cho từng khối lúc gấp ----
+
+  const sourceSummary =
+    (source.kind === "url" ? source.url.trim() : "") ||
+    article?.title ||
+    source.text.trim().slice(0, 140) ||
+    t("ttv.no-source-yet");
+  const scriptSummary =
+    script.length > 0
+      ? `${tf("ttv.chunk-count", { n: script.length })} · ${tf("ttv.char-count", {
+          n: chars,
+        })} · ${tf("ttv.est-duration", { time: clock(estSeconds) })}`
+      : hasSourceText
+        ? t("ttv.no-script")
+        : t("ttv.no-source-yet");
+  const voiceSummary = voice.name.trim() || t("ttv.voice-not-chosen");
+  const configSummary = `${output.width}x${output.height} · ${output.fps}fps · ${styleDisplayName(
+    stylesData,
+    output.styleId,
+    t
+  )}`;
+  const buildSummary =
+    session.voiceDurationSec !== null
+      ? `${statusLabel} · ${tf("ttv.real-duration", {
+          time: clock(session.voiceDurationSec),
+        })}`
+      : statusLabel;
 
   return (
     <div className="flex flex-col gap-4">
@@ -731,11 +894,7 @@ export default function TextToVideoDetailPage() {
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <Badge
               tone={TEXT_TO_VIDEO_STATUS_TONE[session.status] ?? "muted"}
-              label={
-                TEXT_TO_VIDEO_STATUS_LABEL[session.status]
-                  ? t(TEXT_TO_VIDEO_STATUS_LABEL[session.status])
-                  : String(session.status)
-              }
+              label={statusLabel}
             />
             <span className="chip">
               {source.kind === "url" ? t("ttv.source.url") : t("ttv.source.text")}
@@ -748,6 +907,9 @@ export default function TextToVideoDetailPage() {
               <span className="chip">
                 {tf("ttv.real-duration", { time: clock(session.voiceDurationSec) })}
               </span>
+            )}
+            {done && anyCollapsed && (
+              <span className="min-w-0">{t("ttv.section.done-collapsed")}</span>
             )}
             <span className="ml-auto">
               {t("common.updated")}: {formatDateTime(session.updatedAt)}
@@ -771,7 +933,11 @@ export default function TextToVideoDetailPage() {
           {/* ================= Cột trái: nội dung ================= */}
           <div className="flex flex-col gap-4">
             {/* ---- 1. Nguồn ---- */}
-            <Card
+            <CollapsibleCard
+              id="ttv-section-source"
+              collapsed={sectionCollapsed("source")}
+              onToggle={() => toggleSection("source")}
+              summary={sourceSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
                   {t("ttv.card-source")}
@@ -913,10 +1079,14 @@ export default function TextToVideoDetailPage() {
                   </p>
                 </div>
               </div>
-            </Card>
+            </CollapsibleCard>
 
             {/* ---- 2. Kịch bản đọc ---- */}
-            <Card
+            <CollapsibleCard
+              id="ttv-section-script"
+              collapsed={sectionCollapsed("script")}
+              onToggle={() => toggleSection("script")}
+              summary={scriptSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
                   {t("ttv.card-script")}
@@ -1059,13 +1229,17 @@ export default function TextToVideoDetailPage() {
                   </div>
                 )}
               </div>
-            </Card>
+            </CollapsibleCard>
           </div>
 
           {/* ================= Cột phải: thiết lập ================= */}
           <div className="flex flex-col gap-4">
             {/* ---- 3. Giọng đọc ---- */}
-            <Card
+            <CollapsibleCard
+              id="ttv-section-voice"
+              collapsed={sectionCollapsed("voice")}
+              onToggle={() => toggleSection("voice")}
+              summary={voiceSummary}
               title={
                 <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
                   {t("ttv.card-voice")}
@@ -1091,10 +1265,14 @@ export default function TextToVideoDetailPage() {
                 onChange={patchVoice}
                 disabled={locked}
               />
-            </Card>
+            </CollapsibleCard>
 
             {/* ---- 4. Cấu hình video ---- */}
-            <Card
+            <CollapsibleCard
+              id="ttv-section-config"
+              collapsed={sectionCollapsed("config")}
+              onToggle={() => toggleSection("config")}
+              summary={configSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
                   {t("ttv.card-config")}
@@ -1194,10 +1372,14 @@ export default function TextToVideoDetailPage() {
                   />
                 </div>
               </div>
-            </Card>
+            </CollapsibleCard>
 
             {/* ---- 5. Dựng video ---- */}
-            <Card
+            <CollapsibleCard
+              id="ttv-section-build"
+              collapsed={sectionCollapsed("build")}
+              onToggle={() => toggleSection("build")}
+              summary={buildSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
                   {t("ttv.card-build")}
@@ -1263,7 +1445,7 @@ export default function TextToVideoDetailPage() {
                   </div>
                 )}
               </div>
-            </Card>
+            </CollapsibleCard>
           </div>
         </div>
       </div>

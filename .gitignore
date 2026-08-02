@@ -17,6 +17,12 @@ outputs/
 imports/
 *.log
 
+# Giọng nhân bản: file mẫu là BẢN GHI ÂM GIỌNG THẬT của người dùng. Repo này
+# công khai, mà đẩy giọng một người lên mạng là chuyện không lấy lại được -
+# nên giữ ở máy. Muốn mang sang máy khác thì copy tay cả thư mục assets/voices/.
+assets/voices/*
+!assets/voices/.gitkeep
+
 # DB + cấu hình máy local
 apps/server/data/
 

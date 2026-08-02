@@ -1669,4 +1669,165 @@ export const en: Record<string, string> = {
   "meter.unknown": "unknown",
   "meter.vram": "VRAM {used}/{total} GB",
   "meter.cpu-title": "{model} - {threads} threads",
+
+  // ===== Offline voices / voice cloning =====
+  "nav.voices": "Voices",
+
+  // -- Speech engine --
+  "ttv.voice.engine": "Speech engine",
+  "ttv.voice.engine.gemini": "Gemini (cloud)",
+  "ttv.voice.engine.gemini-desc":
+    "Speaks through Google's API. High quality and fast, but every read costs money and needs a connection.",
+  "ttv.voice.engine.vieneu": "VieNeu (on-device)",
+  "ttv.voice.engine.vieneu-desc":
+    "Runs entirely on your machine, free and offline. The only engine that can clone a voice. The trade-off: it reads slower, roughly real time.",
+  "ttv.voice.engine.ready": "Ready",
+  "ttv.voice.engine.unavailable": "Not available",
+  "ttv.voice.engine.clone-ready": "Can clone voices",
+  "ttv.voice.engine.checking": "Checking engines…",
+  "ttv.voice.engine.none":
+    "No speech engine is available. Add GEMINI_API_KEY to .env, or install the offline voices on the Voices page.",
+  "ttv.voice.engine.why.NO_GEMINI_KEY":
+    "No GEMINI_API_KEY in the .env file at the repo root. Get a key at aistudio.google.com/apikey, then restart the server.",
+  "ttv.voice.engine.why.NO_PYTHON":
+    "Python was not found on this machine. Install Python 3.10+ and try again.",
+  "ttv.voice.engine.why.NO_VIENEU":
+    "The offline voice package is not installed. Run `pip install vieneu`, then press Check again.",
+  "ttv.voice.engine.why.NO_TORCH":
+    "It can speak, but it cannot clone voices yet: that needs PyTorch. Run `pip install torch torchaudio`, then press Check again.",
+  "ttv.voice.engine.why.LOAD_FAILED":
+    "The offline package is installed but the model failed to load - see the technical detail below.",
+  "ttv.voice.engine.why.unknown": "This engine is not available on your machine.",
+
+  // -- Region (offline voices only) --
+  "ttv.voice.region": "Region",
+  "ttv.voice.region.all": "All regions",
+  "ttv.voice.region.bac": "Northern",
+  "ttv.voice.region.trung": "Central",
+  "ttv.voice.region.nam": "Southern",
+
+  // -- Voice kind --
+  "ttv.voice.kind.preset": "Built-in",
+  "ttv.voice.kind.cloned": "Cloned",
+  "ttv.voice.cloned-empty":
+    "You haven't cloned any voice yet. Go to the Voices page to create one from a short recording.",
+  "ttv.voice.manage": "Manage voices",
+
+  // -- Timbre descriptions: Gemini --
+  "ttv.timbre.zephyr": "clear, bright",
+  "ttv.timbre.puck": "upbeat, lively",
+  "ttv.timbre.charon": "informative, articulate",
+  "ttv.timbre.kore": "firm, decisive",
+  "ttv.timbre.fenrir": "energetic, excitable",
+  "ttv.timbre.leda": "youthful",
+  "ttv.timbre.orus": "firm, assertive",
+  "ttv.timbre.aoede": "light, breezy",
+  "ttv.timbre.callirrhoe": "easy-going, pleasant",
+  "ttv.timbre.autonoe": "bright",
+  "ttv.timbre.enceladus": "breathy, hushed",
+  "ttv.timbre.iapetus": "clear, crisp",
+  "ttv.timbre.umbriel": "easy-going",
+  "ttv.timbre.algieba": "smooth",
+  "ttv.timbre.despina": "smooth, mellow",
+  "ttv.timbre.erinome": "clear",
+  "ttv.timbre.algenib": "gravelly, raspy",
+  "ttv.timbre.rasalgethi": "informative, scholarly",
+  "ttv.timbre.laomedeia": "upbeat",
+  "ttv.timbre.achernar": "soft, gentle",
+  "ttv.timbre.alnilam": "firm, steely",
+  "ttv.timbre.schedar": "even, composed",
+  "ttv.timbre.gacrux": "deep, seasoned",
+  "ttv.timbre.pulcherrima": "forward, driving",
+  "ttv.timbre.achird": "friendly",
+  "ttv.timbre.zubenelgenubi": "casual, everyday",
+  "ttv.timbre.vindemiatrix": "gentle, soothing",
+  "ttv.timbre.sadachbia": "lively",
+  "ttv.timbre.sadaltager": "knowledgeable, poised",
+  "ttv.timbre.sulafat": "warm",
+
+  // -- Timbre descriptions: VieNeu (reading style) --
+  "ttv.timbre.tin-tuc": "news read",
+  "ttv.timbre.tu-nhien": "natural",
+  "ttv.timbre.ke-chuyen": "storytelling",
+  "ttv.timbre.cloned": "your cloned voice",
+
+  // ===== Voices page =====
+  "voices.title": "Voices",
+  "voices.subtitle":
+    "Clone a voice from a short recording, running entirely on your own machine. Voices you create here are immediately usable in Text to video.",
+  "voices.new": "Clone a voice",
+  "voices.empty-title": "No cloned voices yet",
+  "voices.empty-body":
+    "Give it a 3-8 second recording of the voice you want to copy. The system learns that voice and reads any script in it.",
+  "voices.count": "{n} cloned voices",
+
+  // -- Engine status on this page --
+  "voices.engine-title": "Offline voice engine",
+  "voices.engine-ok": "Ready - it can clone and speak right on this machine.",
+  "voices.engine-speech-only":
+    "It can speak, but cannot clone voices yet. PyTorch still needs to be installed.",
+  "voices.engine-missing": "Not installed - follow the steps below to enable it.",
+  "voices.recheck": "Check again",
+  "voices.rechecking": "Checking…",
+  "voices.install-title": "How to enable offline voices",
+  "voices.install-step1": "Install Python 3.10 or newer (if you don't have it).",
+  "voices.install-step2": "Open PowerShell and run this to install the speech engine:",
+  "voices.install-step3":
+    "To clone voices as well, also install PyTorch (heavier, about 2-3 GB to download):",
+  "voices.install-step4":
+    "Then press Check again. The very first read downloads the model (about 1 GB), so it takes a while.",
+  "voices.copy": "Copy command",
+  "voices.copied": "Copied",
+  "voices.detail": "Technical detail",
+
+  // -- Clone form --
+  "voices.form.title": "Clone a new voice",
+  "voices.form.name": "Voice name",
+  "voices.form.name-placeholder": "e.g. My voice",
+  "voices.form.name-hint": "The name you'll recognise this voice by in Text to video.",
+  "voices.form.gender": "Gender",
+  "voices.form.note": "Note",
+  "voices.form.note-placeholder": "e.g. southern accent, ad read",
+  "voices.form.file": "Reference clip",
+  "voices.form.file-pick": "Choose a recording",
+  "voices.form.file-change": "Change file",
+  "voices.form.file-hint":
+    "A recording or an existing file, {min}-{ideal} seconds works best. Clear speech, no background music, no noise - the cleaner the sample, the closer the clone.",
+  "voices.form.file-too-short":
+    "The sample is only {sec} seconds - it needs at least {min} seconds to capture the voice.",
+  "voices.form.file-too-long":
+    "The sample is {sec} seconds. Only the beginning is used and the rest is discarded - trimming it to {ideal} seconds is enough.",
+  "voices.form.record": "Record now",
+  "voices.form.record-stop": "Stop recording",
+  "voices.form.record-hint": "Record straight from your machine's microphone.",
+  "voices.form.recording": "Recording… {sec}s",
+  "voices.form.no-mic":
+    "The browser microphone isn't available. Choose an existing recording instead.",
+  "voices.form.submit": "Clone voice",
+  "voices.form.submitting": "Learning the voice…",
+  "voices.form.need-name": "Give the voice a name first.",
+  "voices.form.need-file": "Choose or record a reference clip first.",
+  "voices.form.failed": "Could not clone this voice.",
+
+  // -- Voice card --
+  "voices.card.ref": "Reference clip",
+  "voices.card.ref-play": "Play the reference clip",
+  "voices.card.test": "Test read",
+  "voices.card.test-aria": "Test the {name} voice",
+  "voices.card.stop": "Stop",
+  "voices.card.created": "Created {when}",
+  "voices.card.rename": "Rename",
+  "voices.card.save": "Save",
+  "voices.card.delete": "Delete voice",
+  "voices.card.delete-title": "Delete the \"{name}\" voice?",
+  "voices.card.delete-body":
+    "This deletes the reference clip too. Text to video sessions that already used it keep their rendered audio, but reading again will need another voice.",
+  "voices.card.test-failed": "Could not test this voice.",
+  "voices.first-run-slow":
+    "The first read after the server starts takes an extra 15-30 seconds to load the model. Later reads are much faster.",
+
+  // ===== Collapsing sections once a session is done =====
+  "ttv.section.expand": "Expand",
+  "ttv.section.collapse": "Collapse",
+  "ttv.section.done-collapsed": "Finished - collapsed to save space",
 };

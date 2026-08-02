@@ -44,6 +44,7 @@ import reviewRouter from "./routes/review.js";
 import autoCutRouter from "./routes/autoCut.js";
 import textToVideoRouter from "./routes/textToVideo.js";
 import ttsRouter from "./routes/tts.js";
+import voicesRouter from "./routes/voices.js";
 import updateRouter from "./routes/update.js";
 import revealRouter from "./routes/reveal.js";
 import tunnelRouter, { quickTunnelHostname } from "./routes/tunnel.js";
@@ -186,6 +187,7 @@ app.use("/api/auto-cut", autoCutRouter);
 // Text to video: phiên nguồn (bài viết/đoạn văn) → tự sinh Videos Project
 app.use("/api/text-to-video", textToVideoRouter);
 app.use("/api/tts", ttsRouter);
+app.use("/api/voices", voicesRouter); // giọng nhân bản chạy trên máy (VieNeu)
 app.use("/api/jobs", jobsRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/sfx", sfxRouter);

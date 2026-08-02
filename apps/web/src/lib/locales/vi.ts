@@ -1665,4 +1665,165 @@ export const vi: Record<string, string> = {
   "meter.unknown": "không rõ",
   "meter.vram": "VRAM {used}/{total} GB",
   "meter.cpu-title": "{model} - {threads} luồng",
+
+  // ===== Giọng đọc offline / nhân bản giọng =====
+  "nav.voices": "Giọng đọc",
+
+  // -- Engine đọc --
+  "ttv.voice.engine": "Engine đọc",
+  "ttv.voice.engine.gemini": "Gemini (đám mây)",
+  "ttv.voice.engine.gemini-desc":
+    "Đọc bằng API của Google. Chất lượng cao, nhanh, nhưng mỗi lần đọc đều tốn tiền và cần mạng.",
+  "ttv.voice.engine.vieneu": "VieNeu (trên máy)",
+  "ttv.voice.engine.vieneu-desc":
+    "Chạy thẳng trên máy bạn, miễn phí và không cần mạng. Là engine duy nhất nhân bản được giọng. Đổi lại: đọc chậm hơn, gần bằng thời gian thật.",
+  "ttv.voice.engine.ready": "Dùng được",
+  "ttv.voice.engine.unavailable": "Chưa dùng được",
+  "ttv.voice.engine.clone-ready": "Nhân bản được giọng",
+  "ttv.voice.engine.checking": "Đang kiểm tra engine…",
+  "ttv.voice.engine.none":
+    "Chưa có engine đọc nào dùng được. Thêm GEMINI_API_KEY vào .env, hoặc cài giọng offline ở trang Giọng đọc.",
+  "ttv.voice.engine.why.NO_GEMINI_KEY":
+    "Chưa có GEMINI_API_KEY trong file .env ở gốc repo. Lấy key tại aistudio.google.com/apikey rồi khởi động lại server.",
+  "ttv.voice.engine.why.NO_PYTHON":
+    "Không tìm thấy Python trên máy. Cài Python 3.10+ rồi thử lại.",
+  "ttv.voice.engine.why.NO_VIENEU":
+    "Chưa cài gói giọng offline. Chạy `pip install vieneu` rồi bấm Kiểm tra lại.",
+  "ttv.voice.engine.why.NO_TORCH":
+    "Đọc thì được, nhưng chưa nhân bản được giọng: cần thêm PyTorch. Chạy `pip install torch torchaudio` rồi bấm Kiểm tra lại.",
+  "ttv.voice.engine.why.LOAD_FAILED":
+    "Gói giọng offline đã cài nhưng nạp model không thành công - xem chi tiết kỹ thuật bên dưới.",
+  "ttv.voice.engine.why.unknown": "Engine này chưa dùng được trên máy.",
+
+  // -- Vùng miền (chỉ giọng offline) --
+  "ttv.voice.region": "Vùng miền",
+  "ttv.voice.region.all": "Mọi vùng",
+  "ttv.voice.region.bac": "Bắc",
+  "ttv.voice.region.trung": "Trung",
+  "ttv.voice.region.nam": "Nam",
+
+  // -- Loại giọng --
+  "ttv.voice.kind.preset": "Có sẵn",
+  "ttv.voice.kind.cloned": "Đã nhân bản",
+  "ttv.voice.cloned-empty":
+    "Chưa nhân bản giọng nào. Sang trang Giọng đọc để tạo giọng từ một đoạn ghi âm ngắn.",
+  "ttv.voice.manage": "Quản lý giọng",
+
+  // -- Mô tả chất giọng: Gemini --
+  "ttv.timbre.zephyr": "trong trẻo, tươi sáng",
+  "ttv.timbre.puck": "vui tươi, hào hứng",
+  "ttv.timbre.charon": "truyền đạt, rành mạch",
+  "ttv.timbre.kore": "chắc chắn, dứt khoát",
+  "ttv.timbre.fenrir": "sôi nổi, dễ phấn khích",
+  "ttv.timbre.leda": "trẻ trung",
+  "ttv.timbre.orus": "chắc chắn, quả quyết",
+  "ttv.timbre.aoede": "nhẹ nhàng, thoáng",
+  "ttv.timbre.callirrhoe": "thư thái, dễ chịu",
+  "ttv.timbre.autonoe": "tươi sáng",
+  "ttv.timbre.enceladus": "nhiều hơi thở, thủ thỉ",
+  "ttv.timbre.iapetus": "rõ ràng, sáng tiếng",
+  "ttv.timbre.umbriel": "thư thái",
+  "ttv.timbre.algieba": "mượt mà",
+  "ttv.timbre.despina": "mượt mà, êm",
+  "ttv.timbre.erinome": "rõ ràng",
+  "ttv.timbre.algenib": "khàn, sạn",
+  "ttv.timbre.rasalgethi": "truyền đạt, học thuật",
+  "ttv.timbre.laomedeia": "hào hứng",
+  "ttv.timbre.achernar": "dịu, nhỏ nhẹ",
+  "ttv.timbre.alnilam": "chắc, đanh",
+  "ttv.timbre.schedar": "đều đều, điềm tĩnh",
+  "ttv.timbre.gacrux": "trầm, từng trải",
+  "ttv.timbre.pulcherrima": "chủ động, đẩy tới",
+  "ttv.timbre.achird": "thân thiện",
+  "ttv.timbre.zubenelgenubi": "tự nhiên, đời thường",
+  "ttv.timbre.vindemiatrix": "hiền hòa, êm ái",
+  "ttv.timbre.sadachbia": "sống động",
+  "ttv.timbre.sadaltager": "am hiểu, chững chạc",
+  "ttv.timbre.sulafat": "ấm áp",
+
+  // -- Mô tả chất giọng: VieNeu (phong cách đọc) --
+  "ttv.timbre.tin-tuc": "giọng tin tức",
+  "ttv.timbre.tu-nhien": "tự nhiên",
+  "ttv.timbre.ke-chuyen": "kể chuyện",
+  "ttv.timbre.cloned": "giọng bạn nhân bản",
+
+  // ===== Trang Giọng đọc =====
+  "voices.title": "Giọng đọc",
+  "voices.subtitle":
+    "Nhân bản giọng từ một đoạn ghi âm ngắn, chạy hoàn toàn trên máy bạn. Giọng tạo ở đây dùng được ngay trong Text to video.",
+  "voices.new": "Nhân bản giọng",
+  "voices.empty-title": "Chưa có giọng nhân bản nào",
+  "voices.empty-body":
+    "Đưa vào một đoạn ghi âm 3-8 giây của giọng bạn muốn sao chép. Hệ thống học chất giọng đó và đọc mọi kịch bản bằng chính giọng ấy.",
+  "voices.count": "{n} giọng đã nhân bản",
+
+  // -- Trạng thái engine trên trang này --
+  "voices.engine-title": "Engine giọng offline",
+  "voices.engine-ok": "Sẵn sàng - nhân bản và đọc được ngay trên máy này.",
+  "voices.engine-speech-only":
+    "Đọc được, nhưng chưa nhân bản được giọng. Cần cài thêm PyTorch.",
+  "voices.engine-missing": "Chưa cài - làm theo hướng dẫn bên dưới để bật.",
+  "voices.recheck": "Kiểm tra lại",
+  "voices.rechecking": "Đang kiểm tra…",
+  "voices.install-title": "Cách bật giọng offline",
+  "voices.install-step1": "Cài Python 3.10 trở lên (nếu máy chưa có).",
+  "voices.install-step2": "Mở PowerShell rồi chạy lệnh này để cài engine đọc:",
+  "voices.install-step3":
+    "Muốn nhân bản giọng thì cài thêm PyTorch (nặng hơn, tải khoảng 2-3 GB):",
+  "voices.install-step4":
+    "Xong thì bấm Kiểm tra lại. Lần đọc đầu tiên sẽ tải model (khoảng 1 GB) nên hơi lâu.",
+  "voices.copy": "Chép lệnh",
+  "voices.copied": "Đã chép",
+  "voices.detail": "Chi tiết kỹ thuật",
+
+  // -- Form nhân bản --
+  "voices.form.title": "Nhân bản một giọng mới",
+  "voices.form.name": "Tên giọng",
+  "voices.form.name-placeholder": "vd: Giọng của tôi",
+  "voices.form.name-hint": "Tên để bạn nhận ra giọng này khi chọn trong Text to video.",
+  "voices.form.gender": "Giới tính",
+  "voices.form.note": "Ghi chú",
+  "voices.form.note-placeholder": "vd: giọng miền Nam, đọc quảng cáo",
+  "voices.form.file": "File mẫu",
+  "voices.form.file-pick": "Chọn file ghi âm",
+  "voices.form.file-change": "Đổi file",
+  "voices.form.file-hint":
+    "Ghi âm hoặc file có sẵn, dài {min}-{ideal} giây là tốt nhất. Nói rõ, không nhạc nền, không tiếng ồn - mẫu càng sạch giọng nhân bản càng giống.",
+  "voices.form.file-too-short":
+    "Mẫu chỉ dài {sec} giây - cần ít nhất {min} giây thì mới đủ đặc trưng giọng.",
+  "voices.form.file-too-long":
+    "Mẫu dài {sec} giây. Hệ thống chỉ dùng phần đầu, phần còn lại sẽ bị bỏ - cắt ngắn còn {ideal} giây là đủ.",
+  "voices.form.record": "Ghi âm trực tiếp",
+  "voices.form.record-stop": "Dừng ghi",
+  "voices.form.record-hint": "Bấm để ghi âm ngay bằng micro của máy.",
+  "voices.form.recording": "Đang ghi… {sec} giây",
+  "voices.form.no-mic":
+    "Không dùng được micro của trình duyệt. Chọn file ghi âm có sẵn thay thế.",
+  "voices.form.submit": "Nhân bản giọng",
+  "voices.form.submitting": "Đang học giọng…",
+  "voices.form.need-name": "Đặt tên cho giọng trước đã.",
+  "voices.form.need-file": "Chọn hoặc ghi âm một đoạn mẫu trước đã.",
+  "voices.form.failed": "Không nhân bản được giọng này.",
+
+  // -- Thẻ giọng --
+  "voices.card.ref": "Mẫu gốc",
+  "voices.card.ref-play": "Nghe mẫu gốc",
+  "voices.card.test": "Đọc thử",
+  "voices.card.test-aria": "Đọc thử giọng {name}",
+  "voices.card.stop": "Dừng",
+  "voices.card.created": "Tạo {when}",
+  "voices.card.rename": "Đổi tên",
+  "voices.card.save": "Lưu",
+  "voices.card.delete": "Xóa giọng",
+  "voices.card.delete-title": "Xóa giọng \"{name}\"?",
+  "voices.card.delete-body":
+    "Xóa cả file mẫu. Phiên Text to video đã dùng giọng này vẫn giữ nguyên file tiếng đã đọc, nhưng đọc lại thì phải chọn giọng khác.",
+  "voices.card.test-failed": "Không đọc thử được giọng này.",
+  "voices.first-run-slow":
+    "Lần đọc đầu sau khi mở server sẽ mất thêm khoảng 15-30 giây để nạp model. Những lần sau nhanh hơn nhiều.",
+
+  // ===== Thu gọn khối khi phiên đã xong =====
+  "ttv.section.expand": "Mở rộng",
+  "ttv.section.collapse": "Thu gọn",
+  "ttv.section.done-collapsed": "Đã xong - thu gọn cho gọn màn hình",
 };

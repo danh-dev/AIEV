@@ -334,6 +334,58 @@ export function runDoctor() {
         },
   });
 
+  // --- VieNeu-TTS (giọng đọc chạy trên máy + nhân bản giọng) ---
+  // Hai mức, cố ý tách rời: gói `vieneu` là đủ để ĐỌC (chạy bằng ONNX, không
+  // cần torch); muốn NHÂN BẢN giọng mới cần thêm torch. Gộp làm một thì người
+  // chỉ muốn đọc offline bị bắt tải 2-3 GB torch một cách vô ích.
+  const vieneu = py ? run(py.exe, ["-c", "import vieneu"], 60_000).ok : false;
+  checks.push({
+    id: "vieneu",
+    label: "VieNeu-TTS",
+    level: "optional",
+    status: vieneu ? "ok" : "missing",
+    detail: py ? `Python ${py.version}` : "",
+    note: !vieneu ? (py ? "module-missing" : "python-missing") : null,
+    fix: py
+      ? {
+          auto: true,
+          size: "~30 MB (model ~1 GB tải ở lần đọc đầu)",
+          cmd: [py.exe, ["-m", "pip", "install", "vieneu"]],
+          manual: `${py.exe} -m pip install vieneu`,
+          command: `${py.exe} -m pip install vieneu`,
+        }
+      : {
+          auto: false,
+          manual: "pip install vieneu (cài Python 3.10+ trước)",
+          url: "https://www.python.org/downloads/",
+        },
+  });
+
+  // Chỉ hỏi tới torch KHI ĐÃ có vieneu - máy không dùng giọng offline thì báo
+  // thiếu torch chỉ là tiếng ồn.
+  if (vieneu) {
+    const torch = py ? run(py.exe, ["-c", "import torch, torchaudio"], 90_000).ok : false;
+    checks.push({
+      id: "vieneu-clone",
+      // Nhãn để nguyên tên gói như mọi mục khác - phần giải thích nằm ở `why`,
+      // chỗ duy nhất có bản dịch
+      label: "PyTorch",
+      level: "optional",
+      status: torch ? "ok" : "missing",
+      detail: py ? `Python ${py.version}` : "",
+      note: !torch ? "module-missing" : null,
+      fix: py
+        ? {
+            auto: true,
+            size: "~2-3 GB",
+            cmd: [py.exe, ["-m", "pip", "install", "torch", "torchaudio"]],
+            manual: `${py.exe} -m pip install torch torchaudio`,
+            command: `${py.exe} -m pip install torch torchaudio`,
+          }
+        : { auto: false, manual: "pip install torch torchaudio" },
+    });
+  }
+
   // --- Gemini API key (tạo ảnh) ---
   const gemini = !!envVar("GEMINI_API_KEY");
   checks.push({
@@ -480,6 +532,8 @@ const TEXT = {
       "claude-cli": "một cách đăng nhập subscription (cách kia là API key)",
       "claude-auth": "chưa đăng nhập thì không edit bằng AI được",
       whisper: "tạo phụ đề tự động",
+      vieneu: "giọng đọc chạy trên máy, miễn phí và không cần mạng",
+      "vieneu-clone": "nhân bản giọng từ một đoạn ghi âm ngắn",
       gemini: "tạo ảnh nền và ảnh minh họa",
       cloudflared: "mở dashboard qua 4G/5G",
       gpu: "render nhanh hơn",
@@ -512,6 +566,8 @@ const TEXT = {
       "claude-cli": "one way to sign in with a subscription (the other is an API key)",
       "claude-auth": "without a login, AI editing is unavailable",
       whisper: "automatic subtitles",
+      vieneu: "on-device narration, free and offline",
+      "vieneu-clone": "clone a voice from a short recording",
       gemini: "background and illustration images",
       cloudflared: "reach the dashboard over 4G/5G",
       gpu: "faster rendering",

@@ -10,6 +10,7 @@ import {
   Images,
   LayoutDashboard,
   ListVideo,
+  Mic,
   Palette,
   Plug,
   Scissors,
@@ -54,6 +55,9 @@ const NAV = [
   { href: "/images", label: "nav.images", icon: Images },
   { href: "/auto-cut", label: "nav.auto-cut", icon: Scissors },
   { href: "/text-to-video", label: "nav.text-to-video", icon: FileText },
+  // Đặt ngay dưới Text to video: thư viện giọng chỉ có nghĩa với tính năng đó,
+  // để lẫn xuống cụm thư viện phía dưới là người dùng không tìm ra.
+  { href: "/voices", label: "nav.voices", icon: Mic },
   { href: "/styles", label: "nav.styles", icon: Palette },
   { href: "/queue", label: "nav.queue", icon: ListVideo },
   { href: "/assets", label: "nav.assets", icon: FolderOpen },

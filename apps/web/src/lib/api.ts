@@ -2214,8 +2214,20 @@ export interface TextToVideoSource {
   text: string;
 }
 
+/**
+ * Engine đọc. Hai engine chạy song song, cố ý không hợp nhất:
+ * - "gemini": API Google, chất lượng cao, tốn tiền, cần mạng + API key.
+ * - "vieneu": VieNeu-TTS chạy TRÊN MÁY (Apache 2.0), miễn phí, không cần mạng,
+ *   và là engine duy nhất nhân bản được giọng. Đổi lại phải cài Python + gói.
+ */
+export type TtsEngine = "gemini" | "vieneu";
+
+export const TTS_ENGINES: TtsEngine[] = ["gemini", "vieneu"];
+
 export interface TextToVideoVoice {
-  /** null = model TTS mặc định của server. */
+  /** Engine đọc - phiên cũ không có field này, server đọc lên thành "gemini". */
+  engine: TtsEngine;
+  /** null = model TTS mặc định của server. Engine "vieneu" bỏ qua field này. */
   model: string | null;
   name: string;
   /** "Cách đọc" bằng lời - đổi cái này là toàn bộ thời lượng đọc đổi theo. */
@@ -2312,14 +2324,81 @@ export interface TtsModel {
  */
 export type TtsGender = "nam" | "nu" | "trung-tinh";
 
+/** Vùng miền giọng - chỉ engine "vieneu" có; Gemini không phân vùng miền. */
+export type TtsRegion = "bac" | "trung" | "nam";
+
+/** Giọng dựng sẵn hay giọng người dùng tự nhân bản. */
+export type TtsVoiceKind = "preset" | "cloned";
+
 /** Một giọng đọc - GET /api/tts/voices. */
 export interface TtsVoice {
+  /** Engine sở hữu giọng này - hai engine có thể trùng tên nên luôn đi cặp. */
+  engine: TtsEngine;
+  /**
+   * Định danh gửi lên khi tổng hợp. Với giọng nhân bản đây là id trong kho
+   * (kebab-case), KHÔNG phải tên hiển thị - đổi tên không được làm hỏng phiên cũ.
+   * Đây cũng là giá trị lưu vào `TextToVideoVoice.name`.
+   */
   name: string;
+  /** Tên hiện lên màn hình - dùng cái này để render, không dùng `name`. */
+  title: string;
+  /**
+   * Nhãn do SERVER sinh (tiếng Việt). CHỈ dùng làm lưới an toàn: web ưu tiên
+   * bản dịch theo `timbreKey`, nếu không có mới hiện nhãn này - nhờ vậy đổi
+   * giao diện sang tiếng Anh thì mô tả giọng cũng sang tiếng Anh.
+   */
   label: string;
   gender: TtsGender;
-  /** Tần số cơ bản (median f0, Hz) ĐO ĐƯỢC từ audio thật, không phải nhãn tay. */
+  /** Tần số cơ bản (median f0, Hz) ĐO ĐƯỢC từ audio thật; 0 = chưa đo. */
   f0: number;
+  kind: TtsVoiceKind;
+  region: TtsRegion | null;
+  /** Key mô tả chất giọng để web dịch, vd "kore", "tin-tuc". null = không có. */
+  timbreKey: string | null;
+  /** Ghi chú người dùng nhập khi nhân bản - rỗng với giọng dựng sẵn. */
+  note: string;
 }
+
+/**
+ * Tình trạng một engine - GET /api/tts/engines.
+ *
+ * Có endpoint riêng vì "chọn được engine nào" phụ thuộc vào MÁY người dùng
+ * (có API key chưa, cài Python chưa, có torch chưa). Đoán mò ở web là chắc
+ * chắn sai; hỏi server là cách duy nhất đúng.
+ */
+export interface TtsEngineStatus {
+  engine: TtsEngine;
+  /** Đọc được chữ thành tiếng hay không. */
+  available: boolean;
+  /** Nhân bản giọng được hay không (vieneu cần thêm torch; gemini luôn false). */
+  canClone: boolean;
+  /** Mã lý do khi không dùng được, vd "NO_GEMINI_KEY" | "NO_VIENEU" | "NO_TORCH". */
+  reason: string | null;
+  /** Chi tiết kỹ thuật (đường dẫn Python, phiên bản gói...) - KHÔNG dịch. */
+  detail: string;
+}
+
+/** Một giọng đã nhân bản - GET /api/voices. */
+export interface ClonedVoice {
+  id: string;
+  name: string;
+  gender: TtsGender;
+  note: string;
+  /** Đường dẫn tương đối tới file mẫu đã chuẩn hóa - phát qua /media/. */
+  refFile: string;
+  /** Thời lượng ĐO ĐƯỢC của mẫu (ffprobe). */
+  refDurationSec: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Mẫu tham chiếu nên dài bao nhiêu. VieNeu khuyên 3-8 giây: ngắn hơn thì
+ * embedding không đủ đặc trưng, dài hơn KHÔNG tốt hơn (model chỉ lấy phần đầu).
+ */
+export const CLONE_REF_MIN_SEC = 3;
+export const CLONE_REF_IDEAL_MAX_SEC = 8;
+export const CLONE_REF_MAX_SEC = 30;
 
 /** Một ngôn ngữ chọn được - GET /api/tts/languages. */
 export interface TtsLanguage {
@@ -2453,7 +2532,54 @@ export const buildTextToVideo = (id: string) =>
 
 export const getTtsModels = () => request<TtsModel[]>("/api/tts/models");
 
-export const getTtsVoices = () => request<TtsVoice[]>("/api/tts/voices");
+/**
+ * Danh sách giọng. Không truyền engine = trả về giọng của MỌI engine dùng được
+ * (kể cả giọng đã nhân bản), để người dùng thấy hết lựa chọn trong một lần gọi.
+ */
+export const getTtsVoices = (engine?: TtsEngine) =>
+  request<TtsVoice[]>(
+    engine ? `/api/tts/voices?engine=${encodeURIComponent(engine)}` : "/api/tts/voices"
+  );
+
+/** Engine nào dùng được trên MÁY NÀY - đừng đoán ở phía web, hỏi server. */
+export const getTtsEngines = () => request<TtsEngineStatus[]>("/api/tts/engines");
+
+// --------------------------------------------------------------- Giọng nhân bản
+
+/** Toàn bộ giọng đã nhân bản - GET /api/voices. */
+export const getClonedVoices = () => request<ClonedVoice[]>("/api/voices");
+
+/**
+ * Nhân bản một giọng từ file mẫu (multipart, gọi thẳng server như uploadAsset).
+ * Server tự chuẩn hóa mẫu về 48kHz mono và ĐO thời lượng bằng ffprobe.
+ */
+export const createClonedVoice = (input: {
+  name: string;
+  gender: TtsGender;
+  note?: string;
+  file: File;
+}) => {
+  const form = new FormData();
+  form.append("file", input.file);
+  form.append("name", input.name);
+  form.append("gender", input.gender);
+  if (input.note) form.append("note", input.note);
+  return request<ClonedVoice>(`${serverOrigin()}/api/voices`, {
+    method: "POST",
+    body: form,
+  });
+};
+
+/** Sửa tên/giới tính/ghi chú - KHÔNG đổi file mẫu (đổi mẫu là tạo giọng khác). */
+export const updateClonedVoice = (
+  id: string,
+  patch: { name?: string; gender?: TtsGender; note?: string }
+) => jsonBody<ClonedVoice>(`/api/voices/${encodeURIComponent(id)}`, "PATCH", patch);
+
+export const deleteClonedVoice = (id: string) =>
+  request<{ id: string }>(`/api/voices/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 
 /**
  * Danh sách mã ngôn ngữ. Tĩnh và miễn phí (server trả từ discovery document),
@@ -2469,10 +2595,18 @@ export const getTtsLanguages = () =>
  */
 export async function previewTtsVoice(input: {
   voice: string;
+  /** Engine đọc - bỏ trống thì server dùng "gemini". */
+  engine?: TtsEngine;
   model?: string | null;
   style?: string;
   /** Mã ngôn ngữ - gửi kèm để bản nghe thử khớp cấu hình đang chọn. */
   language?: string;
+  /**
+   * Ngôn ngữ ĐANG HIỆN của giao diện ("vi" | "en"). Server chọn câu mẫu theo
+   * đúng ngôn ngữ đó - người dùng đang xem bản tiếng Anh mà nghe thử ra một câu
+   * tiếng Việt thì không đánh giá được giọng.
+   */
+  uiLang?: "vi" | "en";
   /** Bỏ trống → server đọc câu mẫu ngắn cố định (~5s). Đừng gửi cả kịch bản. */
   text?: string;
 }): Promise<Blob> {
@@ -2487,6 +2621,60 @@ export async function previewTtsVoice(input: {
       headers,
       body: JSON.stringify(input),
     });
+  } catch {
+    throw new ApiError(
+      "network",
+      "Không kết nối được backend (port 6869). Kiểm tra server đã chạy chưa.",
+      0
+    );
+  }
+  if (!res.ok) {
+    let code = String(res.status);
+    let message = `Lỗi HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as {
+        error?: { code: string; message: string };
+      };
+      if (body?.error) {
+        code = body.error.code;
+        message = body.error.message;
+      }
+    } catch {
+      // body không phải JSON - giữ message mặc định
+    }
+    throw new ApiError(code, message, res.status);
+  }
+  return res.blob();
+}
+
+/**
+ * Đọc thử một giọng ĐÃ NHÂN BẢN - POST /api/voices/:id/preview.
+ *
+ * Tách khỏi previewTtsVoice() vì giọng nhân bản định danh bằng id trong kho chứ
+ * không phải tên giọng của engine, và endpoint tự tra file mẫu. Cũng trả về
+ * BYTES audio/wav nên không dùng được helper request<T> (helper đó luôn parse
+ * JSON) - đi fetch thẳng và mang theo đúng token như mọi lời gọi khác, thay vì
+ * trông chờ vào cookie.
+ */
+export async function previewClonedVoice(input: {
+  id: string;
+  /** Ngôn ngữ giao diện đang hiện - server chọn câu mẫu tương ứng. */
+  uiLang?: "vi" | "en";
+}): Promise<Blob> {
+  const token = await ensureToken();
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) headers.set("x-aiev-token", token);
+
+  let res: Response;
+  try {
+    res = await fetch(
+      withUploadToken(`/api/voices/${encodeURIComponent(input.id)}/preview`),
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ uiLang: input.uiLang }),
+      }
+    );
   } catch {
     throw new ApiError(
       "network",
