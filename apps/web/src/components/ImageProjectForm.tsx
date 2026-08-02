@@ -15,6 +15,7 @@ import {
   type ImageKind,
   type ImageOverlay,
   type ImageProjectStatus,
+  type ImageTextPosition,
   type ProviderModel,
 } from "@/lib/api";
 import { useProviders } from "@/components/ModelPicker";
@@ -139,7 +140,105 @@ export const DEFAULT_OVERLAY: ImageOverlay = {
   stats: [],
   cta: "",
   showLogo: true,
+  position: "auto",
 };
+
+/**
+ * Lưới chọn vị trí khối chữ: 3 hàng (trên/giữa/dưới) x 3 cột (trái/giữa/phải).
+ * Vẽ đúng như bố cục thật để chọn bằng mắt, khỏi phải đọc tên từng vị trí.
+ */
+const POSITION_ROWS: { vert: "top" | "middle" | "bottom"; labelKey: string }[] = [
+  { vert: "top", labelKey: "imageForm.pos-top" },
+  { vert: "middle", labelKey: "imageForm.pos-middle" },
+  { vert: "bottom", labelKey: "imageForm.pos-bottom" },
+];
+const POSITION_COLS: { horiz: "left" | "center" | "right"; labelKey: string }[] = [
+  { horiz: "left", labelKey: "imageForm.pos-left" },
+  { horiz: "center", labelKey: "imageForm.pos-center" },
+  { horiz: "right", labelKey: "imageForm.pos-right" },
+];
+
+/** Bộ chọn vị trí chữ - lưới 3x3 + nút Tự động */
+function TextPositionPicker({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: ImageTextPosition;
+  disabled?: boolean;
+  onChange: (v: ImageTextPosition) => void;
+}) {
+  const { t, tf } = useT();
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div
+        className="grid grid-cols-3 gap-1"
+        role="group"
+        aria-label={t("imageForm.position-label")}
+      >
+        {POSITION_ROWS.map((r) =>
+          POSITION_COLS.map((c) => {
+            const pos = `${r.vert}-${c.horiz}` as ImageTextPosition;
+            const active = value === pos;
+            const label = tf("imageForm.pos-combo", {
+              vert: t(r.labelKey),
+              horiz: t(c.labelKey),
+            });
+            return (
+              <button
+                key={pos}
+                type="button"
+                disabled={disabled}
+                aria-pressed={active}
+                title={label}
+                aria-label={label}
+                onClick={() => onChange(pos)}
+                className={`flex h-8 w-11 rounded-[4px] border p-1 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  active
+                    ? "border-[var(--primary)] bg-[var(--primary-soft)]"
+                    : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--bg-subtle)]"
+                }`}
+                style={{
+                  // Gạch nhỏ nằm ĐÚNG góc mà chữ sẽ nằm - nhìn ô là biết ngay,
+                  // không phải đọc tên vị trí
+                  alignItems:
+                    r.vert === "top" ? "flex-start" : r.vert === "bottom" ? "flex-end" : "center",
+                  justifyContent:
+                    c.horiz === "left"
+                      ? "flex-start"
+                      : c.horiz === "right"
+                        ? "flex-end"
+                        : "center",
+                }}
+              >
+                <span
+                  className="block h-[3px] w-4 rounded-full"
+                  style={{
+                    backgroundColor: active ? "var(--primary)" : "var(--text-muted)",
+                    opacity: active ? 1 : 0.55,
+                  }}
+                />
+              </button>
+            );
+          }),
+        )}
+      </div>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-pressed={value === "auto"}
+        onClick={() => onChange("auto")}
+        className={`rounded-[var(--radius)] border px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+          value === "auto"
+            ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+            : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
+        }`}
+      >
+        {t("imageForm.pos-auto")}
+      </button>
+    </div>
+  );
+}
 
 /** Giá trị form (không gồm tên) - modal tạo mới và trang chi tiết dùng chung. */
 export interface ImageDraft {
@@ -381,6 +480,21 @@ export function ImageProjectFields({
             onChange={(e) => patchOverlay({ subtitle: e.target.value })}
             placeholder={t("imageForm.subtitle-placeholder")}
           />
+        </div>
+        {/* Vị trí khối chữ - đặt ngay dưới tiêu đề/mô tả vì nó quyết định bố
+            cục của toàn bộ phần chữ phía dưới (stats, CTA đều đi theo) */}
+        <div>
+          <span className="label">{t("imageForm.position-label")}</span>
+          <TextPositionPicker
+            value={overlay.position}
+            disabled={disabled}
+            onChange={(position) => patchOverlay({ position })}
+          />
+          <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+            {overlay.position === "auto"
+              ? t("imageForm.position-auto-hint")
+              : t("imageForm.position-hint")}
+          </p>
         </div>
         <div>
           <span className="label">{t("imageForm.stats-label")}</span>

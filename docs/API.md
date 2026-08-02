@@ -432,7 +432,9 @@ DELETE /api/styles/:id/font/:slot → StyleDesign
 ```
 ImageProject = { id, name, prompt, kind: "background"|"3d"|"character"|"texture"|"product"|"concept",
                  aspect: "9:16"|"16:9"|"1:1"|"4:5", status: "draft"|"generating"|"done"|"error",
-                 overlay: { title, subtitle, stats: [{label,value}], cta, showLogo: boolean },
+                 overlay: { title, subtitle, stats: [{label,value}], cta, showLogo: boolean,
+                            position: "auto"|"top-left"|"top-center"|"top-right"|"middle-left"|
+                                      "middle-center"|"middle-right"|"bottom-left"|"bottom-center"|"bottom-right" },
                  model: string|null, styleId: string|null,
                  background: string|null, final: string|null, error: string|null,
                  createdAt, updatedAt }
@@ -467,11 +469,27 @@ PosterProps = {
             fontFiles: { heading: string|null, body: string|null },  // staticFile path font đã stage
             effects: { gradient: boolean, liquidGlass: boolean },
             logoFile: string|null, brandName: string },
-  overlay: { title, subtitle, stats: [{label, value}], cta, showLogo }
+  overlay: { title, subtitle, stats: [{label, value}], cta, showLogo, position }
 }
 ```
 Server stage nền + logo bằng hardlink vào engines/remotion/public/staging/img-<id>/ trước khi still
 (cùng cơ chế với assemble).
+
+**`overlay.position` — vị trí khối chữ (lưới 3x3).** `"auto"` (mặc định) = bố cục theo tỉ lệ khung,
+đúng như trước khi có tùy chọn này: ngang → `middle-left`, vuông → `bottom-center`, dọc →
+`bottom-left`. Ảnh cũ render lại ra byte y hệt (đã đối chiếu hash cả 3 tỉ lệ).
+
+Chọn vị trí khác thì Poster tự dời theo, không chỉ mỗi khối chữ:
+
+- **Scrim và glow** đổi tâm bám khối chữ — nếu không, chữ dời lên trên mà vùng tối vẫn ở dưới,
+  chữ nằm trên vùng ảnh sáng sẽ không đọc được.
+- **Brand tint** đổi hướng gradient theo phía chứa chữ.
+- **Logo** lùi về góc đối diện (chữ ở trên → logo xuống dưới) để hai khối không chồng nhau.
+- **Hạt trang trí** tắt hẳn: tọa độ của chúng gắn cứng với rìa khối chữ mặc định, giữ lại là hạt
+  rơi đè lên chữ.
+- **Kẻ gradient dưới tiêu đề** đảo chiều khi căn phải; căn giữa thì tan hai đầu.
+- 16:9 căn giữa được nới khối chữ từ 47% lên 72% khung — 47% tồn tại để chừa nửa khung cho chủ thể
+  ảnh, căn giữa thì không còn nửa nào để chừa, giữ hẹp chỉ làm chữ xuống dòng vụn.
 
 ## Prompt mẫu (quản lý prompt tái sử dụng — lưu tại assets/prompts/prompts.json)
 

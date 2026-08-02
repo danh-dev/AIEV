@@ -32,12 +32,35 @@ export interface ImageStat {
   value: string;
 }
 
+/**
+ * Vị trí khối chữ trong ảnh - lưới 3x3 (dọc-ngang).
+ * "auto" = để Poster tự chọn theo tỉ lệ khung, đúng như trước khi có tùy chọn
+ * này: ngang → giữa-trái, vuông → đáy-giữa, dọc → đáy-trái. Giữ "auto" làm mặc
+ * định để project cũ render lại vẫn ra y hệt.
+ */
+export const IMAGE_TEXT_POSITIONS = [
+  "auto",
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+] as const;
+
+export type ImageTextPosition = (typeof IMAGE_TEXT_POSITIONS)[number];
+
 export interface ImageOverlay {
   title: string;
   subtitle: string;
   stats: ImageStat[];
   cta: string;
   showLogo: boolean;
+  /** Vị trí khối chữ trong khung - xem IMAGE_TEXT_POSITIONS */
+  position: ImageTextPosition;
 }
 
 export interface ImageProject {
@@ -74,7 +97,7 @@ export function imageProjectExists(id: string): boolean {
 }
 
 export function defaultOverlay(): ImageOverlay {
-  return { title: "", subtitle: "", stats: [], cta: "", showLogo: true };
+  return { title: "", subtitle: "", stats: [], cta: "", showLogo: true, position: "auto" };
 }
 
 /** Merge overlay partial (không tin dữ liệu ngoài) lên base - field thiếu/sai kiểu giữ base */
@@ -86,6 +109,10 @@ export function normOverlay(raw: unknown, base: ImageOverlay = defaultOverlay())
   if (typeof o.subtitle === "string") out.subtitle = o.subtitle;
   if (typeof o.cta === "string") out.cta = o.cta;
   if (typeof o.showLogo === "boolean") out.showLogo = o.showLogo;
+  // Giá trị lạ (client cũ, meta.json sửa tay) → giữ base thay vì nhận bừa
+  if (IMAGE_TEXT_POSITIONS.includes(o.position as ImageTextPosition)) {
+    out.position = o.position as ImageTextPosition;
+  }
   if (Array.isArray(o.stats)) {
     out.stats = o.stats
       .filter(

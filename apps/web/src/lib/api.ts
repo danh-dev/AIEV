@@ -548,12 +548,29 @@ export interface ImageStat {
 }
 
 /** Chữ trên ảnh - Remotion đặt theo Design System, KHÔNG nằm trong ảnh Gemini. */
+/** Vị trí khối chữ trong ảnh - lưới 3x3; "auto" = Poster tự chọn theo tỉ lệ khung */
+export const IMAGE_TEXT_POSITIONS = [
+  "auto",
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+] as const;
+
+export type ImageTextPosition = (typeof IMAGE_TEXT_POSITIONS)[number];
+
 export interface ImageOverlay {
   title: string;
   subtitle: string;
   stats: ImageStat[];
   cta: string;
   showLogo: boolean;
+  position: ImageTextPosition;
 }
 
 export interface ImageProject {

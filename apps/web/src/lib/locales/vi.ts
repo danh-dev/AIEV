@@ -704,6 +704,20 @@ export const vi: Record<string, string> = {
   "imageForm.model-hint": "Danh sách lấy trực tiếp từ Google · Lite rẻ/nhanh hơn · Pro chất lượng cao nhất",
   "imageForm.format": "Định dạng",
   "imageForm.aspect-label": "Tỉ lệ",
+  "imageForm.position-label": "Vị trí khối chữ",
+  "imageForm.pos-auto": "Tự động",
+  "imageForm.pos-top": "trên",
+  "imageForm.pos-middle": "giữa",
+  "imageForm.pos-bottom": "dưới",
+  "imageForm.pos-left": "trái",
+  "imageForm.pos-center": "giữa",
+  "imageForm.pos-right": "phải",
+  "imageForm.pos-combo": "Căn {vert} - {horiz}",
+  "imageForm.position-auto-hint":
+    "Tự chọn theo tỉ lệ khung: ngang đặt giữa-trái, vuông đặt đáy-giữa, dọc đặt đáy-trái.",
+  "imageForm.position-hint":
+    "Vùng tối và ánh sáng nền tự dời theo chữ để chữ luôn đọc được; logo lùi về góc đối diện.",
+
   "imageForm.overlay-heading": "Chữ trên ảnh (Remotion đặt)",
   "imageForm.overlay-title": "Nội dung chữ trên ảnh",
   "imageForm.overlay-sub": "(Remotion đặt - đồng bộ Design System)",

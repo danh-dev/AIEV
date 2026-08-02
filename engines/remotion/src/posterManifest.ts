@@ -76,12 +76,32 @@ export const posterDesignSchema = z.looseObject({
   brandName: z.string().default(""),
 });
 
+/**
+ * Vị trí khối chữ - lưới 3x3. "auto" giữ đúng bố cục trước khi có tùy chọn này
+ * (ngang → giữa-trái, vuông → đáy-giữa, dọc → đáy-trái) nên project cũ render
+ * lại vẫn ra y hệt. Phải khớp IMAGE_TEXT_POSITIONS ở apps/server/src/imageMeta.ts.
+ */
+export const posterTextPositionSchema = z.enum([
+  "auto",
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+]);
+export type PosterTextPosition = z.infer<typeof posterTextPositionSchema>;
+
 export const posterOverlaySchema = z.looseObject({
   title: z.string().default(""),
   subtitle: z.string().default(""),
   stats: z.array(posterStatSchema).default([]),
   cta: z.string().default(""),
   showLogo: z.boolean().default(true),
+  position: posterTextPositionSchema.default("auto"),
 });
 
 export const posterSchema = z.looseObject({

@@ -128,12 +128,63 @@ const PARTICLES: Record<Orientation, ParticleSpec[]> = {
   ],
 };
 
+type VertPos = "top" | "middle" | "bottom";
+type HorizPos = "left" | "center" | "right";
+
+/**
+ * Bố cục mặc định theo tỉ lệ khung - giá trị của `position: "auto"`.
+ * Đây CHÍNH LÀ bố cục cứng trước khi có tùy chọn vị trí, giữ nguyên để ảnh cũ
+ * render lại không đổi.
+ */
+const AUTO_POSITION: Record<Orientation, `${VertPos}-${HorizPos}`> = {
+  horizontal: "middle-left",
+  square: "bottom-center",
+  vertical: "bottom-left",
+};
+
+/**
+ * Tâm của scrim/glow - phải bám theo khối chữ, nếu không thì chữ dời lên trên
+ * mà vùng tối vẫn ở dưới, chữ đặt trên vùng ảnh sáng sẽ không đọc được.
+ *
+ * Ba tổ hợp "auto" dùng đúng con số cũ (không đụng vào ảnh đã có); các tổ hợp
+ * còn lại suy ra theo lưới.
+ */
+function focusOf(
+  orientation: Orientation,
+  vert: VertPos,
+  horiz: HorizPos,
+  isAuto: boolean,
+): { x: number; y: number } {
+  if (isAuto) {
+    if (orientation === "horizontal") return { x: 18, y: 55 };
+    if (orientation === "square") return { x: 50, y: 96 };
+    return { x: 42, y: 94 };
+  }
+  // Khối chữ ngang sát mép hơn ở 16:9 (rộng ~47% khung) so với dọc/vuông
+  const edge = orientation === "horizontal" ? 20 : 32;
+  const x = horiz === "left" ? edge : horiz === "right" ? 100 - edge : 50;
+  const y = vert === "top" ? 12 : vert === "bottom" ? 92 : 50;
+  return { x, y };
+}
+
 export const Poster: React.FC<PosterProps> = ({ aspect, background, design, overlay }) => {
   // width/height do calculateMetadata đặt từ aspect (POSTER_DIMENSIONS).
   const { width, height } = useVideoConfig();
   const orientation = orientationOf(aspect);
   const { colors, fonts, fontFiles, logoFile, brandName, effects } = design;
-  const { title, subtitle, stats, cta, showLogo } = overlay;
+  const { title, subtitle, stats, cta, showLogo, position } = overlay;
+
+  // ---- Vị trí khối chữ ------------------------------------------------------
+  // "auto" = bố cục mặc định theo tỉ lệ khung, ĐÚNG như trước khi có tùy chọn
+  // này - project cũ render lại phải ra y hệt.
+  const isAutoPosition = position === "auto";
+  const resolvedPosition = isAutoPosition ? AUTO_POSITION[orientation] : position;
+  const [vert, horiz] = resolvedPosition.split("-") as [VertPos, HorizPos];
+  /** align-items/justify-content tương ứng cạnh ngang đã chọn */
+  const flexAlign =
+    horiz === "left" ? "flex-start" : horiz === "right" ? "flex-end" : "center";
+  /** Tâm của scrim + glow - phải bám khối chữ để chữ luôn nằm trên nền tối */
+  const focus = focusOf(orientation, vert, horiz, isAutoPosition);
 
   // Nạp font brand thật (nếu backend đưa file). ensureBrandFont idempotent;
   // loadFont của @remotion/fonts tự delayRender/continueRender nên frame chỉ
@@ -166,30 +217,49 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
   // ---- Lớp 1: brand tint phủ TOÀN khung ------------------------------------
   // Gradient chéo rất nhẹ từ góc chứa chữ tan ra 55% — kéo tông primary tràn
   // sang cả vùng ảnh để 2 vùng chung một "không khí" màu.
-  const brandTint =
-    orientation === "horizontal"
-      ? `linear-gradient(100deg, ${rgba(colors.primary, 0.1)} 0%, transparent 55%)`
-      : `linear-gradient(to top, ${rgba(colors.primary, 0.1)} 0%, transparent 55%)`;
+  // Hướng gradient đi TỪ phía có chữ ra ngoài - chữ ở trên thì tint phải đổ
+  // xuống, không thì lớp tint nằm ngược phía với khối chữ.
+  const tintDirection =
+    horiz === "left" && vert === "middle"
+      ? "100deg"
+      : horiz === "right" && vert === "middle"
+        ? "260deg"
+        : vert === "top"
+          ? "to bottom"
+          : "to top";
+  const brandTint = `linear-gradient(${tintDirection}, ${rgba(colors.primary, 0.1)} 0%, transparent 55%)`;
 
   // ---- Lớp 2: scrim ELLIPSE neo ở góc chứa chữ ------------------------------
   // Radial gradient phủ cả khung, tâm nằm trong vùng chữ — độ tối tan tự nhiên
   // theo MỌI hướng, không tạo cạnh/biên thẳng như dải linear cũ.
   const scrimBase = mix(colors.background, "#000000", 0.55);
-  const scrimGradient =
+  // Kích thước ellipse + các mốc tan theo tỉ lệ khung (khối chữ rộng/cao khác
+  // nhau); TÂM theo vị trí chữ đã chọn.
+  //
+  // Giữ NGUYÊN từng con số của ba bố cục cũ thay vì gộp thành một công thức
+  // chung: đã thử gộp và render lại ảnh "auto" ra khác hash, tức là ảnh người
+  // dùng đã tạo sẽ đổi sau khi cập nhật.
+  const scrimSpec =
     orientation === "horizontal"
-      ? `radial-gradient(ellipse 78% 115% at 18% 55%, ${rgba(scrimBase, 0.88)} 0%, ${rgba(scrimBase, 0.6)} 42%, ${rgba(scrimBase, 0.24)} 66%, transparent 84%)`
+      ? { size: "78% 115%", a0: 0.88, s1: 42, a1: 0.6, s2: 66, a2: 0.24 }
       : orientation === "square"
-        ? `radial-gradient(ellipse 115% 72% at 50% 96%, ${rgba(scrimBase, 0.88)} 0%, ${rgba(scrimBase, 0.58)} 44%, ${rgba(scrimBase, 0.22)} 68%, transparent 85%)`
-        : `radial-gradient(ellipse 130% 60% at 42% 94%, ${rgba(scrimBase, 0.9)} 0%, ${rgba(scrimBase, 0.6)} 44%, ${rgba(scrimBase, 0.24)} 68%, transparent 85%)`;
+        ? { size: "115% 72%", a0: 0.88, s1: 44, a1: 0.58, s2: 68, a2: 0.22 }
+        : { size: "130% 60%", a0: 0.9, s1: 44, a1: 0.6, s2: 68, a2: 0.24 };
+  const scrimGradient =
+    `radial-gradient(ellipse ${scrimSpec.size} at ${focus.x}% ${focus.y}%, ` +
+    `${rgba(scrimBase, scrimSpec.a0)} 0%, ${rgba(scrimBase, scrimSpec.a1)} ${scrimSpec.s1}%, ` +
+    `${rgba(scrimBase, scrimSpec.a2)} ${scrimSpec.s2}%, transparent ${orientation === "horizontal" ? 84 : 85}%)`;
 
   // ---- Lớp 3: glow primary sau khối title -----------------------------------
   // Nguồn sáng brand ngay sau chữ — nối khối chữ với ánh sáng của ảnh.
-  const glowCenter =
-    orientation === "horizontal"
+  // Glow bám sát khối chữ, kéo nhẹ vào trong khung so với tâm scrim
+  const glowCenter = isAutoPosition
+    ? orientation === "horizontal"
       ? "24% 48%"
       : orientation === "square"
         ? "50% 72%"
-        : "32% 74%";
+        : "32% 74%"
+    : `${focus.x}% ${vert === "top" ? focus.y + 8 : vert === "bottom" ? focus.y - 8 : focus.y}%`;
   const titleGlow = `radial-gradient(${Math.round(640 * u)}px ${Math.round(460 * u)}px at ${glowCenter}, ${rgba(colors.primary, 0.14)} 0%, ${rgba(colors.primary, 0.06)} 55%, transparent 100%)`;
 
   // ---- Kích thước chữ (scale theo width, chỉnh theo orientation) ----------
@@ -207,10 +277,16 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
   // ---- Logo góc trên --------------------------------------------------------
   // Chỉ còn logo ẢNH ở góc (dọc/vuông: trên-trái; ngang: trên-phải). brandName
   // dạng chữ đã chuyển xuống eyebrow badge trong khối nội dung — không lặp.
-  const logoCorner: React.CSSProperties =
-    orientation === "horizontal"
+  // Logo phải TRÁNH khối chữ: nằm ở dải dọc đối diện, và lệch sang cạnh ngang
+  // đối diện. Chữ dời lên trên mà logo vẫn ở trên là hai khối chồng lên nhau.
+  const logoCorner: React.CSSProperties = isAutoPosition
+    ? orientation === "horizontal"
       ? { top: marginY, right: marginX }
-      : { top: marginY, left: marginX };
+      : { top: marginY, left: marginX }
+    : {
+        ...(vert === "top" ? { bottom: marginY } : { top: marginY }),
+        ...(horiz === "right" ? { left: marginX } : { right: marginX }),
+      };
 
   const logoNode =
     showLogo && logoFile ? (
@@ -254,16 +330,21 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
   // ---- Khối nội dung ------------------------------------------------------
   // 16:9: căn giữa THEO CHIỀU DỌC, khối chữ max ~46% khung, cách mép trái 7%.
   // Dọc: 1/3 dưới. Vuông: đáy, căn giữa ngang.
-  const contentAlign: React.CSSProperties =
-    orientation === "horizontal"
-      ? { justifyContent: "center", alignItems: "flex-start", textAlign: "left" }
-      : orientation === "square"
-        ? { justifyContent: "flex-end", alignItems: "center", textAlign: "center" }
-        : { justifyContent: "flex-end", alignItems: "flex-start", textAlign: "left" };
+  const contentAlign: React.CSSProperties = {
+    justifyContent:
+      vert === "top" ? "flex-start" : vert === "bottom" ? "flex-end" : "center",
+    alignItems: flexAlign,
+    textAlign: horiz,
+  };
 
-  const centered = orientation === "square";
+  const centered = horiz === "center";
+  // 16:9 bó khối chữ trong 47% khung để nửa còn lại chừa chỗ cho chủ thể ảnh.
+  // Nhưng khi người dùng căn GIỮA thì không còn "nửa còn lại" nào để chừa, giữ
+  // 47% chỉ làm chữ xuống dòng vụn (đo được: "bộ" rơi một mình xuống dòng).
   const contentMaxWidth =
-    orientation === "horizontal" ? Math.round(width * 0.47) : Math.round(width - marginX * 2);
+    orientation === "horizontal"
+      ? Math.round(width * (horiz === "center" ? 0.72 : 0.47))
+      : Math.round(width - marginX * 2);
 
   const particleColor = (c: ParticleSpec["color"]): string =>
     c === "accent" ? colors.accent : colors.secondary;
@@ -289,8 +370,11 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
       {/* Glow primary sau khối title — nguồn sáng brand nối chữ với ảnh */}
       <AbsoluteFill style={{ background: titleGlow }} />
 
-      {/* Hạt trang trí accent/secondary — dẫn mắt từ khối chữ sang ảnh */}
-      {PARTICLES[orientation].map((p, i) =>
+      {/* Hạt trang trí accent/secondary — dẫn mắt từ khối chữ sang ảnh.
+          Tọa độ của chúng gắn cứng với bố cục mặc định (rìa khối chữ), nên khi
+          người dùng tự chọn vị trí khác thì bỏ hẳn - để lại là hạt rơi ĐÈ LÊN
+          chữ. */}
+      {(isAutoPosition ? PARTICLES[orientation] : []).map((p, i) =>
         p.shape === "plus" ? (
           <svg
             key={i}
@@ -340,7 +424,7 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
             display: "flex",
             flexDirection: "column",
             maxWidth: contentMaxWidth,
-            alignItems: centered ? "center" : "flex-start",
+            alignItems: flexAlign,
           }}
         >
           {/* Eyebrow badge — pill brandName, thay cho accent bar cũ */}
@@ -408,9 +492,13 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
                 height: Math.round(2 * u),
                 marginTop: Math.round(16 * u),
                 borderRadius: 999,
+                // Đầu đặc của kẻ luôn nằm về phía chữ căn vào: căn phải thì
+                // phải tan dần sang trái, không thì kẻ trông như lệch khỏi chữ
                 background: centered
                   ? `linear-gradient(90deg, transparent, ${colors.primary}, transparent)`
-                  : `linear-gradient(90deg, ${colors.primary}, transparent)`,
+                  : horiz === "right"
+                    ? `linear-gradient(270deg, ${colors.primary}, transparent)`
+                    : `linear-gradient(90deg, ${colors.primary}, transparent)`,
               }}
             />
           ) : null}
@@ -441,7 +529,7 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
                 flexWrap: "wrap",
                 alignItems: "stretch",
                 gap: Math.round(14 * u),
-                justifyContent: centered ? "center" : "flex-start",
+                justifyContent: flexAlign,
                 marginTop: Math.round(24 * u),
               }}
             >
@@ -453,7 +541,7 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
                     flexDirection: "column",
                     justifyContent: "center",
                     gap: Math.round(3 * u),
-                    alignItems: centered ? "center" : "flex-start",
+                    alignItems: flexAlign,
                     padding: `${Math.round(14 * u)}px ${Math.round(20 * u)}px`,
                     borderRadius: Math.round(14 * u),
                     // effects.liquidGlass tắt → chip phẳng đặc (không blur/glass)
@@ -504,7 +592,7 @@ export const Poster: React.FC<PosterProps> = ({ aspect, background, design, over
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                alignSelf: centered ? "center" : "flex-start",
+                alignSelf: flexAlign,
                 marginTop: Math.round(24 * u),
                 height: Math.round(52 * u),
                 padding: `0 ${Math.round(30 * u)}px`,

@@ -704,6 +704,20 @@ export const en: Record<string, string> = {
   "imageForm.model-hint": "List fetched directly from Google · Lite is cheaper/faster · Pro is highest quality",
   "imageForm.format": "Format",
   "imageForm.aspect-label": "Aspect ratio",
+  "imageForm.position-label": "Text position",
+  "imageForm.pos-auto": "Automatic",
+  "imageForm.pos-top": "top",
+  "imageForm.pos-middle": "middle",
+  "imageForm.pos-bottom": "bottom",
+  "imageForm.pos-left": "left",
+  "imageForm.pos-center": "center",
+  "imageForm.pos-right": "right",
+  "imageForm.pos-combo": "Align {vert} - {horiz}",
+  "imageForm.position-auto-hint":
+    "Chosen from the aspect ratio: landscape goes middle-left, square bottom-center, portrait bottom-left.",
+  "imageForm.position-hint":
+    "The dark scrim and glow follow the text so it stays readable; the logo moves to the opposite corner.",
+
   "imageForm.overlay-heading": "Text on image (set by Remotion)",
   "imageForm.overlay-title": "Text content on the image",
   "imageForm.overlay-sub": "(set by Remotion - synced to the Design System)",
