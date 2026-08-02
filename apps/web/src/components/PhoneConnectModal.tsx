@@ -4,6 +4,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import {
+  closePhoneSessionOnUnload,
   createUploadSession,
   getLanInfo,
   getTunnelStatus,
@@ -24,6 +25,12 @@ import { useT } from "@/lib/i18n";
  * upload video/ảnh thẳng vào assets của project (đường proxy /api, port 6868).
  * Nếu .env có TUNNEL_DOMAIN (Cloudflare Tunnel) thì option mặc định là
  * https://<domain>/m/<projectId> - dùng được qua 4G/5G, không cần cùng WiFi.
+ *
+ * ĐÓNG MODAL = ĐÓNG HẾT. Token upload bị thu hồi, và nếu đường Internet được
+ * bật TỪ CHÍNH modal này thì tunnel cũng bị tắt luôn. Lý do: link tunnel là
+ * public, để nó sống sau khi người dùng đã xong việc là mở toang dashboard ra
+ * Internet mà không ai để ý. Tunnel người dùng tự bật ở trang Kết nối thì KHÔNG
+ * đụng tới - cái đó thường dùng để vào dashboard từ xa.
  */
 
 /** Giá trị option "đi qua Cloudflare Tunnel" trong select Mạng (IP không bao giờ trùng). */
@@ -61,6 +68,22 @@ export function PhoneConnectModal({
   useEffect(() => {
     openRef.current = open;
   }, [open]);
+  /**
+   * Tunnel có phải do CHÍNH modal này bật không. Chỉ khi true mới tắt lúc đóng
+   * modal - tunnel bật sẵn từ trang Kết nối thì để nguyên.
+   *
+   * Giữ CẢ ref lẫn state: hàm dọn dẹp lúc unmount phải đọc được giá trị mới
+   * nhất (state trong closure của effect đã cũ), còn phần hiển thị thì cần
+   * state mới vẽ lại được.
+   */
+  const startedHereRef = useRef(false);
+  const [startedHere, setStartedHere] = useState(false);
+  const markStartedHere = (v: boolean) => {
+    startedHereRef.current = v;
+    setStartedHere(v);
+  };
+  /** Token hiện hành cho đường dọn dẹp lúc tab bị đóng đột ngột */
+  const tokenRef = useRef<string | null>(null);
 
   // Lấy IP LAN mỗi lần mở modal (đổi mạng WiFi thì IP đổi theo)
   useEffect(() => {
@@ -92,9 +115,17 @@ export function PhoneConnectModal({
     setTunnel(null);
     setTunnelBusy(null);
     setTunnelError(null);
+    // Mở lại modal = làm mới hoàn toàn; chỉ nhận lại quyền tắt khi server xác
+    // nhận tunnel đang chạy là bản auto (ngay bên dưới)
+    markStartedHere(false);
     getTunnelStatus()
       .then((s) => {
-        if (alive) setTunnel(s);
+        if (!alive) return;
+        setTunnel(s);
+        // Tunnel đang chạy mà server đánh dấu `auto` = do một phiên QR trước bật
+        // lên (modal mở lại, hoặc tab cũ chết). Nhận lại nó để lần đóng này tắt
+        // được - nếu không nó sẽ sống tới khi watchdog phía server ra tay.
+        if (s.running && s.auto) markStartedHere(true);
       })
       .catch(() => {});
     return () => {
@@ -103,7 +134,7 @@ export function PhoneConnectModal({
   }, [open]);
 
   // Phiên upload: MỞ modal → tạo token (URL/QR mang ?k=); ĐÓNG modal
-  // (onClose/unmount) → thu hồi ngay - link trên điện thoại hết hiệu lực.
+  // (onClose/unmount) → thu hồi token VÀ tắt tunnel nếu tunnel do modal bật.
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -112,6 +143,7 @@ export function PhoneConnectModal({
     createUploadSession(projectId)
       .then((s) => {
         created = s.token;
+        tokenRef.current = s.token;
         if (alive) setToken(s.token);
         // Modal đã đóng trước khi server trả lời → thu hồi luôn
         else void revokeUploadSession(s.token).catch(() => {});
@@ -122,9 +154,31 @@ export function PhoneConnectModal({
     return () => {
       alive = false;
       setToken(null);
+      tokenRef.current = null;
       if (created) void revokeUploadSession(created).catch(() => {});
+      if (startedHereRef.current) {
+        // Ghi thẳng vào ref, KHÔNG gọi markStartedHere: đây là lúc unmount,
+        // setState ở đây là cập nhật một component đã chết
+        startedHereRef.current = false;
+        // onlyAuto: server tự bỏ qua nếu tunnel hiện tại không phải bản auto
+        void stopTunnel(true).catch(() => {});
+      }
     };
   }, [open, projectId]);
+
+  /**
+   * Tab bị đóng / tải lại / chuyển trang cứng: React không chạy hàm dọn dẹp kịp,
+   * mà fetch thường cũng bị hủy ngay khi trang chết. Dùng đường keepalive riêng.
+   * `pagehide` chứ không phải `beforeunload` - Safari trên iOS không bắn beforeunload.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const onPageHide = () => {
+      closePhoneSessionOnUnload(tokenRef.current, startedHereRef.current);
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [open]);
 
   const viaTunnel = sel === TUNNEL_OPTION && !!lan?.tunnelDomain;
   const url =
@@ -163,7 +217,10 @@ export function PhoneConnectModal({
     setTunnelBusy("start");
     setTunnelError(null);
     try {
-      await startTunnel();
+      // auto: true - đánh dấu để server tự tắt khi hết phiên upload, phòng khi
+      // client không kịp gọi /stop (tab crash, mất điện)
+      await startTunnel(true);
+      markStartedHere(true);
       const deadline = Date.now() + TUNNEL_POLL_TIMEOUT_MS;
       let live = false;
       while (Date.now() < deadline) {
@@ -197,6 +254,7 @@ export function PhoneConnectModal({
     setTunnelError(null);
     try {
       await stopTunnel();
+      markStartedHere(false);
       const [s, info] = await Promise.all([getTunnelStatus(), getLanInfo()]);
       if (!openRef.current) return;
       setTunnel(s);
@@ -266,9 +324,10 @@ export function PhoneConnectModal({
         </div>
       )}
 
-      {/* Bảo mật: token upload bị thu hồi ngay khi đóng modal */}
+      {/* Bảo mật: token upload bị thu hồi ngay khi đóng modal - và tunnel do
+          chính modal bật cũng tắt theo, nên phải nói trước để không ai bất ngờ */}
       <p className="text-xs font-medium text-[var(--text-muted)]">
-        {t("phone.session-note")}
+        {startedHere ? t("phone.session-note-tunnel") : t("phone.session-note")}
       </p>
 
       {viaTunnel ? (

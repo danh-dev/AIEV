@@ -70,6 +70,11 @@ DELETE /api/upload-session/:token   → 204                                     
 
 URL/QR mang token qua query `?k=`; trang `/m` gửi lại qua field `token` (append TRƯỚC `file`). POST `/api/assets` scope `project` từ máy KHÁC máy chủ (điện thoại LAN/tunnel — không phải loopback, hoặc có `x-forwarded-for`) bắt buộc token hợp lệ đúng project — sai/thiếu → `403 UPLOAD_TOKEN_INVALID` ("Link upload đã hết hạn — mở lại mã QR trên máy tính.").
 
+**Đóng modal QR = đóng hết.** Thu hồi token, và nếu đường Internet được bật TỪ CHÍNH modal đó thì
+tắt luôn tunnel (xem [Cloudflare Tunnel](#cloudflare-tunnel-card-trên-trang-connections)). Tab bị
+đóng đột ngột thì client dùng `fetch(..., { keepalive: true })` trong `pagehide` để gửi nốt hai lời
+gọi này; hỏng nốt đường đó thì token hết hạn theo TTL 60 phút và tunnel bị vòng canh của server tắt.
+
 ## Projects
 
 ```
@@ -187,13 +192,23 @@ POST /api/connections/:provider/test     → { ok, message? } — gọi thử AP
 ## Cloudflare Tunnel (card trên trang /connections)
 
 ```
-GET  /api/tunnel          → { installed, running, mode: "named"|"quick"|null, url, domain, lastLog: string[] }
+GET  /api/tunnel          → { installed, running, auto, mode: "named"|"quick"|null, url, domain, lastLog: string[] }
 PUT  /api/tunnel/domain   { domain } → 200 — validate hostname, ghi TUNNEL_DOMAIN vào .env (rỗng/null = xóa)
-POST /api/tunnel/start    → 202 { mode } — có domain: named tunnel; không: Quick Tunnel (*.trycloudflare.com). 409 NOT_INSTALLED / đang chạy
-POST /api/tunnel/stop     → 204 — kill cả cây process cloudflared
+POST /api/tunnel/start    { auto? } → 202 { mode, auto } — có domain: named tunnel; không: Quick Tunnel (*.trycloudflare.com). 409 NOT_INSTALLED / đang chạy
+POST /api/tunnel/stop     { onlyAuto? } → 204 — kill cả cây process cloudflared
 ```
 
 Quick Tunnel đang chạy → `/api/lan-info.tunnelDomain` trả hostname URL đó (ưu tiên hơn env) để QR điện thoại tự dùng.
+
+**Tunnel `auto` — bật từ modal QR "Kết nối điện thoại".** Link tunnel là public, để nó sống sau khi
+người dùng đã xong việc là phơi dashboard ra Internet mà không ai để ý. Nên:
+
+- `POST /start { auto: true }` đánh dấu tunnel này thuộc về phiên QR.
+- Đóng modal → client gọi `POST /stop { onlyAuto: true }`. Cờ `onlyAuto` để KHÔNG tắt nhầm tunnel
+  người dùng tự bật ở trang Kết nối (cái đó thường dùng để vào dashboard từ xa).
+- Tab bị đóng đột ngột thì lời gọi trên không tới nơi. Server có vòng canh 30s: tunnel `auto` mà
+  **không còn phiên upload nào sống** liên tục quá 2 phút thì tự tắt. Đo thật: tắt ở giây 121.
+- Còn phiên upload sống thì không bao giờ tắt (đã đo: chạy tiếp qua mốc 150s).
 
 ## Ảnh minh họa AI (POST /api/illustrations)
 

@@ -1513,6 +1513,8 @@ export interface TunnelStatus {
   /** cloudflared có trên PATH của máy chạy server không. */
   installed: boolean;
   running: boolean;
+  /** true = tunnel do modal QR bật lên, sẽ tự tắt khi đóng modal / hết phiên upload. */
+  auto: boolean;
   /** named = có TUNNEL_DOMAIN; quick = URL ngẫu nhiên trycloudflare.com. Null khi không chạy. */
   mode: "named" | "quick" | null;
   /** URL public đang hoạt động (https://…) - null khi không chạy / quick chưa parse được. */
@@ -1529,12 +1531,50 @@ export const getTunnelStatus = () => request<TunnelStatus>("/api/tunnel");
 export const setTunnelDomain = (domain: string | null) =>
   jsonBody<TunnelStatus>("/api/tunnel/domain", "PUT", { domain });
 
-/** Bật tunnel - 409 NOT_INSTALLED nếu chưa cài cloudflared, 409 nếu đang chạy. */
-export const startTunnel = () =>
-  post<{ mode: "named" | "quick" }>("/api/tunnel/start");
+/**
+ * Bật tunnel - 409 NOT_INSTALLED nếu chưa cài cloudflared, 409 nếu đang chạy.
+ * `auto` = bật từ modal QR: server đánh dấu để tự tắt khi đóng modal / hết phiên upload.
+ */
+export const startTunnel = (auto = false) =>
+  post<{ mode: "named" | "quick"; auto: boolean }>("/api/tunnel/start", { auto });
 
-/** Tắt tunnel (kill cả cây cloudflared) → 204. */
-export const stopTunnel = () => post<void>("/api/tunnel/stop");
+/**
+ * Tắt tunnel (kill cả cây cloudflared) → 204.
+ * `onlyAuto` = chỉ tắt nếu tunnel do modal QR bật - tránh tắt nhầm tunnel người
+ * dùng tự bật ở trang Kết nối để vào dashboard từ xa.
+ */
+export const stopTunnel = (onlyAuto = false) =>
+  post<void>("/api/tunnel/stop", { onlyAuto });
+
+/**
+ * Dọn dẹp lúc TAB BỊ ĐÓNG ĐỘT NGỘT: thu hồi token upload + tắt tunnel của modal.
+ *
+ * Không dùng được hàm request() ở đây - fetch thường bị hủy ngay khi trang chết.
+ * `keepalive` bảo trình duyệt cứ gửi nốt. sendBeacon không dùng được vì cần
+ * method DELETE và header token.
+ */
+export function closePhoneSessionOnUnload(uploadToken: string | null, stopAuto: boolean): void {
+  // Token đã nạp sẵn từ trước (modal chỉ mở được khi dashboard đã xác thực) -
+  // lúc trang đang chết thì không kịp await ensureToken()
+  const token = apiToken;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["x-aiev-token"] = token;
+  if (uploadToken) {
+    void fetch(`/api/upload-session/${encodeURIComponent(uploadToken)}`, {
+      method: "DELETE",
+      headers,
+      keepalive: true,
+    }).catch(() => {});
+  }
+  if (stopAuto) {
+    void fetch("/api/tunnel/stop", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ onlyAuto: true }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+}
 
 // ============ Media helper ============
 

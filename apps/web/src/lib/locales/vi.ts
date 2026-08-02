@@ -527,6 +527,9 @@ export const vi: Record<string, string> = {
     "Đường Internet qua Cloudflare Tunnel - dùng được với 4G/5G. Nhớ bật cloudflared trên máy này.",
   "phone.session-note":
     "Link chỉ dùng được khi cửa sổ này đang mở - đóng là khóa.",
+  // Hiện thay cho dòng trên khi đường Internet được bật từ chính modal này
+  "phone.session-note-tunnel":
+    "Đóng cửa sổ này là khóa link VÀ tắt luôn đường Internet vừa bật.",
 
   // ===== Upload đang đến server (SSE kênh "upload") =====
   "upload.receiving": "Đang nhận file… {percent}%",

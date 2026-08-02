@@ -4,6 +4,7 @@ import path from "node:path";
 import { repoRoot, upsertEnvVar } from "../config.js";
 import { Router } from "express";
 import { HttpError, killTree } from "../util.js";
+import { hasLiveUploadSessions } from "./uploadSession.js";
 
 /**
  * Quản lý Cloudflare Tunnel ngay trên web UI (trang Kết nối).
@@ -18,6 +19,15 @@ let child: ChildProcess | null = null;
 let mode: TunnelMode | null = null;
 /** URL Quick Tunnel parse được từ log (https://xxx.trycloudflare.com) */
 let quickUrl: string | null = null;
+/**
+ * Tunnel này do modal QR "Kết nối điện thoại" bật lên (POST /start { auto: true })
+ * hay do người dùng chủ động bật ở trang Kết nối?
+ *
+ * Chỉ tunnel `auto` mới bị tự tắt khi đóng modal / hết phiên upload. Tunnel bật
+ * tay ở trang Kết nối thường dùng để vào dashboard từ xa - tắt trộm nó là cắt
+ * mất đường về của chính người dùng.
+ */
+let autoStarted = false;
 /** Ring buffer log cloudflared - giữ tối đa 20 dòng cuối */
 const lastLog: string[] = [];
 const LOG_MAX = 20;
@@ -114,11 +124,57 @@ export function quickTunnelHostname(): string | null {
   return null;
 }
 
+/** Tắt tunnel + dọn state. Dùng chung cho POST /stop và watchdog. */
+function stopTunnelNow(): void {
+  if (child) killTree(child);
+  child = null;
+  mode = null;
+  quickUrl = null;
+  autoStarted = false;
+}
+
+/**
+ * Lưới an toàn cho tunnel `auto`: modal QR đóng đúng cách thì client tự gọi
+ * /stop, nhưng tab bị đóng đột ngột, mất mạng hay máy sập thì lời gọi đó không
+ * bao giờ tới - và URL public cứ thế sống tiếp. Vòng canh này bắt nốt các ca đó.
+ *
+ * Điều kiện tắt: không còn phiên upload nào sống, và tình trạng đó kéo dài quá
+ * GRACE_MS. Có khoảng ân hạn vì lúc mở modal có một nhịp ngắn token cũ vừa bị
+ * thu hồi mà token mới chưa kịp tạo.
+ */
+const WATCHDOG_EVERY_MS = 30_000;
+const GRACE_MS = 2 * 60_000;
+let idleSince: number | null = null;
+
+const watchdog = setInterval(() => {
+  if (!child || !autoStarted) {
+    idleSince = null;
+    return;
+  }
+  if (hasLiveUploadSessions()) {
+    idleSince = null;
+    return;
+  }
+  if (idleSince === null) {
+    idleSince = Date.now();
+    return;
+  }
+  if (Date.now() - idleSince >= GRACE_MS) {
+    pushLog("[tunnel] không còn phiên upload nào - tự tắt tunnel đã bật cho QR");
+    stopTunnelNow();
+    idleSince = null;
+  }
+}, WATCHDOG_EVERY_MS);
+// Đừng giữ process sống chỉ vì cái timer này
+watchdog.unref?.();
+
 function statusPayload() {
   const domain = envDomain();
   return {
     installed: cloudflaredInstalled(),
     running: !!child,
+    /** true = tunnel do modal QR bật, sẽ tự tắt khi đóng modal */
+    auto: !!child && autoStarted,
     mode: child ? mode : null,
     url: child
       ? mode === "named"
@@ -160,7 +216,10 @@ router.put("/domain", (req, res) => {
   res.json(statusPayload());
 });
 
-// POST /api/tunnel/start - spawn cloudflared (named nếu có domain, không thì quick)
+/**
+ * POST /api/tunnel/start - spawn cloudflared (named nếu có domain, không thì quick)
+ * Body { auto: true } = bật từ modal QR → sẽ tự tắt khi đóng modal / hết phiên upload.
+ */
 router.post("/start", (req, res) => {
   if (!cloudflaredInstalled()) {
     throw new HttpError(
@@ -193,6 +252,8 @@ router.post("/start", (req, res) => {
   }
 
   quickUrl = null;
+  autoStarted = (req.body as Record<string, unknown> | undefined)?.auto === true;
+  idleSince = null;
   lastLog.length = 0;
   pushLog(`$ cloudflared ${args.join(" ")}`);
 
@@ -206,6 +267,7 @@ router.post("/start", (req, res) => {
       child = null;
       mode = null;
       quickUrl = null;
+      autoStarted = false;
     }
   });
   proc.on("close", (code) => {
@@ -214,20 +276,25 @@ router.post("/start", (req, res) => {
       child = null;
       mode = null;
       quickUrl = null;
+      autoStarted = false;
     }
   });
 
-  res.status(202).json({ mode });
+  res.status(202).json({ mode, auto: autoStarted });
 });
 
-// POST /api/tunnel/stop - kill cả cây process cloudflared
-router.post("/stop", (_req, res) => {
-  if (child) {
-    killTree(child);
-    child = null;
-    mode = null;
-    quickUrl = null;
+/**
+ * POST /api/tunnel/stop - kill cả cây process cloudflared.
+ * Body { onlyAuto: true } = CHỈ tắt nếu tunnel do modal QR bật. Modal đóng lại
+ * gửi cờ này để không lỡ tay tắt tunnel người dùng tự bật ở trang Kết nối.
+ */
+router.post("/stop", (req, res) => {
+  const onlyAuto = (req.body as Record<string, unknown> | undefined)?.onlyAuto === true;
+  if (onlyAuto && !autoStarted) {
+    res.status(204).end();
+    return;
   }
+  stopTunnelNow();
   res.status(204).end();
 });
 

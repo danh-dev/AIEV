@@ -527,6 +527,9 @@ export const en: Record<string, string> = {
     "Internet route via Cloudflare Tunnel - works over 4G/5G. Remember to keep cloudflared running on this machine.",
   "phone.session-note":
     "The link only works while this window is open - closing it locks the link.",
+  // Replaces the line above when the Internet route was turned on from this modal
+  "phone.session-note-tunnel":
+    "Closing this window locks the link AND turns off the Internet route you just started.",
 
   // ===== Incoming upload (SSE "upload" channel) =====
   "upload.receiving": "Receiving file… {percent}%",

@@ -49,6 +49,16 @@ export function isKnownUploadToken(token: string): boolean {
   return true;
 }
 
+/**
+ * Còn phiên upload nào đang sống không - tunnel.ts dùng để tự tắt tunnel do
+ * modal QR bật lên. Không còn phiên nào nghĩa là không ai đang cần đường
+ * Internet đó nữa, mà để nó chạy tiếp thì URL public vẫn sống vô thời hạn.
+ */
+export function hasLiveUploadSessions(): boolean {
+  prune();
+  return sessions.size > 0;
+}
+
 /** Token còn hiệu lực cho đúng project (chưa hết hạn, chưa bị thu hồi)? */
 export function isValidUploadToken(token: string, projectId: string): boolean {
   if (!token || !projectId) return false;
