@@ -7,7 +7,6 @@ import {
   Image as ImageIcon,
   Music,
   Upload,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -21,6 +20,7 @@ import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
+import { MediaPreviewModal } from "@/components/MediaPreviewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { formatBytes, formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -39,57 +39,6 @@ function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
     default:
       return <FileText size={15} strokeWidth={1.75} className={cls} />;
   }
-}
-
-function Preview({ file, onClose }: { file: FileInfo; onClose: () => void }) {
-  const { t } = useT();
-  const url = mediaUrl(file.relPath) + "?v=" + encodeURIComponent(file.mtime);
-  return (
-    <Card
-      title={file.name}
-      actions={
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("assetsPage.close-preview")}
-          className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-        >
-          <X size={16} strokeWidth={2} />
-        </button>
-      }
-    >
-      {file.kind === "video" && (
-        <video
-          controls
-          src={url}
-          className="max-h-[480px] w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
-        />
-      )}
-      {file.kind === "audio" && <audio controls src={url} className="w-full" />}
-      {file.kind === "image" && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={url}
-          alt={file.name}
-          className="max-h-[480px] w-auto max-w-full rounded-[var(--radius)]"
-        />
-      )}
-      {file.kind === "other" && (
-        <p className="text-sm text-[var(--text-muted)]">
-          {t("assetsPage.no-preview")}{" "}
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-[var(--primary)]"
-          >
-            {t("assetsPage.open-direct")}
-          </a>
-        </p>
-      )}
-      <p className="mt-2 text-xs text-[var(--text-muted)]">{file.relPath}</p>
-    </Card>
-  );
 }
 
 export default function AssetsPage() {
@@ -228,7 +177,20 @@ export default function AssetsPage() {
                   >
                     <td>
                       <span className="flex items-center gap-2">
-                        <KindIcon kind={f.kind} />
+                        {/* Ảnh hiện thumbnail thay cho icon - giống bảng Image
+                            Projects. Không bọc ZoomableThumb vì cả hàng đã click
+                            được để mở đúng modal đó (lồng button trong hàng
+                            click được là thừa và dễ bắn hai lần). */}
+                        {f.kind === "image" ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`${mediaUrl(f.relPath)}?v=${encodeURIComponent(f.mtime)}`}
+                            alt=""
+                            className="h-7 w-7 shrink-0 rounded-[3px] border border-[var(--border)] bg-[var(--bg-subtle)] object-cover"
+                          />
+                        ) : (
+                          <KindIcon kind={f.kind} />
+                        )}
                         {f.name}
                       </span>
                     </td>
@@ -267,7 +229,10 @@ export default function AssetsPage() {
         </Card>
       </div>
 
-      {preview && <Preview file={preview} onClose={() => setPreview(null)} />}
+      {/* Modal dùng chung toàn app - trước đây trang này tự chế card xem trước
+          nội tuyến: không đóng được bằng Esc, không có nút "Mở file", và nó đẩy
+          bố cục trang xô xuống mỗi lần bấm một file */}
+      <MediaPreviewModal file={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

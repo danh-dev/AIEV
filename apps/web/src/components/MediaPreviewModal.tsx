@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, FolderOpen, Loader2 } from "lucide-react";
+import { ExternalLink, FolderOpen, Loader2, Maximize2 } from "lucide-react";
 import { useEffect, useState, type MouseEvent } from "react";
 import { mediaUrl, revealFile, type FileInfo } from "@/lib/api";
 import { Button } from "@/components/Button";
@@ -10,6 +10,76 @@ import { useT } from "@/lib/i18n";
 /** File có xem trước được trong modal không (ảnh/video/audio). */
 export function canPreview(kind: FileInfo["kind"]): boolean {
   return kind === "image" || kind === "video" || kind === "audio";
+}
+
+/**
+ * Dựng FileInfo tối thiểu cho modal xem trước từ một đường dẫn ảnh.
+ *
+ * Nhiều chỗ (thumbnail project, ảnh Image Project, logo Style) chỉ có relPath
+ * chứ không có FileInfo đầy đủ từ API. Trước đây mỗi trang tự chế một object
+ * riêng nên chỗ thì thiếu cache-bust, chỗ thì đặt tên file khác nhau.
+ *
+ * `version` dùng để cache-bust (mtime/updatedAt) - ảnh render đè lên cùng tên.
+ */
+export function imageFileInfo(
+  relPath: string,
+  opts: { name?: string; version?: string } = {},
+): FileInfo {
+  return {
+    name: opts.name ?? relPath.split("/").pop() ?? relPath,
+    relPath,
+    size: 0,
+    mtime: opts.version ?? "",
+    kind: "image",
+  };
+}
+
+/**
+ * Ảnh bấm được để xem lớn - dùng CHUNG cho mọi thumbnail trong app.
+ *
+ * Trước đây mỗi nơi một kiểu: có nơi ảnh trơ không bấm được, có nơi tự chế
+ * lightbox riêng không đóng được bằng Esc. Gói vào đây để chỗ nào cũng có cùng
+ * gợi ý thị giác (con trỏ phóng to + lớp phủ khi rê chuột) và cùng cách mở.
+ */
+export function ZoomableThumb({
+  file,
+  alt,
+  onOpen,
+  className = "",
+  imgClassName = "h-full w-full object-contain",
+  iconSize = 16,
+}: {
+  file: FileInfo;
+  alt: string;
+  onOpen: (file: FileInfo) => void;
+  /** Class cho khung bọc (kích thước, viền, nền) */
+  className?: string;
+  /** Class cho chính thẻ img (object-contain hay object-cover) */
+  imgClassName?: string;
+  iconSize?: number;
+}) {
+  const { t } = useT();
+  const url =
+    mediaUrl(file.relPath) +
+    (file.mtime ? `?v=${encodeURIComponent(file.mtime)}` : "");
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(file)}
+      title={t("media.zoom-title")}
+      aria-label={t("media.zoom-title")}
+      className={`group relative block cursor-zoom-in overflow-hidden ${className}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={alt} className={imgClassName} />
+      {/* Lớp phủ chỉ hiện khi rê chuột - để người dùng biết ảnh bấm được.
+          Icon để trắng cố ý: nó nằm trên nền tối của lớp phủ ở CẢ hai theme,
+          dùng token --text sẽ tàng hình ở theme tối. */}
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <Maximize2 size={iconSize} strokeWidth={2} className="text-white" />
+      </span>
+    </button>
+  );
 }
 
 /**
@@ -118,22 +188,34 @@ export function MediaPreviewModal({
         <img
           src={url}
           alt={file.name}
-          className="mx-auto max-h-[80vh] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)] object-contain"
+          className="mx-auto max-h-[66vh] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)] object-contain"
         />
       ) : file.kind === "video" ? (
         <video
           controls
           autoPlay
           src={url}
-          className="mx-auto max-h-[80vh] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
+          className="mx-auto max-h-[66vh] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
         />
       ) : file.kind === "audio" ? (
         <audio controls autoPlay src={url} className="w-full" />
       ) : (
+        // File không xem trước được (zip, json…) - vẫn phải mở thẳng được,
+        // trang Assets trước đây có link này nên không được làm mất
         <p className="text-sm text-[var(--text-muted)]">
-          {t("media.no-preview")}
+          {t("media.no-preview")}{" "}
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-[var(--primary)] hover:underline"
+          >
+            {t("media.open-direct")}
+          </a>
         </p>
       )}
+      {/* Đường dẫn tương đối - biết file nằm đâu trong repo mà không phải mở Explorer */}
+      <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{file.relPath}</p>
     </Modal>
   );
 }

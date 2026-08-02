@@ -75,6 +75,8 @@ export const en: Record<string, string> = {
   "media.reveal-aria": "Reveal {path} in the file manager",
   "media.open-tab": "Open in new tab",
   "media.no-preview": "This file type cannot be previewed.",
+  "media.open-direct": "Open directly",
+  "media.zoom-title": "Click to view in detail",
 
   // ===== Clone project =====
   "clone.title": "Clone project",
@@ -259,9 +261,6 @@ export const en: Record<string, string> = {
   // ===== Assets =====
   "assetsPage.subtitle": "Footage, images, audio in imports/ and final videos in outputs/",
   "assetsPage.upload": "Upload files",
-  "assetsPage.close-preview": "Close preview",
-  "assetsPage.no-preview": "This file type cannot be previewed.",
-  "assetsPage.open-direct": "Open directly",
   "assetsPage.load-error": "Could not load the file list.",
   "assetsPage.upload-error": "File upload failed.",
   "assetsPage.empty-imports": "No files in imports/ yet. Drag files here or click Upload files.",
@@ -356,7 +355,6 @@ export const en: Record<string, string> = {
   "project.thumb-bg-placeholder": "Leave empty = generated from the title; background drawn by Gemini following the Style Design",
   "project.thumb-desc": "The system grabs a frame from the final video, Gemini draws the background following the Style Design, then Remotion composes the title - takes about 1 minute.",
   "project.thumb-error": "Could not create the thumbnail: {error}",
-  "project.zoom-video-aria": "View video enlarged",
   "project.job-queued": "Job {id} ({type}) added to the queue.",
   "project.job-error": "Could not create the job: {error}",
   "project.junk-confirm": "Delete {items} junk items, freeing {size}?\nProject source files and the final video are kept.",
@@ -682,7 +680,6 @@ export const en: Record<string, string> = {
   "imageDetail.save-changes": "Save changes",
   "imageDetail.delete-title": "Delete image project",
   "imageDetail.delete-desc-1": "Delete image project",
-  "imageDetail.zoom-aria": "View image enlarged",
 
   // ===== Image form =====
   "imageForm.kind.background": "Background",

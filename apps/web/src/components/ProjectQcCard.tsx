@@ -24,7 +24,7 @@ import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
-import { MediaPreviewModal } from "@/components/MediaPreviewModal";
+import { MediaPreviewModal, imageFileInfo } from "@/components/MediaPreviewModal";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -251,13 +251,7 @@ export function ProjectQcCard({
                     key={rel}
                     type="button"
                     onClick={() =>
-                      setPreview({
-                        name: rel.split("/").pop() ?? rel,
-                        relPath: rel,
-                        size: 0,
-                        mtime: report.checkedAt,
-                        kind: "image",
-                      })
+                      setPreview(imageFileInfo(rel, { version: report.checkedAt }))
                     }
                     className="shrink-0 overflow-hidden rounded-[var(--radius)] border border-[var(--border)] transition-opacity duration-150 hover:opacity-80"
                     title={t("qc.safe-area-open")}

@@ -11,7 +11,7 @@ import {
   getImageJunk,
   getImageProjects,
   getJobs,
-  imageFileUrl,
+  type FileInfo,
   type ImageProject,
 } from "@/lib/api";
 import { useJobEvents } from "@/lib/useEvents";
@@ -27,6 +27,11 @@ import {
   ImageStatusBadge,
   type ImageDraft,
 } from "@/components/ImageProjectForm";
+import {
+  MediaPreviewModal,
+  ZoomableThumb,
+  imageFileInfo,
+} from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
 import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
@@ -41,6 +46,8 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   const router = useRouter();
   const [list, setList] = useState<ImageProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Xem chi tiết ảnh ngay từ danh sách, không phải vào trang con
+  const [preview, setPreview] = useState<FileInfo | null>(null);
   // Tiến trình thật của job image-gen theo projectId - cho ProgressBar mini trong bảng
   const [genProgress, setGenProgress] = useState<
     Record<string, { progress: number; step: string }>
@@ -357,23 +364,30 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                         onChange={() => toggleOne(p.id)}
                       />
                     </td>
-                    <td>
-                      <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[var(--radius)] bg-[var(--bg-subtle)]">
-                        {thumb ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={imageFileUrl(p.id, thumb, p.updatedAt)}
-                            alt={p.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
+                    {/* stopPropagation: bấm ảnh là XEM ẢNH, không phải mở project
+                        (cả hàng vốn click được để vào trang chi tiết) */}
+                    <td onClick={(e) => e.stopPropagation()}>
+                      {thumb ? (
+                        <ZoomableThumb
+                          file={imageFileInfo(
+                            `image-projects/${p.id}/${thumb}`,
+                            { name: p.name, version: p.updatedAt },
+                          )}
+                          alt={p.name}
+                          onOpen={setPreview}
+                          className="h-10 w-10 rounded-[var(--radius)] bg-[var(--bg-subtle)]"
+                          imgClassName="h-full w-full object-cover"
+                          iconSize={14}
+                        />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[var(--radius)] bg-[var(--bg-subtle)]">
                           <ImageIcon
                             size={18}
                             strokeWidth={1.5}
                             className="text-[var(--text-muted)] opacity-60"
                           />
-                        )}
-                      </span>
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span className="font-medium">{p.name}</span>
@@ -440,6 +454,9 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         onClose={() => setBulkDeleteOpen(false)}
         onConfirm={onDeleteSelected}
       />
+
+      {/* Xem chi tiết ảnh ngay từ bảng - modal dùng chung toàn app */}
+      <MediaPreviewModal file={preview} onClose={() => setPreview(null)} />
     </>
   );
 }

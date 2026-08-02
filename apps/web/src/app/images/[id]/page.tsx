@@ -11,7 +11,6 @@ import {
   Trash2,
   Upload,
   Wand2,
-  X,
   Zap,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -22,13 +21,18 @@ import {
   getImageProject,
   getJobs,
   imageFileUrl,
-  mediaUrl,
   updateImageProject,
   uploadImageBackground,
+  type FileInfo,
   type ImageGenStep,
   type ImageProject,
   type JobStatus,
 } from "@/lib/api";
+import {
+  MediaPreviewModal,
+  ZoomableThumb,
+  imageFileInfo,
+} from "@/components/MediaPreviewModal";
 import { useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -79,37 +83,46 @@ const JOB_LINGER_MS = 3000;
 /** Giới hạn số dòng log giữ trong bộ nhớ trang. */
 const MAX_LOG_LINES = 300;
 
-/** Ô ảnh nhỏ trong khối "Các bước" - Background | Final. */
+/**
+ * Ô ảnh nhỏ trong khối "Các bước" - Background | Final.
+ * Bấm vào mở modal xem chi tiết (trước đây ảnh trơ, không bấm được).
+ */
 function StepThumb({
   label,
-  relPath,
+  file,
   alt,
+  onOpen,
 }: {
   label: string;
-  relPath: string | null;
+  file: FileInfo | null;
   alt: string;
+  onOpen: (file: FileInfo) => void;
 }) {
+  const frame =
+    "flex h-36 w-full items-center justify-center overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]";
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-[var(--text-muted)]">
         {label}
       </span>
-      <div className="flex h-36 items-center justify-center overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]">
-        {relPath ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={mediaUrl(relPath)}
-            alt={alt}
-            className="h-full w-full object-contain"
-          />
-        ) : (
+      {file ? (
+        <ZoomableThumb
+          file={file}
+          alt={alt}
+          onOpen={onOpen}
+          className={frame}
+          imgClassName="h-full w-full object-contain"
+          iconSize={20}
+        />
+      ) : (
+        <div className={frame}>
           <ImageIcon
             size={22}
             strokeWidth={1.5}
             className="text-[var(--text-muted)] opacity-40"
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -143,7 +156,18 @@ export default function ImageProjectDetailPage() {
   } = useGeminiImageModels();
   const [modelSaving, setModelSaving] = useState(false);
 
-  const [zoomed, setZoomed] = useState(false);
+  // Ảnh đang xem chi tiết - dùng modal chung MediaPreviewModal (Esc, mở tab
+  // mới, mở file trong Explorer) thay cho lightbox tự chế trước đây
+  const [preview, setPreview] = useState<FileInfo | null>(null);
+  /** relPath của một file trong thư mục project ảnh này, kèm cache-bust */
+  const fileOf = useCallback(
+    (fileName: string, label: string): FileInfo =>
+      imageFileInfo(`image-projects/${imageId}/${fileName}`, {
+        name: label,
+        version: proj?.updatedAt,
+      }),
+    [imageId, proj?.updatedAt],
+  );
 
   // Job image-gen đang chạy/vừa xong của dự án này - tiến trình thật qua SSE
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
@@ -264,16 +288,6 @@ export default function ImageProjectDetailPage() {
     const el = logBoxRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [logLines]);
-
-  // Đóng lightbox bằng Escape
-  useEffect(() => {
-    if (!zoomed) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setZoomed(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [zoomed]);
 
   const jobRunning =
     activeJob !== null &&
@@ -440,7 +454,7 @@ export default function ImageProjectDetailPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setZoomed(true)}
+                    onClick={() => setPreview(fileOf(proj.final!, "Final"))}
                     className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                   >
                     <Maximize2 size={13} strokeWidth={2} />
@@ -514,11 +528,15 @@ export default function ImageProjectDetailPage() {
               </div>
             )}
             {proj?.final ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageFileUrl(imageId, proj.final, proj.updatedAt)}
+              // Ảnh chính cũng bấm được để xem full - không bắt người dùng phải
+              // tìm ra nút "Phóng to" ở góc card
+              <ZoomableThumb
+                file={fileOf(proj.final, "Final")}
                 alt={tf("imageDetail.final-alt-name", { name: proj.name })}
-                className="mx-auto max-h-[480px] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
+                onOpen={setPreview}
+                className="mx-auto max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
+                imgClassName="max-h-[480px] w-auto max-w-full"
+                iconSize={24}
               />
             ) : !generating && !activeJob ? (
               <EmptyState
@@ -532,21 +550,19 @@ export default function ImageProjectDetailPage() {
             <div className="grid grid-cols-2 gap-3">
               <StepThumb
                 label={t("imageDetail.step-bg")}
-                relPath={
+                file={
                   proj?.background
-                    ? `image-projects/${imageId}/${proj.background}?v=${encodeURIComponent(proj.updatedAt)}`
+                    ? fileOf(proj.background, t("imageDetail.step-bg"))
                     : null
                 }
                 alt={t("imageDetail.bg-alt")}
+                onOpen={setPreview}
               />
               <StepThumb
                 label="Final (Remotion)"
-                relPath={
-                  proj?.final
-                    ? `image-projects/${imageId}/${proj.final}?v=${encodeURIComponent(proj.updatedAt)}`
-                    : null
-                }
+                file={proj?.final ? fileOf(proj.final, "Final") : null}
                 alt={t("imageDetail.final-alt")}
+                onOpen={setPreview}
               />
             </div>
           </Card>
@@ -764,31 +780,8 @@ export default function ImageProjectDetailPage() {
         onConfirm={onDelete}
       />
 
-      {/* Lightbox phóng to ảnh final */}
-      {zoomed && proj?.final && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--text)]/80 p-6"
-          onClick={() => setZoomed(false)}
-          role="dialog"
-          aria-label={t("imageDetail.zoom-aria")}
-        >
-          <button
-            type="button"
-            aria-label={t("common.close")}
-            onClick={() => setZoomed(false)}
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg)] text-[var(--text)] shadow-[var(--shadow-card)] transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
-          >
-            <X size={16} strokeWidth={2} />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageFileUrl(imageId, proj.final, proj.updatedAt)}
-            alt={tf("imageDetail.final-alt-name", { name: proj.name })}
-            className="max-h-[92vh] max-w-full rounded-[var(--radius-lg)]"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {/* Xem chi tiết ảnh - modal dùng chung toàn app (Esc, mở tab mới, mở file) */}
+      <MediaPreviewModal file={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

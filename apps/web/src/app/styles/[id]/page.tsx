@@ -30,6 +30,7 @@ import {
   updateStyle,
   uploadStyleFont,
   uploadStyleLogo,
+  type FileInfo,
   type StyleColors,
   type StyleDesign,
   type StyleEffects,
@@ -39,6 +40,11 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import {
+  MediaPreviewModal,
+  ZoomableThumb,
+  imageFileInfo,
+} from "@/components/MediaPreviewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { TagInput } from "@/components/TagInput";
 import { refreshStyles } from "@/components/StyleSelect";
@@ -176,6 +182,8 @@ export default function StyleDetailPage() {
   const { t, tf } = useT();
 
   const [style, setStyle] = useState<StyleDesign | null>(null);
+  // Xem logo ở kích thước thật - logo 14px cao thì không kiểm được chất lượng
+  const [preview, setPreview] = useState<FileInfo | null>(null);
   const [defaultId, setDefaultId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -661,11 +669,15 @@ export default function StyleDetailPage() {
                   <span className="label">Logo</span>
                   <div className="flex items-center gap-3">
                     {style.logoPath ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={mediaUrl(style.logoPath)}
+                      <ZoomableThumb
+                        file={imageFileInfo(style.logoPath, {
+                          name: tf("stylesPage.logo-alt", { name: style.name }),
+                        })}
                         alt={tf("stylesPage.logo-alt", { name: style.name })}
-                        className="h-14 w-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
+                        onOpen={setPreview}
+                        className="h-14 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]"
+                        imgClassName="h-full w-auto p-2"
+                        iconSize={16}
                       />
                     ) : (
                       <span className="flex h-14 w-14 items-center justify-center rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]">
@@ -781,6 +793,8 @@ export default function StyleDetailPage() {
         onClose={() => setDeleteOpen(false)}
         onConfirm={onDelete}
       />
+
+      <MediaPreviewModal file={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

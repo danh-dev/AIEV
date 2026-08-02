@@ -214,6 +214,16 @@ function VideoOutputCard({
     ? mediaUrl(output) + (version ? `?v=${encodeURIComponent(version)}` : "")
     : "";
   const [zoomed, setZoomed] = useState(false);
+  /** FileInfo tối thiểu cho modal xem video - mtime chỉ dùng cache-bust */
+  const outputFile: FileInfo | null = output
+    ? {
+        name: fileName ?? output,
+        relPath: output,
+        size: 0,
+        mtime: version ?? "",
+        kind: "video",
+      }
+    : null;
 
   // ---- Thumbnail ----------------------------------------------------------
   const thumbRel = `video-projects/${projectId}/${thumbnail ?? "thumbnail.png"}`;
@@ -265,16 +275,6 @@ function VideoOutputCard({
       setThumbBusy(false);
     }
   }
-
-  // Đóng lightbox bằng Escape
-  useEffect(() => {
-    if (!zoomed) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setZoomed(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [zoomed]);
 
   return (
     <Card
@@ -470,31 +470,11 @@ function VideoOutputCard({
         )}
       </Modal>
 
-      {/* Lightbox phóng to - click nền hoặc Escape để đóng */}
-      {zoomed && output && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--text)]/80 p-6"
-          onClick={() => setZoomed(false)}
-          role="dialog"
-          aria-label={t("project.zoom-video-aria")}
-        >
-          <button
-            type="button"
-            aria-label={t("common.close")}
-            onClick={() => setZoomed(false)}
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--bg)] text-[var(--text)] shadow-[var(--shadow-card)] transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
-          >
-            <X size={16} strokeWidth={2} />
-          </button>
-          <video
-            controls
-            autoPlay
-            src={outputUrl}
-            className="max-h-[92vh] max-w-full rounded-[var(--radius-lg)]"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {/* Xem video lớn - cùng modal với mọi chỗ khác trong app */}
+      <MediaPreviewModal
+        file={zoomed ? outputFile : null}
+        onClose={() => setZoomed(false)}
+      />
     </Card>
   );
 }

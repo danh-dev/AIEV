@@ -75,6 +75,8 @@ export const vi: Record<string, string> = {
   "media.reveal-aria": "Mở file {path} trong trình quản lý file",
   "media.open-tab": "Mở tab mới",
   "media.no-preview": "Không xem trước được loại file này.",
+  "media.open-direct": "Mở trực tiếp",
+  "media.zoom-title": "Bấm để xem chi tiết",
 
   // ===== Nhân bản project =====
   "clone.title": "Nhân bản project",
@@ -259,9 +261,6 @@ export const vi: Record<string, string> = {
   // ===== Assets =====
   "assetsPage.subtitle": "Footage, ảnh, audio trong imports/ và video final trong outputs/",
   "assetsPage.upload": "Tải file lên",
-  "assetsPage.close-preview": "Đóng preview",
-  "assetsPage.no-preview": "Không preview được loại file này.",
-  "assetsPage.open-direct": "Mở trực tiếp",
   "assetsPage.load-error": "Không tải được danh sách file.",
   "assetsPage.upload-error": "Tải file lên thất bại.",
   "assetsPage.empty-imports": "Chưa có file nào trong imports/. Kéo thả file vào đây hoặc bấm Tải file lên.",
@@ -356,7 +355,6 @@ export const vi: Record<string, string> = {
   "project.thumb-bg-placeholder": "Bỏ trống = tự sinh từ title, nền vẽ bằng Gemini theo Style Design",
   "project.thumb-desc": "Hệ thống cắt frame từ video final, Gemini vẽ nền theo Style Design rồi Remotion ghép title - chạy khoảng 1 phút.",
   "project.thumb-error": "Không tạo được thumbnail: {error}",
-  "project.zoom-video-aria": "Xem video phóng to",
   "project.job-queued": "Đã đưa job {id} ({type}) vào hàng đợi.",
   "project.job-error": "Không tạo được job: {error}",
   "project.junk-confirm": "Xóa {items} mục file rác, giải phóng {size}?\nFile nguồn của project và video final được giữ nguyên.",
@@ -682,7 +680,6 @@ export const vi: Record<string, string> = {
   "imageDetail.save-changes": "Lưu thay đổi",
   "imageDetail.delete-title": "Xóa dự án ảnh",
   "imageDetail.delete-desc-1": "Xóa dự án ảnh",
-  "imageDetail.zoom-aria": "Xem ảnh phóng to",
 
   // ===== Image form =====
   "imageForm.kind.background": "Background",
