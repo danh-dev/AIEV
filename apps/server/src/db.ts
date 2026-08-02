@@ -161,7 +161,9 @@ export type JobType =
   | "assemble-final"
   | "image-gen"
   /** Auto cut videos: projectId là id phiên cắt, sceneId mang step (plan | cut) */
-  | "auto-cut";
+  | "auto-cut"
+  /** Text to video: projectId là id phiên, không dùng sceneId */
+  | "text-to-video";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
 export const JOB_TYPES: JobType[] = [

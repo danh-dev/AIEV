@@ -1442,6 +1442,178 @@ export const vi: Record<string, string> = {
   "help.doctor.body":
     "Dò xem máy đã có đủ những thứ pipeline cần chưa: FFmpeg, Google Chrome, xác thực Claude, faster-whisper cho phụ đề, khóa Gemini cho tạo ảnh.\nThiếu thứ nào bấm \"Cài tự động\" là xong, thứ nào không tự cài được thì có sẵn lệnh để chép hoặc link tới trang xử lý.\nĐúng danh sách này cũng chạy khi bạn mở start.bat / start.command, nên kết quả hai nơi luôn khớp nhau.",
 
+  // ===== Text to video =====
+  // Tên tab do người dùng chỉ định - giữ nguyên tiếng Anh ở cả hai ngôn ngữ,
+  // giống cách "Videos Project" và "Auto cut videos" đang làm.
+  "nav.text-to-video": "Text to video",
+
+  "ttv.subtitle":
+    "Biến bài viết thành video - AI viết kịch bản, TTS đọc thành giọng, tạo sẵn Videos Project.",
+  "ttv.new": "Bài viết mới",
+  "ttv.empty":
+    "Chưa có phiên nào. Dán một link bài báo hoặc chính nội dung bài viết, hệ thống viết kịch bản đọc, tổng hợp giọng và tạo sẵn Videos Project để dựng tiếp.",
+  "ttv.load-error": "Không tải được danh sách phiên.",
+  "ttv.col-source": "Nguồn",
+  "ttv.col-script": "Kịch bản",
+  "ttv.col-voice": "Giọng đọc",
+  "ttv.col-project": "Project",
+  "ttv.delete-aria": "Xóa phiên {name}",
+  "ttv.delete-title": "Xóa phiên text to video",
+  "ttv.delete-desc":
+    "Xóa phiên này chỉ xóa bài viết, kịch bản và file giọng đọc của phiên. Videos Project đã tạo ra từ phiên này KHÔNG bị xóa.",
+
+  "ttv.status.draft": "Nháp",
+  "ttv.status.extracting": "Đang lấy bài",
+  "ttv.status.scripting": "Đang viết kịch bản",
+  "ttv.status.ready": "Sẵn sàng dựng",
+  "ttv.status.voicing": "Đang đọc",
+  "ttv.status.building": "Đang dựng",
+  "ttv.status.done": "Xong",
+  "ttv.status.failed": "Lỗi",
+
+  "ttv.create-title": "Bài viết mới",
+  "ttv.create": "Tạo phiên",
+  "ttv.creating": "Đang tạo…",
+  "ttv.create-error": "Không tạo được phiên.",
+  "ttv.extract-error-created":
+    "Đã tạo phiên nhưng chưa lấy được nội dung bài viết.",
+  "ttv.open-session": "Mở phiên",
+  "ttv.source": "Nguồn nội dung",
+  "ttv.source.url": "Link bài viết",
+  "ttv.source.text": "Dán văn bản",
+  "ttv.url": "Link bài viết",
+  "ttv.url-placeholder": "https://…",
+  "ttv.url-hint":
+    "Hệ thống tự mở link và bóc lấy phần nội dung chính. Trang nào chặn đọc thì dán thẳng văn bản.",
+  "ttv.text": "Nội dung bài viết",
+  "ttv.text-placeholder": "Dán toàn bộ nội dung bài viết vào đây…",
+  "ttv.text-hint":
+    "Dán bao nhiêu thì AI viết kịch bản trên đúng bấy nhiêu - nó không tự đi tìm thêm.",
+  "ttv.name": "Tên phiên (tùy chọn)",
+  "ttv.name-placeholder": "Bỏ trống để lấy theo tiêu đề bài",
+
+  "ttv.back": "Danh sách phiên",
+  "ttv.not-found": "Không tìm thấy phiên này.",
+  "ttv.action-error": "Không chạy được bước này.",
+  "ttv.save-error": "Không lưu được thay đổi của phiên.",
+  "ttv.failed": "Phiên gặp lỗi.",
+  "ttv.chunk-count": "{n} đoạn",
+  "ttv.block-count": "{n} khối",
+  "ttv.char-count": "{n} ký tự",
+  "ttv.est-duration": "ước tính ~{time}",
+  "ttv.real-duration": "thật {time}",
+  "ttv.open-project": "Mở project",
+
+  "ttv.stage.source": "Nguồn",
+  "ttv.stage.script": "Kịch bản",
+  "ttv.stage.voice": "Giọng đọc",
+  "ttv.stage.config": "Cấu hình",
+  "ttv.stage.build": "Dựng video",
+  "ttv.stage-aria": "Bước {stage}/5: {label}",
+
+  "ttv.card-source": "1. Nguồn",
+  "ttv.extract": "Trích xuất nội dung",
+  "ttv.re-extract": "Trích xuất lại",
+  "ttv.extracting-hint": "Đang mở link và bóc lấy nội dung chính của bài…",
+  "ttv.content": "Nội dung dùng để viết kịch bản",
+  "ttv.content-placeholder-url":
+    "Bấm \"Trích xuất nội dung\" để lấy bài về, hoặc dán thẳng nội dung vào đây.",
+  "ttv.content-hint":
+    "Sửa thoải mái trước khi viết kịch bản - AI chỉ đọc đúng phần chữ trong ô này.",
+
+  "ttv.card-script": "2. Kịch bản đọc",
+  "ttv.write-script": "AI viết kịch bản",
+  "ttv.rewrite-script": "Viết lại",
+  "ttv.target-seconds": "Độ dài (giây)",
+  "ttv.target-auto": "Tự động",
+  "ttv.scripting-hint":
+    "AI đang viết kịch bản đọc. Bài dài có thể mất vài chục giây.",
+  "ttv.no-script":
+    "Chưa có kịch bản. Bấm \"AI viết kịch bản\" để AI viết lời đọc từ nội dung ở trên.",
+  "ttv.no-source-yet":
+    "Chưa có nội dung để viết. Lấy bài từ link hoặc dán văn bản ở bước 1 trước đã.",
+  "ttv.add-chunk": "Thêm đoạn",
+  "ttv.remove-chunk": "Xóa đoạn",
+  "ttv.remove-chunk-aria": "Xóa đoạn {n}",
+  "ttv.chunk-aria": "Lời đọc đoạn {n}",
+  "ttv.chunk-est": "~{time}",
+  "ttv.chunk-real": "{time} (thật)",
+  "ttv.estimate-warning":
+    "Thời lượng ở đây chỉ là ước tính theo số ký tự. Thời lượng thật chỉ biết sau khi tổng hợp giọng: cùng một câu, TTS đọc lệch nhau tới 28%.",
+
+  "ttv.card-voice": "3. Giọng đọc",
+  "ttv.voice.model": "Model đọc",
+  "ttv.voice.model-default": "Mặc định của server",
+  "ttv.voice.voice": "Giọng",
+  "ttv.voice.search": "Tìm giọng theo tên hoặc chất giọng",
+  "ttv.voice.none": "Chưa lấy được giọng nào.",
+  "ttv.voice.no-match": "Không có giọng nào khớp.",
+  "ttv.voice.missing":
+    "Giọng đã lưu ({name}) không còn trong danh sách - chọn lại một giọng khác.",
+  "ttv.voice.preview": "Nghe thử",
+  "ttv.voice.preview-aria": "Nghe thử giọng {name}",
+  "ttv.voice.stop": "Dừng",
+  "ttv.voice.stop-aria": "Dừng nghe thử giọng {name}",
+  "ttv.voice.preview-cost":
+    "Mỗi lần nghe thử là một lần tổng hợp thật (mất vài giây và tốn phí) nên chỉ phát khi bạn bấm nút.",
+  "ttv.voice.preview-error": "Không phát được bản nghe thử của giọng {name}.",
+  "ttv.voice.preview-failed": "Không nghe thử được giọng này.",
+  "ttv.voice.load-error": "Không tải được danh sách giọng đọc.",
+  "ttv.voice.gemini-hint":
+    "Gemini chưa kết nối - thêm GEMINI_API_KEY vào .env rồi khởi động lại server, hoặc dán khóa ở trang Kết nối.",
+  "ttv.voice.style": "Cách đọc",
+  "ttv.voice.style-placeholder": "vd: đọc chậm rãi, ấm áp, như đang kể chuyện",
+  "ttv.voice.style-warning":
+    "Đổi cách đọc là toàn bộ thời lượng phải tính lại: cùng một kịch bản, cách đọc khác nhau làm thời lượng chênh tới 2,6 lần.",
+
+  "ttv.card-config": "4. Cấu hình video",
+  "ttv.aspect": "Tỉ lệ khung hình",
+  "ttv.fps": "FPS",
+  "ttv.custom-size": "Kích thước đang đặt riêng: {size}.",
+  "ttv.brief-hint":
+    "Kịch bản edit này áp cho Videos Project sinh ra từ phiên - cấu hình ở đây, khỏi vào project chỉnh lại.",
+  "ttv.brief-autosave": "Thay đổi tự lưu.",
+  "ttv.brief-locked": "Phiên đang chạy - sửa được cấu hình khi bước này xong.",
+
+  "ttv.card-build": "5. Dựng video",
+  "ttv.build": "Dựng video",
+  "ttv.build-hint":
+    "Bấm Dựng video: hệ thống đọc kịch bản thành giọng, tạo transcript, rồi đẻ một Videos Project và chạy AI edit.",
+  "ttv.build-need-script": "Chưa dựng được: viết kịch bản đọc ở bước 2 trước.",
+  "ttv.build-need-voice": "Chưa dựng được: chọn giọng đọc ở bước 3 trước.",
+  "ttv.voicing-hint": "Đang tổng hợp giọng đọc từ kịch bản…",
+  "ttv.building-hint": "Đang tạo transcript và dựng Videos Project…",
+  "ttv.project-created": "Phiên này đã tạo xong Videos Project.",
+  "ttv.rebuild-disabled":
+    "Mỗi phiên chỉ dựng một lần. Muốn sửa tiếp thì làm trong chính project đó, hoặc tạo phiên mới.",
+  "ttv.voice-file": "File giọng đọc",
+  "ttv.transcript-file": "Transcript",
+
+  "help.ttv.title": "Text to video là gì?",
+  "help.ttv.body":
+    "Biến một bài viết thành video: dán link hoặc dán văn bản, AI viết kịch bản đọc, TTS đọc thành giọng, rồi hệ thống tạo sẵn một Videos Project có giọng đọc và transcript để dựng tiếp.\nMỗi phiên đi qua 5 bước: Nguồn, Kịch bản đọc, Giọng đọc, Cấu hình video, Dựng video. Bước nào cũng sửa lại được trước khi dựng.\nXóa phiên KHÔNG xóa Videos Project đã tạo ra từ nó.",
+  "help.ttv-source.title": "Link hay dán văn bản?",
+  "help.ttv-source.body":
+    "Link: hệ thống tự mở trang và bóc lấy phần nội dung chính, bỏ menu và quảng cáo.\nDán văn bản: dùng khi trang chặn đọc tự động, hoặc khi bạn đã có sẵn nội dung.\nBóc xong vẫn sửa được: phần chữ trong ô nội dung mới là thứ AI đọc để viết kịch bản.",
+  "help.ttv-script.title": "Kịch bản đọc là gì?",
+  "help.ttv-script.body":
+    "Là lời sẽ được đọc lên, chia thành từng đoạn ngắn để dễ sửa và dễ khớp với hình.\nĐặt \"Độ dài (giây)\" để AI viết dài đúng cỡ bạn muốn; bỏ trống thì AI tự quyết theo nội dung.\nThời lượng hiện bên cạnh mỗi đoạn chỉ là ước tính theo số ký tự - con số thật chỉ có sau khi tổng hợp giọng.",
+  "help.ttv-voice.title": "Chọn giọng thế nào?",
+  "help.ttv-voice.body":
+    "Có khoảng 30 giọng, nhìn tên không đoán được chất giọng nên hãy bấm nút phát để nghe thử.\nMỗi lần nghe thử là một lần tổng hợp thật: mất vài giây và tốn phí, nên chỉ phát khi bạn bấm, và mỗi lúc chỉ một giọng.\nGõ vào ô tìm để lọc theo tên hoặc theo mô tả chất giọng.",
+  "help.ttv-voice-model.title": "Model đọc để làm gì?",
+  "help.ttv-voice-model.body":
+    "Là mô hình TTS thực sự đọc kịch bản. Model khác nhau thì chất giọng, tốc độ và giá khác nhau.\nĐể \"Mặc định của server\" là an toàn nhất - server luôn trỏ vào model đang dùng tốt.",
+  "help.ttv-voice-style.title": "\"Cách đọc\" hoạt động ra sao?",
+  "help.ttv-voice-style.body":
+    "Là một câu mô tả bạn muốn giọng đọc thế nào: chậm rãi, hào hứng, như đang kể chuyện…\nNó ảnh hưởng trực tiếp tới TỐC ĐỘ đọc, nên đổi cách đọc là thời lượng video đổi theo - chênh tới 2,6 lần với cùng một kịch bản.\nĐổi cách đọc sau khi đã tổng hợp giọng thì phải đọc lại và mọi mốc thời gian phải tính lại từ đầu.",
+  "help.ttv-config.title": "Cấu hình video gồm những gì?",
+  "help.ttv-config.body":
+    "Tỉ lệ khung hình, fps và Style Design quyết định video xuất ra trông thế nào.\nPhần kịch bản edit bên dưới giống hệt của Videos Project: phụ đề, bố cục key, sound effect, nhạc nền, skill… Cấu hình ở đây thì project sinh ra đã có sẵn, khỏi vào chỉnh lại.",
+  "help.ttv-build.title": "Bấm Dựng video thì chuyện gì xảy ra?",
+  "help.ttv-build.body":
+    "Một job dài chạy qua render queue: đọc kịch bản thành giọng, tạo transcript khớp thời gian, tạo một Videos Project rồi chạy AI edit trên đó.\nTiến trình cập nhật sống ngay tại đây; xong thì có link mở project.\nMỗi phiên chỉ dựng một lần - project đã tạo thì sửa tiếp trong chính project đó.",
+
   // ===== Đồng hồ CPU/GPU trên header =====
   "meter.cpu": "CPU",
   "meter.gpu": "GPU",

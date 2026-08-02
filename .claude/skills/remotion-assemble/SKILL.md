@@ -75,7 +75,39 @@ When a transition has an overlap, subtract that overlap while accumulating - for
    - Sound effects: each `sfx[]` entry becomes one `<Sequence from={atFrame}><Audio volume={0.3}/></Sequence>`. Default sfx volume is 0.3 (~10dB below the voice); override it in the manifest with the `volume` field if needed.
    - Do not normalize/mix manually with FFmpeg after rendering - mix inside Remotion so the draft sounds like the final.
 
-6. **Asset paths**: Remotion code only loads through `staticFile()` - the backend stages assets into `engines/remotion/public/staging/<project>/` (hardlink) and writes the `staging/...` path into `props.resolved.json`; Remotion never reads an absolute path. This runs on Windows - always use `path.join` on the backend, never string concatenation.
+6. **Caption and overlay tracks live in `meta.json`, and their timestamps are in FRAMES.**
+
+   `CaptionTrack` and `HighlightTrack` read `props.captions` / `props.overlays` **only**. They never
+   open a transcript file. If you leave those arrays empty there are no captions, no matter how good
+   the transcript is.
+
+```jsonc
+// meta.json
+"captions": [
+  { "from": 90, "durationInFrames": 75,
+    "words": [ { "text": "Trí", "start": 90, "end": 96 },
+               { "text": "tuệ", "start": 96, "end": 104, "hi": true } ] }
+],
+"overlays": [
+  { "from": 0, "durationInFrames": 150, "tier": "main", "accent": "hot",
+    "kicker": "AI", "parts": [ { "t": "Dựng video" }, { "t": "bằng AI", "hi": true } ] }
+]
+```
+
+   > ⚠️ **The unit changes here.** A transcript stores `start`/`end` in **seconds**; `captions[].words[]`
+   > stores them as **absolute composition frames** (`second * fps`, counted from the start of the whole
+   > video, not from the start of the cue). Passing seconds through produces captions that all flash in
+   > the first half-second — and nothing errors, so it is easy to ship by accident.
+   >
+   > `hi: true` marks a highlighted word. `tier: "main"` renders a top band, `"sub"` a bottom pill that
+   > lifts itself when captions are present.
+
+7. **Every scene needs `durationInFrames` unless it is a `srcVideo` scene with both `from` and `to`.**
+   That is the only case Remotion infers a length for; an image or HyperFrames scene without an explicit
+   `durationInFrames` **throws at render time**. This bites hardest on videos with no source footage
+   (text-to-video, image-only explainers), where nothing has a natural duration to infer from.
+
+8. **Asset paths**: Remotion code only loads through `staticFile()` - the backend stages assets into `engines/remotion/public/staging/<project>/` (hardlink) and writes the `staging/...` path into `props.resolved.json`; Remotion never reads an absolute path. This runs on Windows - always use `path.join` on the backend, never string concatenation.
 
 ## Draft vs Final
 

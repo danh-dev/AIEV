@@ -2170,3 +2170,293 @@ export const getDoctor = (refresh = false) =>
 /** Cài một mục còn thiếu. Chỉ chạy được với mục có fix.auto = true. */
 export const fixDoctor = (id: string) =>
   post<DoctorFixResult>("/api/doctor/fix", { id });
+
+// ============ Text to video ============
+// Từ một bài viết (URL hoặc văn bản dán vào) → AI viết kịch bản đọc → TTS đọc
+// thành giọng → tạo một Videos Project dựng sẵn. Hợp đồng: mục "Text to video"
+// trong docs/API.md.
+
+/** "url" = tự đọc bài từ link; "text" = người dùng dán thẳng nội dung. */
+export type TextSourceKind = "url" | "text";
+
+export type TextToVideoStatus =
+  | "draft"
+  | "extracting"
+  | "scripting"
+  | "ready"
+  | "voicing"
+  | "building"
+  | "done"
+  | "failed";
+
+/** Một đoạn của kịch bản đọc - durationSec chỉ có sau khi TTS đọc xong. */
+export interface ScriptChunk {
+  text: string;
+  durationSec: number | null;
+}
+
+/** Bài viết server bóc được từ URL (hoặc từ văn bản dán vào). */
+export interface ExtractedArticle {
+  title: string;
+  blocks: string[];
+  byline: string | null;
+  siteName: string | null;
+  publishedTime: string | null;
+  canonicalUrl: string | null;
+  leadImage: string | null;
+  lang: string | null;
+  chars: number;
+}
+
+export interface TextToVideoSource {
+  kind: TextSourceKind;
+  url: string;
+  text: string;
+}
+
+export interface TextToVideoVoice {
+  /** null = model TTS mặc định của server. */
+  model: string | null;
+  name: string;
+  /** "Cách đọc" bằng lời - đổi cái này là toàn bộ thời lượng đọc đổi theo. */
+  style: string;
+}
+
+export interface TextToVideoOutput {
+  width: number;
+  height: number;
+  fps: number;
+  /** null = dùng style mặc định. */
+  styleId: string | null;
+}
+
+export interface TextToVideoMeta {
+  id: string;
+  name: string;
+  source: TextToVideoSource;
+  /** null = chưa trích xuất được nội dung. */
+  article: ExtractedArticle | null;
+  script: ScriptChunk[];
+  voice: TextToVideoVoice;
+  output: TextToVideoOutput;
+  /** Kịch bản edit - CÙNG kiểu Brief với Videos Project. */
+  brief: Brief;
+  /** File giọng đọc đã tổng hợp (đường dẫn tương đối) - null = chưa đọc. */
+  voiceFile: string | null;
+  /** Thời lượng THẬT của giọng đọc - chỉ có sau khi tổng hợp xong. */
+  voiceDurationSec: number | null;
+  transcriptFile: string | null;
+  /** Videos Project đã tạo ra từ phiên này - null = chưa dựng. */
+  projectId: string | null;
+  status: TextToVideoStatus;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Nhãn + tông màu badge cho từng trạng thái phiên. Để ở đây (không phải trong
+ * một component) vì cả trang danh sách lẫn trang chi tiết đều cần, mà hai trang
+ * lệch nhau một chữ là người dùng tưởng hai thứ khác nhau.
+ * Giá trị nhãn là KEY dictionary - dịch bằng t() lúc render.
+ */
+export const TEXT_TO_VIDEO_STATUS_LABEL: Record<TextToVideoStatus, string> = {
+  draft: "ttv.status.draft",
+  extracting: "ttv.status.extracting",
+  scripting: "ttv.status.scripting",
+  ready: "ttv.status.ready",
+  voicing: "ttv.status.voicing",
+  building: "ttv.status.building",
+  done: "ttv.status.done",
+  failed: "ttv.status.failed",
+};
+
+export const TEXT_TO_VIDEO_STATUS_TONE: Record<
+  TextToVideoStatus,
+  "success" | "running" | "danger" | "muted"
+> = {
+  draft: "muted",
+  extracting: "running",
+  scripting: "running",
+  ready: "muted",
+  voicing: "running",
+  building: "running",
+  done: "success",
+  failed: "danger",
+};
+
+/** Model TTS server hỗ trợ - GET /api/tts/models. */
+export interface TtsModel {
+  id: string;
+  label: string;
+}
+
+/** Một giọng đọc - GET /api/tts/voices. */
+export interface TtsVoice {
+  name: string;
+  label: string;
+}
+
+/** Tỉ lệ khung hình chọn được cho video đọc bài. */
+export type TextToVideoAspect = "9:16" | "16:9" | "1:1" | "4:5";
+
+export const TEXT_TO_VIDEO_SIZES: Record<
+  TextToVideoAspect,
+  { width: number; height: number }
+> = {
+  "9:16": { width: 1080, height: 1920 },
+  "16:9": { width: 1920, height: 1080 },
+  "1:1": { width: 1080, height: 1080 },
+  "4:5": { width: 1080, height: 1350 },
+};
+
+/** fps chọn được - khớp danh sách render của backend. */
+export const TEXT_TO_VIDEO_FPS = [24, 25, 30, 60] as const;
+
+/** Mặc định của form tạo phiên - khớp mặc định server. */
+export const TEXT_TO_VIDEO_DEFAULT_OUTPUT: TextToVideoOutput = {
+  width: 1080,
+  height: 1920,
+  fps: 30,
+  styleId: null,
+};
+
+/**
+ * Số ký tự đọc được trong 1 giây - dùng ƯỚC LƯỢNG thời lượng kịch bản khi chưa
+ * tổng hợp giọng. Chỉ là con số tham khảo: cùng một câu, TTS đọc lệch nhau tới
+ * 28%, chưa kể đổi "cách đọc" còn làm thời lượng chênh tới 2,6 lần.
+ */
+export const TTS_CHARS_PER_SEC = 15;
+
+/** Ước lượng thời lượng một đoạn kịch bản (giây) - ưu tiên thời lượng thật. */
+export function estimateChunkSeconds(chunk: ScriptChunk): number {
+  if (typeof chunk.durationSec === "number" && chunk.durationSec > 0) {
+    return chunk.durationSec;
+  }
+  return chunk.text.trim().length / TTS_CHARS_PER_SEC;
+}
+
+/** Ước lượng thời lượng cả kịch bản (giây). */
+export function estimateScriptSeconds(chunks: ScriptChunk[]): number {
+  return chunks.reduce((sum, c) => sum + estimateChunkSeconds(c), 0);
+}
+
+/** Tổng số ký tự của kịch bản - cơ sở tính ước lượng ở trên. */
+export function scriptChars(chunks: ScriptChunk[]): number {
+  return chunks.reduce((sum, c) => sum + c.text.trim().length, 0);
+}
+
+/**
+ * Job dựng video từ bài viết: `type` = "text-to-video", `projectId` = id phiên.
+ * JobType chưa liệt kê loại này (backend bổ sung song song) nên so sánh qua
+ * string, giống cách isAutoCutJob đang làm.
+ */
+export function isTextToVideoJob(job: Job, sessionId?: string): boolean {
+  if ((job.type as string) !== "text-to-video") return false;
+  return sessionId === undefined || job.projectId === sessionId;
+}
+
+export const getTextToVideoSessions = () =>
+  request<TextToVideoMeta[]>("/api/text-to-video");
+
+export const getTextToVideoSession = (id: string) =>
+  request<TextToVideoMeta>(`/api/text-to-video/${encodeURIComponent(id)}`);
+
+export const createTextToVideo = (input: {
+  /** Bỏ trống → server đặt theo tiêu đề bài / mấy chữ đầu. */
+  name?: string;
+  source: TextToVideoSource;
+}) => post<TextToVideoMeta>("/api/text-to-video", input);
+
+/** PATCH partial - field không gửi thì server giữ nguyên. */
+export const updateTextToVideo = (
+  id: string,
+  patch: {
+    name?: string;
+    source?: TextToVideoSource;
+    voice?: TextToVideoVoice;
+    output?: TextToVideoOutput;
+    brief?: Partial<Brief>;
+    script?: ScriptChunk[];
+  }
+) =>
+  jsonBody<TextToVideoMeta>(
+    `/api/text-to-video/${encodeURIComponent(id)}`,
+    "PATCH",
+    patch
+  );
+
+export const deleteTextToVideo = (id: string) =>
+  request<void>(`/api/text-to-video/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+
+/**
+ * Bóc nội dung bài viết. Chờ ~1-5s rồi trả meta mới. Trang chặn nào không đọc
+ * được thì server trả 400 kèm lời nhắn bảo người dùng dán thẳng văn bản.
+ */
+export const extractTextToVideo = (id: string) =>
+  post<TextToVideoMeta>(`/api/text-to-video/${encodeURIComponent(id)}/extract`);
+
+/** AI viết kịch bản đọc - chờ ~10-40s. targetSeconds = độ dài mong muốn. */
+export const scriptTextToVideo = (id: string, targetSeconds?: number) =>
+  post<TextToVideoMeta>(
+    `/api/text-to-video/${encodeURIComponent(id)}/script`,
+    targetSeconds !== undefined ? { targetSeconds } : undefined
+  );
+
+/** 202 - job dài: TTS → transcript → tạo Videos Project → chạy AI edit. */
+export const buildTextToVideo = (id: string) =>
+  post<{ jobId: string }>(`/api/text-to-video/${encodeURIComponent(id)}/build`);
+
+export const getTtsModels = () => request<TtsModel[]>("/api/tts/models");
+
+export const getTtsVoices = () => request<TtsVoice[]>("/api/tts/voices");
+
+/**
+ * Nghe thử một giọng - trả về BYTES audio/wav nên không đi qua request<T>
+ * (helper đó luôn parse JSON). Mỗi lần gọi là một lần tổng hợp thật, tốn tiền:
+ * chỉ gọi khi người dùng bấm nút, không tự phát khi rê chuột hay lúc mở trang.
+ */
+export async function previewTtsVoice(input: {
+  voice: string;
+  model?: string | null;
+  style?: string;
+  text?: string;
+}): Promise<Blob> {
+  const token = await ensureToken();
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) headers.set("x-aiev-token", token);
+
+  let res: Response;
+  try {
+    res = await fetch(withUploadToken("/api/tts/preview"), {
+      method: "POST",
+      headers,
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new ApiError(
+      "network",
+      "Không kết nối được backend (port 6869). Kiểm tra server đã chạy chưa.",
+      0
+    );
+  }
+  if (!res.ok) {
+    let code = String(res.status);
+    let message = `Lỗi HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as {
+        error?: { code: string; message: string };
+      };
+      if (body?.error) {
+        code = body.error.code;
+        message = body.error.message;
+      }
+    } catch {
+      // body không phải JSON - giữ message mặc định
+    }
+    throw new ApiError(code, message, res.status);
+  }
+  return res.blob();
+}

@@ -1445,6 +1445,179 @@ export const en: Record<string, string> = {
   "help.doctor.body":
     "It probes whether this machine has everything the pipeline needs: FFmpeg, Google Chrome, Claude credentials, faster-whisper for subtitles, a Gemini key for image generation.\nAnything missing gets an \"Install\" button; anything that cannot be installed automatically shows a command to copy or a link to the page that handles it.\nThe same list runs when you launch start.bat / start.command, so both places always agree.",
 
+  // ===== Text to video =====
+  // Tab name chosen by the user - kept in English in both languages, same as
+  // "Videos Project" and "Auto cut videos".
+  "nav.text-to-video": "Text to video",
+
+  "ttv.subtitle":
+    "Turn an article into a video - AI writes the script, TTS reads it out, you get a Videos Project.",
+  "ttv.new": "New article",
+  "ttv.empty":
+    "No sessions yet. Paste a news link or the article text itself; the system writes the narration script, synthesises the voice and creates a Videos Project to build on.",
+  "ttv.load-error": "Could not load the session list.",
+  "ttv.col-source": "Source",
+  "ttv.col-script": "Script",
+  "ttv.col-voice": "Voice",
+  "ttv.col-project": "Project",
+  "ttv.delete-aria": "Delete session {name}",
+  "ttv.delete-title": "Delete text-to-video session",
+  "ttv.delete-desc":
+    "Deleting this session only removes its article, script and voice files. Videos Projects already created from it are NOT deleted.",
+
+  "ttv.status.draft": "Draft",
+  "ttv.status.extracting": "Fetching article",
+  "ttv.status.scripting": "Writing script",
+  "ttv.status.ready": "Ready to build",
+  "ttv.status.voicing": "Synthesising voice",
+  "ttv.status.building": "Building",
+  "ttv.status.done": "Done",
+  "ttv.status.failed": "Failed",
+
+  "ttv.create-title": "New article",
+  "ttv.create": "Create session",
+  "ttv.creating": "Creating…",
+  "ttv.create-error": "Could not create the session.",
+  "ttv.extract-error-created":
+    "The session was created but the article could not be fetched.",
+  "ttv.open-session": "Open session",
+  "ttv.source": "Content source",
+  "ttv.source.url": "Article link",
+  "ttv.source.text": "Paste text",
+  "ttv.url": "Article link",
+  "ttv.url-placeholder": "https://…",
+  "ttv.url-hint":
+    "The system opens the link and extracts the main content. If a site blocks reading, paste the text instead.",
+  "ttv.text": "Article text",
+  "ttv.text-placeholder": "Paste the whole article here…",
+  "ttv.text-hint":
+    "The AI writes the script from exactly what you paste - it does not go looking for more.",
+  "ttv.name": "Session name (optional)",
+  "ttv.name-placeholder": "Leave empty to use the article title",
+
+  "ttv.back": "Session list",
+  "ttv.not-found": "This session was not found.",
+  "ttv.action-error": "Could not run this step.",
+  "ttv.save-error": "Could not save the session changes.",
+  "ttv.failed": "The session failed.",
+  "ttv.chunk-count": "{n} chunks",
+  "ttv.block-count": "{n} blocks",
+  "ttv.char-count": "{n} characters",
+  "ttv.est-duration": "estimated ~{time}",
+  "ttv.real-duration": "actual {time}",
+  "ttv.open-project": "Open project",
+
+  "ttv.stage.source": "Source",
+  "ttv.stage.script": "Script",
+  "ttv.stage.voice": "Voice",
+  "ttv.stage.config": "Settings",
+  "ttv.stage.build": "Build",
+  "ttv.stage-aria": "Step {stage} of 5: {label}",
+
+  "ttv.card-source": "1. Source",
+  "ttv.extract": "Extract content",
+  "ttv.re-extract": "Extract again",
+  "ttv.extracting-hint": "Opening the link and extracting the main content…",
+  "ttv.content": "Text the script will be written from",
+  "ttv.content-placeholder-url":
+    "Press \"Extract content\" to fetch the article, or paste the text straight in here.",
+  "ttv.content-hint":
+    "Edit freely before writing the script - the AI only reads what is in this box.",
+
+  "ttv.card-script": "2. Narration script",
+  "ttv.write-script": "Let AI write it",
+  "ttv.rewrite-script": "Rewrite",
+  "ttv.target-seconds": "Length (sec)",
+  "ttv.target-auto": "Auto",
+  "ttv.scripting-hint":
+    "The AI is writing the narration script. Long articles can take tens of seconds.",
+  "ttv.no-script":
+    "No script yet. Press \"Let AI write it\" and the AI will draft the narration from the text above.",
+  "ttv.no-source-yet":
+    "Nothing to write from yet. Fetch the article or paste the text in step 1 first.",
+  "ttv.add-chunk": "Add chunk",
+  "ttv.remove-chunk": "Remove chunk",
+  "ttv.remove-chunk-aria": "Remove chunk {n}",
+  "ttv.chunk-aria": "Narration for chunk {n}",
+  "ttv.chunk-est": "~{time}",
+  "ttv.chunk-real": "{time} (actual)",
+  "ttv.estimate-warning":
+    "These durations are only estimated from the character count. The real duration is known only after synthesis: for identical input, TTS output varies by up to 28%.",
+
+  "ttv.card-voice": "3. Voice",
+  "ttv.voice.model": "TTS model",
+  "ttv.voice.model-default": "Server default",
+  "ttv.voice.voice": "Voice",
+  "ttv.voice.search": "Search by name or timbre",
+  "ttv.voice.none": "No voices could be loaded.",
+  "ttv.voice.no-match": "No voice matches.",
+  "ttv.voice.missing":
+    "The saved voice ({name}) is no longer in the list - pick another one.",
+  "ttv.voice.preview": "Preview",
+  "ttv.voice.preview-aria": "Preview voice {name}",
+  "ttv.voice.stop": "Stop",
+  "ttv.voice.stop-aria": "Stop previewing voice {name}",
+  "ttv.voice.preview-cost":
+    "Every preview is a real synthesis (a few seconds, and it costs money), so it only plays when you press the button.",
+  "ttv.voice.preview-error": "Could not play the preview for voice {name}.",
+  "ttv.voice.preview-failed": "Could not preview this voice.",
+  "ttv.voice.load-error": "Could not load the voice list.",
+  "ttv.voice.gemini-hint":
+    "Gemini is not connected - add GEMINI_API_KEY to .env and restart the server, or paste the key on the Connections page.",
+  "ttv.voice.style": "Reading style",
+  "ttv.voice.style-placeholder": "e.g. slow, warm, like telling a story",
+  "ttv.voice.style-warning":
+    "Changing the reading style re-times everything: with the same script, a different style can change the duration by up to 2.6x.",
+
+  "ttv.card-config": "4. Video settings",
+  "ttv.aspect": "Aspect ratio",
+  "ttv.fps": "FPS",
+  "ttv.custom-size": "Custom size in use: {size}.",
+  "ttv.brief-hint":
+    "This edit brief applies to the Videos Project this session creates - set it here and you will not have to redo it inside the project.",
+  "ttv.brief-autosave": "Changes save automatically.",
+  "ttv.brief-locked":
+    "The session is running - you can edit the settings once this step finishes.",
+
+  "ttv.card-build": "5. Build",
+  "ttv.build": "Build video",
+  "ttv.build-hint":
+    "Press Build video: the system synthesises the narration, generates a transcript, then creates a Videos Project and starts the AI edit on it.",
+  "ttv.build-need-script": "Not ready yet: write the narration script in step 2 first.",
+  "ttv.build-need-voice": "Not ready yet: pick a voice in step 3 first.",
+  "ttv.voicing-hint": "Synthesising the narration from the script…",
+  "ttv.building-hint": "Generating the transcript and building the Videos Project…",
+  "ttv.project-created": "This session has created its Videos Project.",
+  "ttv.rebuild-disabled":
+    "Each session builds once. To keep working on it, edit that project directly, or create a new session.",
+  "ttv.voice-file": "Voice file",
+  "ttv.transcript-file": "Transcript",
+
+  "help.ttv.title": "What is Text to video?",
+  "help.ttv.body":
+    "It turns an article into a video: paste a link or the text, the AI writes a narration script, TTS reads it out, and the system creates a Videos Project that already has the voice track and transcript.\nEvery session goes through 5 steps: Source, Script, Voice, Settings, Build. Each one can be revised before you build.\nDeleting a session does NOT delete the Videos Project it created.",
+  "help.ttv-source.title": "Link or pasted text?",
+  "help.ttv-source.body":
+    "Link: the system opens the page and extracts the main content, dropping menus and ads.\nPasted text: use this when a site blocks automated reading, or when you already have the content.\nEither way you can still edit it: the text in the content box is what the AI actually reads.",
+  "help.ttv-script.title": "What is the narration script?",
+  "help.ttv-script.body":
+    "It is the words that will be spoken, split into short chunks so they are easy to edit and easy to line up with the visuals.\nSet \"Length (sec)\" to aim for a specific duration; leave it empty and the AI decides from the content.\nThe duration next to each chunk is only estimated from its character count - the real number exists only after synthesis.",
+  "help.ttv-voice.title": "How do I pick a voice?",
+  "help.ttv-voice.body":
+    "There are around 30 voices and the name tells you nothing about the timbre, so press play to hear one.\nEvery preview is a real synthesis: a few seconds and real money, so it only plays on click, and only one at a time.\nType in the search box to filter by name or by the timbre description.",
+  "help.ttv-voice-model.title": "What does the TTS model change?",
+  "help.ttv-voice-model.body":
+    "It is the model that actually reads the script. Different models differ in timbre, speed and price.\nLeaving it on \"Server default\" is the safe choice - the server always points at the model currently in good standing.",
+  "help.ttv-voice-style.title": "How does \"Reading style\" work?",
+  "help.ttv-voice-style.body":
+    "It is one sentence describing how you want it read: slow, upbeat, like telling a story…\nIt directly affects the reading SPEED, so changing it changes the video duration - up to 2.6x for the same script.\nChanging it after synthesis means re-reading everything and re-timing every cue from scratch.",
+  "help.ttv-config.title": "What is in the video settings?",
+  "help.ttv-config.body":
+    "Aspect ratio, fps and Style Design decide how the exported video looks.\nThe edit brief below is the same one Videos Project uses: subtitles, key layout, sound effects, background music, skill… Set it here and the project comes out already configured.",
+  "help.ttv-build.title": "What happens when I press Build?",
+  "help.ttv-build.body":
+    "One long job runs through the render queue: synthesise the narration, generate a time-aligned transcript, create a Videos Project and start the AI edit on it.\nProgress updates live right here; when it finishes you get a link to the project.\nEach session builds once - after that, keep working inside the project itself.",
+
   // ===== Đồng hồ CPU/GPU trên header =====
   "meter.cpu": "CPU",
   "meter.gpu": "GPU",

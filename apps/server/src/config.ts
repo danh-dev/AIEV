@@ -164,6 +164,8 @@ export const paths = {
   imageProjectsDir: path.join(repoRoot, "image-projects"),
   /** Auto cut videos - mỗi phiên cắt một thư mục (meta.json + transcript + nền) */
   autoCutDir: path.join(repoRoot, "auto-cut"),
+  /** Text to video - mỗi phiên một thư mục (bài đã bóc + kịch bản + giọng đọc) */
+  textToVideoDir: path.join(repoRoot, "text-to-video"),
   assetsDir: path.join(repoRoot, "assets"),
   /** Brand assets: logo + design-system.json cũ (nguồn migration sang Style Design) */
   brandDir: path.join(repoRoot, "assets", "brand"),
@@ -196,6 +198,7 @@ export function ensureBaseDirs(): void {
     paths.outputsDir,
     paths.importsDir,
     paths.autoCutDir,
+    paths.textToVideoDir,
   ];
   for (const d of dirs) fs.mkdirSync(d, { recursive: true });
 }

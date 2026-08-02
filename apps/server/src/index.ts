@@ -42,6 +42,8 @@ import qcRouter from "./routes/qc.js";
 import clipsRouter from "./routes/clips.js";
 import reviewRouter from "./routes/review.js";
 import autoCutRouter from "./routes/autoCut.js";
+import textToVideoRouter from "./routes/textToVideo.js";
+import ttsRouter from "./routes/tts.js";
 import updateRouter from "./routes/update.js";
 import revealRouter from "./routes/reveal.js";
 import tunnelRouter, { quickTunnelHostname } from "./routes/tunnel.js";
@@ -181,6 +183,9 @@ app.use("/api/projects", qcRouter); // QC tự động trên bản draft
 app.use("/api/projects", clipsRouter); // cắt short + tái chế tỉ lệ khung
 app.use("/api/projects", reviewRouter); // ghi chú duyệt draft theo mốc thời gian
 app.use("/api/auto-cut", autoCutRouter);
+// Text to video: phiên nguồn (bài viết/đoạn văn) → tự sinh Videos Project
+app.use("/api/text-to-video", textToVideoRouter);
+app.use("/api/tts", ttsRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/sfx", sfxRouter);
