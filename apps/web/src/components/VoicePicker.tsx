@@ -174,6 +174,9 @@ export function VoicePicker({
     a[0].localeCompare(b[0])
   );
 
+  // Bản ghi của giọng đang chọn - để lấy mô tả chất giọng cho dòng tóm tắt
+  const selected = list.find((v) => v.name === value.name) ?? null;
+
   // Giọng đã lưu không (chưa) có trong danh sách → vẫn cho hiện, không âm thầm mất
   const selectedMissing =
     value.name !== "" && list.length > 0 && !list.some((v) => v.name === value.name);
@@ -194,6 +197,33 @@ export function VoicePicker({
           </p>
         </div>
       )}
+
+      {/* 0. Giọng đang chọn - danh sách giọng cuộn trong khung riêng, không có
+          dòng này thì chọn xong kéo đi chỗ khác là quên mất mình đã chọn ai */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
+        <span className="shrink-0 text-xs text-[var(--text-muted)]">
+          {t("ttv.voice.selected")}
+        </span>
+        {value.name ? (
+          <>
+            <span className="min-w-0 truncate text-sm font-semibold text-[var(--primary)]">
+              {value.name}
+            </span>
+            {selected && (
+              <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
+                · {timbre(selected)}
+              </span>
+            )}
+            <span className="ml-auto min-w-0 max-w-full truncate text-xs text-[var(--text-muted)]">
+              {value.style.trim() || t("ttv.voice.style-default")}
+            </span>
+          </>
+        ) : (
+          <span className="min-w-0 text-sm text-[var(--text-muted)]">
+            {t("ttv.voice.none-selected")}
+          </span>
+        )}
+      </div>
 
       {/* 1. Model TTS */}
       <div>

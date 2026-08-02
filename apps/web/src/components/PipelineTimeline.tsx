@@ -93,21 +93,35 @@ export function deriveStage(input: PipelineStageInput): PipelineStage | null {
   return { stage: floor, active: false };
 }
 
-export function PipelineTimeline(props: PipelineStageInput) {
-  const { t, tf } = useT();
-  const derived = deriveStage(props);
-  if (!derived) return null;
-  const { stage, active } = derived;
-
-  // Kéo giãn hết bề ngang container (connector flex-1); label dưới marker.
-  // Giai đoạn XONG = tick ✓ xanh; đang chạy = chấm primary pulse; chưa tới = chấm mờ.
-  const done = stage === 6 && !active;
+/**
+ * Thanh stepper thuần hình - KHÔNG biết gì về video project.
+ *
+ * Tách ra để Text to video dùng đúng thanh này thay vì tự vẽ thanh thứ hai:
+ * hai thanh trông na ná nhau là kiểu lệch giao diện khó thấy nhất, vì mỗi lần
+ * chỉnh một bên thì bên kia lặng lẽ trôi đi.
+ *
+ * @param steps  KEY dictionary của từng bước (dịch bằng t() lúc render)
+ * @param stage  bước hiện tại, đếm từ 1
+ * @param active có việc đang chạy ở bước đó không (chấm nhấp nháy)
+ * @param done   đã xong hết (bước cuối hiện tick thay vì chấm)
+ */
+export function StepperBar({
+  steps,
+  stage,
+  active,
+  done,
+  ariaLabel,
+}: {
+  steps: readonly string[];
+  stage: number;
+  active: boolean;
+  done: boolean;
+  ariaLabel: string;
+}) {
+  const { t } = useT();
   return (
-    <ol
-      className="flex w-full min-w-0 items-start"
-      aria-label={tf("pipeline.aria", { stage, label: t(STEPS[stage - 1]) })}
-    >
-      {STEPS.flatMap((label, i) => {
+    <ol className="flex w-full min-w-0 items-start" aria-label={ariaLabel}>
+      {steps.flatMap((label, i) => {
         const n = i + 1;
         const passed = n < stage || (n === stage && done);
         const current = n === stage && !done;
@@ -154,5 +168,24 @@ export function PipelineTimeline(props: PipelineStageInput) {
         return items;
       })}
     </ol>
+  );
+}
+
+export function PipelineTimeline(props: PipelineStageInput) {
+  const { t, tf } = useT();
+  const derived = deriveStage(props);
+  if (!derived) return null;
+  const { stage, active } = derived;
+  // Kéo giãn hết bề ngang container (connector flex-1); label dưới marker.
+  // Giai đoạn XONG = tick ✓ xanh; đang chạy = chấm primary pulse; chưa tới = chấm mờ.
+  const done = stage === 6 && !active;
+  return (
+    <StepperBar
+      steps={STEPS}
+      stage={stage}
+      active={active}
+      done={done}
+      ariaLabel={tf("pipeline.aria", { stage, label: t(STEPS[stage - 1]) })}
+    />
   );
 }

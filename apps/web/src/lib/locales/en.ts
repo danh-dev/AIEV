@@ -1529,6 +1529,10 @@ export const en: Record<string, string> = {
   "ttv.rewrite-script": "Rewrite",
   "ttv.target-seconds": "Length (sec)",
   "ttv.target-auto": "Auto",
+  "ttv.script-model": "Script model",
+  "ttv.script-model-default": "Claude Code default",
+  "ttv.script-model-hint":
+    "Runs on the Claude Code account already signed in on this machine - no API key, no extra billing setup. The model you pick here is saved for the next run.",
   "ttv.scripting-hint":
     "The AI is writing the narration script. Long articles can take tens of seconds.",
   "ttv.no-script":
@@ -1545,6 +1549,10 @@ export const en: Record<string, string> = {
     "These durations are only estimated from the character count. The real duration is known only after synthesis: for identical input, TTS output varies by up to 28%.",
 
   "ttv.card-voice": "3. Voice",
+  "ttv.voice-not-chosen": "No voice yet",
+  "ttv.voice.selected": "Selected voice:",
+  "ttv.voice.none-selected": "None yet - pick a voice from the list below.",
+  "ttv.voice.style-default": "Default delivery",
   "ttv.voice.model": "TTS model",
   "ttv.voice.model-default": "Server default",
   "ttv.voice.voice": "Voice",
@@ -1593,6 +1601,18 @@ export const en: Record<string, string> = {
   "ttv.voice-file": "Voice file",
   "ttv.transcript-file": "Transcript",
 
+  "ttv.ai-panel": "AI log",
+  "ttv.ai-panel-aria": "AI log panel for this text to video session",
+  "ttv.close-panel": "Close the AI log panel",
+  "ttv.panel-empty":
+    "Press \"Build video\" and this panel comes alive: job progress, every log line, then the whole AI edit conversation of the project it creates.",
+  "ttv.panel-job": "Build job",
+  "ttv.panel-no-log": "No log lines yet.",
+  "ttv.panel-log-error": "Could not read the job log.",
+  "ttv.panel-chat-loading": "Looking for the project's AI session…",
+  "ttv.panel-no-session":
+    "The project exists but has no AI session yet - open the project to start editing.",
+
   "help.ttv.title": "What is Text to video?",
   "help.ttv.body":
     "It turns an article into a video: paste a link or the text, the AI writes a narration script, TTS reads it out, and the system creates a Videos Project that already has the voice track and transcript.\nEvery session goes through 5 steps: Source, Script, Voice, Settings, Build. Each one can be revised before you build.\nDeleting a session does NOT delete the Videos Project it created.",
@@ -1602,6 +1622,9 @@ export const en: Record<string, string> = {
   "help.ttv-script.title": "What is the narration script?",
   "help.ttv-script.body":
     "It is the words that will be spoken, split into short chunks so they are easy to edit and easy to line up with the visuals.\nSet \"Length (sec)\" to aim for a specific duration; leave it empty and the AI decides from the content.\nThe duration next to each chunk is only estimated from its character count - the real number exists only after synthesis.",
+  "help.ttv-script-model.title": "What is the script model?",
+  "help.ttv-script-model.body":
+    "It is the Claude model that writes the narration from the article. A stronger model reads more fluently but takes longer; \"Claude Code default\" is fine for most articles.\nIt runs on the Claude Code account signed in on this machine (your subscription), so no separate API key is needed.\nYour choice is saved immediately - the next \"Rewrite\" uses the same model.",
   "help.ttv-voice.title": "How do I pick a voice?",
   "help.ttv-voice.body":
     "There are around 30 voices and the name tells you nothing about the timbre, so press play to hear one.\nEvery preview is a real synthesis: a few seconds and real money, so it only plays on click, and only one at a time.\nType in the search box to filter by name or by the timbre description.",

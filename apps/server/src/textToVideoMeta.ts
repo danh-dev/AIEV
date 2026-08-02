@@ -111,6 +111,12 @@ export interface TextToVideoMeta {
   /** Kịch bản đọc do AI viết, đã chia đoạn - rỗng nghĩa là chưa viết */
   script: ScriptChunk[];
   voice: TextToVideoVoice;
+  /**
+   * Model Claude viết kịch bản - null = mặc định của SDK.
+   * Chạy qua Agent SDK nên dùng đúng gói subscription đã đăng nhập trên máy,
+   * không cần API key riêng (xem hasClaudeAuth trong config.ts).
+   */
+  scriptModel: string | null;
   output: TextToVideoOutput;
   /**
    * Brief cho Videos Project sinh ra - CÙNG kiểu với Videos Project để dùng lại
@@ -163,6 +169,7 @@ export function defaultTextToVideoMeta(id: string, name: string): TextToVideoMet
     article: null,
     script: [],
     voice: defaultVoice(),
+    scriptModel: null,
     output: defaultOutput(),
     brief,
     voiceFile: null,
@@ -202,6 +209,7 @@ export function readTextToVideo(id: string): TextToVideoMeta {
       name: typeof voice.name === "string" && voice.name ? voice.name : base.voice.name,
       style: typeof voice.style === "string" ? voice.style : "",
     },
+    scriptModel: typeof raw.scriptModel === "string" && raw.scriptModel ? raw.scriptModel : null,
     output: {
       width: num(out.width, base.output.width),
       height: num(out.height, base.output.height),

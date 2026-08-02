@@ -1526,6 +1526,10 @@ export const vi: Record<string, string> = {
   "ttv.rewrite-script": "Viết lại",
   "ttv.target-seconds": "Độ dài (giây)",
   "ttv.target-auto": "Tự động",
+  "ttv.script-model": "Model viết kịch bản",
+  "ttv.script-model-default": "Mặc định của Claude Code",
+  "ttv.script-model-hint":
+    "Chạy bằng chính tài khoản Claude Code đã đăng nhập trên máy này - không cần API key, không phải cấu hình thêm gì để trả phí. Model chọn ở đây được lưu lại cho những lần viết sau.",
   "ttv.scripting-hint":
     "AI đang viết kịch bản đọc. Bài dài có thể mất vài chục giây.",
   "ttv.no-script":
@@ -1542,6 +1546,10 @@ export const vi: Record<string, string> = {
     "Thời lượng ở đây chỉ là ước tính theo số ký tự. Thời lượng thật chỉ biết sau khi tổng hợp giọng: cùng một câu, TTS đọc lệch nhau tới 28%.",
 
   "ttv.card-voice": "3. Giọng đọc",
+  "ttv.voice-not-chosen": "Chưa chọn giọng",
+  "ttv.voice.selected": "Giọng đang chọn:",
+  "ttv.voice.none-selected": "Chưa chọn - bấm một giọng trong danh sách bên dưới.",
+  "ttv.voice.style-default": "Cách đọc mặc định",
   "ttv.voice.model": "Model đọc",
   "ttv.voice.model-default": "Mặc định của server",
   "ttv.voice.voice": "Giọng",
@@ -1589,6 +1597,18 @@ export const vi: Record<string, string> = {
   "ttv.voice-file": "File giọng đọc",
   "ttv.transcript-file": "Transcript",
 
+  "ttv.ai-panel": "Nhật ký AI",
+  "ttv.ai-panel-aria": "Bảng nhật ký AI của phiên text to video",
+  "ttv.close-panel": "Đóng bảng nhật ký AI",
+  "ttv.panel-empty":
+    "Bấm \"Dựng video\" là bảng này bắt đầu chạy: tiến trình job, từng dòng log, rồi toàn bộ cuộc đối thoại AI edit của project sinh ra.",
+  "ttv.panel-job": "Job dựng video",
+  "ttv.panel-no-log": "Chưa có dòng log nào.",
+  "ttv.panel-log-error": "Không đọc được log của job.",
+  "ttv.panel-chat-loading": "Đang tìm phiên AI của project…",
+  "ttv.panel-no-session":
+    "Project đã tạo xong nhưng chưa có phiên AI nào - mở project để bắt đầu edit.",
+
   "help.ttv.title": "Text to video là gì?",
   "help.ttv.body":
     "Biến một bài viết thành video: dán link hoặc dán văn bản, AI viết kịch bản đọc, TTS đọc thành giọng, rồi hệ thống tạo sẵn một Videos Project có giọng đọc và transcript để dựng tiếp.\nMỗi phiên đi qua 5 bước: Nguồn, Kịch bản đọc, Giọng đọc, Cấu hình video, Dựng video. Bước nào cũng sửa lại được trước khi dựng.\nXóa phiên KHÔNG xóa Videos Project đã tạo ra từ nó.",
@@ -1598,6 +1618,9 @@ export const vi: Record<string, string> = {
   "help.ttv-script.title": "Kịch bản đọc là gì?",
   "help.ttv-script.body":
     "Là lời sẽ được đọc lên, chia thành từng đoạn ngắn để dễ sửa và dễ khớp với hình.\nĐặt \"Độ dài (giây)\" để AI viết dài đúng cỡ bạn muốn; bỏ trống thì AI tự quyết theo nội dung.\nThời lượng hiện bên cạnh mỗi đoạn chỉ là ước tính theo số ký tự - con số thật chỉ có sau khi tổng hợp giọng.",
+  "help.ttv-script-model.title": "Model viết kịch bản là gì?",
+  "help.ttv-script-model.body":
+    "Là model Claude ngồi viết lời đọc từ nội dung bài. Model mạnh viết mạch lạc hơn nhưng chậm hơn; để \"Mặc định của Claude Code\" là đủ dùng cho phần lớn bài.\nNó chạy bằng tài khoản Claude Code đã đăng nhập trên máy (gói subscription) nên không cần API key riêng.\nĐổi model xong là lưu ngay - lần bấm \"Viết lại\" sau vẫn dùng đúng model bạn chọn.",
   "help.ttv-voice.title": "Chọn giọng thế nào?",
   "help.ttv-voice.body":
     "Có khoảng 30 giọng, nhìn tên không đoán được chất giọng nên hãy bấm nút phát để nghe thử.\nMỗi lần nghe thử là một lần tổng hợp thật: mất vài giây và tốn phí, nên chỉ phát khi bạn bấm, và mỗi lúc chỉ một giọng.\nGõ vào ô tìm để lọc theo tên hoặc theo mô tả chất giọng.",

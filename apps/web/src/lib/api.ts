@@ -2237,6 +2237,12 @@ export interface TextToVideoMeta {
   /** null = chưa trích xuất được nội dung. */
   article: ExtractedArticle | null;
   script: ScriptChunk[];
+  /**
+   * Model Claude dùng để VIẾT kịch bản - null = mặc định của Claude Code.
+   * Server lưu lại lựa chọn mỗi lần /script chạy, nên lần viết sau giữ nguyên
+   * model thay vì lặng lẽ quay về mặc định.
+   */
+  scriptModel: string | null;
   voice: TextToVideoVoice;
   output: TextToVideoOutput;
   /** Kịch bản edit - CÙNG kiểu Brief với Videos Project. */
@@ -2378,6 +2384,8 @@ export const updateTextToVideo = (
     output?: TextToVideoOutput;
     brief?: Partial<Brief>;
     script?: ScriptChunk[];
+    /** null = quay về model mặc định của Claude Code. */
+    scriptModel?: string | null;
   }
 ) =>
   jsonBody<TextToVideoMeta>(
@@ -2398,11 +2406,21 @@ export const deleteTextToVideo = (id: string) =>
 export const extractTextToVideo = (id: string) =>
   post<TextToVideoMeta>(`/api/text-to-video/${encodeURIComponent(id)}/extract`);
 
-/** AI viết kịch bản đọc - chờ ~10-40s. targetSeconds = độ dài mong muốn. */
-export const scriptTextToVideo = (id: string, targetSeconds?: number) =>
+/**
+ * AI viết kịch bản đọc - chờ ~10-40s.
+ * - targetSeconds: độ dài mong muốn (bỏ trống = AI tự quyết).
+ * - model: model Claude viết kịch bản. Gửi kèm thì server DÙNG và LƯU lại vào
+ *   `scriptModel`; bỏ trống thì server dùng model đã lưu của phiên.
+ */
+export const scriptTextToVideo = (
+  id: string,
+  input?: { targetSeconds?: number; model?: string }
+) =>
   post<TextToVideoMeta>(
     `/api/text-to-video/${encodeURIComponent(id)}/script`,
-    targetSeconds !== undefined ? { targetSeconds } : undefined
+    input && (input.targetSeconds !== undefined || input.model !== undefined)
+      ? input
+      : undefined
   );
 
 /** 202 - job dài: TTS → transcript → tạo Videos Project → chạy AI edit. */

@@ -132,6 +132,13 @@ router.patch("/:id", (req, res) => {
     };
   }
 
+  if ("scriptModel" in body) {
+    patch.scriptModel =
+      typeof body.scriptModel === "string" && body.scriptModel.trim()
+        ? body.scriptModel.trim()
+        : null;
+  }
+
   // Brief đi qua đúng bộ kiểm tra của Videos Project - không viết lại luật
   if (body.brief && typeof body.brief === "object") {
     patch.brief = applyBriefPatch(cur.brief, body.brief as Record<string, unknown>);
@@ -241,11 +248,19 @@ router.post("/:id/script", async (req, res) => {
     );
   }
 
-  patchTextToVideo(meta.id, { status: "scripting", error: null });
+  // Model gửi kèm lần này được ưu tiên và LƯU LẠI, để lần viết sau giữ nguyên
+  // lựa chọn thay vì lặng lẽ quay về mặc định
+  const model =
+    typeof body.model === "string" && body.model.trim()
+      ? body.model.trim()
+      : meta.scriptModel;
+
+  patchTextToVideo(meta.id, { status: "scripting", error: null, scriptModel: model });
   try {
     const ai = await generateText({
       prompt: scriptPrompt(meta, targetSeconds),
       usageTag: "text-to-video",
+      model,
       timeoutMs: 4 * 60_000,
     });
     const chunks = parseScriptChunks(ai.text);
