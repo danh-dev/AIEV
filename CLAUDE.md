@@ -127,6 +127,7 @@ Quy tắc bắt buộc:
    - **Style Design** (`brief.styleId`, `assets/styles/`) = nhận diện thương hiệu: MÀU, FONT, logo. Luôn cưỡng chế 100%.
    - **Phong cách dựng** (`brief.videoStyleId`, `apps/server/src/videoStyles.ts`) = ngôn ngữ thị giác của riêng video: CHẤT LIỆU và CHUYỂN ĐỘNG (giấy gấp, mực tàu, người que…). 20 phong cách, `null` = AI tự quyết.
    - Phong cách dựng **thay thế** chỉ đạo mỹ thuật mặc định trong prompt ảnh, không cộng thêm — cộng vào là ra thứ nửa nọ nửa kia. Vài phong cách có `palette: "loose"` (mực tàu, Đông Hồ, ảnh thật): ảnh theo bảng màu ruột của phong cách, màu brand tụt xuống làm điểm nhấn, còn chữ/đồ họa vẫn theo Style Design.
+   - **Thứ tự ưu tiên khi có phong cách dựng** (đã từng sai và làm tính năng vô tác dụng): phong cách quyết định CHẤT LIỆU + CHUYỂN ĐỘNG và **thắng skill** ở phần hình ảnh; skill chỉ còn giữ QUY TRÌNH (thứ tự bước, cắt, key/phụ đề, draft→final, QC); Style Design vẫn giữ MÀU + FONT, nhưng phần Tone/Guidelines nào tả một ngôn ngữ hình ảnh khác thì bỏ. Bất kỳ câu nào trong prompt trao "animation/layout/nhịp" cho skill một cách vô điều kiện đều phá tính năng này.
 
 ## 6. Web UI — quy tắc thiết kế (chi tiết ở skill `webui-design`)
 

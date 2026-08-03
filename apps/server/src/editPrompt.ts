@@ -32,6 +32,9 @@ export function buildEditPrompt(input: {
 }): string {
   const { id, meta, brief, assets, recommendedSfx, music, style, extraNotes } = input;
   const brandLogoFile = input.brandLogoFile ?? null;
+  // Tính SỚM: khối Style Design phía trên phải biết có phong cách hay không để
+  // nói đúng ranh giới với skill, chứ không chờ tới lúc in khối phong cách
+  const videoStyle = getVideoStyle(brief.videoStyleId);
   // Chỉ đếm, KHÔNG liệt kê 116 tên vào prompt: agent đọc library.json khi cần,
   // còn nhồi cả danh sách vào đây là đốt token mỗi phiên cho thứ hiếm khi dùng hết.
   const brandLogoLibraryCount = countBrandLogos();
@@ -168,7 +171,24 @@ export function buildEditPrompt(input: {
     lines.push(
       "Skill quy định bảng màu riêng (vd dark fintech xanh) → BỎ QUA bảng màu đó, dùng style này;",
     );
-    lines.push("kỹ thuật animation/layout/nhịp của skill vẫn áp dụng bình thường.");
+    // Câu này TỪNG LÀ NGUYÊN NHÂN phong cách dựng không có tác dụng: nó trao
+    // animation/layout/nhịp cho skill một cách vô điều kiện, trong khi khối
+    // PHONG CÁCH DỰNG ngay dưới lại bảo phong cách quyết định chuyển động. Hai
+    // câu đá nhau thì agent theo skill (skill được gắn nhãn "quy trình chính"
+    // và mô tả chi tiết hơn nhiều). Nên khi có phong cách thì phải nói rõ ranh
+    // giới ngay tại đây, đừng để mâu thuẫn tồn tại trong cùng một prompt.
+    lines.push(
+      videoStyle
+        ? "kỹ thuật animation/layout/nhịp của skill CHỈ áp dụng khi KHÔNG mâu thuẫn với mục PHONG CÁCH DỰNG bên dưới."
+        : "kỹ thuật animation/layout/nhịp của skill vẫn áp dụng bình thường.",
+    );
+    if (videoStyle) {
+      lines.push(
+        "Phần Tone/Guidelines ở trên mô tả CẢM GIÁC thương hiệu; chỗ nào nó tả một ngôn ngữ " +
+          "hình ảnh khác (vd \"phong cách Apple\", \"card floating\", \"glass\") thì BỎ phần " +
+          "đó và làm theo PHONG CÁCH DỰNG. Màu và font thì vẫn theo Style Design.",
+      );
+    }
     lines.push(`Ảnh minh họa (POST /api/illustrations) truyền styleId="${style.id}".`);
     lines.push("");
 
@@ -251,7 +271,6 @@ export function buildEditPrompt(input: {
   }
 
   // --- Phong cách dựng (ngôn ngữ thị giác) - CHỒNG LÊN Style Design, không thay thế
-  const videoStyle = getVideoStyle(brief.videoStyleId);
   if (videoStyle) {
     lines.push("## PHONG CÁCH DỰNG (BẮT BUỘC)");
     lines.push(
@@ -273,6 +292,21 @@ export function buildEditPrompt(input: {
     lines.push(
       "LUẬT ƯU TIÊN: phong cách dựng quyết định CHẤT LIỆU và CHUYỂN ĐỘNG; Style Design vẫn quyết định " +
         "MÀU và FONT. Hai thứ chồng lên nhau, không cái nào hủy cái nào.",
+    );
+    lines.push(
+      "PHONG CÁCH DỰNG THẮNG SKILL ở phần hình ảnh: skill nào mô tả chuyển cảnh, hiệu ứng, chất " +
+        "liệu hay bố cục khác với phong cách này thì BỎ phần mô tả đó. Ví dụ skill bảo " +
+        "\"chuyển cảnh mờ chồng\" hay \"card kính bo góc\" mà phong cách là gấp giấy -> làm theo " +
+        "phong cách, không làm theo skill.",
+    );
+    lines.push(
+      "Skill VẪN giữ nguyên phần QUY TRÌNH: thứ tự bước, cách cắt, cách đặt key/phụ đề, mốc thời " +
+        "gian, draft trước final, verify frame, QC. Chỉ phần NGÔN NGỮ HÌNH ẢNH là nhường.",
+    );
+    lines.push(
+      "TỰ KIỂM trước khi báo xong: mở lại vài frame đã render và trả lời được câu " +
+        `"nhìn frame này có nhận ra ngay là ${videoStyle.name} không?". Không nhận ra thì chưa đạt, ` +
+        "dựng lại chứ đừng báo hoàn thành.",
     );
     lines.push("");
   }
@@ -371,6 +405,15 @@ export function buildEditPrompt(input: {
   } else {
     lines.push(
       "Tự chọn skill phù hợp nhất trong `.claude/skills/` (đọc mô tả các skill rồi quyết định) làm quy trình chính.",
+    );
+  }
+  // Nhắc lại ranh giới NGAY TẠI ĐÂY. Đọc tới mục Skill là agent chuẩn bị mở
+  // SKILL.md - file đó dài và mô tả hình ảnh rất chi tiết, đủ sức lấn át một
+  // dòng luật nằm cách xa vài nghìn ký tự phía trên.
+  if (videoStyle) {
+    lines.push(
+      `LƯU Ý: skill chỉ là QUY TRÌNH. Mọi mô tả hình ảnh/chuyển động trong skill mà khác ` +
+        `phong cách "${videoStyle.name}" thì BỎ - xem lại mục PHONG CÁCH DỰNG ở trên.`,
     );
   }
   lines.push("");
