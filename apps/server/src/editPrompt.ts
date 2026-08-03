@@ -1,4 +1,5 @@
 import { buildFilterChain, normAdjust } from "./color.js";
+import { countBrandLogos } from "./brandLogos.js";
 import type { Brief, FileInfoWithDescription, ProjectMeta } from "./meta.js";
 import type { MusicEntry } from "./routes/music.js";
 import type { SfxEntry } from "./routes/sfx.js";
@@ -31,6 +32,9 @@ export function buildEditPrompt(input: {
 }): string {
   const { id, meta, brief, assets, recommendedSfx, music, style, extraNotes } = input;
   const brandLogoFile = input.brandLogoFile ?? null;
+  // Chỉ đếm, KHÔNG liệt kê 116 tên vào prompt: agent đọc library.json khi cần,
+  // còn nhồi cả danh sách vào đây là đốt token mỗi phiên cho thứ hiếm khi dùng hết.
+  const brandLogoLibraryCount = countBrandLogos();
   const lines: string[] = [];
 
   // --- Rào chống prompt injection: nội dung do người dùng/asset cung cấp (brief,
@@ -197,8 +201,42 @@ export function buildEditPrompt(input: {
         "- Nếu vì lý do gì mà không chèn được file này, PHẢI báo rõ trong báo cáo cuối - " +
           "tuyệt đối không im lặng thay bằng phương án tự chế.",
       );
+      lines.push(
+        "- LOGO ĐÓNG GÓC TRÊN TRÁI: hệ thống TỰ chèn ở bước lắp ráp Remotion cho toàn bộ " +
+          "video, KHÔNG cần và KHÔNG ĐƯỢC tự thêm logo góc vào scene - tự thêm là video có " +
+          "HAI logo chồng nhau. Chỉ chèn logo bằng tay ở những chỗ CÓ CHỦ Ý khác (màn intro, " +
+          "màn kết, khung giới thiệu...).",
+      );
       lines.push("");
     }
+  }
+
+  // --- Thư viện logo brand khác (Meta, TikTok, OpenAI...) ---
+  if (brandLogoLibraryCount > 0) {
+    lines.push("## LOGO CỦA CÁC BRAND KHÁC");
+    lines.push(
+      `Repo có sẵn thư viện ${brandLogoLibraryCount} logo brand tại \`assets/brand-logos/\` ` +
+        "(danh mục: `assets/brand-logos/library.json` - đọc file đó để biết có brand nào, " +
+        "tên file và MÃ MÀU chính thức của từng brand).",
+    );
+    lines.push(
+      "- Video cần nhắc tới một brand (Facebook, TikTok, Claude, Gemini...) thì DÙNG FILE " +
+        "TRONG THƯ VIỆN NÀY. CẤM tự vẽ lại logo brand, CẤM nhờ Gemini sinh logo brand - " +
+        "logo sai nhận diện là lỗi nhìn ra ngay.",
+    );
+    lines.push(
+      "- Cách dùng: CHÉP file cần dùng vào `assets/` của project trước, rồi mới tham chiếu. " +
+        "Remotion chỉ stage file NẰM TRONG project, trỏ thẳng ra ngoài là render 404.",
+    );
+    lines.push(
+      "- File là SVG MỘT MÀU (mặc định đen). Muốn đổi màu thì nhúng SVG inline rồi set " +
+        "`fill` - dùng đúng mã màu brand trong library.json, hoặc trắng/đen tùy nền cho dễ đọc.",
+    );
+    lines.push(
+      "- Brand KHÔNG có trong thư viện: đừng bịa. Nói bằng CHỮ (tên brand đặt bằng font của " +
+        "Style Design) và ghi vào báo cáo cuối là thiếu logo brand đó.",
+    );
+    lines.push("");
   }
 
   // --- Phong cách dựng (ngôn ngữ thị giác) - CHỒNG LÊN Style Design, không thay thế

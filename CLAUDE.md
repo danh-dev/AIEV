@@ -63,6 +63,7 @@ Edit-Video-AI/
 │   ├── styles/                ← Style Design (styles.json + font files)
 │   ├── prompts/               ← thư viện prompt mẫu
 │   ├── sound-effects/         ← thư viện sound effect dùng chung (library.json)
+│   ├── brand-logos/           ← 116 logo brand (Simple Icons, CC0) + library.json
 │   └── voices/                ← giọng đã nhân bản (gitignore - là giọng thật của người dùng)
 ├── docs/                      ← tài liệu (API.md — contract backend)
 ├── start/                     ← script khởi động (start.ps1)
@@ -116,7 +117,11 @@ Quy tắc bắt buộc:
 2. **Mọi render đều đi qua render queue của backend** (kể cả khi Claude tự chạy) để web UI luôn thấy được trạng thái.
 3. Video tiếng Việt: áp dụng các fix đã kiểm chứng trong skills (chữ gradient mất dấu, transcription tiếng Việt, PATH ffmpeg).
 4. Xong final render thì cập nhật `meta.json` của project (trạng thái, đường dẫn output, thời lượng).
-5. **Hai lớp "style" chồng lên nhau, đừng gộp:**
+5. **Logo không bao giờ được sinh ra, chỉ được chèn từ file:**
+   - Style Design có logo → hệ thống **tự đóng logo góc trên trái** cho cả video ở bước lắp ráp Remotion (`jobs/assemble.ts` → `manifest.watermark`). AI không phải làm gì, và **không được** tự thêm logo góc nữa (thành hai logo chồng nhau). Không muốn đóng logo thì dùng Style Design không có logo.
+   - Logo brand khác (Meta, TikTok, Claude…): lấy file trong `assets/brand-logos/`, chép vào `assets/` của project rồi mới tham chiếu (Remotion chỉ stage file nằm trong project). Thiếu brand nào thì nói bằng chữ, **không bịa logo**.
+   - Bổ sung logo: `node scripts/fetch-brand-logos.mjs <slug>…`, hoặc bỏ thẳng file SVG vào thư mục rồi chạy lại script.
+6. **Hai lớp "style" chồng lên nhau, đừng gộp:**
    - **Style Design** (`brief.styleId`, `assets/styles/`) = nhận diện thương hiệu: MÀU, FONT, logo. Luôn cưỡng chế 100%.
    - **Phong cách dựng** (`brief.videoStyleId`, `apps/server/src/videoStyles.ts`) = ngôn ngữ thị giác của riêng video: CHẤT LIỆU và CHUYỂN ĐỘNG (giấy gấp, mực tàu, người que…). 20 phong cách, `null` = AI tự quyết.
    - Phong cách dựng **thay thế** chỉ đạo mỹ thuật mặc định trong prompt ảnh, không cộng thêm — cộng vào là ra thứ nửa nọ nửa kia. Vài phong cách có `palette: "loose"` (mực tàu, Đông Hồ, ảnh thật): ảnh theo bảng màu ruột của phong cách, màu brand tụt xuống làm điểm nhấn, còn chữ/đồ họa vẫn theo Style Design.

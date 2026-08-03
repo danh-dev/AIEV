@@ -152,6 +152,28 @@ export const audioSchema = z.looseObject({
   music: musicSchema.nullable().default(null),
 });
 
+/**
+ * Logo thương hiệu đóng góc suốt video.
+ *
+ * Server TỰ chèn từ logo của Style Design (xem jobs/assemble.ts) - KHÔNG phải
+ * do AI quyết định. Đây là chủ ý: watermark mà để agent tự nhớ chèn thì sớm
+ * muộn cũng có video quên mất, còn logo đóng góc là thứ không được phép quên.
+ */
+export const watermarkSchema = z.looseObject({
+  /** Đường dẫn ảnh trong staging */
+  file: z.string().min(1),
+  /** Góc đặt - mặc định trên-trái */
+  position: z
+    .enum(["top-left", "top-right", "bottom-left", "bottom-right"])
+    .default("top-left"),
+  /** Chiều cao logo theo % chiều cao video - giữ nguyên tỉ lệ khung ảnh */
+  heightPercent: z.number().positive().max(30).default(6),
+  /** Lề tính theo % CHIỀU RỘNG cho cả hai trục, để khoảng cách nhìn đều nhau */
+  marginPercent: z.number().min(0).max(30).default(4),
+  /** Hơi chìm để không tranh nhìn với nội dung, nhưng vẫn phải đọc ra được */
+  opacity: z.number().min(0).max(1).default(0.9),
+});
+
 export const manifestSchema = z.looseObject({
   id: z.string().min(1),
   name: z.string(),
@@ -173,6 +195,8 @@ export const manifestSchema = z.looseObject({
    * Rỗng = không overlay.
    */
   overlays: z.array(highlightCueSchema).default([]),
+  /** Logo thương hiệu đóng góc - null = Style Design không có logo */
+  watermark: watermarkSchema.nullable().default(null),
   output: z.string().nullable().optional(),
 });
 
@@ -182,6 +206,7 @@ export type Zoom = z.infer<typeof zoomSchema>;
 export type CaptionWord = z.infer<typeof captionWordSchema>;
 export type CaptionCue = z.infer<typeof captionCueSchema>;
 export type HighlightCue = z.infer<typeof highlightCueSchema>;
+export type Watermark = z.infer<typeof watermarkSchema>;
 export type Scene = z.infer<typeof sceneSchema>;
 export type Manifest = z.infer<typeof manifestSchema>;
 

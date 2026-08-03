@@ -91,6 +91,27 @@ back with a clean empty surface, which is exactly what you want to composite the
 So: **do not write "with the brand logo" into an illustration prompt.** Ask for the blank surface you need
 (an empty plaque, a blank screen) and place the real file on top yourself.
 
+**The corner logo is automatic.** When the style has a logo, the assemble step stamps it top-left over the
+whole video (`manifest.watermark`). Do not add your own corner logo as well - that yields two overlapping
+marks. Place the logo by hand only where you deliberately want it (intro card, end card, a framed mention).
+
+## Other companies' logos - use the library, never draw them
+
+`assets/brand-logos/` holds 116 official brand marks (Simple Icons, CC0-1.0) with each brand's official hex
+colour; `assets/brand-logos/library.json` is the index - read it rather than guessing file names.
+
+- Need Facebook / TikTok / Claude / Gemini in a scene? **Use the file.** Never redraw a third-party logo and
+  never ask Gemini for one; a wrong brand mark is spotted instantly.
+- **Copy the file into the project's `assets/` first**, then reference it. Remotion only stages paths inside
+  the project, so pointing straight at `assets/brand-logos/` renders a 404.
+- The SVGs are single-colour (black by default). To recolour, inline the SVG and set `fill` - use the official
+  hex from `library.json`, or plain white/black when the background demands it.
+- Brand not in the library (Microsoft, LinkedIn, OpenAI and others were removed at the trademark owners'
+  request): say the name in text using the Style Design font, and note the gap in the final report. Do not
+  source it from elsewhere on your own initiative.
+- CC0 covers the *files*, not the trademarks. Referring to a brand is fine; implying it sponsors or endorses
+  the video is not.
+
 ## Known issues
 
 - Generating an image and forgetting to composite it - final checklist: every image in `assets/illustrations/` must

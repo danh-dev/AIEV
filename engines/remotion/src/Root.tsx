@@ -38,6 +38,9 @@ const demoManifest: Manifest = {
   audio: { sfx: [], music: null },
   captions: [],
   overlays: [],
+  // Studio demo không có file logo trong public/ - để null, còn render thật thì
+  // server tự chèn từ Style Design (xem jobs/assemble.ts)
+  watermark: null,
   output: null,
 };
 

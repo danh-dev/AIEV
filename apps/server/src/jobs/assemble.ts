@@ -3,7 +3,9 @@ import path from "node:path";
 import { paths } from "../config.js";
 import { updateJob } from "../db.js";
 import type { JobCtx } from "../queue.js";
-import { projectDirOf, readMeta, writeMeta, type ProjectMeta } from "../meta.js";
+import { briefOf, projectDirOf, readMeta, writeMeta, type ProjectMeta } from "../meta.js";
+import { syncBrandLogo } from "../childProject.js";
+import { getStyle } from "../styles.js";
 import { ensureDir, remotionCli } from "../util.js";
 import { remotionSpeedArgs } from "../renderSettings.js";
 import { parseProgressLine, shortenStep } from "./progress.js";
@@ -93,6 +95,24 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
       scene.srcImage = stage(scene.srcImage);
     }
   }
+  // ---- Logo thương hiệu đóng góc (BẮT BUỘC khi Style Design có logo) ----
+  //
+  // Chèn Ở ĐÂY chứ không giao cho agent: logo đóng góc là thứ phải có ở MỌI
+  // video, mà bất cứ việc gì giao cho agent nhớ thì sớm muộn cũng có lần quên.
+  // Đặt tại tầng lắp ráp thì kể cả render lại một project cũ (không chạy phiên
+  // edit nào) logo vẫn có mặt.
+  const brief = briefOf(meta);
+  const logoFile = syncBrandLogo(projectId, getStyle(brief.styleId));
+  if (logoFile) {
+    (props as ProjectMeta & { watermark?: unknown }).watermark = {
+      file: stage(path.posix.join("assets", logoFile)),
+      position: "top-left",
+    };
+    ctx.log(`[watermark] logo góc trên trái: assets/${logoFile}`);
+  } else {
+    ctx.log("[watermark] Style Design không có logo - video không đóng logo");
+  }
+
   if (props.audio) {
     if (typeof props.audio.voice === "string" && props.audio.voice) {
       props.audio.voice = stage(props.audio.voice);

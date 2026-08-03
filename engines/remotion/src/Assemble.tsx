@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, Sequence, staticFile } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, staticFile, useVideoConfig } from "remotion";
 import {
   resolveSceneDurationInFrames,
   type Manifest,
@@ -21,7 +21,7 @@ import { Transition } from "./components/Transition";
  * crossfade do <Transition> xử lý bằng opacity.
  */
 export const Assemble: React.FC<Manifest> = (manifest) => {
-  const { scenes, audio, fps, captions, overlays } = manifest;
+  const { scenes, audio, fps, captions, overlays, watermark } = manifest;
 
   let from = 0;
   const sequences = scenes.map((scene, index) => {
@@ -63,6 +63,48 @@ export const Assemble: React.FC<Manifest> = (manifest) => {
 
       {/* Nhạc nền loop + auto-ducking theo speech ranges */}
       {audio.music ? <MusicTrack music={audio.music} /> : null}
+
+      {/* Logo thương hiệu - LỚP TRÊN CÙNG, sau cả phụ đề: logo đóng góc mà bị
+          một overlay nào đó đè lên thì coi như không có. */}
+      {watermark ? <WatermarkMark watermark={watermark} /> : null}
     </AbsoluteFill>
+  );
+};
+
+/**
+ * Logo đóng góc. Chỉ đổi KÍCH THƯỚC và VỊ TRÍ - không bóp méo, không tô lại,
+ * không bo góc, không đổ bóng lên chính logo (nhận diện thương hiệu là bất khả
+ * xâm phạm; xem khối LOGO trong editPrompt.ts).
+ *
+ * Kích thước và lề tính theo % để một manifest chạy đúng ở mọi khung hình:
+ * chiều cao theo % chiều cao video, còn lề lấy theo % CHIỀU RỘNG cho cả hai
+ * trục - lấy theo mỗi trục thì ở khung dọc 9:16 lề trên trông xa gấp đôi lề trái.
+ */
+const WatermarkMark: React.FC<{ watermark: NonNullable<Manifest["watermark"]> }> = ({
+  watermark,
+}) => {
+  const { width, height } = useVideoConfig();
+  const margin = Math.round((watermark.marginPercent / 100) * width);
+  const logoHeight = Math.round((watermark.heightPercent / 100) * height);
+  const vertical = watermark.position.startsWith("top")
+    ? { top: margin }
+    : { bottom: margin };
+  const horizontal = watermark.position.endsWith("left")
+    ? { left: margin }
+    : { right: margin };
+
+  return (
+    <Img
+      src={staticFile(watermark.file)}
+      style={{
+        position: "absolute",
+        ...vertical,
+        ...horizontal,
+        height: logoHeight,
+        // width:auto giữ nguyên tỉ lệ khung ảnh gốc của logo
+        width: "auto",
+        opacity: watermark.opacity,
+      }}
+    />
   );
 };
