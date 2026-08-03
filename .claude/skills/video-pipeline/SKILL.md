@@ -131,6 +131,11 @@ The number one reason the pipeline burns an entire hour: **re-rendering a draft 
 - **Words running together on per-word reveals**: the HyperFrames pipeline swallows the whitespace between inline-block `<span>`s - separate words with `margin: 0 0.14em` on `.word`, do not rely on whitespace in the HTML.
 - **The `sub_timeline_readiness_timeout` warning** when rendering a template file with `-c`: the render still comes out correct (best-effort) but wastes another 45s waiting - acceptable for drafts; if you want it gone entirely, render through index.html.
 - **A TS comment containing the glob path `*/`** (e.g. `video-projects/*/meta.json`) closes the block comment early -> a baffling compile error. Write `video-projects/<id>/meta.json` instead.
+- **Vietnamese JSON sent with curl -d from Git Bash on Windows loses its diacritics** (verified 2026-08: the
+  thumbnail title arrived at the server as "B?n th? kh?ch..." and rendered broken). The console codepage mangles
+  UTF-8 before curl sends it. For any API body containing Vietnamese, POST from Node instead:
+  `node -e "fetch(url, { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({...}) })"`
+  (or write the JSON to a file and use `curl --data-binary @file`).
 
 ## Checklist before reporting completion
 

@@ -141,3 +141,9 @@ that mentions it.
   either appear in the composition or be deleted (do not leave orphan images that wasted money).
 - Overly generic prompts ("technology background") -> lifeless images. Describe specific objects/setting/camera angle.
 - The SAME image need across multiple scenes -> generate one image and reuse it, do not call the API twice.
+- **Garbage text baked into the image despite allowText=false** (verified 2026-08, gemini-3.1-flash-lite-image):
+  the model sometimes prints prompt-like gibberish ("Overlay cards", hex codes, pseudo-lorem) in the letterbox
+  bands, or invents a brand tag, even though the server prompt bans text. Measured on one batch: 3 of 12 images
+  affected; one concept needed 2 retries. So you MUST Read every generated PNG before compositing. On failure,
+  regenerate with a reworded prompt (same content, different sentence structure) - that was enough in every
+  observed case. Delete the bad files so they are not composited by accident.
