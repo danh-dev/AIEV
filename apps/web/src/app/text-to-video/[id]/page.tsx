@@ -75,7 +75,12 @@ import {
   type TextToVideoSource,
   type TextToVideoVoice,
 } from "@/lib/api";
-import { useAgentEvents, useJobEvents, useJobLogEvents } from "@/lib/useEvents";
+import {
+  useAgentEvents,
+  useEvents,
+  useJobEvents,
+  useJobLogEvents,
+} from "@/lib/useEvents";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -104,6 +109,10 @@ const ASPECTS: TextToVideoAspect[] = ["9:16", "16:9", "1:1", "4:5"];
 
 /** Trạng thái nào là "đang có việc chạy" - lúc đó mọi ô nhập bị khóa. */
 const RUNNING_STATUS = ["extracting", "scripting", "voicing", "building"];
+
+/** Giới hạn "Độ dài (giây)" - khớp server (ngoài khoảng là 400 INVALID_TARGET_SECONDS). */
+const TARGET_SECONDS_MIN = 15;
+const TARGET_SECONDS_MAX = 600;
 
 /** Thay đổi đang chờ gửi - luôn gửi trọn từng khối con để server khỏi phải merge. */
 interface Patch {
@@ -242,9 +251,15 @@ function CollapsibleCard({
  */
 function ResultBlock({ projectId }: { projectId: string }) {
   const { t, tf } = useT();
+  // SSE đứt rồi nối lại → refetch dữ liệu seed để không kẹt trạng thái cũ
+  const { resyncTick } = useEvents();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  // Phiên chat AI của project con có đang chạy không - hỏi thẳng API sessions
+  // (như trang Videos Project) thay vì suy từ job render: job xong không có
+  // nghĩa là phiên AI xong, và ngược lại.
+  const [aiRunning, setAiRunning] = useState(false);
 
   const reload = useCallback(() => {
     getProject(projectId)
@@ -255,15 +270,28 @@ function ResultBlock({ projectId }: { projectId: string }) {
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
   }, [projectId]);
 
-  useEffect(reload, [reload]);
+  useEffect(reload, [reload, resyncTick]);
+
+  const loadSessions = useCallback(() => {
+    getChatSessions(projectId)
+      .then((list) => setAiRunning(list.some((s) => s.status === "running")))
+      .catch(() => {
+        // không tra được - giữ giá trị cũ, không chặn khối kết quả
+      });
+  }, [projectId]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions, resyncTick]);
 
   // Job của project con - đây mới là TIẾN TRÌNH THẬT của việc dựng video.
   // Không có nó thì trang này chỉ biết "đã bàn giao" rồi im lặng hàng chục phút.
+  // Lọc projectId phía server - queue bận không đẩy job của project ra khỏi cửa sổ.
   useEffect(() => {
     let alive = true;
-    getJobs(50)
+    getJobs(50, projectId)
       .then((list) => {
-        if (alive) setJobs(list.filter((j) => j.projectId === projectId));
+        if (alive) setJobs(list);
       })
       .catch(() => {
         // thiếu job cũng không chặn: timeline tự suy từ file đã render
@@ -271,7 +299,7 @@ function ResultBlock({ projectId }: { projectId: string }) {
     return () => {
       alive = false;
     };
-  }, [projectId]);
+  }, [projectId, resyncTick]);
 
   // AI dựng xong thì meta.output mới có - bám cả job lẫn phiên agent để video
   // tự hiện ra, không bắt người dùng F5 đoán lúc nào xong
@@ -287,7 +315,10 @@ function ResultBlock({ projectId }: { projectId: string }) {
     reload();
   });
   useAgentEvents((e) => {
-    if (e.kind === "done" || e.kind === "result") reload();
+    if (e.kind === "done" || e.kind === "result") {
+      reload();
+      loadSessions();
+    }
   });
 
   const output = project?.output ?? null;
@@ -303,9 +334,8 @@ function ResultBlock({ projectId }: { projectId: string }) {
         scenes: project.scenes ?? [],
         renders: project.files?.renders ?? [],
         jobs,
-        // Chưa có output mà project vẫn đang chạy job -> coi như phiên AI còn sống.
-        // Trang này không theo dõi phiên agent của project con nên suy từ job.
-        sessionRunning: running !== null,
+        // Trạng thái THẬT của phiên chat AI - lấy từ API sessions, không suy từ job
+        sessionRunning: aiRunning,
       }
     : null;
 
@@ -467,6 +497,8 @@ function ClaudeAuthLine() {
 function JobLogBlock({ job }: { job: Job }) {
   const { t } = useT();
   const jobId = job.id;
+  // SSE nối lại sau khi đứt → refetch log để lấp các dòng đã lỡ
+  const { resyncTick } = useEvents();
   const [log, setLog] = useState("");
   const [error, setError] = useState<string | null>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -477,7 +509,17 @@ function JobLogBlock({ job }: { job: Job }) {
     setError(null);
     getJob(jobId)
       .then((j) => {
-        if (alive) setLog(j.log ?? "");
+        if (!alive) return;
+        const fetched = j.log ?? "";
+        // Trong lúc chờ fetch, SSE có thể đã đổ thêm dòng vào state - GHÉP chứ
+        // không ghi đè, kẻo mất đúng những dòng mới nhất người dùng đang nhìn.
+        setLog((prev) => {
+          if (!prev) return fetched;
+          if (!fetched) return prev;
+          // Bản fetch thường đã chứa các dòng SSE vừa tới (fetch trả sau)
+          if (fetched === prev || fetched.endsWith(prev)) return fetched;
+          return `${fetched}\n${prev}`;
+        });
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : String(e));
@@ -485,7 +527,7 @@ function JobLogBlock({ job }: { job: Job }) {
     return () => {
       alive = false;
     };
-  }, [jobId]);
+  }, [jobId, resyncTick]);
 
   // Dòng log mới qua SSE
   useJobLogEvents((e) => {
@@ -522,6 +564,8 @@ export default function TextToVideoDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const sessionId = params.id;
+  // SSE đứt rồi nối lại → refetch dữ liệu seed để status không kẹt "đang chạy"
+  const { resyncTick } = useEvents();
 
   const [session, setSession] = useState<TextToVideoMeta | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -599,9 +643,10 @@ export default function TextToVideoDetailPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, resyncTick]);
 
-  // Seed job đang chạy (mở trang giữa chừng vẫn thấy tiến trình)
+  // Seed job đang chạy (mở trang giữa chừng vẫn thấy tiến trình).
+  // resyncTick: refetch sau khi SSE nối lại để bắt kịp job đã đổi trạng thái.
   useEffect(() => {
     let alive = true;
     getJobs(50)
@@ -615,7 +660,7 @@ export default function TextToVideoDetailPage() {
     return () => {
       alive = false;
     };
-  }, [sessionId]);
+  }, [sessionId, resyncTick]);
 
   useJobEvents((j) => {
     // Hợp đồng /build chỉ trả jobId nên nhận cả theo id job vừa tạo
@@ -647,11 +692,14 @@ export default function TextToVideoDetailPage() {
 
   useEffect(() => {
     loadChatSessions();
-  }, [loadChatSessions]);
+  }, [loadChatSessions, resyncTick]);
 
-  // Phiên AI chạy xong/đổi trạng thái → cập nhật badge trong panel
+  // Phiên AI chạy xong → nạp lại CẢ phiên TTV lẫn danh sách chat: status
+  // "editing" của phiên chỉ rời đi khi đọc lại meta, không tự đổi theo SSE.
   useAgentEvents((e) => {
-    if (e.kind === "done" && projectId) loadChatSessions();
+    if (e.kind !== "done") return;
+    load();
+    if (projectId) loadChatSessions();
   });
 
   // ---- Lưu thay đổi: gộp lại rồi PATCH một lần ----
@@ -745,10 +793,18 @@ export default function TextToVideoDetailPage() {
     queue({ script: next }, immediate);
   }
 
-  /** Sửa lời một đoạn - thời lượng thật của đoạn cũ không còn đúng nữa. */
+  /**
+   * Sửa lời một đoạn. Server nhận PATCH script là xóa durationSec của TẤT CẢ
+   * các đoạn (và voiceFile) vì giọng phải đọc lại từ đầu - client xóa y hệt,
+   * không thì các đoạn chưa sửa vẫn treo chip "thời lượng thật" ma.
+   */
   function setChunkText(index: number, text: string) {
     setChunks(
-      script.map((c, i) => (i === index ? { text, durationSec: null } : c)),
+      script.map((c, i) => ({
+        ...c,
+        text: i === index ? text : c.text,
+        durationSec: null,
+      })),
       false
     );
   }
@@ -757,6 +813,24 @@ export default function TextToVideoDetailPage() {
 
   async function run(step: "extract" | "script" | "build") {
     if (busy) return;
+    // Chặn sớm "Độ dài" ngoài khoảng server chấp nhận - báo lỗi tại chỗ thay vì
+    // gửi đi rồi nhận 400 INVALID_TARGET_SECONDS
+    if (step === "script" && targetSeconds.trim() !== "") {
+      const target = Number(targetSeconds);
+      if (
+        !Number.isFinite(target) ||
+        target < TARGET_SECONDS_MIN ||
+        target > TARGET_SECONDS_MAX
+      ) {
+        setActionError(
+          tf("ttv.target-invalid", {
+            min: TARGET_SECONDS_MIN,
+            max: TARGET_SECONDS_MAX,
+          })
+        );
+        return;
+      }
+    }
     setBusy(step);
     setActionError(null);
     try {
@@ -768,9 +842,7 @@ export default function TextToVideoDetailPage() {
         const target = Number(targetSeconds);
         adopt(
           await scriptTextToVideo(sessionId, {
-            ...(targetSeconds.trim() !== "" && Number.isFinite(target) && target > 0
-              ? { targetSeconds: target }
-              : {}),
+            ...(targetSeconds.trim() !== "" ? { targetSeconds: target } : {}),
             ...(scriptModel ? { model: scriptModel } : {}),
           })
         );
@@ -1202,7 +1274,8 @@ export default function TextToVideoDetailPage() {
                         id="ttv-target-seconds"
                         className="input"
                         type="number"
-                        min={10}
+                        min={TARGET_SECONDS_MIN}
+                        max={TARGET_SECONDS_MAX}
                         value={targetSeconds}
                         disabled={locked}
                         placeholder={t("ttv.target-auto")}

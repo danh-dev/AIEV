@@ -22,7 +22,7 @@ import {
   type TextSourceKind,
   type TextToVideoMeta,
 } from "@/lib/api";
-import { useJobEvents } from "@/lib/useEvents";
+import { useAgentEvents, useEvents, useJobEvents } from "@/lib/useEvents";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -220,6 +220,8 @@ function CreateModal({
 export default function TextToVideoPage() {
   const { t, tf } = useT();
   const router = useRouter();
+  // SSE đứt rồi nối lại → refetch bảng để status không kẹt "đang dựng" mãi
+  const { resyncTick } = useEvents();
 
   const [sessions, setSessions] = useState<TextToVideoMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -241,12 +243,18 @@ export default function TextToVideoPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, resyncTick]);
 
   // Job dựng video kết thúc → trạng thái phiên đổi, nạp lại bảng
   useJobEvents((job) => {
     if (!isTextToVideoJob(job)) return;
     if (["done", "failed", "canceled"].includes(job.status)) load();
+  });
+
+  // Phiên AI edit của project con kết thúc → phiên TTV rời "editing" sang
+  // "done"/"failed"; chỉ nghe job thì badge "đang edit" treo mãi sau khi xong
+  useAgentEvents((e) => {
+    if (e.kind === "done") load();
   });
 
   async function onDelete() {

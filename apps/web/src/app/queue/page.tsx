@@ -8,7 +8,7 @@ import {
   getJobs,
   type Job,
 } from "@/lib/api";
-import { useJobEvents, useJobLogEvents } from "@/lib/useEvents";
+import { useEvents, useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { JobBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -27,6 +27,8 @@ const TYPE_LABEL: Record<Job["type"], string> = {
   "assemble-draft": "queue.type.assemble-draft",
   "assemble-final": "queue.type.assemble-final",
   "image-gen": "queue.type.image-gen",
+  "auto-cut": "queue.type.auto-cut",
+  "text-to-video": "queue.type.text-to-video",
 };
 
 function LogPanel({
@@ -120,6 +122,7 @@ function LogPanel({
 
 export default function QueuePage() {
   const { t } = useT();
+  const { resyncTick } = useEvents();
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -135,9 +138,11 @@ export default function QueuePage() {
     }
   }, []);
 
+  // Load lần đầu + refetch mỗi khi SSE reconnect (resyncTick tăng) - trong lúc
+  // đứt kết nối job có thể đã đổi trạng thái mà không nhận được event.
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, resyncTick]);
 
   // Realtime: upsert job vào danh sách
   useJobEvents((job) => {

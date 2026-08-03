@@ -78,7 +78,10 @@ function CheckRow({
     try {
       const res = await fixDoctor(check.id);
       onFixed(res.report);
-      if (!res.installed) setFailLog(res.log.length > 0 ? res.log : [t("doctor.install-failed")]);
+      // Chỉ coi là cài LỖI khi server nói rõ installed === false - field vắng
+      // mặt (server cũ / nhánh trả sớm) không được suy ra thất bại
+      if (res.installed === false)
+        setFailLog(res.log.length > 0 ? res.log : [t("doctor.install-failed")]);
     } catch (e) {
       setFailLog([e instanceof Error ? e.message : String(e)]);
     } finally {

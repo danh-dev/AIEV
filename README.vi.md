@@ -113,6 +113,57 @@ Script tự lo mọi thứ: kiểm tra môi trường → `npm install` (lần �
 
 Chạy dev thủ công: `npm install` rồi `npm run dev`.
 
+## Hướng dẫn sử dụng
+
+### Video đầu tiên (Videos Project)
+
+1. **Tạo project** - vào **Videos Project** → **Tạo project**: đặt tên, chọn khung hình (9:16 dọc cho TikTok/Reels, 16:9 ngang cho YouTube) và fps.
+2. **Đưa nguồn vào** - trong card **Nguồn & Asset** upload clip, hoặc bấm **Kết nối điện thoại** rồi quét QR để gửi file thẳng từ điện thoại.
+3. **Điền Kịch bản edit** - card này là tờ chỉ đạo cho AI:
+   - **Mô tả nguồn** - một hai câu clip nói về gì.
+   - **Tự động cắt ngắn** - cắt khoảng lặng, từ đệm, đoạn quay lại trước khi dựng.
+   - **Phụ đề karaoke** kèm **highlight keyword**.
+   - **Bố cục Key** - key chính nằm band trên video, key liên quan nằm band dưới, chạy theo nội dung đang nói.
+   - **Ảnh minh họa AI (Gemini)** - ảnh đồng bộ style ghép vào video. Chọn model vẽ, **mật độ ảnh** (bao nhiêu ảnh mỗi phút video; bỏ trống thì AI tự quyết), **vị trí chủ thể** (lưới 3x3 như bộ chọn vị trí logo) và có cho Gemini vẽ chữ vào ảnh hay không.
+   - **Sound effects** và **nhạc nền** - dùng bộ đề xuất hoặc cả thư viện; nhạc tự nhỏ xuống khi có thoại.
+   - **Style Design** - bộ nhận diện thương hiệu (màu, font, logo) cưỡng chế 100% lên mọi sản phẩm; **Phong cách dựng** - ngôn ngữ thị giác của riêng video này (giấy gấp, mực tàu, người que...), bỏ trống thì AI tự quyết.
+   - **Skill** - format dựng muốn theo (TikTok kiểu Noti, YouTube ngang...).
+   - **Ghi chú** - yêu cầu tự do; có thể đổ từ prompt mẫu ở trang **Prompts**.
+4. **Bắt đầu edit bằng AI** - Claude transcribe clip, lên kế hoạch dựng, tạo scene HyperFrames, sinh ảnh minh họa, đi sound effect rồi lắp thành bản **draft**. Tiến trình chạy realtime ngay trên trang project; mọi render đều qua **Render queue**.
+5. **Duyệt và hoàn thiện** - xem draft ngay trên trang project, góp ý qua khung chat duyệt ("phóng to hook lên", "cắt bớt intro"...), rồi chạy **QC** và **render final**. File MP4 nằm trong `outputs/`, kèm thumbnail tự tạo và bộ publish (tiêu đề, mô tả, hashtag).
+
+### Text to video (bài viết → video)
+
+**Text to video** → **Tạo phiên**: dán URL hoặc văn bản (tên phiên bỏ trống cũng được - hệ thống lấy theo tiêu đề bài). Pipeline chạy theo từng bước, bước nào cũng duyệt lại được: **Trích bài** → **Kịch bản** - AI viết lại thành văn nói chia đoạn (đặt thời lượng mục tiêu theo giây, sửa tay từng đoạn) → **Giọng đọc** - chọn engine (**Gemini TTS** online hoặc **VieNeu-TTS** chạy trên máy, gồm cả giọng nhân bản của bạn), giọng và tốc độ đọc, nghe thử từng đoạn → **Build** - hệ thống dựng giọng đọc, tạo video project rồi AI tự edit theo Kịch bản edit đã cấu hình. Video bài viết dài nên đặt mật độ ảnh minh họa để đổi nền liên tục cho đỡ nhàm.
+
+### Auto cut (video dài → nhiều video ngắn)
+
+**Auto cut** → chọn video nói chuyện dài → chọn chế độ: theo **thời gian**, theo **AI** (tự tìm highlight) hoặc theo **prompt**. **Lên kế hoạch** đề xuất các đoạn kèm tiêu đề - tick chọn và sửa thoải mái - rồi **Cắt** tạo mỗi đoạn một project con, tất cả dùng chung Kịch bản edit cấu hình một lần (khung hình, layout, nền, style). Từng project con sau đó edit bằng AI như project thường.
+
+### Images Project (poster & thumbnail)
+
+**Images Project** → tạo ảnh mới: mô tả cảnh, chọn loại, tỉ lệ khung, model. Gemini chỉ vẽ nền (tuyệt đối không chữ), Remotion đặt tiêu đề, mô tả, số liệu, CTA và logo lên trên theo Style Design - nên chữ tiếng Việt không bao giờ sai chính tả. Chọn vị trí khối chữ bằng lưới 3x3, sửa và render lại tùy thích.
+
+### Style Design & Phong cách dựng
+
+**Style Design** chứa các bộ nhận diện thương hiệu: màu, font (gõ tên font Google Fonts là tự tải về, đủ dấu tiếng Việt), logo, tone và hiệu ứng. Style đã chọn cưỡng chế lên mọi sản phẩm; style có logo thì khâu lắp ráp tự đóng logo góc trên trái mọi video - đừng tự thêm logo nữa. **Phong cách dựng** (chọn trong Kịch bản edit) là ngôn ngữ thị giác của riêng một video: chất liệu và chuyển động.
+
+### Giọng đọc (Voices)
+
+Trang **Voices** quản lý giọng thuyết minh: 30 giọng Gemini dựng sẵn (online, tính tiền theo lượt) và **VieNeu-TTS** (chạy trên máy, miễn phí, tiếng Việt có phân vùng miền) - engine duy nhất **nhân bản được giọng của bạn** từ một đoạn ghi âm hoặc video điện thoại. Nghe thử giọng và tốc độ đọc trước khi dùng trong Text to video.
+
+### Sound effects & nhạc nền
+
+**Sound Effects** là thư viện: 100+ file có tag kèm bộ "đề xuất" AI ưu tiên dùng; upload và gắn tag thêm thoải mái. Nhạc nền nằm trong `assets/music/`, tự nhỏ xuống khi có thoại lúc lắp ráp.
+
+### Render queue & Cấu hình
+
+Mọi render đều qua queue: draft phải xong trước final, và **QC** tự động (vùng an toàn, âm lượng, frame đen, dấu tiếng Việt) chặn cửa final - bật tắt được trong **Cấu hình**. Tab Cấu hình cũng chứa các công tắc GPU, số worker và số job đồng thời; tab **Kết nối** quản lý xác thực Claude / Gemini / OpenAI.
+
+### Skills & Prompts
+
+**Skills** là know-how sản xuất AI làm theo - xem, sửa, nhân bản hoặc tạo mới (kể cả tạo skill bằng AI từ form câu hỏi) ngay trên web UI. **Prompts** chứa các prompt mẫu tái sử dụng cho ô Ghi chú của Kịch bản edit.
+
 ## Kiểm tra môi trường
 
 `start/doctor.mjs` dò đủ những thứ pipeline cần - Node.js, FFmpeg, Google Chrome, xác thực Claude,
@@ -143,8 +194,7 @@ sửa đúng một chỗ.
 Trong trang project, ở card **Nguồn & Asset** bấm **Kết nối điện thoại** - quét mã QR bằng camera điện thoại (cùng WiFi với máy chạy hệ thống) để mở trang upload `http://<ip-máy>:6868/m/<project>`. Video/ảnh chọn trên điện thoại sẽ tải thẳng vào asset của project. Lần đầu Windows hỏi firewall thì chọn **Allow** (script start đã tự thêm rule nếu có quyền admin).
 
 **Dùng từ xa qua 4G/5G** (không cùng WiFi):
-- **Tailscale** - cài trên máy chạy hệ thống + điện thoại, rồi chọn IP `100.x` trong modal Kết nối điện thoại; QR hoạt động y như trên LAN.
-- **Cloudflare Tunnel** (khuyên dùng) - điền `TUNNEL_DOMAIN=<domain-của-bạn>` (vd `aiev.noti.vn`) vào `.env`, QR trong modal Kết nối điện thoại sẽ tự dùng `https://<domain>/m/<project>` - chạy được qua 4G/5G.
+- **Cloudflare Tunnel** - điền `TUNNEL_DOMAIN=<domain-của-bạn>` (vd `aiev.noti.vn`) vào `.env`, QR trong modal Kết nối điện thoại sẽ tự dùng `https://<domain>/m/<project>` - chạy được qua 4G/5G.
 - Bật tunnel bằng `start\tunnel.bat` (Windows) / `./start/tunnel.sh` (macOS) - chưa điền `TUNNEL_DOMAIN` thì script tự chạy quick tunnel với URL ngẫu nhiên `trycloudflare.com`.
 - ⚠️ **Cảnh báo**: dashboard chưa có đăng nhập - chỉ mở public khi đã bọc Cloudflare Access, hoặc tuyệt đối không chia sẻ link.
 

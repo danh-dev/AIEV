@@ -166,10 +166,18 @@ export default function SkillsPage() {
       <Modal
         title={t("skills.create")}
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          // Đang tạo thì không cho đóng - modal đóng rồi vẫn navigate sau đó
+          if (!creating) setOpen(false);
+        }}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (!creating) setOpen(false);
+              }}
+            >
               {t("common.cancel")}
             </Button>
             <Button onClick={onCreate} disabled={!nameValid || creating}>

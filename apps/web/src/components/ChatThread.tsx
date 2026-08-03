@@ -386,7 +386,12 @@ export function ChatThread({
     try {
       const list = await getChatSessions(projectId);
       const found = list.find((s) => s.sessionId === current);
-      if (found && activeIdRef.current === current) setSessionInfo(found);
+      if (found && activeIdRef.current === current) {
+        setSessionInfo(found);
+        // Đồng bộ cả badge trạng thái từ DB - đây là đường lùi khi event done
+        // thiếu status, không đồng bộ thì badge kẹt "Đang chạy" vô hạn
+        setStatus(found.status);
+      }
     } catch {
       // không tra được - giữ thông tin cũ, không chặn UI
     }
@@ -444,9 +449,11 @@ export function ChatThread({
         break;
       case "done":
         // done kèm kết cục của phiên → cập nhật badge + khối kết thúc,
-        // không chỉ lặng lẽ tắt progress bar.
+        // không chỉ lặng lẽ tắt progress bar. Server luôn gửi kèm `status`
+        // (kể cả khi lỗi: "error"); nếu vì lý do gì thiếu thì GIỮ status hiện
+        // tại chứ không tự suy ra "done" - đổi một phiên lỗi thành thành công.
         flushStream();
-        setStatus(e.status ?? "done");
+        if (e.status) setStatus(e.status);
         setRunning(false);
         setJustFailed(e.status === "error");
         // refetch session để lấy runFinishedAt/status mới → dòng thời lượng

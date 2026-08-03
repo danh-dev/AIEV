@@ -158,8 +158,12 @@ const POSITION_COLS: { horiz: "left" | "center" | "right"; labelKey: string }[] 
   { horiz: "right", labelKey: "imageForm.pos-right" },
 ];
 
-/** Bộ chọn vị trí chữ - lưới 3x3 + nút Tự động */
-function TextPositionPicker({
+/**
+ * Bộ chọn vị trí chữ - lưới 3x3 + nút Tự động.
+ * Export vì BriefFields tái dùng cho vị trí chủ thể ảnh minh họa AI - cùng một
+ * lưới giá trị, người dùng chọn bằng mắt như chọn vị trí logo.
+ */
+export function TextPositionPicker({
   value,
   disabled,
   onChange,

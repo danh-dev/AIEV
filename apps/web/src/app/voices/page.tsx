@@ -666,7 +666,7 @@ function CloneVoiceModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/*"
+            accept="audio/*,video/*"
             className="hidden"
             onChange={(e) => {
               const picked = e.target.files?.[0];

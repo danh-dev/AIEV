@@ -211,8 +211,15 @@ export function ProjectReviewCard({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sentInfo, setSentInfo] = useState<string | null>(null);
-  // 409 SESSION_BUSY từ server - khóa nút cho tới khi người dùng bấm lại
+  // 409 SESSION_BUSY từ server - khóa nút cho tới khi phiên AI rảnh trở lại
   const [sessionBusy, setSessionBusy] = useState(false);
+
+  // Phiên AI chạy xong → server nhận ghi chú trở lại, mở khóa nút gửi.
+  // Không có effect này thì một lần 409 là khóa vĩnh viễn: chỗ reset duy nhất
+  // nằm trong onSend thành công, mà nút đã bị disable nên không bao giờ tới.
+  useEffect(() => {
+    if (!aiRunning) setSessionBusy(false);
+  }, [aiRunning]);
 
   const openCount = notes.filter((n) => n.status === "open").length;
   const sendBlocked = aiRunning || sessionBusy;

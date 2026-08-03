@@ -397,7 +397,10 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                     </td>
                     <td>
                       <ImageStatusBadge status={p.status} />
-                      {p.status === "generating" && (
+                      {/* Job QUEUED để meta ở "draft" - cứ có genProgress là
+                          hiện bar, đừng chỉ dựa vào status "generating" */}
+                      {(p.status === "generating" ||
+                        genProgress[p.id] != null) && (
                         <div className="mt-1 max-w-48">
                           <ProgressBar
                             progress={genProgress[p.id]?.progress ?? 0}

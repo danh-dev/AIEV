@@ -288,7 +288,10 @@ export default function ProjectsPage() {
     setBulkErrors([]);
     const targets = selectedProjects;
     const errors: string[] = [];
-    // Chạy TUẦN TỰ - server khởi động từng phiên AI, không dội đồng thời
+    // Vòng lặp này chỉ tuần tự hóa các HTTP CALL: POST /:id/edit trả 202 ngay
+    // (fire-and-forget), nên chọn N project là N phiên AI chạy ĐỒNG THỜI phía
+    // server. Muốn giới hạn số phiên chạy song song thì phải làm ở backend
+    // (hàng đợi phiên) - client không biết lúc nào một phiên kết thúc để nối tiếp.
     for (let i = 0; i < targets.length; i++) {
       setBulkProgress({ done: i + 1, total: targets.length });
       try {

@@ -14,7 +14,7 @@ import {
   isAutoCutJob,
   type AutoCutMeta,
 } from "@/lib/api";
-import { useJobEvents } from "@/lib/useEvents";
+import { useEvents, useJobEvents } from "@/lib/useEvents";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
@@ -34,6 +34,8 @@ import { useT } from "@/lib/i18n";
 export default function AutoCutPage() {
   const { t, tf } = useT();
   const router = useRouter();
+  // SSE đứt rồi nối lại → refetch bảng để status không kẹt "đang chạy" mãi
+  const { resyncTick } = useEvents();
 
   const [sessions, setSessions] = useState<AutoCutMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export default function AutoCutPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, resyncTick]);
 
   // Job auto-cut kết thúc → trạng thái phiên đổi, nạp lại bảng
   useJobEvents((job) => {

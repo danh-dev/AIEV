@@ -22,7 +22,7 @@ import {
   type SkillMeta,
 } from "@/lib/api";
 import { TagInput } from "@/components/TagInput";
-import { useGeminiImageModels } from "@/components/ImageProjectForm";
+import { TextPositionPicker, useGeminiImageModels } from "@/components/ImageProjectForm";
 import { useProviders } from "@/components/ModelPicker";
 import { StyleSelect } from "@/components/StyleSelect";
 import { VideoStyleSelect } from "@/components/VideoStyleSelect";
@@ -45,6 +45,8 @@ export const DEFAULT_BRIEF: Brief = {
   autoIllustrations: false,
   illustrationModel: null,
   illustrationText: false,
+  illustrationPosition: "auto",
+  illustrationsPerMinute: null,
   styleId: null,
   videoStyleId: null,
 };
@@ -492,6 +494,60 @@ export function BriefFields({
                 {t("images.loading-models")}
               </p>
             )}
+            {/* Mật độ ảnh - số ảnh Gemini mỗi phút video; null = AI tự quyết */}
+            <div className="mt-2.5">
+              <label
+                className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
+                htmlFor="brief-illustration-density"
+              >
+                {t("brief.illustration-density")}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="brief-illustration-density"
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={1}
+                  className="input h-8 w-24 text-[13px]"
+                  // Ô trống = null = AI tự quyết; gõ số là chốt mật độ cứng
+                  value={value.illustrationsPerMinute ?? ""}
+                  placeholder={t("brief.illustration-density-auto-short")}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!raw) {
+                      set("illustrationsPerMinute", null);
+                      return;
+                    }
+                    const n = Math.round(Number(raw));
+                    if (Number.isFinite(n)) {
+                      set("illustrationsPerMinute", Math.min(20, Math.max(1, n)));
+                    }
+                  }}
+                />
+                <span className="text-xs text-[var(--text-muted)]">
+                  {t("brief.illustration-density-unit")}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {t("brief.illustration-density-hint")}
+              </p>
+            </div>
+            {/* Vị trí chủ thể ảnh - lưới 3x3 như bộ chọn vị trí logo, chọn bằng mắt */}
+            <div className="mt-2.5">
+              <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">
+                {t("brief.illustration-position")}
+              </span>
+              <TextPositionPicker
+                value={value.illustrationPosition}
+                onChange={(pos) => set("illustrationPosition", pos)}
+              />
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                {value.illustrationPosition === "auto"
+                  ? t("brief.illustration-position-auto-hint")
+                  : t("brief.illustration-position-hint")}
+              </p>
+            </div>
             <label
               className="mt-2.5 flex cursor-pointer items-start gap-2 text-sm"
               htmlFor="brief-illustration-text"
@@ -568,6 +624,12 @@ export function BriefFields({
           onChange={(e) => set("skill", e.target.value || null)}
         >
           <option value="">{t("brief.ai-pick-skill")}</option>
+          {/* Skill đã lưu nhưng không (còn) trong danh sách (đã xóa/đổi tên) →
+              vẫn hiện bằng tên thô thay vì select trắng trơn giữ giá trị ẩn -
+              cùng cách xử lý với styleId (StyleSelect) và illustrationModel */}
+          {value.skill !== null && !skills.some((s) => s.name === value.skill) && (
+            <option value={value.skill}>{value.skill}</option>
+          )}
           {skills.map((s) => (
             <option key={s.name} value={s.name}>
               {s.name}

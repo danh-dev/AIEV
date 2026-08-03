@@ -28,7 +28,7 @@ import {
   type UsageScope,
   type UsageTimelinePoint,
 } from "@/lib/api";
-import { useAgentEvents, useJobEvents } from "@/lib/useEvents";
+import { useAgentEvents, useEvents, useJobEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { ProjectBadge } from "@/components/Badge";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -48,6 +48,8 @@ const JOB_TYPE_LABEL: Record<Job["type"], string> = {
   "assemble-draft": "dash.job.assemble-draft",
   "assemble-final": "dash.job.assemble-final",
   "image-gen": "dash.job.image-gen",
+  "auto-cut": "dash.job.auto-cut",
+  "text-to-video": "dash.job.text-to-video",
 };
 
 function healthProblems(
@@ -158,6 +160,7 @@ function StatTile({
 
 export default function DashboardPage() {
   const { t, tf } = useT();
+  const { resyncTick } = useEvents();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const overviewRef = useRef<Overview | null>(null);
@@ -196,7 +199,9 @@ export default function DashboardPage() {
       .catch(() => setSessions([]));
   }, []);
 
-  // Fetch song song mọi nguồn dữ liệu lúc mở trang
+  // Fetch song song mọi nguồn dữ liệu lúc mở trang + refetch mỗi khi SSE
+  // reconnect (resyncTick tăng) - trong lúc đứt kết nối, job/phiên AI có thể
+  // đã kết thúc mà dashboard không nhận được event.
   useEffect(() => {
     loadOverview();
     loadJobs();
@@ -207,7 +212,7 @@ export default function DashboardPage() {
     getProjects()
       .then(setProjects)
       .catch(() => setProjects([]));
-  }, [loadOverview, loadJobs, loadSessions]);
+  }, [loadOverview, loadJobs, loadSessions, resyncTick]);
 
   // Đổi bộ lọc (ngày / loại project) → refetch timeline của card
   useEffect(() => {
@@ -225,7 +230,9 @@ export default function DashboardPage() {
     };
   }, [usageDays, usageScope]);
 
-  // Realtime: cập nhật job đang chạy trực tiếp, refetch khi job đổi trạng thái
+  // Realtime: cập nhật job đang chạy trực tiếp, refetch khi job đổi trạng thái.
+  // Queue chạy tối đa 4 job song song → upsert vào runningJobs theo id,
+  // không đè lẫn nhau qua một field duy nhất.
   useJobEvents((job) => {
     const prev = overviewRef.current;
     if (!prev) {
@@ -235,9 +242,35 @@ export default function DashboardPage() {
       return;
     }
     if (job.status === "running") {
-      setOverview({ ...prev, runningJob: job });
+      setOverview((cur) => {
+        if (!cur) return cur;
+        const list = cur.runningJobs ?? (cur.runningJob ? [cur.runningJob] : []);
+        const idx = list.findIndex((j) => j.id === job.id);
+        const runningJobs =
+          idx === -1
+            ? [...list, job]
+            : list.map((j) => (j.id === job.id ? job : j));
+        return {
+          ...cur,
+          runningJobs,
+          // Giữ runningJob đồng bộ cho phần code còn dựa vào field cũ
+          runningJob:
+            cur.runningJob && cur.runningJob.id !== job.id
+              ? cur.runningJob
+              : job,
+        };
+      });
     } else {
-      // queued / done / failed / canceled - làm mới overview + số liệu job/project
+      // queued / done / failed / canceled - gỡ khỏi danh sách ngay cho đỡ
+      // khựng, rồi làm mới overview + số liệu job/project
+      setOverview((cur) => {
+        if (!cur) return cur;
+        return {
+          ...cur,
+          runningJobs: (cur.runningJobs ?? []).filter((j) => j.id !== job.id),
+          runningJob: cur.runningJob?.id === job.id ? null : cur.runningJob,
+        };
+      });
       loadOverview();
       loadJobs();
       getProjects()
@@ -343,7 +376,10 @@ export default function DashboardPage() {
     .slice(0, 5);
 
   const problems = overview ? healthProblems(overview, t) : [];
-  const running = overview?.runningJob ?? null;
+  // Danh sách job đang chạy - fallback về runningJob khi server cũ chưa trả runningJobs
+  const runningList =
+    overview?.runningJobs ??
+    (overview?.runningJob ? [overview.runningJob] : []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -503,22 +539,47 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          <Card title={t("dash.running-job")}>
-            {running ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex min-w-0 items-baseline justify-between gap-2">
-                  <Link
-                    href={`/projects/${running.projectId}`}
-                    className="truncate font-medium hover:text-[var(--primary)]"
+          <Card
+            title={
+              runningList.length > 1
+                ? tf("dash.running-job-n", { n: runningList.length })
+                : t("dash.running-job")
+            }
+          >
+            {runningList.length > 0 ? (
+              <div className="flex flex-col">
+                {runningList.map((job, i) => (
+                  <div
+                    key={job.id}
+                    className={`flex flex-col gap-2 py-2 first:pt-0 last:pb-0 ${
+                      i < runningList.length - 1
+                        ? "border-b border-[var(--border)]"
+                        : ""
+                    }`}
                   >
-                    {running.projectId}
-                  </Link>
-                  <span className="shrink-0 text-xs text-[var(--text-muted)]">
-                    {t(JOB_TYPE_LABEL[running.type])}
-                    {running.sceneId ? ` · ${running.sceneId}` : ""}
-                  </span>
-                </div>
-                <ProgressBar progress={running.progress} step={running.step} />
+                    <div className="flex min-w-0 items-baseline justify-between gap-2">
+                      <Link
+                        href={
+                          // auto-cut/text-to-video: projectId là id phiên của
+                          // trang riêng, không phải project video - link theo loại
+                          job.type === "auto-cut"
+                            ? `/auto-cut/${job.projectId}`
+                            : job.type === "text-to-video"
+                              ? `/text-to-video/${job.projectId}`
+                              : `/projects/${job.projectId}`
+                        }
+                        className="truncate font-medium hover:text-[var(--primary)]"
+                      >
+                        {job.projectId}
+                      </Link>
+                      <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                        {t(JOB_TYPE_LABEL[job.type])}
+                        {job.sceneId ? ` · ${job.sceneId}` : ""}
+                      </span>
+                    </div>
+                    <ProgressBar progress={job.progress} step={job.step} />
+                  </div>
+                ))}
               </div>
             ) : (
               <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">

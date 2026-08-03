@@ -68,10 +68,13 @@ export function ProjectBriefCard({
 
   // Nạp giá trị từ project detail một lần khi brief về (không clobber khi đang gõ)
   const initialized = useRef(false);
+  // Field người dùng đã gõ TRƯỚC khi brief thật về - đè lên bản fetch lúc nạp,
+  // để fetch chậm không nuốt mất mấy phím vừa gõ.
+  const preInitEdits = useRef<Partial<Brief>>({});
   useEffect(() => {
     if (brief && !initialized.current) {
       initialized.current = true;
-      const initial = { ...DEFAULT_BRIEF, ...brief };
+      const initial = { ...DEFAULT_BRIEF, ...brief, ...preInitEdits.current };
       setForm(initial);
       onDraftChange?.(initial);
     }
@@ -79,6 +82,9 @@ export function ProjectBriefCard({
 
   function patch(p: Partial<Brief>) {
     setSaved(false);
+    if (!initialized.current) {
+      preInitEdits.current = { ...preInitEdits.current, ...p };
+    }
     setForm((f) => {
       const next = { ...f, ...p };
       onDraftChange?.(next);

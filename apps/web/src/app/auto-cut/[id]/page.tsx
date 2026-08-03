@@ -33,7 +33,7 @@ import {
   type Brief,
   type Job,
 } from "@/lib/api";
-import { useJobEvents } from "@/lib/useEvents";
+import { useEvents, useJobEvents } from "@/lib/useEvents";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
@@ -68,6 +68,8 @@ export default function AutoCutDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const sessionId = params.id;
+  // SSE đứt rồi nối lại → refetch dữ liệu seed để status không kẹt "đang chạy"
+  const { resyncTick } = useEvents();
 
   const [session, setSession] = useState<AutoCutMeta | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -109,9 +111,10 @@ export default function AutoCutDetailPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, resyncTick]);
 
-  // Seed job đang chạy (mở trang giữa chừng vẫn thấy tiến trình)
+  // Seed job đang chạy (mở trang giữa chừng vẫn thấy tiến trình).
+  // resyncTick: refetch sau khi SSE nối lại để bắt kịp job đã đổi trạng thái.
   useEffect(() => {
     let alive = true;
     getJobs(50)
@@ -125,7 +128,7 @@ export default function AutoCutDetailPage() {
     return () => {
       alive = false;
     };
-  }, [sessionId]);
+  }, [sessionId, resyncTick]);
 
   useJobEvents((j) => {
     if (!isAutoCutJob(j, sessionId)) return;
@@ -270,6 +273,10 @@ export default function AutoCutDetailPage() {
   }
 
   const running = session.status === "planning" || session.status === "cutting";
+  // Server chỉ nhận PATCH segments ở trạng thái draft/planned - các trạng thái
+  // khác (done/failed/đang chạy) mà cho sửa là banner lỗi + state lệch server.
+  const canEditSegments =
+    session.status === "draft" || session.status === "planned";
   const selectedCount = segments.filter((s) => s.selected).length;
   const allSelected = segments.length > 0 && selectedCount === segments.length;
   const createdCount = segments.filter((s) => s.projectId).length;
@@ -277,8 +284,10 @@ export default function AutoCutDetailPage() {
   // Không tính thì phiên đã xong vẫn mời bấm "Cắt & tạo project" rồi chạy một job
   // không làm gì, người dùng tưởng hỏng.
   const pendingCount = segments.filter((s) => s.selected && !s.projectId).length;
-  // Bước cần chạy lại khi lỗi: đã có đoạn thì lỗi nằm ở bước cắt
-  const retryStep: "plan" | "cut" = segments.length > 0 ? "cut" : "plan";
+  // Bước cần chạy lại khi lỗi: server ghi rõ failedStep - chỉ lỗi ở bước cắt
+  // mới cắt lại được ngay; re-plan lỗi thì segments là của kế hoạch CŨ, phải plan lại
+  const retryStep: "plan" | "cut" =
+    session.failedStep === "cut" && segments.length > 0 ? "cut" : "plan";
   const src = session.source;
 
   return (
@@ -441,7 +450,7 @@ export default function AutoCutDetailPage() {
                   type="checkbox"
                   className="checkbox"
                   checked={allSelected}
-                  disabled={running}
+                  disabled={!canEditSegments}
                   onChange={() => toggleAll(!allSelected)}
                 />
                 {t("autocut.select-all")}
@@ -464,7 +473,7 @@ export default function AutoCutDetailPage() {
                     type="checkbox"
                     className="checkbox mt-2"
                     checked={s.selected}
-                    disabled={running}
+                    disabled={!canEditSegments}
                     aria-label={tf("autocut.select-aria", { title: s.title })}
                     onChange={(e) => setSelected(s.index, e.target.checked)}
                   />
@@ -494,7 +503,7 @@ export default function AutoCutDetailPage() {
                     <input
                       className="input mt-1 h-8 text-[13px] font-semibold"
                       value={s.title}
-                      disabled={running}
+                      disabled={!canEditSegments}
                       aria-label={tf("autocut.title-aria", { n: s.index + 1 })}
                       onChange={(e) => setTitle(s.index, e.target.value)}
                       onBlur={() => flush()}

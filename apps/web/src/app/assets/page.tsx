@@ -68,17 +68,27 @@ export default function AssetsPage() {
   }, [scope, load]);
 
   async function doUpload(fileList: FileList | File[]) {
+    // Server luôn từ chối upload vào scope "outputs" (400 INVALID_SCOPE)
+    if (scope === "outputs") return;
     setUploadError(null);
     setUploading(true);
+    // Từng file một try/catch riêng - file lỗi không được nuốt các file đã
+    // upload thành công trước đó, và luôn reload để thấy phần đã lên
+    const failed: string[] = [];
     try {
       for (const file of Array.from(fileList)) {
-        await uploadAsset(file, scope);
+        try {
+          await uploadAsset(file, scope);
+        } catch (e) {
+          failed.push(
+            `${file.name}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
       }
-      await load(scope);
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : String(e));
     } finally {
+      if (failed.length) setUploadError(failed.join("; "));
       setUploading(false);
+      await load(scope);
     }
   }
 
@@ -97,7 +107,8 @@ export default function AssetsPage() {
         }
         subtitle={t("assetsPage.subtitle")}
         actions={
-          <>
+          // Outputs không nhận upload - ẩn nút, giống EmptyState phía dưới
+          scope === "imports" ? (
             <Button
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
@@ -105,7 +116,7 @@ export default function AssetsPage() {
               <Upload size={15} strokeWidth={2} />
               {uploading ? t("common.uploading") : t("assetsPage.upload")}
             </Button>
-          </>
+          ) : undefined
         }
       />
       <input
@@ -145,14 +156,17 @@ export default function AssetsPage() {
 
       <div
         onDragOver={(e) => {
+          // Vẫn preventDefault ở scope "outputs" để trình duyệt không mở file,
+          // nhưng không hiện viền kéo-thả vì thả vào cũng bị bỏ qua
           e.preventDefault();
-          setDragOver(true);
+          if (scope !== "outputs") setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          if (e.dataTransfer.files.length) doUpload(e.dataTransfer.files);
+          if (scope !== "outputs" && e.dataTransfer.files.length)
+            doUpload(e.dataTransfer.files);
         }}
         className={`rounded-[var(--radius-lg)] transition-colors duration-150 ${
           dragOver ? "outline-2 outline-dashed outline-[var(--primary)]" : ""

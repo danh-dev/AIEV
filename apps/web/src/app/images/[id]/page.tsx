@@ -296,6 +296,13 @@ export default function ImageProjectDetailPage() {
 
   async function onSave() {
     if (!draft || saving) return;
+    // Xóa trắng tên rồi Lưu: trước đây field bị lặng lẽ bỏ qua (giữ tên cũ)
+    // mà không nói gì - giờ báo lỗi rõ ràng thay vì im lặng
+    if (nameDraft !== null && !nameDraft.trim()) {
+      setSaved(false);
+      setSaveError(t("imageDetail.name-required"));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     setSaved(false);
@@ -689,7 +696,7 @@ export default function ImageProjectDetailPage() {
               <input
                 ref={bgInputRef}
                 type="file"
-                accept="image/*"
+                accept=".png,.jpg,.jpeg"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];

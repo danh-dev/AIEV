@@ -60,10 +60,17 @@ const COLOR_FIELDS: { key: keyof StyleColors; label: string }[] = [
   { key: "accent", label: "styleDetail.color.accent" },
 ];
 
-const HEX_RE = /^#[0-9a-f]{6}$/i;
+// Khớp server: chấp nhận cả hex 6 và 8 chữ số (#rrggbb / #rrggbbaa)
+const HEX_RE = /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i;
 // Fallback CHỈ cho value của <input type="color"> khi hex user gõ chưa hợp lệ
 // - đây là DATA brand của user, không phải màu UI (token UI nằm ở globals.css).
 const COLOR_INPUT_FALLBACK = "#000000";
+
+/** Lấy #rrggbb (6 chữ số đầu) - <input type="color"> và gradient preview
+ *  cần dạng 6 chữ số, hex 8 chữ số đưa thẳng vào là đen thui/không nhận. */
+function hex6(v: string): string {
+  return v.slice(0, 7).toLowerCase();
+}
 
 /** Hiệu ứng mặc định cho style cũ chưa có field effects. */
 const DEFAULT_EFFECTS: StyleEffects = { gradient: true, liquidGlass: true };
@@ -112,7 +119,7 @@ function ColorField({
           type="color"
           aria-label={`${label} ${t("styleDetail.palette-aria")}`}
           className="h-9 w-9 shrink-0 cursor-pointer rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-0.5"
-          value={valid ? value : COLOR_INPUT_FALLBACK}
+          value={valid ? hex6(value) : COLOR_INPUT_FALLBACK}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -139,7 +146,7 @@ function StylePreview({ style }: { style: StyleDesign }) {
   const highlightStyle: CSSProperties =
     fx.gradient && HEX_RE.test(c.primary) && HEX_RE.test(c.secondary)
       ? {
-          backgroundImage: `linear-gradient(90deg, ${c.primary}, ${c.secondary})`,
+          backgroundImage: `linear-gradient(90deg, ${hex6(c.primary)}, ${hex6(c.secondary)})`,
           WebkitBackgroundClip: "text",
           backgroundClip: "text",
           color: "transparent",
@@ -700,7 +707,7 @@ export default function StyleDetailPage() {
                     <input
                       ref={logoInputRef}
                       type="file"
-                      accept="image/*"
+                      accept=".png,.jpg,.jpeg,.svg,.webp"
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];

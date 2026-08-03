@@ -114,6 +114,57 @@ The script handles everything: checks the environment → `npm install` (first r
 
 Manual dev run: `npm install` then `npm run dev`.
 
+## User guide
+
+### Your first video (Videos Project)
+
+1. **Create a project** - open **Videos Project** → **New project**: name, frame size (9:16 vertical for TikTok/Reels, 16:9 for YouTube) and fps.
+2. **Add the source** - in the **Sources & Assets** card upload your clip, or click **Connect phone** and scan the QR to send files straight from your phone.
+3. **Fill in the edit brief** - the "Editing script" card is the AI's instruction sheet:
+   - **Source description** - one or two sentences about what the clip is.
+   - **Auto-trim** - cuts silences, fillers and repeated takes before editing.
+   - **Karaoke subtitles** with **keyword highlighting**.
+   - **Key layout** - the main key sits in the top band of the video, related keys in the bottom band, synced to what is being said.
+   - **AI illustrations (Gemini)** - style-matched images composited into the video. Pick the drawing model, the **image density** (how many images per minute of video; leave empty and the AI decides), the **subject position** (3x3 grid picker, like the logo picker) and whether Gemini may draw text inside images.
+   - **Sound effects** and **background music** - curated SFX set or the full library; music auto-ducks under speech.
+   - **Style Design** - the brand kit (colors, fonts, logo) enforced 100% on everything; **Video style** - the visual language of this one video (paper fold, ink wash, stick figures...), leave unset and the AI decides.
+   - **Skill** - the editing format to follow (Noti TikTok style, YouTube landscape...).
+   - **Notes** - your free-form request; drop in a template from the **Prompts** page if you like.
+4. **Start editing with AI** - Claude transcribes the clip, plans the edit, builds HyperFrames scenes, generates the illustrations, wires sound effects and assembles a **draft**. Progress streams live on the project page; all renders go through the **Render queue**.
+5. **Review and finish** - watch the draft right on the project page, ask for changes in the review chat ("make the hook bigger", "cut the intro"...), then run **QC** and the **final render**. The MP4 lands in `outputs/`, together with an auto-generated thumbnail and a publish pack (title, description, hashtags).
+
+### Text to video (article → video)
+
+**Text to video** → **New session**: paste a URL or raw text (the name is optional - it is taken from the article title). The pipeline runs in stages you can review between: **Extract** the article → **Script** - the AI rewrites it into a spoken script in chunks (set the target length in seconds, edit any chunk by hand) → **Voice** - pick the engine (**Gemini TTS** online or **VieNeu-TTS** on-device, including your cloned voices), the voice and the reading speed, with per-chunk preview → **Build** - the narration is synthesized and a video project is created and edited by the AI using the brief you configured. Setting an illustration density here is the easy way to keep a long article video visually alive.
+
+### Auto cut (long video → many shorts)
+
+**Auto cut** → pick a long talking-head video → choose the mode: by **time**, by **AI** (finds the highlights) or by **prompt**. **Plan** proposes segments with titles - tick/untick and edit them - then **Cut** creates one child project per segment, all sharing the brief you configured once (aspect, layout, background, style). Each child project can then be edited by the AI like any other project.
+
+### Images Project (posters & thumbnails)
+
+**Images Project** → new image: describe the scene, pick the kind, aspect and model. Gemini paints the background only (never any text), then Remotion overlays the title, subtitle, stats, CTA and logo per the Style Design - so Vietnamese text is never misspelled. Choose the text-block position with the 3x3 grid and re-render at will.
+
+### Style Design & Video styles
+
+**Style Design** holds your brand kits: colors, fonts (type a Google Fonts name and it downloads with full Vietnamese diacritics), logo, tone and effects. The selected style is enforced on every output; when the style has a logo, the assembler stamps it on the top-left of every video automatically - never add your own. **Video styles** (picked in the brief) define the visual language of a single video: materials and motion.
+
+### Voices
+
+The **Voices** page manages narration voices: 30 Gemini preset voices (online, per-use cost) and **VieNeu-TTS** (offline, free, Vietnamese with regional accents) - the only engine that can **clone your own voice** from a short recording or phone video. Preview any voice and reading speed before using it in Text to video.
+
+### Sound effects & music
+
+**Sound Effects** hosts the library: 100+ files with tags and a curated "recommended" set the AI reaches for first; upload and tag your own. Background music lives in `assets/music/` and ducks automatically under speech during assembly.
+
+### Render queue & Settings
+
+Every render goes through the queue: drafts must pass before finals, and the automated **QC** (safe areas, audio loudness, black frames, Vietnamese diacritics) gates the final render - toggleable in **Settings**. Settings also holds the GPU switches, worker counts and queue concurrency; **Connections** manages the Claude / Gemini / OpenAI credentials.
+
+### Skills & Prompts
+
+**Skills** are the production know-how the AI follows - browse, edit, clone or create them (including AI-generated skills from a Q&A form) right in the web UI. **Prompts** stores reusable request templates for the brief's notes field.
+
 ## Environment check
 
 `start/doctor.mjs` probes everything the pipeline needs - Node.js, FFmpeg, Google Chrome, Claude
@@ -144,8 +195,7 @@ one place.
 On a project page, in the **Sources & Assets** card click **Connect phone** - scan the QR code with your phone camera (same WiFi as the machine running the system) to open the upload page `http://<machine-ip>:6868/m/<project>`. Videos/photos picked on the phone upload straight into the project's assets. The first time Windows asks about the firewall, choose **Allow** (the start script adds the rule automatically when it has admin rights).
 
 **Remote over 4G/5G** (not on the same WiFi):
-- **Tailscale** - install it on the machine running the system + your phone, then pick the `100.x` IP in the Connect phone modal; the QR works exactly like on the LAN.
-- **Cloudflare Tunnel** (recommended) - fill `TUNNEL_DOMAIN=<your-domain>` (e.g. `aiev.noti.vn`) into `.env`, then the Connect phone QR automatically uses `https://<domain>/m/<project>` - works over 4G/5G.
+- **Cloudflare Tunnel** - fill `TUNNEL_DOMAIN=<your-domain>` (e.g. `aiev.noti.vn`) into `.env`, then the Connect phone QR automatically uses `https://<domain>/m/<project>` - works over 4G/5G.
 - Start the tunnel with `start\tunnel.bat` (Windows) / `./start/tunnel.sh` (macOS) - no `TUNNEL_DOMAIN` yet and it falls back to a quick tunnel with a random `trycloudflare.com` URL.
 - ⚠️ **Warning**: the dashboard has no login yet - only expose it publicly behind Cloudflare Access, or never share the link.
 

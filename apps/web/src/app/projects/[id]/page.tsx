@@ -53,7 +53,7 @@ import {
   type ProjectDetail,
   type SceneMeta,
 } from "@/lib/api";
-import { useAgentEvents, useJobEvents } from "@/lib/useEvents";
+import { useAgentEvents, useEvents, useJobEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { ProjectBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -513,6 +513,8 @@ export default function ProjectDetailPage() {
   const projectId = params.id;
   const router = useRouter();
   const { t, tf } = useT();
+  // SSE đứt rồi nối lại → refetch dữ liệu seed để không kẹt trạng thái cũ
+  const { resyncTick } = useEvents();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   // Jobs của project - nguồn suy giai đoạn cho PipelineTimeline; seed từ
@@ -594,9 +596,11 @@ export default function ProjectDetailPage() {
     }
   }, [projectId]);
 
+  // resyncTick: SSE vừa nối lại sau khi đứt - trong lúc đứt phiên có thể đã
+  // done/error mà không ai nhận event, refetch để không hiện "đang chạy" mãi
   useEffect(() => {
     loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, resyncTick]);
 
   const load = useCallback(async () => {
     try {
@@ -609,7 +613,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, resyncTick]);
 
   // Tập sessionId thuộc project này - để lọc event agent
   const sessionIdsRef = useRef<Set<string>>(new Set());
@@ -643,12 +647,14 @@ export default function ProjectDetailPage() {
     }
   });
 
-  // Seed danh sách job của project (timeline giai đoạn cần cả job đã done)
+  // Seed danh sách job của project (timeline giai đoạn cần cả job đã done).
+  // Lọc projectId phía server - queue bận rộn không đẩy job của project này
+  // ra khỏi cửa sổ 50 job. resyncTick: refetch sau khi SSE nối lại.
   useEffect(() => {
     let alive = true;
-    getJobs(50)
+    getJobs(50, projectId)
       .then((list) => {
-        if (alive) setJobs(list.filter((j) => j.projectId === projectId));
+        if (alive) setJobs(list);
       })
       .catch(() => {
         // không có jobs cũng không chặn trang - timeline tự ẩn/suy từ file
@@ -656,7 +662,7 @@ export default function ProjectDetailPage() {
     return () => {
       alive = false;
     };
-  }, [projectId]);
+  }, [projectId, resyncTick]);
 
   // Refetch khi có job của project này đổi trạng thái kết thúc
   // + upsert vào state jobs để timeline giai đoạn cập nhật sống
@@ -780,8 +786,10 @@ export default function ProjectDetailPage() {
     setStarting(true);
     setStartError(null);
     try {
-      // Tự lưu brief đang gõ trước khi bắt đầu - người dùng không cần nhớ bấm "Lưu brief"
-      if (briefDraft) {
+      // Tự lưu brief đang gõ trước khi bắt đầu - người dùng không cần nhớ bấm "Lưu brief".
+      // CHỈ lưu khi project đã nạp về: trước đó briefDraft (nếu có) chỉ là
+      // DEFAULT_BRIEF + vài phím vừa gõ, PUT lên là ghi đè brief thật bằng default.
+      if (briefDraft && project) {
         const saved = await updateBrief(projectId, briefDraft);
         setProject((p) => (p ? { ...p, brief: saved } : p));
       }

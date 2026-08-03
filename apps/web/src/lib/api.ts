@@ -211,6 +211,13 @@ export interface Brief {
   illustrationModel: string | null;
   /** BẬT = Gemini được vẽ chữ vào ảnh minh họa (mặc định TẮT - chữ do hệ thống đặt). */
   illustrationText: boolean;
+  /**
+   * Vị trí chủ thể trong ảnh minh họa - lưới 3x3 dùng chung giá trị với vị trí
+   * chữ của image project. "auto" = giữa khung, chừa band key trên + caption dưới.
+   */
+  illustrationPosition: ImageTextPosition;
+  /** Số ảnh Gemini mỗi phút video (1-20) - null = AI tự quyết theo nội dung. */
+  illustrationsPerMinute: number | null;
   /** Style Design sản phẩm phải tuân theo - null = style mặc định. */
   styleId: string | null;
   /**
@@ -259,6 +266,10 @@ export interface SceneMeta {
   [key: string]: unknown;
 }
 
+/**
+ * GET /api/projects/:id - kế thừa ProjectSummary nên có cả tokensUsed/costUsd
+ * và status đã chuẩn hóa (backend trả các field này từ bản align API).
+ */
 export interface ProjectDetail extends ProjectSummary {
   scenes?: SceneMeta[];
   brief?: Brief;
@@ -273,7 +284,11 @@ export type JobType =
   | "scene-final"
   | "assemble-draft"
   | "assemble-final"
-  | "image-gen";
+  | "image-gen"
+  /** Phiên cắt tự động - `projectId` = id phiên, `sceneId` = bước (plan/cut). */
+  | "auto-cut"
+  /** Phiên dựng video từ bài viết - `projectId` = id phiên. */
+  | "text-to-video";
 
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
@@ -294,7 +309,13 @@ export interface Job {
 export type JobWithLog = Job & { log: string };
 
 export interface Overview {
+  /** Job đang chạy đầu tiên - giữ để tương thích, ưu tiên dùng `runningJobs`. */
   runningJob: Job | null;
+  /**
+   * TẤT CẢ job đang chạy (queue chạy tối đa 4 job song song). Optional vì
+   * server cũ chưa trả field này - UI phải fallback về `runningJob`.
+   */
+  runningJobs?: Job[];
   queuedCount: number;
   recentJobs: Job[];
   recentProjects: ProjectSummary[];
@@ -391,7 +412,7 @@ export interface UploadEvent {
 // ============ AI Providers ============
 
 /** Mode trên UI map sang effort của Agent SDK: Nhanh=low, Chuẩn=medium, Sâu=high. */
-export type AgentEffort = "low" | "medium" | "high" | "xhigh";
+export type AgentEffort = "low" | "medium" | "high";
 
 export type ProviderRole = "edit" | "chat" | "image";
 
@@ -1073,7 +1094,13 @@ export const startProjectEdit = (
 
 // ============ Jobs ============
 
-export const getJobs = (limit = 50) => request<Job[]>(`/api/jobs?limit=${limit}`);
+/** Danh sách job - `projectId` lọc phía server qua `?projectId=` (tùy chọn). */
+export const getJobs = (limit = 50, projectId?: string) =>
+  request<Job[]>(
+    `/api/jobs?limit=${limit}${
+      projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""
+    }`
+  );
 
 export const getJob = (id: string) =>
   request<JobWithLog>(`/api/jobs/${encodeURIComponent(id)}`);
@@ -2021,6 +2048,11 @@ export interface AutoCutMeta {
   transcriptRel?: string | null;
   segments: AutoCutSegment[];
   error?: string | null;
+  /**
+   * Bước vừa lỗi khi status = "failed". Chỉ "cut" mới cho cắt lại ngay:
+   * re-plan lỗi vẫn còn segments CŨ, cắt theo đó là cắt kế hoạch đã lỗi thời.
+   */
+  failedStep?: "plan" | "cut" | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2054,15 +2086,11 @@ export const AUTO_CUT_DEFAULT_PARAMS = {
   maxSec: 60,
 } as const;
 
-/**
- * Job của phiên cắt: `type` = "auto-cut", `projectId` = id phiên, `sceneId` = bước.
- * JobType hiện chưa liệt kê "auto-cut" (backend đang bổ sung song song) nên so
- * sánh qua string để không phải sửa phần đầu file.
- */
+/** Job của phiên cắt: `type` = "auto-cut", `projectId` = id phiên, `sceneId` = bước. */
 export type AutoCutStep = "plan" | "cut";
 
 export function isAutoCutJob(job: Job, sessionId?: string): boolean {
-  if ((job.type as string) !== "auto-cut") return false;
+  if (job.type !== "auto-cut") return false;
   return sessionId === undefined || job.projectId === sessionId;
 }
 
@@ -2500,13 +2528,9 @@ export function scriptChars(chunks: ScriptChunk[]): number {
   return chunks.reduce((sum, c) => sum + c.text.trim().length, 0);
 }
 
-/**
- * Job dựng video từ bài viết: `type` = "text-to-video", `projectId` = id phiên.
- * JobType chưa liệt kê loại này (backend bổ sung song song) nên so sánh qua
- * string, giống cách isAutoCutJob đang làm.
- */
+/** Job dựng video từ bài viết: `type` = "text-to-video", `projectId` = id phiên. */
 export function isTextToVideoJob(job: Job, sessionId?: string): boolean {
-  if ((job.type as string) !== "text-to-video") return false;
+  if (job.type !== "text-to-video") return false;
   return sessionId === undefined || job.projectId === sessionId;
 }
 
@@ -2517,7 +2541,10 @@ export const getTextToVideoSession = (id: string) =>
   request<TextToVideoMeta>(`/api/text-to-video/${encodeURIComponent(id)}`);
 
 export const createTextToVideo = (input: {
-  /** Bỏ trống → server đặt theo tiêu đề bài / mấy chữ đầu. */
+  /**
+   * Tùy chọn - server ĐÃ có fallback thật: bỏ trống thì đặt tên theo tiêu đề
+   * bài viết, không có tiêu đề thì lấy mấy chữ đầu của nội dung.
+   */
   name?: string;
   source: TextToVideoSource;
 }) => post<TextToVideoMeta>("/api/text-to-video", input);
