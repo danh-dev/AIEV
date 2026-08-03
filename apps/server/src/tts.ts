@@ -872,6 +872,16 @@ async function runFfmpeg(
  * Đặt 18% thì bắt được ca thật mà không đọc lại oan vì ngữ điệu.
  */
 const VOICE_DRIFT_TOLERANCE = 0.18;
+
+/**
+ * Ngưỡng RIÊNG khi chuẩn là F0 trong VOICE_CATALOG (0.22, rộng hơn 0.18).
+ *
+ * F0 trong catalog được đo trên MỘT câu mẫu khác hẳn kịch bản đang đọc, nên
+ * cùng một giọng đọc câu khác vẫn lệch so với catalog nhiều hơn là lệch so với
+ * trung vị của chính lần chạy này (cùng kịch bản, cùng phiên). Giữ 0.18 cho
+ * đường trung vị; nới lên 0.22 cho đường catalog để không đọc lại oan.
+ */
+const VOICE_DRIFT_TOLERANCE_CATALOG = 0.22;
 const VOICE_DRIFT_RETRIES = 2;
 
 /**
@@ -1087,18 +1097,66 @@ export async function synthScript(input: {
   // hẳn, giọng nữ. Mỗi lần gọi API là một lần sinh độc lập, không có gì buộc
   // model giữ nguyên người nói. Người xem nghe ra ngay ở chỗ nối.
   //
-  // Cách chữa: đo F0 tất cả các đoạn, lấy TRUNG VỊ làm chuẩn (trung vị chịu
-  // được thiểu số lệch, trung bình thì không), rồi đọc lại những đoạn lệch quá
-  // ngưỡng và giữ bản gần chuẩn nhất. Dưới 3 đoạn thì bỏ qua - không đủ dữ liệu
-  // để biết đoạn nào mới là bất thường.
-  if (total >= 3) {
+  // Chia hai bước, đừng gộp - mục tiêu thật là các đoạn ĐỒNG NHẤT VỚI NHAU:
+  //
+  // 1. KÍCH HOẠT bằng độ đồng nhất nội bộ: đo F0 mọi đoạn, lấy trung vị m của
+  //    lần chạy. Nếu MỌI đoạn đều trong 18% quanh m thì cả bài là MỘT giọng -
+  //    không làm gì, kể cả khi cả cụm lệch xa catalog. Lý do: input.style áp
+  //    cho mọi đoạn, một style hợp lệ (vd đọc hào hứng lên tông trên giọng
+  //    trầm) đẩy F0 CẢ BÀI lệch catalog như nhau; so thẳng với catalog là đọc
+  //    lại toàn bộ mất tiền (tới ~3 lần chi phí Gemini) mà bản mới vẫn y hệt.
+  // 2. Có ít nhất một đoạn lệch quá 18% so với m (tức là bài KHÔNG đồng nhất)
+  //    thì mới cần TRỌNG TÀI để biết cụm nào đúng: F0 trong VOICE_CATALOG của
+  //    giọng người dùng CHỌN (chỉ Gemini - catalog là giọng dựng sẵn của
+  //    Gemini). Chuẩn này không phụ thuộc lần chạy nên xử được ca ĐA SỐ đoạn
+  //    cùng trôi sang giọng khác: lấy m làm chuẩn thì chính giọng SAI thành
+  //    chuẩn, đoạn đúng bị "sửa" theo giọng sai. Giọng ngoài catalog thì dùng
+  //    m như cũ (trung vị chịu được thiểu số lệch, trung bình thì không) và
+  //    vẫn đòi đủ 3 mẫu đo được.
+  //
+  // Một đoạn thì bỏ qua hẳn: không thể lệch với chính nó, mà lệch đều so với
+  // catalog thì không phân biệt được với style. Hai đoạn + catalog thì bước 1
+  // vẫn chạy: trung vị của hai là một trong hai, hai đoạn vênh nhau quá 18%
+  // là catalog đứng ra phân xử.
+  //
+  // GIỚI HẠN ĐÃ BIẾT: so bằng F0 thì KHÔNG bắt được ca đổi giữa hai giọng có
+  // cao độ gần bằng nhau (vd Sadachbia 125 Hz sang Sadaltager 125 Hz) - khác
+  // âm sắc nhưng cùng cao độ thì phép đo này mù.
+  if (total >= 2) {
     const f0s = partNames.map((n) => medianF0OfWav(path.join(input.workDir, n)));
     const usable = f0s.filter((v) => v > 0).sort((a, b) => a - b);
-    if (usable.length >= 3) {
-      const ref = usable[Math.floor(usable.length / 2)];
+    const m = usable.length >= 2 ? usable[Math.floor(usable.length / 2)] : 0;
+    const uniform =
+      m > 0 &&
+      f0s.every((v) => v <= 0 || Math.abs(v - m) / m <= VOICE_DRIFT_TOLERANCE);
+    let ref = 0;
+    let tol = VOICE_DRIFT_TOLERANCE;
+    if (m > 0 && !uniform) {
+      const catalogF0 =
+        input.engine === "vieneu"
+          ? 0
+          : VOICE_CATALOG.find(
+              (v) => v.name.toLowerCase() === input.voice.toLowerCase(),
+            )?.f0 ?? 0;
+      if (catalogF0 > 0) {
+        ref = catalogF0;
+        // Catalog đo trên câu khác kịch bản nên ngưỡng phải rộng hơn - xem chú
+        // thích ở VOICE_DRIFT_TOLERANCE_CATALOG
+        tol = VOICE_DRIFT_TOLERANCE_CATALOG;
+        input.onLog?.(
+          `[tts] các đoạn lệch giọng nhau - chuẩn giọng "${input.voice}" ${ref.toFixed(0)} Hz (catalog)`,
+        );
+      } else if (usable.length >= 3) {
+        ref = m;
+        input.onLog?.(
+          `[tts] các đoạn lệch giọng nhau - chuẩn giọng "${input.voice}" ${ref.toFixed(0)} Hz (trung vị lần chạy)`,
+        );
+      }
+    }
+    if (ref > 0) {
       const off = (v: number): number => (v > 0 ? Math.abs(v - ref) / ref : 0);
       for (let i = 0; i < total; i++) {
-        if (off(f0s[i]) <= VOICE_DRIFT_TOLERANCE) continue;
+        if (off(f0s[i]) <= tol) continue;
         input.onLog?.(
           `[tts] đoạn ${i + 1} lệch giọng (F0 ${f0s[i].toFixed(0)} Hz so với chuẩn ${ref.toFixed(0)} Hz) - đọc lại`,
         );
@@ -1112,7 +1170,7 @@ export async function synthScript(input: {
             best = got;
             fs.copyFileSync(path.join(input.workDir, partNames[i]), keepAbs);
           }
-          if (off(got) <= VOICE_DRIFT_TOLERANCE) break;
+          if (off(got) <= tol) break;
         }
         // Giữ bản GẦN CHUẨN NHẤT trong mọi lần thử - đọc lại mà tệ hơn thì quay
         // về bản cũ, chứ không phải cứ lần cuối là lấy
@@ -1122,7 +1180,7 @@ export async function synthScript(input: {
           path.join(input.workDir, partNames[i]),
           input.isCanceled,
         );
-        if (off(best) > VOICE_DRIFT_TOLERANCE) {
+        if (off(best) > tol) {
           input.onLog?.(
             `[tts] đoạn ${i + 1} vẫn lệch sau ${VOICE_DRIFT_RETRIES} lần - giữ bản gần nhất (F0 ${best.toFixed(0)} Hz)`,
           );

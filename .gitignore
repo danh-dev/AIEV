@@ -16,6 +16,8 @@ engines/remotion/public/staging/*
 outputs/
 imports/
 *.log
+# Artifact build tăng dần của TypeScript - mỗi lần typecheck lại đổi, không commit
+*.tsbuildinfo
 
 # Giọng nhân bản: file mẫu là BẢN GHI ÂM GIỌNG THẬT của người dùng. Repo này
 # công khai, mà đẩy giọng một người lên mạng là chuyện không lấy lại được -
