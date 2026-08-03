@@ -1932,5 +1932,6 @@ export const vi: Record<string, string> = {
   "ttv.voice.speed-normal": "Bình thường",
   "ttv.voice.speed-hint":
     "Tăng tốc sau khi tổng hợp nên giọng KHÔNG bị the. x1.1-x1.2 nghe tỉnh hơn hẳn mà vẫn tự nhiên.",
-  "ttv.voice.speed-preview-note": "Nghe thử đọc ở tốc độ gốc, chưa áp tốc độ này.",
+  "ttv.voice.speed-preview-note":
+    "Nghe thử đã áp đúng tốc độ này - nghe sao thì lúc dựng ra vậy.",
 };

@@ -1936,5 +1936,6 @@ export const en: Record<string, string> = {
   "ttv.voice.speed-normal": "Normal",
   "ttv.voice.speed-hint":
     "Applied after synthesis, so the voice does NOT go squeaky. x1.1-x1.2 sounds noticeably more awake while staying natural.",
-  "ttv.voice.speed-preview-note": "The preview plays at the original speed, without this setting.",
+  "ttv.voice.speed-preview-note":
+    "The preview already plays at this speed - what you hear is what you get.",
 };

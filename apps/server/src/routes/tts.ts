@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { geminiApiKey } from "../gemini.js";
 import {
+  applySpeedToWav,
   DEFAULT_TTS_VOICE,
   listTtsModels,
   listVoices,
@@ -8,6 +9,7 @@ import {
   TTS_LANGUAGES,
 } from "../tts.js";
 import { listLocalVoices, probeLocalEngine, synthLocalPreviewWav } from "../ttsLocal.js";
+import { normTtsSpeed } from "../textToVideoMeta.js";
 import {
   isTtsEngine,
   previewTextFor,
@@ -212,7 +214,7 @@ router.post("/preview", async (req, res) => {
   // hạn "30 lần / 10 phút" ở đó chỉ tổ cản người dùng thử giọng cho kỹ.
   if (engine === "gemini") checkPreviewRate();
 
-  const { wav, durationSec, model: modelUsed } =
+  const synth =
     engine === "vieneu"
       ? await synthLocalPreviewWav({ text, voice })
       : await synthPreviewWav({
@@ -222,6 +224,14 @@ router.post("/preview", async (req, res) => {
           style,
           language,
         });
+
+  // Áp ĐÚNG tốc độ đang chọn: nghe thử là để biết trước thứ sắp nhận được, mà
+  // đọc ở tốc độ gốc rồi bảo "lúc dựng sẽ nhanh hơn" thì người dùng không đánh
+  // giá được gì. Dùng lại đúng hàm mà bước tổng hợp thật dùng.
+  const speed = normTtsSpeed(body.speed);
+  const wav = await applySpeedToWav(synth.wav, speed);
+  const durationSec = synth.durationSec / speed;
+  const modelUsed = synth.model;
 
   res.setHeader("content-type", "audio/wav");
   res.setHeader("content-length", String(wav.length));

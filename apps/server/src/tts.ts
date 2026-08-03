@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { paths } from "./config.js";
 import { geminiApiKey } from "./gemini.js";
 import {
   TTS_CHUNK_MAX_CHARS,
@@ -755,6 +756,49 @@ export async function synthChunk(input: {
   ensureDir(path.dirname(input.outPcmAbs));
   fs.writeFileSync(input.outPcmAbs, audio.pcm);
   return { pcmAbs: input.outPcmAbs, bytes: audio.pcm.length };
+}
+
+/**
+ * Áp tốc độ đọc lên một WAV đã nằm trong bộ nhớ.
+ *
+ * Dùng ĐÚNG bộ lọc atempo mà synthScript dùng, không phải một cách khác cho
+ * nhanh: nghe thử mà xử lý khác lúc dựng thật thì bản nghe thử nói dối. (Cách
+ * rẻ hơn là để trình duyệt đổi `playbackRate`, nhưng thuật toán giãn thời gian
+ * của trình duyệt khác atempo, nên nghe ra sẽ không đúng thứ sắp nhận được.)
+ *
+ * Đi qua file tạm chứ không pipe: ffmpeg ghi WAV ra stdout thì không quay lại
+ * sửa được kích thước trong header, để lại 0xFFFFFFFF - có trình duyệt nuốt,
+ * có trình duyệt không.
+ */
+export async function applySpeedToWav(wav: Buffer, speed: number): Promise<Buffer> {
+  if (Math.abs(speed - 1) < 0.001) return wav;
+  ensureDir(paths.uploadTmpDir);
+  const stem = path.join(paths.uploadTmpDir, `tts-speed-${process.pid}-${Date.now()}`);
+  const srcAbs = `${stem}.in.wav`;
+  const dstAbs = `${stem}.out.wav`;
+  try {
+    fs.writeFileSync(srcAbs, wav);
+    await runFfmpeg(
+      [
+        "-i",
+        srcAbs,
+        "-filter:a",
+        `atempo=${speed.toFixed(3)}`,
+        "-ar",
+        String(OUT_SAMPLE_RATE),
+        "-ac",
+        "1",
+        "-c:a",
+        "pcm_s16le",
+        dstAbs,
+      ],
+      { timeoutMs: 60_000 },
+    );
+    return fs.readFileSync(dstAbs);
+  } finally {
+    fs.rmSync(srcAbs, { force: true });
+    fs.rmSync(dstAbs, { force: true });
+  }
 }
 
 /** Đọc thử một câu ngắn -> WAV nằm trong bộ nhớ (không đụng đĩa, không cần ffmpeg) */

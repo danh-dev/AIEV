@@ -2650,6 +2650,11 @@ export async function previewTtsVoice(input: {
   /** Mã ngôn ngữ - gửi kèm để bản nghe thử khớp cấu hình đang chọn. */
   language?: string;
   /**
+   * Tốc độ đọc. Server áp ĐÚNG bộ lọc mà lúc dựng thật dùng, nên nghe thử ra
+   * đúng thứ sắp nhận được - không phải nghe tốc độ gốc rồi tự hình dung.
+   */
+  speed?: number;
+  /**
    * Ngôn ngữ ĐANG HIỆN của giao diện ("vi" | "en"). Server chọn câu mẫu theo
    * đúng ngôn ngữ đó - người dùng đang xem bản tiếng Anh mà nghe thử ra một câu
    * tiếng Việt thì không đánh giá được giọng.

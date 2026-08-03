@@ -386,6 +386,8 @@ export function VoicePicker({
       // nào để nghe thử ra đúng thứ tiếng người dùng đang đọc.
       // Model / cách đọc / mã ngôn ngữ là field riêng của Gemini - gửi kèm khi
       // chạy engine trên máy chỉ làm nhiễu.
+      // Tốc độ gửi cho CẢ HAI engine: nó áp sau khi tổng hợp nên không phụ
+      // thuộc engine nào đọc, và nghe thử phải ra đúng nhịp sắp nhận được.
       const blob = await previewTtsVoice(
         isGemini
           ? {
@@ -394,9 +396,10 @@ export function VoicePicker({
               model: value.model,
               style: value.style,
               language: value.language,
+              speed: value.speed,
               uiLang: lang,
             }
-          : { voice: name, engine, uiLang: lang }
+          : { voice: name, engine, speed: value.speed, uiLang: lang }
       );
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
