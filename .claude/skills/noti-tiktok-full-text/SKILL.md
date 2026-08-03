@@ -22,7 +22,7 @@ Build a Vietnamese vertical explainer with HyperFrames (HTML/CSS/JS + GSAP → M
 All text is a **real HTML element** so it can be animated and stays razor sharp. There are text scenes and PDF paper-page scenes.
 
 > ⚡ Read this whole file before building. Every ⚠️ section is a bug already hit & already fixed - do NOT repeat it.
-> Reference structure of a shipped project: `video-projects/sapo/`.
+> Project structure: scaffold with `npx hyperframes init`, then follow the layout in the `video-pipeline` skill (`index.html` + `compositions/` + `assets/` + `renders/` + `hyperframes.json` + `meta.json`). (`video-projects/sapo/` is an example project on the author's machine, NOT shipped with the repo - `video-projects/` is gitignored.)
 
 ---
 
@@ -134,7 +134,7 @@ Standard layout: the background (`ambient-bg`) is one sub-comp **running continu
 ## SOUND EFFECT (SFX) - pick them yourself & wire them to timestamps
 Add SFX to punctuate the video (figures, reveals, scene changes, punchlines). Take them from the **pre-curated** library:
 `assets/sound-effects/` - from inside a project: `../../assets/sound-effects/`. The recommended set = the entries tagged `hay-dung` in `assets/sound-effects/library.json`.
-For a real working example: `video-projects/mcp-tiktok-2/index.html` (the `<audio id="sfx-*">` block).
+The exact `<audio id="sfx-*">` wiring is in "Wiring technique (HyperFrames)" below.
 
 ### Picking SFX yourself (by content + timestamp)
 1. Read the transcript + caption timestamps + storyboard → find the "accent points" that need sound: figures/stat count-ups, keyword reveals, a paper scene opening, the red highlight on a payoff line, hard scene changes, the outro CTA, a punchline/shock line.

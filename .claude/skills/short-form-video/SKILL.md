@@ -327,8 +327,10 @@ For scenes 3–5 of a 15–20s short (the "middle grind" where attention drops t
 
 ## Reference compositions
 
-- `video-projects/mcp-tiktok-2/` - live vertical short reference (1080x1920, HyperFrames scenes + footage cuts, SFX timed by frame, karaoke captions). Read `index.html` and `compositions/s0*.html` before authoring a new short.
-- `video-projects/sapo/` - live reference for footage-driven shorts (zoom keyframes on footage, overlays, SFX table in `meta.json`).
+`video-projects/` is gitignored, so the projects below exist only on the author's machine and are NOT shipped with the repo. Everything they demonstrate is already written out in this skill - the folder layout in "Project structure" above, the scene/caption/SFX wiring in the sections before it. Skip this section if the folders are absent; do not go looking for them.
+
+- `video-projects/mcp-tiktok-2/` (author-local) - a vertical short at 1080x1920: HyperFrames scenes over footage cuts, SFX timed by frame, karaoke captions.
+- `video-projects/sapo/` (author-local) - a footage-driven short: zoom keyframes on the footage, overlays, and the SFX table kept in `meta.json`.
 
 ## Related skills (invoke in addition)
 

@@ -12,7 +12,7 @@ The web UI is a **monitoring and management dashboard**, not a video editor. Aes
 1. **Tokens first, hex never**: every color goes through CSS custom properties declared in `:root` and `[data-theme="dark"]`. Components never contain hex codes.
 2. **Light is the default**, dark is opt-in. The toggle persists to `localStorage` and is applied via the `data-theme` attribute on `<html>`.
 3. **Icons are 100% inline SVG** - Lucide set, stroke 1.5-2px, `currentColor` so they inherit text color. No icon fonts, no PNGs, no emoji as functional icons.
-4. **Inter font**, self-hosted at `apps/web/public/fonts/` (woff2, weights 400/500/600/700). Never load fonts from a CDN at runtime.
+4. **Inter font** via the `@fontsource/inter` package, imported in `apps/web/src/app/layout.tsx` (weights 400/500/600/700). The package bundles the woff2 files at build time, so the font is self-hosted - never load fonts from a CDN at runtime.
 5. Fixed metadata: title `AI Edit Video by: noti.vn`, description `Edit video tự động bằng AI`, favicon from `public/brand/favicon.png`.
 
 ## 2. Design tokens

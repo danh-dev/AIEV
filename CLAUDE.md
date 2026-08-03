@@ -134,7 +134,7 @@ Quy tắc bắt buộc:
 
 Web UI là **dashboard giám sát**, không phải video editor. Tối giản kiểu Shopify Admin: đầy đủ tính năng, gọn gàng, không màu mè.
 
-- Font: **Inter** (self-host trong `apps/web/public/fonts/`, không load từ CDN khi chạy).
+- Font: **Inter** qua gói `@fontsource/inter` (import trong `layout.tsx`, đóng gói lúc build nên vẫn self-host, tuyệt đối không gọi CDN lúc chạy).
 - Icon: **100% SVG inline** (khuyến nghị bộ Lucide, stroke 1.5–2px). Tuyệt đối không icon font, không PNG icon, không emoji làm icon.
 - Sáng/tối chuyển được, **mặc định sáng**. Mọi màu khai báo bằng CSS custom properties — không hardcode hex trong component.
 - Metadata: title `AI Edit Video by: noti.vn`, description `Edit video tự động bằng AI`.

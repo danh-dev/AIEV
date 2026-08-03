@@ -19,7 +19,8 @@ keeps only PROCESS: step order, cutting, captions/keys, draft→final, QC. Do no
 visuals into the video style - half-and-half is exactly the failure this rule exists to prevent.
 
 This skill builds Vietnamese vertical TikTok videos with HyperFrames (HTML/CSS/JS + GSAP → MP4).
-**Fully shipped reference project:** `video-projects/sapo/` - copying its structure is the fastest start.
+**Project structure:** scaffold with `npx hyperframes init`, then follow the layout documented in the `video-pipeline` skill: `index.html` + `compositions/*.html` + `assets/` + `renders/` + `hyperframes.json` + `meta.json`.
+(`video-projects/sapo/` is an example project on the author's machine and is NOT shipped with the repo - `video-projects/` is gitignored. If that folder is absent, everything you need is written out inline below.)
 
 > ⚡ Read this whole file before building. Every ⚠️ section is a bug already hit & already fixed - do NOT repeat it.
 
@@ -90,7 +91,7 @@ Extract frames **right at the edges of the zoom move** (start, peak, end) - e.g.
 ---
 
 ## 🔊 SOUND EFFECT (synced with the zoom & the content)
-Shared library: `assets/sound-effects/` (from inside a project: `../../assets/sound-effects/`). The recommended set = the entries tagged `hay-dung` in `assets/sound-effects/library.json`. For a real working example: `video-projects/mcp-tiktok-2/index.html` (the `<audio id="sfx-*">` block).
+Shared library: `assets/sound-effects/` (from inside a project: `../../assets/sound-effects/`). The recommended set = the entries tagged `hay-dung` in `assets/sound-effects/library.json`. The exact `<audio id="sfx-*">` wiring is in "Wiring it in" below.
 
 ### Picking SFX yourself (by content + timestamp + zoom)
 1. Read the transcript + caption timestamps + storyboard → find the "accent points" that need sound: numbers/count-ups, keyword reveals, **punch-in zoom beats**, hard scene changes, punchlines, the closing CTA.

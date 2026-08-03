@@ -21,9 +21,8 @@ visuals into the video style - half-and-half is exactly the failure this rule ex
 This skill builds **landscape 16:9** YouTube videos with HyperFrames (HTML/CSS/JS + GSAP → MP4).
 Architecture: face cam + overlay beats + camera move/PiP; the **branding** is inherited from `noti-tiktok-vn` (Noti.vn dark fintech blue). It differs from `noti-tiktok-vn` only in the **landscape 16:9 frame** instead of vertical 9:16.
 
-**Reference projects (already shipped):**
-- Project structure + Noti.vn branding (colors/fonts/glass, overlays): `video-projects/sapo/`
-- SFX wired to timestamps: `video-projects/mcp-tiktok-2/index.html`
+**Project structure:** scaffold with `npx hyperframes init`, then follow the layout in the `video-pipeline` skill (`index.html` + `compositions/` + `assets/` + `renders/` + `hyperframes.json` + `meta.json`). The Noti.vn branding (colors/fonts/glass) is written out in the STYLE section below, and the SFX timestamp wiring in the SOUND EFFECT section - you do not need an example project for either.
+(`video-projects/sapo/` and `video-projects/mcp-tiktok-2/` are example projects on the author's machine, NOT shipped with the repo - `video-projects/` is gitignored.)
 
 > ⚡ Read this whole file before building. Every ⚠️ section is a bug already hit & already fixed - do NOT repeat it.
 
