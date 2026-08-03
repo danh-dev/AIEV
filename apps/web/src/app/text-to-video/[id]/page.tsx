@@ -86,7 +86,7 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
 import { useClaudeModels, useProviders } from "@/components/ModelPicker";
 import { PageHeader } from "@/components/PageHeader";
-import { StepperBar } from "@/components/PipelineTimeline";
+import { deriveStage, PipelineTimeline, StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
 import { StyleSelect, styleDisplayName, useStyles } from "@/components/StyleSelect";
@@ -145,7 +145,10 @@ function deriveTtvStage(m: TextToVideoMeta): {
 } {
   if (m.status === "extracting") return { stage: 1, active: true, complete: false };
   if (m.status === "scripting") return { stage: 2, active: true, complete: false };
-  if (m.status === "voicing" || m.status === "building") {
+  // "editing" nằm CÙNG bước 5 và vẫn active: tạo xong project con mới là bắt đầu
+  // dựng video, không phải xong. Trước đây bước này tick xanh ngay lúc bàn giao
+  // nên người dùng thấy "xong" rồi ngồi đợi mãi không có video.
+  if (m.status === "voicing" || m.status === "building" || m.status === "editing") {
     return { stage: 5, active: true, complete: false };
   }
   if (m.projectId) {
@@ -238,8 +241,9 @@ function CollapsibleCard({
  * cắt short, xuất phụ đề).
  */
 function ResultBlock({ projectId }: { projectId: string }) {
-  const { t } = useT();
+  const { t, tf } = useT();
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   const reload = useCallback(() => {
@@ -252,10 +256,35 @@ function ResultBlock({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   useEffect(reload, [reload]);
+
+  // Job của project con - đây mới là TIẾN TRÌNH THẬT của việc dựng video.
+  // Không có nó thì trang này chỉ biết "đã bàn giao" rồi im lặng hàng chục phút.
+  useEffect(() => {
+    let alive = true;
+    getJobs(50)
+      .then((list) => {
+        if (alive) setJobs(list.filter((j) => j.projectId === projectId));
+      })
+      .catch(() => {
+        // thiếu job cũng không chặn: timeline tự suy từ file đã render
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
   // AI dựng xong thì meta.output mới có - bám cả job lẫn phiên agent để video
   // tự hiện ra, không bắt người dùng F5 đoán lúc nào xong
   useJobEvents((e) => {
-    if (e.projectId === projectId) reload();
+    if (e.projectId !== projectId) return;
+    setJobs((prev) => {
+      const i = prev.findIndex((j) => j.id === e.id);
+      if (i < 0) return [...prev, e];
+      const next = prev.slice();
+      next[i] = e;
+      return next;
+    });
+    reload();
   });
   useAgentEvents((e) => {
     if (e.kind === "done" || e.kind === "result") reload();
@@ -266,9 +295,53 @@ function ResultBlock({ projectId }: { projectId: string }) {
     ? `${mediaUrl(output)}?v=${encodeURIComponent(project?.updatedAt ?? "")}`
     : null;
 
+  const running = jobs.find((j) => j.status === "running") ?? null;
+  const pipelineInput = project
+    ? {
+        metaStatus: project.status,
+        hasOutput: project.output != null,
+        scenes: project.scenes ?? [],
+        renders: project.files?.renders ?? [],
+        jobs,
+        // Chưa có output mà project vẫn đang chạy job -> coi như phiên AI còn sống.
+        // Trang này không theo dõi phiên agent của project con nên suy từ job.
+        sessionRunning: running !== null,
+      }
+    : null;
+
   return (
     <div className="flex flex-col gap-3">
       {err && <p className="text-xs text-[var(--danger)]">{err}</p>}
+
+      {/* Tiến trình THẬT của project con - thứ mà trước đây không nhìn thấy được */}
+      {pipelineInput && deriveStage(pipelineInput) !== null && (
+        <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-xs font-semibold text-[var(--text)]">
+              {t("ttv.build.child-title")}
+            </span>
+            <Link
+              href={`/projects/${projectId}`}
+              className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
+            >
+              <ExternalLink size={12} strokeWidth={2} />
+              {t("ttv.build.open-project")}
+            </Link>
+          </div>
+          <PipelineTimeline {...pipelineInput} />
+          {running ? (
+            <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+              <Loader2 size={12} strokeWidth={2} className="animate-spin shrink-0" />
+              {tf("ttv.build.running-job", { label: running.type })}
+              {running.progress > 0 ? ` · ${running.progress}%` : ""}
+            </p>
+          ) : (
+            !url && (
+              <p className="text-xs text-[var(--text-muted)]">{t("ttv.build.long-warning")}</p>
+            )
+          )}
+        </div>
+      )}
       {url ? (
         <>
           <video

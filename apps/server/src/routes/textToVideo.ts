@@ -5,12 +5,13 @@ import { nanoid } from "nanoid";
 import { paths } from "../config.js";
 import { extractArticleFromUrl } from "../article.js";
 import { generateText } from "../aiText.js";
-import { applyBriefPatch } from "../meta.js";
+import { applyBriefPatch, normOutput, projectExists, readMeta } from "../meta.js";
 import { chunkForTts } from "../tts.js";
 import { isTtsEngine } from "../ttsTypes.js";
 import {
   TTS_CHARS_PER_SEC_ESTIMATE,
   defaultTextToVideoMeta,
+  normTtsSpeed,
   patchTextToVideo,
   readTextToVideo,
   sourceTextOf,
@@ -41,13 +42,40 @@ const router = Router();
 /** Kịch bản dài hơn mức này thì đọc mất quá lâu và tốn - chặn từ sớm */
 const MAX_SCRIPT_CHARS = 20_000;
 
+/**
+ * Đồng bộ lại trạng thái với SỰ THẬT trong project con.
+ *
+ * Trạng thái "editing" do một promise chạy nền cập nhật (xem jobs/textToVideo.ts).
+ * Promise đó chết theo tiến trình: restart server giữa lúc AI đang dựng là phiên
+ * kẹt ở "editing" vĩnh viễn dù video đã xong từ lâu. Nên mỗi lần đọc đều đối
+ * chiếu lại với file output của project con - rẻ (một lần đọc meta) và tự chữa.
+ */
+function reconcile(meta: TextToVideoMeta): TextToVideoMeta {
+  if (meta.status !== "editing" || !meta.projectId) return meta;
+  try {
+    if (!projectExists(meta.projectId)) {
+      // Project con bị xóa tay - nói thẳng thay vì quay bánh xe mãi mãi
+      return patchTextToVideo(meta.id, {
+        status: "failed",
+        error: `Project "${meta.projectId}" đã bị xóa - không còn gì để dựng.`,
+      });
+    }
+    if (normOutput(readMeta(meta.projectId).output)) {
+      return patchTextToVideo(meta.id, { status: "done", error: null });
+    }
+  } catch {
+    // meta project con hỏng/đang ghi dở - giữ nguyên, vòng sau đối chiếu lại
+  }
+  return meta;
+}
+
 function readAll(): TextToVideoMeta[] {
   if (!fs.existsSync(paths.textToVideoDir)) return [];
   const out: TextToVideoMeta[] = [];
   for (const name of fs.readdirSync(paths.textToVideoDir)) {
     if (!textToVideoExists(name)) continue;
     try {
-      out.push(readTextToVideo(name));
+      out.push(reconcile(readTextToVideo(name)));
     } catch {
       // meta.json hỏng - bỏ qua một phiên còn hơn làm chết cả danh sách
     }
@@ -60,7 +88,7 @@ function mustRead(id: string): TextToVideoMeta {
   if (!textToVideoExists(id)) {
     throw new HttpError(404, "NOT_FOUND", `Không tìm thấy phiên "${id}"`);
   }
-  return readTextToVideo(id);
+  return reconcile(readTextToVideo(id));
 }
 
 function uniqueId(name: string): string {
@@ -126,6 +154,7 @@ router.patch("/:id", (req, res) => {
         typeof v.language === "string" && v.language.trim()
           ? v.language.trim()
           : cur.voice.language,
+      speed: "speed" in v ? normTtsSpeed(v.speed) : cur.voice.speed,
     };
   }
 

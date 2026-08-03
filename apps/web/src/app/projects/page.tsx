@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clapperboard,
   Copy,
+  FileText,
   Play,
   Plus,
   Ruler,
@@ -689,6 +690,20 @@ export default function ProjectsPage() {
                     <span className="ml-2 text-xs text-[var(--text-muted)]">
                       {p.id}
                     </span>
+                    {/* Nguồn gốc: project do Text to video sinh ra thì nói rõ và
+                        cho bấm thẳng về phiên đó - không thì nhìn danh sách chỉ
+                        thấy một project lạ mọc ra, không hiểu ở đâu ra */}
+                    {p.textToVideoId && (
+                      <Link
+                        href={`/text-to-video/${p.textToVideoId}`}
+                        title={tf("project.from-ttv-title", { id: p.textToVideoId })}
+                        onClick={(e) => e.stopPropagation()}
+                        className="ml-2 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] px-2 py-0.5 align-middle text-[11px] font-medium text-[var(--text-muted)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                      >
+                        <FileText size={11} strokeWidth={2} aria-hidden="true" />
+                        {t("project.from-ttv")}
+                      </Link>
+                    )}
                     {(p.tags ?? []).length > 0 && (
                       <span className="mt-1 flex flex-wrap gap-1">
                         {p.tags.map((t) => (

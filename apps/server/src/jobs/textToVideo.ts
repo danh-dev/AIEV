@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { repoRoot } from "../config.js";
 import { createChildProject, prepareEditSession } from "../childProject.js";
-import { readMeta, writeMeta } from "../meta.js";
+import { normOutput, readMeta, writeMeta } from "../meta.js";
 import { runAgent } from "../agent.js";
 import { transcribeVideo } from "../transcribe.js";
 import { synthScript } from "../tts.js";
@@ -78,6 +78,7 @@ async function build(ctx: JobCtx, meta: TextToVideoMeta): Promise<void> {
   const synth = await synthScript({
     chunks,
     engine: meta.voice.engine,
+    speed: meta.voice.speed,
     voice: meta.voice.name,
     model: meta.voice.model,
     style: meta.voice.style,
@@ -155,9 +156,14 @@ async function build(ctx: JobCtx, meta: TextToVideoMeta): Promise<void> {
     ...(projectMeta.audio ?? { voice: null, sfx: [] }),
     voice: `video-projects/${summary.id}/assets/voice.wav`,
   };
+  // Liên kết NGƯỢC về phiên Text to video. Không có nó thì nhìn danh sách
+  // Videos Project chỉ thấy một project lạ mọc ra, không biết từ đâu.
+  projectMeta.textToVideoId = id;
   writeMeta(summary.id, projectMeta);
 
-  patchTextToVideo(id, { projectId: summary.id, status: "done", error: null });
+  // "editing" chứ KHÔNG phải "done": tới đây mới chỉ xong phần nguyên liệu,
+  // việc dựng video thật sự bắt đầu ở dòng dưới và còn chạy hàng chục phút.
+  patchTextToVideo(id, { projectId: summary.id, status: "editing", error: null });
   ctx.log(`[text-to-video] đã tạo project "${summary.id}"`);
 
   // ---- 4. Khởi động phiên edit AI ------------------------------------------
@@ -165,12 +171,25 @@ async function build(ctx: JobCtx, meta: TextToVideoMeta): Promise<void> {
   const session = prepareEditSession({ id: summary.id, meta: readMeta(summary.id) });
   // KHÔNG await: phiên agent chạy hàng chục phút, giữ job trong queue suốt thời
   // gian đó sẽ chặn mọi job khác. Tiến trình theo dõi qua SSE kênh `agent`.
-  void runAgent(session.sessionId, session.prompt).catch((err: unknown) => {
-    ctx.log(
-      `[text-to-video] phiên edit lỗi: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  });
-  ctx.progress(100, "Xong");
+  void runAgent(session.sessionId, session.prompt)
+    .then(() => {
+      // Phiên agent kết thúc KHÔNG đồng nghĩa có video: agent.ts chỉ gate
+      // goal='final', mà nó vẫn có thể dừng giữa chừng. Nguồn sự thật duy nhất
+      // là file output trong meta của project con.
+      const done = Boolean(normOutput(readMeta(summary.id).output));
+      patchTextToVideo(id, {
+        status: done ? "done" : "editing",
+        error: done ? null : null,
+      });
+      ctx.log(`[text-to-video] phiên edit kết thúc - có video final: ${done ? "có" : "chưa"}`);
+    })
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      patchTextToVideo(id, { status: "failed", error: `Phiên edit lỗi: ${message}` });
+      ctx.log(`[text-to-video] phiên edit lỗi: ${message}`);
+    });
+  // Job của HÀNG ĐỢI xong ở đây; phần dựng video chạy tiếp ở phiên agent nền.
+  ctx.progress(100, "Đã bàn giao cho AI dựng video");
 }
 
 /** Mô tả nguồn cho AI: nó cần biết đây là giọng tổng hợp, không phải người quay */

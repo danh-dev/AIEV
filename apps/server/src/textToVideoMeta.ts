@@ -91,10 +91,34 @@ export interface TextToVideoVoice {
    * kịch bản. Giữ để ghi rõ ý định và phòng khi Google bắt đầu thực thi nó.
    */
   language: string;
+  /**
+   * Tốc độ đọc, 1 = giữ nguyên. Áp SAU khi tổng hợp bằng ffmpeg atempo (giữ
+   * nguyên cao độ giọng, chỉ đổi nhịp) chứ KHÔNG nhờ model đọc nhanh hơn: bảo
+   * model "đọc nhanh lên" là nó đổi luôn cả ngữ điệu và thời lượng thành thứ
+   * không đoán trước được, mà cả timeline bám theo thời lượng đó.
+   */
+  speed: number;
+}
+
+/** Giới hạn tốc độ đọc - atempo chạy tốt trong khoảng này, ngoài ra là méo tiếng */
+export const TTS_SPEED_MIN = 0.8;
+export const TTS_SPEED_MAX = 1.6;
+
+/** Chuẩn hóa tốc độ về khoảng hợp lệ, làm tròn 2 chữ số cho khớp UI */
+export function normTtsSpeed(v: unknown): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? v : 1;
+  return Math.min(TTS_SPEED_MAX, Math.max(TTS_SPEED_MIN, Math.round(n * 100) / 100));
 }
 
 export function defaultVoice(): TextToVideoVoice {
-  return { engine: DEFAULT_TTS_ENGINE, model: null, name: "Kore", style: "", language: "vi-VN" };
+  return {
+    engine: DEFAULT_TTS_ENGINE,
+    model: null,
+    name: "Kore",
+    style: "",
+    language: "vi-VN",
+    speed: 1,
+  };
 }
 
 export interface TextToVideoOutput {
@@ -109,6 +133,16 @@ export function defaultOutput(): TextToVideoOutput {
   return { width: 1080, height: 1920, fps: 30, styleId: null };
 }
 
+/**
+ * VÌ SAO CÓ "editing" TÁCH KHỎI "done": trước đây job đánh "done" ngay khi bàn
+ * giao xong cho Videos Project, trong khi phần dựng video thật (AI viết scene,
+ * render từng scene, lắp ráp, render final) mới bắt đầu và còn chạy hàng chục
+ * phút. Người dùng thấy tick xanh "xong" rồi đợi mãi không có video.
+ *
+ * - "building": đang tạo project con và bàn giao (vài giây).
+ * - "editing" : project con đang được AI dựng - đây là phần LÂU NHẤT.
+ * - "done"    : project con đã có file video final.
+ */
 export type TextToVideoStatus =
   | "draft"
   | "extracting"
@@ -116,6 +150,7 @@ export type TextToVideoStatus =
   | "ready"
   | "voicing"
   | "building"
+  | "editing"
   | "done"
   | "failed";
 
@@ -231,6 +266,7 @@ export function readTextToVideo(id: string): TextToVideoMeta {
         typeof voice.language === "string" && voice.language.trim()
           ? voice.language.trim()
           : base.voice.language,
+      speed: normTtsSpeed(voice.speed),
     },
     scriptModel: typeof raw.scriptModel === "string" && raw.scriptModel ? raw.scriptModel : null,
     output: {

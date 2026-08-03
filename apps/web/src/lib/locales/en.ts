@@ -1911,4 +1911,30 @@ export const en: Record<string, string> = {
     "Paper puppets jointed at the limbs, construction-paper texture, slightly rough cut edges. Characters move by rotating at the joints.",
   "vstyle.giao-dien-app.desc":
     "Frosted glass interface panels floating in space, layered shadows, crisp icons. A simulated cursor performs real actions.",
+
+  // ===== Text to video: the AI build stage + project link =====
+  "ttv.status.editing": "AI is building the video",
+  "ttv.build.handoff": "Handed over to the AI to build",
+  "ttv.build.child-title": "Build progress",
+  "ttv.build.child-hint":
+    "The build runs inside its own project. The bar below is that project's REAL progress - it keeps going after the steps above are finished.",
+  "ttv.build.open-project": "Open the project for details",
+  "ttv.build.project-link": "Project being built:",
+  "ttv.build.waiting": "Waiting for the AI to start…",
+  "ttv.build.no-project": "No project yet - press Build video to start.",
+  "ttv.build.running-job": "Running: {label}",
+  "ttv.build.long-warning":
+    "This is the longest step, usually tens of minutes. You can close the page - it keeps running.",
+
+  // -- Back-link in Videos Project --
+  "project.from-ttv": "From Text to video",
+  "project.from-ttv-title": "Created by the Text to video session \"{id}\"",
+  "project.back-to-ttv": "Back to the Text to video session",
+
+  // -- Reading speed --
+  "ttv.voice.speed": "Reading speed",
+  "ttv.voice.speed-normal": "Normal",
+  "ttv.voice.speed-hint":
+    "Applied after synthesis, so the voice does NOT go squeaky. x1.1-x1.2 sounds noticeably more awake while staying natural.",
+  "ttv.voice.speed-preview-note": "The preview plays at the original speed, without this setting.",
 };

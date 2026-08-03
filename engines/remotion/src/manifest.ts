@@ -166,8 +166,12 @@ export const watermarkSchema = z.looseObject({
   position: z
     .enum(["top-left", "top-right", "bottom-left", "bottom-right"])
     .default("top-left"),
-  /** Chiều cao logo theo % chiều cao video - giữ nguyên tỉ lệ khung ảnh */
-  heightPercent: z.number().positive().max(30).default(6),
+  /**
+   * Chiều cao logo theo % chiều cao video - giữ nguyên tỉ lệ khung ảnh.
+   * 3% (không phải 6%): mức 6% đo trên khung dọc 1080x1920 ra logo cao 115px,
+   * to át cả nội dung. Logo đóng góc là để NHẬN RA, không phải để đọc.
+   */
+  heightPercent: z.number().positive().max(30).default(3),
   /** Lề tính theo % CHIỀU RỘNG cho cả hai trục, để khoảng cách nhìn đều nhau */
   marginPercent: z.number().min(0).max(30).default(4),
   /** Hơi chìm để không tranh nhìn với nội dung, nhưng vẫn phải đọc ra được */

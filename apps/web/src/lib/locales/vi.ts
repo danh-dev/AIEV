@@ -1907,4 +1907,30 @@ export const vi: Record<string, string> = {
     "Rối giấy cắt rời từng khớp, giấy thủ công, mép cắt hơi thô. Nhân vật cử động bằng cách xoay quanh khớp.",
   "vstyle.giao-dien-app.desc":
     "Panel giao diện kính mờ nổi trên nền, bóng đổ nhiều lớp, icon sắc nét. Con trỏ giả lập thao tác thật.",
+
+  // ===== Text to video: giai đoạn AI dựng + liên kết project =====
+  "ttv.status.editing": "AI đang dựng video",
+  "ttv.build.handoff": "Đã bàn giao cho AI dựng video",
+  "ttv.build.child-title": "Tiến trình dựng video",
+  "ttv.build.child-hint":
+    "Phần dựng video chạy trong một project riêng. Thanh dưới đây là tiến trình THẬT của project đó - còn chạy tiếp sau khi các bước phía trên đã xong.",
+  "ttv.build.open-project": "Mở project để xem chi tiết",
+  "ttv.build.project-link": "Project đang dựng:",
+  "ttv.build.waiting": "Đang chờ AI bắt đầu…",
+  "ttv.build.no-project": "Chưa tạo project - bấm Dựng video để bắt đầu.",
+  "ttv.build.running-job": "Đang chạy: {label}",
+  "ttv.build.long-warning":
+    "Bước này lâu nhất, thường vài chục phút. Bạn có thể đóng trang - tiến trình vẫn chạy.",
+
+  // -- Liên kết ngược ở Videos Project --
+  "project.from-ttv": "Từ Text to video",
+  "project.from-ttv-title": "Project này do phiên Text to video \"{id}\" tạo ra",
+  "project.back-to-ttv": "Về phiên Text to video",
+
+  // -- Tốc độ đọc --
+  "ttv.voice.speed": "Tốc độ đọc",
+  "ttv.voice.speed-normal": "Bình thường",
+  "ttv.voice.speed-hint":
+    "Tăng tốc sau khi tổng hợp nên giọng KHÔNG bị the. x1.1-x1.2 nghe tỉnh hơn hẳn mà vẫn tự nhiên.",
+  "ttv.voice.speed-preview-note": "Nghe thử đọc ở tốc độ gốc, chưa áp tốc độ này.",
 };

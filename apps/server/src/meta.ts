@@ -283,6 +283,13 @@ export interface ProjectSummary {
   status: "draft" | "rendering" | "done";
   output: string | null;
   tags: string[];
+  /**
+   * Phiên Text to video đã sinh ra project này - null = project tạo tay.
+   * Có trong SUMMARY (không chỉ trong meta chi tiết) để danh sách project hiện
+   * được nguồn gốc: không thì người dùng thấy một project lạ mọc ra và không
+   * hiểu nó ở đâu ra.
+   */
+  textToVideoId: string | null;
   createdAt: string | null;
   updatedAt: string;
 }
@@ -361,6 +368,10 @@ export function projectSummaryOf(id: string): ProjectSummary | null {
       status: normStatus(meta.status),
       output: normOutput(meta.output),
       tags: normTags(meta.tags),
+      textToVideoId:
+        typeof meta.textToVideoId === "string" && meta.textToVideoId
+          ? meta.textToVideoId
+          : null,
       createdAt: typeof meta.createdAt === "string" && meta.createdAt ? meta.createdAt : null,
       updatedAt,
     };

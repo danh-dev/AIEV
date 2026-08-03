@@ -820,6 +820,79 @@ async function runFfmpeg(
   }
 }
 
+/**
+ * Lệch bao nhiêu so với F0 chuẩn thì coi là ĐỔI NGƯỜI NÓI.
+ *
+ * 18%: giọng cùng một người lên xuống theo câu (hỏi, nhấn mạnh) nhưng hiếm khi
+ * quá ~15%; còn ca đổi giọng đo được là 190 Hz so với chuẩn 120 Hz, tức 58%.
+ * Đặt 18% thì bắt được ca thật mà không đọc lại oan vì ngữ điệu.
+ */
+const VOICE_DRIFT_TOLERANCE = 0.18;
+const VOICE_DRIFT_RETRIES = 2;
+
+/**
+ * F0 trung vị (Hz) của một file WAV PCM 16-bit mono - dùng để nhận ra đoạn nào
+ * bị model đọc bằng giọng khác. Trả 0 nếu không đo được (file lặng, quá ngắn).
+ *
+ * Tự cài bằng autocorrelation thay vì kéo thêm thư viện: chỉ cần TƯƠNG ĐỐI
+ * chính xác để so các đoạn với nhau, không phải phân tích âm học nghiêm túc.
+ */
+export function medianF0OfWav(absFile: string): number {
+  let buf: Buffer;
+  try {
+    buf = fs.readFileSync(absFile);
+  } catch {
+    return 0;
+  }
+  // Tìm chunk "data" thay vì tin header luôn dài đúng 44 byte
+  let pos = 12;
+  let dataOff = -1;
+  let dataLen = 0;
+  while (pos + 8 <= buf.length) {
+    const id = buf.toString("ascii", pos, pos + 4);
+    const size = buf.readUInt32LE(pos + 4);
+    if (id === "data") {
+      dataOff = pos + 8;
+      dataLen = Math.min(size, buf.length - dataOff);
+      break;
+    }
+    pos += 8 + size + (size % 2);
+  }
+  if (dataOff < 0 || dataLen < 4096) return 0;
+  const sampleRate = buf.length > 28 ? buf.readUInt32LE(24) : 48_000;
+  const n = Math.floor(dataLen / 2);
+  const at = (i: number): number => buf.readInt16LE(dataOff + i * 2);
+
+  const win = Math.floor(sampleRate * 0.04);
+  const lagLo = Math.floor(sampleRate / 320); // 320 Hz
+  const lagHi = Math.floor(sampleRate / 70); //  70 Hz
+  if (win <= lagHi) return 0;
+
+  const found: number[] = [];
+  for (let start = 0; start + win < n; start += win) {
+    // Bỏ cửa sổ gần như im lặng - autocorrelation trên nhiễu ra số vô nghĩa
+    let energy = 0;
+    for (let i = 0; i < win; i += 4) energy += Math.abs(at(start + i));
+    if (energy / (win / 4) < 500) continue;
+
+    let bestLag = 0;
+    let bestVal = 0;
+    for (let lag = lagLo; lag < lagHi; lag++) {
+      let sum = 0;
+      // bước 4 mẫu: nhanh gấp 4 mà đỉnh tương quan vẫn rõ
+      for (let i = 0; i + lag < win; i += 4) sum += at(start + i) * at(start + i + lag);
+      if (sum > bestVal) {
+        bestVal = sum;
+        bestLag = lag;
+      }
+    }
+    if (bestLag > 0) found.push(sampleRate / bestLag);
+  }
+  if (found.length === 0) return 0;
+  found.sort((a, b) => a - b);
+  return found[Math.floor(found.length / 2)];
+}
+
 /** Đo thời lượng bằng ffprobe - KHÔNG bao giờ suy ra từ số ký tự (lệch tới 28%) */
 async function probeSeconds(
   absFile: string,
@@ -852,6 +925,8 @@ export async function synthScript(input: {
    * ghép là chắc chắn nhịp đọc lệch nhau, người dùng nghe ra ngay.
    */
   engine?: TtsEngine;
+  /** Tốc độ đọc, 1 = giữ nguyên - áp bằng atempo sau khi ghép xong */
+  speed?: number;
   /** Mã ngôn ngữ speechConfig.languageCode, vd "vi-VN" - bỏ trống cũng được */
   language?: string;
   model?: string | null;
@@ -872,14 +947,16 @@ export async function synthScript(input: {
   const partNames: string[] = [];
   const chunkDurations: number[] = [];
 
-  for (let i = 0; i < total; i++) {
+  /**
+   * Dựng MỘT đoạn ra file part-XXX.wav. Tách thành hàm vì bước dò giọng lệch ở
+   * dưới phải gọi lại đúng quy trình này cho những đoạn cần đọc lại.
+   */
+  const renderChunk = async (i: number): Promise<void> => {
     if (input.isCanceled?.()) throw new Error("Job đã bị hủy");
     const idx = String(i + 1).padStart(3, "0");
     const pcmAbs = path.join(input.workDir, `chunk-${idx}.pcm`);
     const wavName = `part-${idx}.wav`;
     const wavAbs = path.join(input.workDir, wavName);
-
-    input.onLog?.(`[tts] đoạn ${i + 1}/${total} (${chunks[i].length} ký tự)`);
 
     if (input.engine === "vieneu") {
       // Engine trên máy đã trả thẳng WAV 48kHz mono (đúng OUT_SAMPLE_RATE) nên
@@ -948,10 +1025,66 @@ export async function synthScript(input: {
         { timeoutMs: 120_000, isCanceled: input.isCanceled },
       );
     }
-    partNames.push(wavName);
-    chunkDurations.push(await probeSeconds(wavAbs, input.isCanceled));
+    partNames[i] = wavName;
+    chunkDurations[i] = await probeSeconds(wavAbs, input.isCanceled);
     fs.rmSync(pcmAbs, { force: true });
+  };
+
+  for (let i = 0; i < total; i++) {
+    input.onLog?.(`[tts] đoạn ${i + 1}/${total} (${chunks[i].length} ký tự)`);
+    await renderChunk(i);
     input.onProgress?.(i + 1, total);
+  }
+
+  // ---- Chống ĐỔI GIỌNG giữa chừng ------------------------------------------
+  //
+  // ĐO ĐƯỢC, KHÔNG PHẢI PHÒNG XA: đọc 4 đoạn liền nhau bằng cùng một giọng
+  // ("Charon", nam ~126 Hz) thì đoạn 2 trả về F0 190 Hz - tức là một người khác
+  // hẳn, giọng nữ. Mỗi lần gọi API là một lần sinh độc lập, không có gì buộc
+  // model giữ nguyên người nói. Người xem nghe ra ngay ở chỗ nối.
+  //
+  // Cách chữa: đo F0 tất cả các đoạn, lấy TRUNG VỊ làm chuẩn (trung vị chịu
+  // được thiểu số lệch, trung bình thì không), rồi đọc lại những đoạn lệch quá
+  // ngưỡng và giữ bản gần chuẩn nhất. Dưới 3 đoạn thì bỏ qua - không đủ dữ liệu
+  // để biết đoạn nào mới là bất thường.
+  if (total >= 3) {
+    const f0s = partNames.map((n) => medianF0OfWav(path.join(input.workDir, n)));
+    const usable = f0s.filter((v) => v > 0).sort((a, b) => a - b);
+    if (usable.length >= 3) {
+      const ref = usable[Math.floor(usable.length / 2)];
+      const off = (v: number): number => (v > 0 ? Math.abs(v - ref) / ref : 0);
+      for (let i = 0; i < total; i++) {
+        if (off(f0s[i]) <= VOICE_DRIFT_TOLERANCE) continue;
+        input.onLog?.(
+          `[tts] đoạn ${i + 1} lệch giọng (F0 ${f0s[i].toFixed(0)} Hz so với chuẩn ${ref.toFixed(0)} Hz) - đọc lại`,
+        );
+        let best = f0s[i];
+        const keepAbs = path.join(input.workDir, `keep-${i}.wav`);
+        fs.copyFileSync(path.join(input.workDir, partNames[i]), keepAbs);
+        for (let attempt = 1; attempt <= VOICE_DRIFT_RETRIES; attempt++) {
+          await renderChunk(i);
+          const got = medianF0OfWav(path.join(input.workDir, partNames[i]));
+          if (off(got) < off(best)) {
+            best = got;
+            fs.copyFileSync(path.join(input.workDir, partNames[i]), keepAbs);
+          }
+          if (off(got) <= VOICE_DRIFT_TOLERANCE) break;
+        }
+        // Giữ bản GẦN CHUẨN NHẤT trong mọi lần thử - đọc lại mà tệ hơn thì quay
+        // về bản cũ, chứ không phải cứ lần cuối là lấy
+        fs.copyFileSync(keepAbs, path.join(input.workDir, partNames[i]));
+        fs.rmSync(keepAbs, { force: true });
+        chunkDurations[i] = await probeSeconds(
+          path.join(input.workDir, partNames[i]),
+          input.isCanceled,
+        );
+        if (off(best) > VOICE_DRIFT_TOLERANCE) {
+          input.onLog?.(
+            `[tts] đoạn ${i + 1} vẫn lệch sau ${VOICE_DRIFT_RETRIES} lần - giữ bản gần nhất (F0 ${best.toFixed(0)} Hz)`,
+          );
+        }
+      }
+    }
   }
 
   if (partNames.length === 1) {
@@ -1001,6 +1134,39 @@ export async function synthScript(input: {
       ],
       { cwd: input.workDir, timeoutMs: 300_000, isCanceled: input.isCanceled },
     );
+  }
+
+  // Tăng/giảm tốc ĐỘ ĐỌC - làm ở đây, tức là SAU khi ghép và TRƯỚC khi ai đó
+  // đo thời lượng hay chạy transcript. Làm sau bước transcript thì mọi mốc thời
+  // gian từng từ (phụ đề karaoke, zoom theo nhịp, sound effect) lệch hết.
+  const speed = input.speed ?? 1;
+  if (Math.abs(speed - 1) > 0.001) {
+    const spedAbs = path.join(input.workDir, "speed.wav");
+    await runFfmpeg(
+      [
+        "-i",
+        input.outWavAbs,
+        // atempo giữ nguyên CAO ĐỘ giọng, chỉ đổi nhịp - đổi sample rate thì
+        // giọng bị the như hoạt hình. Một tầng atempo chạy đúng trong 0.5-2.0,
+        // mà dải cho phép của ta là 0.8-1.6 nên không cần nối tầng.
+        "-filter:a",
+        `atempo=${speed.toFixed(3)}`,
+        "-ar",
+        String(OUT_SAMPLE_RATE),
+        "-ac",
+        "1",
+        "-c:a",
+        "pcm_s16le",
+        spedAbs,
+      ],
+      { timeoutMs: 300_000, isCanceled: input.isCanceled },
+    );
+    fs.rmSync(input.outWavAbs, { force: true });
+    fs.renameSync(spedAbs, input.outWavAbs);
+    // Thời lượng từng đoạn đo TRƯỚC khi tăng tốc - phải quy đổi, nếu không UI
+    // hiện một đằng còn file dài một nẻo
+    for (let i = 0; i < chunkDurations.length; i++) chunkDurations[i] /= speed;
+    input.onLog?.(`[tts] tăng tốc đọc x${speed}`);
   }
 
   const durationSec = await probeSeconds(input.outWavAbs, input.isCanceled);

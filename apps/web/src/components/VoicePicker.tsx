@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   Cloud,
   Cpu,
+  Gauge,
   Globe,
   Loader2,
   Play,
@@ -65,6 +66,15 @@ import {
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
 import { useT } from "@/lib/i18n";
+
+/**
+ * Các mức tốc độ đọc bày ra cho người dùng.
+ *
+ * Dừng ở x1.5: từ đó trở lên atempo bắt đầu nghe ra tiếng "lắp", mà mục đích ở
+ * đây là đỡ buồn ngủ chứ không phải tua nhanh. Có cả mức chậm cho nội dung cần
+ * nghe kỹ.
+ */
+const SPEEDS = [0.9, 1, 1.1, 1.2, 1.3, 1.5] as const;
 
 /** Thứ tự nhóm hiện trên màn hình - nam trước vì đông nhất, lạ nhất để cuối. */
 const GENDERS: TtsGender[] = ["nam", "nu", "trung-tinh"];
@@ -1021,7 +1031,43 @@ export function VoicePicker({
         </p>
       </div>
 
-      {/* 5. Cách đọc - prompt tự do, đổi là thời lượng đổi theo. Chỉ Gemini:
+      {/* 5. Tốc độ đọc - áp cho MỌI engine (làm bằng ffmpeg sau khi tổng hợp,
+          không phụ thuộc engine nào đọc) */}
+      <div>
+        <span className="label">{t("ttv.voice.speed")}</span>
+        <div role="group" aria-label={t("ttv.voice.speed")} className="flex flex-wrap gap-1.5">
+          {SPEEDS.map((s) => {
+            const active = Math.abs(value.speed - s) < 0.001;
+            return (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={active}
+                disabled={disabled}
+                onClick={() => onChange({ speed: s })}
+                className={`rounded-full border px-3 py-1 text-xs font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  active
+                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {s === 1 ? t("ttv.voice.speed-normal") : `x${s}`}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+          <Gauge size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
+          {t("ttv.voice.speed-hint")}
+        </p>
+        {Math.abs(value.speed - 1) > 0.001 && (
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            {t("ttv.voice.speed-preview-note")}
+          </p>
+        )}
+      </div>
+
+      {/* 6. Cách đọc - prompt tự do, đổi là thời lượng đổi theo. Chỉ Gemini:
           engine trên máy không nhận lời chỉ dẫn cách đọc */}
       {isGemini && (
         <div>

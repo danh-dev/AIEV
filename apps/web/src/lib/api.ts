@@ -29,6 +29,12 @@ export interface ProjectSummary {
   status: ProjectStatus;
   output: string | null;
   tags: string[];
+  /**
+   * Phiên Text to video đã sinh ra project này - null = tạo tay.
+   * Danh sách project dùng nó để chỉ rõ nguồn gốc: không có thì người dùng thấy
+   * một project lạ mọc ra mà không biết từ đâu.
+   */
+  textToVideoId: string | null;
   /** Project cũ tạo trước khi có field này → null. */
   createdAt: string | null;
   updatedAt: string;
@@ -2213,6 +2219,7 @@ export type TextToVideoStatus =
   | "ready"
   | "voicing"
   | "building"
+  | "editing"
   | "done"
   | "failed";
 
@@ -2267,7 +2274,16 @@ export interface TextToVideoVoice {
    * là field hợp lệ của API và để ghi rõ ý định của phiên.
    */
   language: string;
+  /**
+   * Tốc độ đọc, 1 = giữ nguyên. Áp bằng ffmpeg atempo SAU khi tổng hợp nên giữ
+   * nguyên cao độ giọng - không phải bảo model "đọc nhanh lên".
+   */
+  speed: number;
 }
+
+/** Dải tốc độ đọc hợp lệ - ngoài khoảng này atempo bắt đầu méo tiếng. */
+export const TTS_SPEED_MIN = 0.8;
+export const TTS_SPEED_MAX = 1.6;
 
 export interface TextToVideoOutput {
   width: number;
@@ -2320,6 +2336,7 @@ export const TEXT_TO_VIDEO_STATUS_LABEL: Record<TextToVideoStatus, string> = {
   ready: "ttv.status.ready",
   voicing: "ttv.status.voicing",
   building: "ttv.status.building",
+  editing: "ttv.status.editing",
   done: "ttv.status.done",
   failed: "ttv.status.failed",
 };
@@ -2334,6 +2351,7 @@ export const TEXT_TO_VIDEO_STATUS_TONE: Record<
   ready: "muted",
   voicing: "running",
   building: "running",
+  editing: "running",
   done: "success",
   failed: "danger",
 };
