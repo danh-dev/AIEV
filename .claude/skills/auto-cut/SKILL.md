@@ -57,7 +57,7 @@ Machine measurement cannot catch this kind - you have to READ the whole transcri
 
 Merge every KEEP range into a keep-list `[(start,end)...]`, then cut and stitch with a SINGLE
 `trim/atrim + setpts/asetpts + concat` command, re-encoding cleanly to `face.cut.mp4`
-(full pattern + timestamp remapping: see the "CẮT HI-LIGHT" section of the `noti-tiktok-vn` skill).
+(full pattern + timestamp remapping: see the "TRIMMING TO HIGHLIGHTS" section of the `noti-tiktok-vn` skill).
 
 **Word timestamp remapping is mandatory:** for each kept range store the cumulative `shift`;
 `new = orig − shift`; drop words that fall inside a cut range -> new transcript. From this point on, captions/zooms/SFX
@@ -78,4 +78,4 @@ use ONLY the remapped transcript.
 - Cutting only silences and ignoring flubbed sentences - what users call "dead weight" is mostly this kind.
 - Cutting the rendered draft instead of the source -> quality drops from a second encode. Always cut from the source.
 - SFX/narration files with their own lead silence -> use `data-media-start` to trim inside HyperFrames
-  (see the noti-tiktok-vn skill), do not re-encode an audio file just for 0.3s of leading silence.
+  (see "SFX loudness and lead silence" in the noti-tiktok-vn skill), do not re-encode an audio file just for 0.3s of leading silence.

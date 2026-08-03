@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { StyleDesign } from "./styles.js";
 import { addTokenUsage } from "./db.js";
-import type { ImageAspect, ImageKind } from "./imageMeta.js";
+import type { ImageAspect, ImageKind, ImageTextPosition } from "./imageMeta.js";
 import type { VideoStyle } from "./videoStyles.js";
 import { ensureDir } from "./util.js";
 
@@ -59,6 +59,57 @@ const NEGATIVE_SPACE: Record<ImageAspect, string> = {
 };
 
 /**
+ * Bố cục cho ẢNH MINH HỌA VIDEO - khác hẳn Poster: trên video, KEY CHÍNH nằm
+ * band TRÊN (skill key-layout + HighlightTrack) và caption/key liên quan nằm
+ * band DƯỚI. Dùng bảng Poster (chủ thể 2/3 trên, chừa 1/3 dưới cho headline)
+ * là chủ thể chui thẳng vào gầm thẻ key và bị che mất - lỗi đã gặp thật.
+ * Chủ thể phải nằm GIỮA khung theo chiều dọc, hai mép trên/dưới chỉ là
+ * atmosphere tiếp diễn.
+ */
+const NEGATIVE_SPACE_VIDEO: Record<ImageAspect, string> = {
+  "9:16":
+    "Compose ONE unified scene filling the ENTIRE frame. Main subject VERTICALLY CENTERED, contained within the middle 55% of the frame: the TOP ~15% and BOTTOM ~20% of the image will be covered by overlay cards and captions, so keep both of those bands as low-detail atmospheric continuation (soft falloff, fewer elements, lower contrast) - lighting, atmosphere and background texture must still flow through them. Never place the subject or any important detail near the top or bottom edge, never leave an empty band, never split the image into zones.",
+  "16:9":
+    "Compose ONE unified scene filling the ENTIRE frame. Main subject CENTERED, contained within the middle 60% of the frame height: the TOP ~12% and BOTTOM ~18% will be covered by overlay cards and captions, so keep those horizontal bands as low-detail atmospheric continuation (soft falloff, fewer elements, lower contrast) with lighting and texture flowing through. Never place important detail near the top or bottom edge, never leave an empty band, never split the image into zones.",
+  "4:5":
+    "Compose ONE unified scene filling the ENTIRE frame. Main subject vertically centered; keep the top and bottom ~15% as low-detail atmospheric continuation (soft falloff) for overlay text - atmosphere must flow through. No empty band, no split.",
+  "1:1":
+    "Compose ONE unified scene filling the ENTIRE frame. Main subject centered; keep the top and bottom edges low-detail with soft atmospheric falloff for overlay text - atmosphere continues through. No empty zones, no split.",
+};
+
+/**
+ * Bố cục ảnh minh họa video khi người dùng CHỌN vị trí chủ thể (lưới 3x3 trong
+ * brief, giống bộ chọn vị trí chữ của image project). "auto" không đi qua đây -
+ * nó dùng bảng NEGATIVE_SPACE_VIDEO ở trên (giữa khung, chừa cả hai band).
+ * Vị trí do người dùng chỉ định thì tôn trọng tuyệt đối, chỉ giữ thêm quy tắc
+ * band nào KHÔNG chứa chủ thể vẫn phải thoáng cho caption/thẻ key đè lên.
+ */
+function videoSubjectGuidance(position: Exclude<ImageTextPosition, "auto">): string {
+  const [vert, horiz] = position.split("-") as [
+    "top" | "middle" | "bottom",
+    "left" | "center" | "right",
+  ];
+  const vertPhrase =
+    vert === "top" ? "upper third" : vert === "bottom" ? "lower third" : "vertical center";
+  const horizPhrase =
+    horiz === "left" ? "left side" : horiz === "right" ? "right side" : "horizontal center";
+  const parts = [
+    `Compose ONE unified scene filling the ENTIRE frame. Main subject placed in the ${vertPhrase} of the frame, toward the ${horizPhrase}.`,
+    "The rest of the frame is continuous atmosphere with soft falloff (fewer elements, lower contrast) - lighting and background texture must flow across the whole frame.",
+  ];
+  // Band không chứa chủ thể vẫn phải thoáng: caption luôn nằm đáy video,
+  // thẻ key hay nằm mép trên - trừ khi người dùng chủ động đặt chủ thể vào đó.
+  if (vert !== "bottom") {
+    parts.push("Keep the BOTTOM ~18% of the image low-detail - captions will overlay there.");
+  }
+  if (vert !== "top") {
+    parts.push("Keep the TOP ~12% of the image low-detail - overlay cards may sit there.");
+  }
+  parts.push("Never leave an empty band, never split the image into zones.");
+  return parts.join(" ");
+}
+
+/**
  * Build prompt tiếng Anh: yêu cầu người dùng + kind + Design System + quy tắc điều phối
  * với Remotion (Gemini chỉ làm NỀN; chữ/icon/logo/thành phần đồ họa do Remotion đặt).
  */
@@ -71,6 +122,17 @@ export function buildImagePrompt(input: {
   allowText?: boolean;
   /** Phong cách dựng video - null = giữ chỉ đạo mỹ thuật mặc định (ảnh quảng cáo) */
   videoStyle?: VideoStyle | null;
+  /**
+   * Bố cục vùng chừa chữ. "poster" (mặc định) = layout composition Poster
+   * (headline 1/3 dưới); "video" = ảnh minh họa video (key band trên, caption
+   * band dưới → chủ thể GIỮA khung). Route /api/illustrations luôn truyền "video".
+   */
+  layout?: "poster" | "video";
+  /**
+   * Vị trí chủ thể do người dùng chọn (brief.illustrationPosition, lưới 3x3).
+   * Chỉ có tác dụng với layout "video"; "auto"/bỏ trống = giữa khung an toàn.
+   */
+  subjectPosition?: ImageTextPosition;
 }): string {
   const { design } = input;
   const c = design.colors;
@@ -101,15 +163,23 @@ export function buildImagePrompt(input: {
       "STRICT BRAND COMPLIANCE: this style guide is mandatory - stay within the palette above (plus its neutral tints/shades); do not introduce a different color scheme even if the scene description implies one.",
     );
   }
-  if (design.tone.trim()) parts.push(`Brand tone and mood: ${design.tone.trim()}.`);
-  // Hiệu ứng của style - áp vào chất liệu hình ảnh
-  if (design.effects.liquidGlass) {
-    parts.push(
-      "Liquid glass aesthetic: translucent glassy 3D elements, soft refractions, subtle glow.",
-    );
-  }
-  if (design.effects.gradient) {
-    parts.push("Smooth color gradients blending the brand palette across lighting and surfaces.");
+  // Tone + hiệu ứng của Style Design chỉ áp khi KHÔNG có phong cách dựng.
+  // Có phong cách dựng mà vẫn đẩy "Liquid glass 3D" / "Smooth color gradients"
+  // vào cùng prompt với "Avoid: no gradients" (flat-vector) hay "mực tàu trên
+  // giấy dó" là hai chỉ dẫn đá nhau - ảnh ra nửa nọ nửa kia, đúng thứ CLAUDE.md
+  // muc 5.6 cấm. Tone cũng vậy: nó tả một ngôn ngữ hình ảnh khác thì phải
+  // nhường (phía chữ editPrompt.ts đã làm y hệt). Màu + font vẫn cưỡng chế ở trên.
+  if (!input.videoStyle) {
+    if (design.tone.trim()) parts.push(`Brand tone and mood: ${design.tone.trim()}.`);
+    // Hiệu ứng của style - áp vào chất liệu hình ảnh
+    if (design.effects.liquidGlass) {
+      parts.push(
+        "Liquid glass aesthetic: translucent glassy 3D elements, soft refractions, subtle glow.",
+      );
+    }
+    if (design.effects.gradient) {
+      parts.push("Smooth color gradients blending the brand palette across lighting and surfaces.");
+    }
   }
   // Chỉ đạo mỹ thuật: phong cách dựng THAY THẾ hẳn câu mặc định, không cộng vào.
   // Cộng vào thì "ảnh quảng cáo bóng bẩy, chiều sâu điện ảnh" đánh nhau với
@@ -119,7 +189,14 @@ export function buildImagePrompt(input: {
   } else {
     parts.push("High quality, professional advertising background, cohesive lighting, cinematic depth.");
   }
-  parts.push(NEGATIVE_SPACE[input.aspect]);
+  const subjectPos = input.subjectPosition ?? "auto";
+  parts.push(
+    input.layout === "video"
+      ? subjectPos === "auto"
+        ? NEGATIVE_SPACE_VIDEO[input.aspect]
+        : videoSubjectGuidance(subjectPos)
+      : NEGATIVE_SPACE[input.aspect],
+  );
   // Style CÓ file logo thật -> tuyệt đối không để model vẽ logo thương hiệu.
   //
   // ĐO ĐƯỢC, ĐỪNG NỚI RA: chỉ THÊM một câu cấm là KHÔNG đủ. Lần thử đầu vẫn
@@ -193,6 +270,10 @@ export async function generateBackground(input: {
   allowText?: boolean;
   /** Phong cách dựng video - null = chỉ đạo mỹ thuật mặc định (ảnh quảng cáo) */
   videoStyle?: VideoStyle | null;
+  /** Bố cục vùng chừa chữ - xem buildImagePrompt. Ảnh minh họa video = "video". */
+  layout?: "poster" | "video";
+  /** Vị trí chủ thể người dùng chọn - xem buildImagePrompt */
+  subjectPosition?: ImageTextPosition;
 }): Promise<{ file: string; promptUsed: string }> {
   const key = geminiApiKey();
   if (!key) {

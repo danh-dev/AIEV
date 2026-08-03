@@ -7,7 +7,7 @@ import { getStyle, styleExists } from "../styles.js";
 import { getVideoStyle } from "../videoStyles.js";
 import { paths } from "../config.js";
 import { HttpError, ensureDir, toKebabAscii } from "../util.js";
-import type { ImageAspect } from "../imageMeta.js";
+import { IMAGE_TEXT_POSITIONS, type ImageAspect, type ImageTextPosition } from "../imageMeta.js";
 
 /**
  * Tạo ảnh minh họa cho VIDEO project - công cụ cho agent Claude gọi trong lúc edit
@@ -22,7 +22,7 @@ const ASPECTS: ImageAspect[] = ["9:16", "16:9", "1:1", "4:5"];
 
 const router = Router();
 
-// POST /api/illustrations { projectId, prompt, name?, aspect?, model?, description?, styleId?, allowText? }
+// POST /api/illustrations { projectId, prompt, name?, aspect?, model?, description?, styleId?, allowText?, position? }
 // → { file, relPath, promptUsed }
 router.post("/", async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -48,6 +48,16 @@ router.post("/", async (req, res) => {
   }
   if ("allowText" in body && typeof body.allowText !== "boolean") {
     throw new HttpError(400, "INVALID_ALLOW_TEXT", "allowText phải là boolean");
+  }
+  if (
+    "position" in body &&
+    !IMAGE_TEXT_POSITIONS.includes(body.position as ImageTextPosition)
+  ) {
+    throw new HttpError(
+      400,
+      "INVALID_POSITION",
+      `position phải là một trong: ${IMAGE_TEXT_POSITIONS.join(" | ")}`,
+    );
   }
 
   // Tên file: từ name (kebab) hoặc từ prompt, dedupe
@@ -78,6 +88,15 @@ router.post("/", async (req, res) => {
     model,
     allowText,
     videoStyle,
+    // Ảnh cho VIDEO: chủ thể giữa khung, chừa band trên (key chính) + band dưới
+    // (caption/key liên quan) - dùng bảng Poster là chủ thể bị thẻ key che mất
+    layout: "video",
+    // Vị trí chủ thể: body.position (agent cần bố cục riêng cho một ảnh)
+    // → brief.illustrationPosition (người dùng chọn trên UI) → "auto" (giữa khung)
+    subjectPosition:
+      (body.position as ImageTextPosition | undefined) ??
+      brief.illustrationPosition ??
+      "auto",
   });
 
   // Ghi mô tả vào assets.json để cả UI lẫn các phiên AI sau đều biết ảnh này là gì

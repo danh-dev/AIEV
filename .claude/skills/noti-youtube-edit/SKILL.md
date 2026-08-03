@@ -13,6 +13,11 @@ in that section **COMPLETELY REPLACE** every color/font/branding rule in this sk
 layout, cutting rhythm, render workflow, the bug fixes. Illustrations generated through /api/illustrations
 must pass the correct styleId in the prompt. NO Style Design section → use the skill's default branding.
 
+If the edit prompt ALSO contains a **"PHONG CÁCH DỰNG"** (video style) section: that section **WINS over this
+skill** for ALL visual and motion language - materials, transitions, camera moves, effects. This skill then
+keeps only PROCESS: step order, cutting, captions/keys, draft→final, QC. Do not mix the skill's default
+visuals into the video style - half-and-half is exactly the failure this rule exists to prevent.
+
 This skill builds **landscape 16:9** YouTube videos with HyperFrames (HTML/CSS/JS + GSAP → MP4).
 Architecture: face cam + overlay beats + camera move/PiP; the **branding** is inherited from `noti-tiktok-vn` (Noti.vn dark fintech blue). It differs from `noti-tiktok-vn` only in the **landscape 16:9 frame** instead of vertical 9:16.
 
@@ -108,6 +113,8 @@ mainTl.to("#face-wrapper",
 ---
 
 ## 🔀 SCENE TRANSITIONS (GSAP, from noti-tiktok-vn)
+> When the edit prompt has a PHONG CÁCH DỰNG (video style) section, its motion spec overrides these transition/effect rules.
+
 No hard cuts. Every beat has **its own GSAP timeline** (`paused`, registered on `window.__timelines["<id>"]`). Text enters and leaves via tweens:
 - **Entrance**: `y:40→0, opacity:0→1, scale:0.92→1, filter:blur(12px)→0`, stagger 0.06–0.12, ease `power3.out`.
 - **Exit + hard kill** (stops stagger from leaking back in): `to(..., {opacity:0, y:-30, blur(14px)})` then `tl.set(..., {opacity:0, visibility:"hidden"})`.
@@ -128,7 +135,7 @@ No hard cuts. Every beat has **its own GSAP timeline** (`paused`, registered on 
 - Glow on emphasized text: `filter: drop-shadow(0 0 26px rgba(0,140,255,0.4))` (drop-shadow for gradient text - NOT text-shadow, because the glyphs are transparent).
 - Karaoke caption (Mode A): chunks of 4–7 words, the word being spoken highlighted `#19c8ff` + scale 1.13. Place it in the lower third (`bottom: ~120px`), NOT flush with the bottom.
 - ⚠️ Glow/accents use **Noti BLUE** (`#0061ff`/`#00c2ff`/`#19c8ff`), NOT the Claude orange - this is the thing to fix whenever you borrow overlay code from another project.
-- NO "@noti.vn" watermark or logo unless the user asks for one.
+- Never add your own corner logo/watermark - the Remotion assembly layer stamps the Style Design logo automatically when the style has one (adding your own means two logos stacked). Brand logos mentioned in the script come from `assets/brand-logos/` (see CLAUDE.md §5.5).
 
 ---
 
@@ -259,5 +266,5 @@ npx hyperframes render --quality standard --output renders/final.mp4
 # copy SFX: cp ../../assets/sound-effects/<file> assets/sfx/
 ```
 
-## OUTPUT for the user
-The file `renders/final.mp4` (1920×1080, 30fps) + a timeline table: scene | duration | component | content + an **SFX table: timecode | event | file | volume**. Clean up the temporary draft/test files when you are done.
+## OUTPUT - hand off to the pipeline
+`renders/final.mp4` is NOT the finished product. Continue with the `video-pipeline` skill: automated QC on the draft → assemble final via the render queue (Remotion) → `outputs/<id>-v<N>.mp4` → update `meta.json` (status + output) → thumbnail/publish. Report to the user: a timeline table: scene | duration | component | content + an **SFX table: timecode | event | file | volume**. Clean up the temporary draft/test files when you are done.

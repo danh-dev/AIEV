@@ -101,16 +101,19 @@ The logo swaps with the theme at the same moment as the tokens (same `data-theme
 is a multi-column workspace filling the full width; lists and tables stretch with the screen. Only
 standalone forms (create project, edit skill) may cap their width for readability (~640px).
 
-Sidebar (SVG icon + label, the active item gets `--primary-soft` background + `--primary` text) - 11 items:
-- **Dashboard** - overview: running jobs, recent projects, new errors
-- **Videos Project** - list of video projects + status + output preview
-- **Images Project** - image generation projects (Gemini)
-- **Style Design** - manage styles (color, font, effects) applied to videos/images
-- **Render Queue** - job queue, progress bar, log, cancel button
-- **Assets** - imports, footage, images, transcripts
-- **Sound Effects** - library, inline preview playback
-- **Prompts** - library of prompt templates
-- **Skills** - CRUD for skill markdown
+Sidebar (SVG icon + label, the active item gets `--primary-soft` background + `--primary` text) - 14 items (source of truth: `NAV` in `apps/web/src/components/Shell.tsx`):
+- **Dashboard** (`/`) - overview: running jobs, recent projects, new errors
+- **Videos Project** (`/projects`) - list of video projects + status + output preview
+- **Images Project** (`/images`) - image generation projects (Gemini)
+- **Auto cut** (`/auto-cut`) - cut a long video into short segments, each becoming a project
+- **Text to video** (`/text-to-video`) - article/text → script → TTS → video sessions
+- **Voices** (`/voices`) - cloned voice library (VieNeu), placed right under Text to video
+- **Style Design** (`/styles`) - manage styles (color, font, effects) applied to videos/images
+- **Render Queue** (`/queue`) - job queue, progress bar, log, cancel button
+- **Assets** (`/assets`) - imports, footage, images, transcripts
+- **Sound Effects** (`/sfx`) - library, inline preview playback
+- **Prompts** (`/prompts`) - library of prompt templates
+- **Skills** (`/skills`) - CRUD for skill markdown
 - **Cấu hình** (`/config`) - render settings, concurrency
 - **Kết nối** (`/connections`) - API keys for each provider (Claude, Gemini...)
 

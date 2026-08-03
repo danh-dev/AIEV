@@ -21,7 +21,7 @@ Always use **camelCase** property names (e.g. `backgroundColor`, `rotationX`).
 - **ease** - `"power1.out"` (default), `"power3.inOut"`, `"back.out(1.7)"`, `"elastic.out(1, 0.3)"`, `"none"`.
 - **stagger** - number `0.1` or object: `{ amount: 0.3, from: "center" }`, `{ each: 0.1, from: "random" }`.
 - **overwrite** - `false` (default), `true`, or `"auto"`.
-- **repeat** - number or `-1` for infinite. **yoyo** - alternates direction with repeat.
+- **repeat** - number or `-1` for infinite. **yoyo** - alternates direction with repeat. Never use `-1` in HyperFrames - infinite repeats break the capture engine; compute a finite count from the composition duration (see the hyperframes skill).
 - **onComplete**, **onStart**, **onUpdate** - callbacks.
 - **immediateRender** - default `true` for from()/fromTo(). Set `false` on later tweens targeting the same property+element to avoid overwrite.
 

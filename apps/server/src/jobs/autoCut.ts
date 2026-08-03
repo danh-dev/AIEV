@@ -58,9 +58,13 @@ export async function runAutoCut(ctx: JobCtx): Promise<void> {
         patchAutoCut(id, {
           status: cur.segments.length > 0 ? "planned" : "draft",
           error: null,
+          failedStep: null,
         });
       } else {
-        patchAutoCut(id, { status: "failed", error: message });
+        // Ghi rõ BƯỚC hỏng: route /cut chỉ cho cắt lại phiên failed khi lỗi
+        // xảy ra ở bước cut (kế hoạch còn nguyên giá trị) - re-plan hỏng thì
+        // segments trong meta là kế hoạch CŨ, không được cắt theo nó.
+        patchAutoCut(id, { status: "failed", error: message, failedStep: step });
       }
     } catch {
       /* phiên cắt có thể đã bị xóa giữa chừng - vẫn phải ném lỗi gốc ra queue */
@@ -72,7 +76,9 @@ export async function runAutoCut(ctx: JobCtx): Promise<void> {
 // ================================================================== Step "plan"
 
 async function stepPlan(ctx: JobCtx, id: string): Promise<void> {
-  let meta = patchAutoCut(id, { status: "planning", error: null });
+  // Bắt đầu lượt chạy mới là xóa dấu vết lỗi cũ (failedStep chỉ có nghĩa khi
+  // status = failed; giữ nó lại sẽ làm route /cut hiểu nhầm ở lần lỗi sau)
+  let meta = patchAutoCut(id, { status: "planning", error: null, failedStep: null });
   const dir = autoCutDirOf(id);
   ensureDir(dir);
 
@@ -136,14 +142,15 @@ async function stepPlan(ctx: JobCtx, id: string): Promise<void> {
     }
   }
 
-  patchAutoCut(id, { segments: clean, status: "planned", error: null });
+  patchAutoCut(id, { segments: clean, status: "planned", error: null, failedStep: null });
   ctx.progress(100, `Đã chọn ${clean.length} đoạn`);
 }
 
 // ================================================================== Step "cut"
 
 async function stepCut(ctx: JobCtx, id: string): Promise<void> {
-  let meta = patchAutoCut(id, { status: "cutting", error: null });
+  // Xóa dấu vết lỗi cũ khi bắt đầu cắt - lượt này thành/bại sẽ tự ghi lại
+  let meta = patchAutoCut(id, { status: "cutting", error: null, failedStep: null });
   const dir = autoCutDirOf(id);
   const segDir = path.join(dir, "segments");
   ensureDir(segDir);
@@ -163,7 +170,7 @@ async function stepCut(ctx: JobCtx, id: string): Promise<void> {
         ? `[cut] Mọi đoạn đã chọn đều có project con rồi (${already} đoạn) - không có gì để cắt.`
         : "[cut] Không có đoạn nào được chọn - hãy tích chọn đoạn rồi chạy lại.",
     );
-    patchAutoCut(id, { status: "done", error: null });
+    patchAutoCut(id, { status: "done", error: null, failedStep: null });
     return;
   }
 
@@ -194,7 +201,7 @@ async function stepCut(ctx: JobCtx, id: string): Promise<void> {
   for (let i = 0; i < todo.length; i++) {
     if (ctx.isCanceled()) {
       ctx.log(`[cut] Job bị hủy - giữ nguyên ${createdIds.length} đoạn đã xong.`);
-      patchAutoCut(id, { status: "planned", error: null });
+      patchAutoCut(id, { status: "planned", error: null, failedStep: null });
       return;
     }
     const seg = todo[i];
@@ -324,7 +331,7 @@ async function stepCut(ctx: JobCtx, id: string): Promise<void> {
   }
 
   ctx.progress(100, `Đã tạo ${createdIds.length} project`);
-  patchAutoCut(id, { status: "done", error: null });
+  patchAutoCut(id, { status: "done", error: null, failedStep: null });
 }
 
 // ================================================================== Trợ giúp

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { paths } from "./config.js";
+import { IMAGE_TEXT_POSITIONS, type ImageTextPosition } from "./imageMeta.js";
 import { videoStyleExists } from "./videoStyles.js";
 import {
   HttpError,
@@ -83,6 +84,19 @@ export interface Brief {
   illustrationModel: string | null;
   /** BẬT = cho phép Gemini vẽ chữ tiếng Việt vào ảnh minh họa (mặc định TẮT - chữ do Remotion/HyperFrames đặt) */
   illustrationText: boolean;
+  /**
+   * Vị trí CHỦ THỂ trong ảnh minh họa (lưới 3x3, dùng chung giá trị với vị trí
+   * chữ của image project). "auto" = giữa khung theo chiều dọc, chừa band trên
+   * (key chính) + band dưới (caption) - bố cục an toàn cho video.
+   */
+  illustrationPosition: ImageTextPosition;
+  /**
+   * Mật độ ảnh minh họa: số ảnh Gemini MỖI PHÚT video (1-20, số nguyên).
+   * null = AI tự quyết theo nội dung (hành vi cũ). Đặt số để video dài
+   * (Text to video đọc bài viết) đổi nền liên tục, đỡ nhàm chán.
+   * Trần 20 = một ảnh mỗi 3 giây - dày hơn nữa là slideshow chớp nháy.
+   */
+  illustrationsPerMinute: number | null;
   /** Style Design áp cho video (id trong assets/styles/styles.json) - null = style default */
   styleId: string | null;
   /**
@@ -113,6 +127,8 @@ export function defaultBrief(): Brief {
     autoIllustrations: false,
     illustrationModel: null,
     illustrationText: false,
+    illustrationPosition: "auto",
+    illustrationsPerMinute: null,
     styleId: null,
     videoStyleId: null,
     notes: "",
@@ -147,6 +163,17 @@ export function briefOf(meta: ProjectMeta): Brief {
     base.illustrationModel = b.illustrationModel.trim();
   }
   if (typeof b.illustrationText === "boolean") base.illustrationText = b.illustrationText;
+  if (IMAGE_TEXT_POSITIONS.includes(b.illustrationPosition as ImageTextPosition)) {
+    base.illustrationPosition = b.illustrationPosition as ImageTextPosition;
+  }
+  if (
+    typeof b.illustrationsPerMinute === "number" &&
+    Number.isInteger(b.illustrationsPerMinute) &&
+    b.illustrationsPerMinute >= 1 &&
+    b.illustrationsPerMinute <= 20
+  ) {
+    base.illustrationsPerMinute = b.illustrationsPerMinute;
+  }
   if (typeof b.styleId === "string" && b.styleId.trim()) base.styleId = b.styleId.trim();
   // Phong cách đã bị gỡ khỏi catalog (đổi tên id) thì lùi về null = AI tự quyết,
   // chứ không giữ một id chết làm mọi lời gọi sau đó báo lỗi
@@ -222,6 +249,24 @@ export function applyBriefPatch(
   nullableStr("illustrationModel");
   bool("illustrationText");
   str("notes");
+
+  if (
+    "illustrationPosition" in body &&
+    !IMAGE_TEXT_POSITIONS.includes(body.illustrationPosition as ImageTextPosition)
+  ) {
+    bad(`illustrationPosition phải là một trong: ${IMAGE_TEXT_POSITIONS.join(" | ")}`);
+  }
+  if ("illustrationPosition" in body) {
+    brief.illustrationPosition = body.illustrationPosition as ImageTextPosition;
+  }
+
+  if ("illustrationsPerMinute" in body) {
+    const v = body.illustrationsPerMinute;
+    if (v !== null && (typeof v !== "number" || !Number.isInteger(v) || v < 1 || v > 20)) {
+      bad("illustrationsPerMinute phải là null hoặc số nguyên 1-20");
+    }
+    brief.illustrationsPerMinute = v as number | null;
+  }
 
   if ("sfxMode" in body && !SFX_MODES.includes(body.sfxMode as SfxMode)) {
     bad(`sfxMode phải là một trong: ${SFX_MODES.join(" | ")}`);

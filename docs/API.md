@@ -12,15 +12,18 @@
 
 ```
 GET /api/health
-→ { ok: true, checks: { ffmpeg: bool, node: string, claudeAuth: bool, hyperframes: bool } }
+→ { ok: true, checks: { ffmpeg: bool, node: string, claudeAuth: bool, hyperframes: bool },
+    apiToken?: string }
 
 GET /api/overview
-→ { runningJob: Job|null, queuedCount: number, recentJobs: Job[≤5],
+→ { runningJob: Job|null, runningJobs: Job[], queuedCount: number, recentJobs: Job[≤5],
     recentProjects: ProjectSummary[≤6], health: <như /api/health> }
 ```
 
-`runningJob` = job đang chạy ĐẦU TIÊN (queue song song nên có thể nhiều job đang chạy cùng lúc).
-`recentProjects` mỗi phần tử kèm `tokensUsed, costUsd`.
+`/api/health` là endpoint public duy nhất; `apiToken` CHỈ trả khi request đến trực tiếp từ máy chủ
+(loopback, không qua proxy) - web dashboard chạy trên chính máy đó dùng nó cho mọi request sau.
+`runningJob` = job đang chạy ĐẦU TIÊN (field cũ, giữ cho tương thích); `runningJobs` = TẤT CẢ job
+đang chạy (queue song song). `recentProjects` mỗi phần tử kèm `tokensUsed, costUsd`.
 
 ## Kiểm tra môi trường (card "Kiểm tra hệ thống" trang /config)
 
@@ -33,6 +36,7 @@ GET /api/doctor[?refresh=1]
 
 POST /api/doctor/fix   { id }
 → { ok: bool, installed: bool, timedOut: bool, log: string[≤40], report: <như GET> }
+   (kể cả nhánh trả sớm khi lệnh cài chạy quá lâu vẫn kèm đủ installed/timedOut)
 ```
 
 Danh sách kiểm tra nằm ở **`start/doctor.mjs`** — dùng chung với `start.ps1` / `start.sh`, nên
@@ -79,19 +83,22 @@ gọi này; hỏng nốt đường đó thì token hết hạn theo TTL 60 phút
 
 ```
 ProjectSummary = { id, name, width, height, fps, status: "draft"|"rendering"|"done",
-                   output: string|null, tags: string[], createdAt: string|null, updatedAt }
+                   output: string|null, tags: string[], textToVideoId: string|null,
+                   createdAt: string|null, updatedAt }
+                   (textToVideoId = id phiên Text to video đã sinh ra project - null nếu tạo thường)
 
 GET    /api/projects            → ProjectSummary[]   (quét video-projects/*/meta.json;
                                   mỗi phần tử kèm tokensUsed, costUsd)
-POST   /api/projects            { id, name, width, height, fps } → ProjectSummary (201)
-                                  — scaffold folder + meta.json + compositions/ + assets/ + renders/
+POST   /api/projects            { id?, name, width, height, fps, tags? } → ProjectSummary (201)
+                                  — scaffold folder + meta.json + compositions/ + assets/ + renders/;
+                                  không gửi id → tự sinh từ name (kebab-case, trùng thì thêm -2, -3…)
 GET    /api/projects/:id        → meta.json đầy đủ + { files: { renders: FileInfo[], assets: FileInfo[] } }
 DELETE /api/projects/:id?force=true → 204 (không có force → 400)
 POST   /api/projects/:id/clone  { name? } → ProjectSummary (201) — nhân bản project:
                                   copy compositions/assets/brief/tags/scenes (bỏ renders/cache),
                                   reset status draft + output null, id mới sinh từ name
 
-PUT    /api/projects/:id/tags   { tags: string[] } → 200 ProjectSummary — gán tag cho project
+PUT    /api/projects/:id/tags   { tags: string[] } → 200 { tags } - thay toàn bộ tags của project
 
 GET    /api/projects/:id/junk        → { items: [{ relPath, size }], totalBytes } — file rác (file trung gian):
                                        renders/ verify/ cache/, props.resolved.json, outputs/<id>-draft.mp4,
@@ -123,7 +130,14 @@ Brief = {
   autoIllustrations: boolean,              // BẬT = AI tự tạo ảnh minh họa (Gemini) khi edit
   illustrationModel: string|null,          // model Gemini tạo ảnh (null = mặc định)
   illustrationText: boolean,               // BẬT = Gemini được vẽ chữ tiếng Việt vào ảnh minh họa (mặc định TẮT — chữ do Remotion/HyperFrames đặt)
+  illustrationPosition: "auto"|"top-left"|"top-center"|"top-right"|"middle-left"|"middle-center"|"middle-right"|"bottom-left"|"bottom-right"|"bottom-center",
+                                           // vị trí CHỦ THỂ trong ảnh minh họa (lưới 3x3, cùng bộ giá trị với overlay.position của image project);
+                                           //   "auto" = giữa khung, chừa band key trên + caption dưới (an toàn nhất cho video)
+  illustrationsPerMinute: number|null,     // mật độ ảnh minh họa: số ảnh Gemini mỗi phút video (số nguyên 1-20);
+                                           //   null = AI tự quyết theo nội dung. Đặt số để video dài đổi nền liên tục
   styleId: string|null,                    // Style Design áp cho project (null = style default)
+  videoStyleId: string|null,               // Phong cách dựng (GET /api/video-styles) - null = AI tự quyết;
+                                           //   id không còn trong catalog → server lùi về null
   notes: string                            // Yêu cầu edit (prompt) — nội dung chính gửi AI, đổ được từ prompt mẫu
 }
 
@@ -156,8 +170,10 @@ PUT  /api/projects/:id/assets/:file/grade              { preset?, adjust? } → 
 ## Bắt đầu edit bằng AI từ project
 
 ```
-POST /api/projects/:id/edit  { extraNotes?: string } → 202 { sessionId }
+POST /api/projects/:id/edit  { extraNotes?: string, model?: string, effort?: string } → 202 { sessionId }
 ```
+
+`model`/`effort` (400 nếu giá trị không hợp lệ) lưu vào chat session - mọi lượt chạy sau của phiên dùng lựa chọn đó.
 
 Server tự soạn prompt đầy đủ từ: meta.json (scenes + brief), assets.json (mô tả từng video/ảnh),
 danh sách sound effect (chỉ bộ đề xuất nếu `sfxMode: "recommended"`, cả thư viện nếu `"library"`,
@@ -214,7 +230,7 @@ người dùng đã xong việc là phơi dashboard ra Internet mà không ai đ
 
 ```
 POST /api/illustrations
-  { projectId, prompt, name?, aspect?, model?, styleId?, description?, allowText? }
+  { projectId, prompt, name?, aspect?, model?, styleId?, description?, allowText?, position? }
   → 201 { file, relPath, promptUsed }
 ```
 Tạo ảnh minh họa bằng Gemini và lưu thẳng vào `video-projects/<projectId>/assets/`.
@@ -222,6 +238,10 @@ Thiếu `styleId` → server tự lấy `brief.styleId` của project (rồi m�
 ảnh luôn đồng bộ Style Design. `promptUsed` = prompt cuối đã trộn style.
 `allowText: true` = cho phép Gemini vẽ chữ vào ảnh (ghi nguyên văn cụm chữ trong prompt);
 thiếu field → server lấy `brief.illustrationText` của project (mặc định false — cấm chữ).
+`position` (lưới 3x3 hoặc "auto") = vị trí CHỦ THỂ trong ảnh; thiếu field → server lấy
+`brief.illustrationPosition` (mặc định "auto" = chủ thể giữa khung, hai mép trên/dưới là
+atmosphere thoáng cho thẻ key/phụ đề đè lên). Server tự chèn quy tắc bố cục vào prompt —
+agent KHÔNG tự tả vị trí chủ thể trong prompt.
 
 Chi tiết kỹ thuật (đã verify 2026-07-29):
 - Claude models cho edit/chat (options.model của Agent SDK): "claude-fable-5" (mặc định),
@@ -270,7 +290,8 @@ GET    /api/auto-cut/:id       -> { session }
 POST   /api/auto-cut           { name?, sourceRel, mode, params?, output?, brief?, transcribe?, autoEdit? } -> 201
 PATCH  /api/auto-cut/:id       { name?, params?, output?, brief?, transcribe?, autoEdit?, segments? } -> 200
 POST   /api/auto-cut/:id/plan  -> 202 { job }   // job auto-cut step "plan"
-POST   /api/auto-cut/:id/cut   -> 202 { job }   // job auto-cut step "cut"
+POST   /api/auto-cut/:id/cut   -> 202 { job }   // job auto-cut step "cut" - nhận từ status "planned",
+                                                //   hoặc "failed" khi đã có segments (cắt lại sau lỗi)
 DELETE /api/auto-cut/:id?force=true -> 204      // KHÔNG xóa các project con đã tạo
 ```
 
@@ -308,6 +329,102 @@ Không có key hoặc lỗi -> rơi về tâm khung, không bao giờ làm hỏn
 báo 3840x2160 nhưng có `stream_side_data=rotation=-90`, khung giải mã thật là 2160x3840. Mọi phép
 tính tỉ lệ PHẢI hoán đổi width/height khi |rotation| là 90/270, nếu không video quay bằng điện thoại
 sẽ bị hiểu nhầm là video ngang.
+
+## Text to video (biến bài viết/đoạn văn thành video) - text-to-video/<id>/
+
+Ba hành động nặng tách riêng CÓ CHỦ Ý - mỗi bước cần người duyệt trước khi tốn tiền cho bước sau:
+`/extract` (bóc bài, miễn phí) -> `/script` (AI viết kịch bản, tốn token) -> `/build` (TTS + dựng video, vào queue).
+
+```
+TextToVideoMeta = { id, name, autoNamed: boolean,
+  source: { kind: "text"|"url", url, text }, article: ExtractedArticle|null,
+  script: [{ text, durationSec: number|null }],
+  voice: { engine: "gemini"|"vieneu", model: string|null, name, style, language, speed },
+  scriptModel: string|null, output: { width, height, fps, styleId: string|null },
+  brief: Brief,                       // CÙNG kiểu Brief của Videos Project (applyBriefPatch dùng chung)
+  voiceFile: string|null, voiceDurationSec: number|null, transcriptFile: string|null,
+  projectId: string|null,             // Videos Project đã sinh ra - null = chưa dựng
+  status: "draft"|"extracting"|"scripting"|"ready"|"voicing"|"building"|"editing"|"done"|"failed",
+  error: string|null, createdAt, updatedAt }
+
+GET    /api/text-to-video          -> TextToVideoMeta[] (mới nhất trước)
+POST   /api/text-to-video          { name?, source? } -> 201 - name bỏ trống được: server tự đặt tên
+                                     tạm (autoNamed=true) rồi thay bằng tiêu đề bài khi bóc xong
+GET    /api/text-to-video/:id      -> TextToVideoMeta (tự đối chiếu status "editing" với project con)
+PATCH  /api/text-to-video/:id      { name?, source?, voice?, output?, scriptModel?, brief?, script? } -> 200
+                                     - sửa script bằng tay reset voiceFile/voiceDurationSec
+DELETE /api/text-to-video/:id      -> 204 (KHÔNG xóa Videos Project đã sinh ra)
+
+POST   /api/text-to-video/:id/extract -> 200 - bóc bài từ source.url (400 NO_URL nếu không có link)
+POST   /api/text-to-video/:id/script  { targetSeconds?, model? } -> 200 - AI viết kịch bản đọc;
+                                     targetSeconds 15-600 (400 INVALID_TARGET_SECONDS nếu ngoài khoảng,
+                                     mặc định 60); model lưu vào scriptModel cho lần sau
+POST   /api/text-to-video/:id/build   -> 202 { jobId } - job type "text-to-video" (TTS + tạo project con
+                                     + chạy edit AI); 409 ALREADY_BUILT / JOB_RUNNING
+```
+
+## TTS (giọng đọc - màn chọn giọng của Text to video)
+
+```
+GET  /api/tts/models    -> TtsModel[] (live từ Google, cache 1h)
+GET  /api/tts/engines   -> [{ engine: "gemini"|"vieneu", available: bool, canClone: bool,
+                              reason: string|null, detail: string }]
+                           - engine nào dùng được TRÊN MÁY NÀY; chỉ vieneu nhân bản được giọng
+GET  /api/tts/voices[?engine=] -> TtsVoice[] - không truyền engine = giọng của CẢ HAI engine;
+                           engine chưa dùng được thì phần của nó rỗng, KHÔNG ném lỗi
+GET  /api/tts/languages -> [{ code, label }] - danh sách mã ngôn ngữ (tĩnh)
+POST /api/tts/preview   { voice, engine?, model?, style?, language?, speed?, uiLang?, text? }
+                        -> bytes audio/wav (headers x-tts-model, x-tts-duration; cache-control no-store)
+```
+
+`/preview` với engine gemini TỐN TIỀN nên bị chặn: text/style tối đa 300 ký tự, cách nhau >= 2s,
+tối đa 30 lần/10 phút (429 PREVIEW_TOO_FAST / PREVIEW_QUOTA). Engine vieneu không rate limit
+(chạy trên máy, hàng đợi tuần tự trong ttsLocal.ts). Preview áp ĐÚNG speed đang chọn.
+
+## Voices (kho giọng nhân bản - VieNeu, trang /voices)
+
+```
+GET    /api/voices             -> ClonedVoice[]
+POST   /api/voices             multipart: file (audio/video có tiếng nói) + name/gender/note
+                               -> 201 ClonedVoice (503 nếu VieNeu chưa cài đủ để nhân bản - kèm reason/detail)
+PATCH  /api/voices/:id         { name?, gender?, note? } -> ClonedVoice
+DELETE /api/voices/:id         -> { id } - xóa cả bản ghi lẫn file mẫu
+POST   /api/voices/:id/preview { uiLang? } -> bytes audio/wav - câu đọc thử CỐ ĐỊNH (không nhận text
+                               tự do), không rate limit (chỉ tốn CPU máy chủ)
+```
+
+## Video styles (phong cách dựng - GET /api/video-styles)
+
+```
+GET /api/video-styles -> [{ id, name, palette: "strict"|"loose", motion }]
+```
+
+Catalog tĩnh trong `apps/server/src/videoStyles.ts` (20 phong cách) cho ô chọn "Phong cách dựng"
+của brief (`Brief.videoStyleId`). KHÔNG trả `art`/`avoid` - đó là prompt chỉ đạo mỹ thuật nội bộ
+gửi Gemini, web không dùng tới.
+
+## Brand logos (thư viện logo brand - AI gọi khi kịch bản nhắc tới brand)
+
+```
+GET  /api/brand-logos          -> BrandLogo[] (đọc assets/brand-logos/library.json)
+POST /api/brand-logos { name } -> 200 (đã có) | 201 (vừa tải)
+                                  { slug, title, color, file, relPath, source, added }
+```
+
+Chưa có trong thư viện thì server TỰ TẢI: tìm ở Simple Icons rồi Wikidata (P154 "logo image"),
+khử trùng SVG, lưu vào `assets/brand-logos/` và cập nhật library.json. Không tìm thấy ->
+`404 BRAND_LOGO_NOT_FOUND` (chỉ khi đó AI mới được viết tên brand bằng chữ). `relPath` tương đối
+repo - CHÉP file vào `assets/` của project rồi mới tham chiếu (Remotion chỉ stage file trong project).
+
+## Metrics (mức dùng CPU/GPU - thanh header web UI)
+
+```
+GET /api/metrics -> { cpu: { percent, threads, model },
+                      gpu: { available: bool, name, percent, vramUsedMb, vramTotalMb } }
+```
+
+Poll chứ không SSE (đo tốn - spawn nvidia-smi - chỉ chạy khi có người nhìn); cache 1,5s để nhiều
+tab không nhân số lần đo. Máy không có nvidia-smi -> `gpu.available: false` (nhớ 5 phút mới dò lại).
 
 ## Transcript của project (nguồn dùng chung)
 
@@ -513,14 +630,20 @@ hoặc env `QUEUE_CONCURRENCY`). Ràng buộc: **2 job của cùng một project
 đang chạy song song).
 
 ```
-Job = { id, projectId, type: "scene-draft"|"scene-final"|"assemble-draft"|"assemble-final"|"image-gen",
+Job = { id, projectId, type: "scene-draft"|"scene-final"|"assemble-draft"|"assemble-final"
+              |"image-gen"|"auto-cut"|"text-to-video",
         sceneId: string|null, status: "queued"|"running"|"done"|"failed"|"canceled",
         progress: 0..100, step: string, outputPath: string|null,
         createdAt, startedAt: string|null, finishedAt: string|null }
 
-GET  /api/jobs?limit=50         → Job[] (mới nhất trước)
+7 loại job. Tạo được qua POST /api/jobs: scene-draft, scene-final, assemble-draft, assemble-final,
+image-gen (projectId = image project, sceneId = step all|background|compose),
+auto-cut (projectId = id phiên cắt, sceneId = step plan|cut).
+"text-to-video" KHÔNG tạo tay được - chỉ sinh qua POST /api/text-to-video/:id/build.
+
+GET  /api/jobs?limit=50&projectId=  → Job[] (mới nhất trước; projectId lọc theo project - tùy chọn)
 GET  /api/jobs/:id              → Job & { log: string }
-POST /api/jobs                  { projectId, type, sceneId? } → Job (201)
+POST /api/jobs                  { projectId, type, sceneId?, force? } → Job (201)
 POST /api/jobs/:id/cancel       → Job (kill process nếu đang chạy)
 
 GET  /api/render-settings       → { settings, defaults, hardware, recommended: { workers, concurrency, maxWorkers } }
@@ -644,10 +767,12 @@ ChatSession = { sessionId, title, projectId, status, model, effort,
                 goal: "final"|null,          // "final" = phiên edit project, gate hoàn thành theo video final
                 createdAt, updatedAt }
 
-GET  /api/chat/sessions               → ChatSession[]
+GET  /api/chat/sessions[?projectId=]  → ChatSession[]
 GET  /api/chat/:sessionId/messages    → [{ role: "user"|"assistant", kind: "text"|"tool", content, createdAt }]
-POST /api/chat                        { message, sessionId? } → { sessionId } (202)
-                                       — chạy agent async, event đẩy qua SSE kênh `agent`
+POST /api/chat                        { message, sessionId?, projectId?, model?, effort? } → { sessionId } (202)
+                                       — chạy agent async, event đẩy qua SSE kênh `agent`;
+                                       projectId chỉ dùng khi TẠO session mới; model/effort lưu vào session
+                                       (gửi kèm sessionId = đổi model/effort giữa chừng)
 POST /api/chat/:sessionId/interrupt   → 204
 PUT  /api/chat/:sessionId/auto-resume { enabled: boolean } → 204
 ```
@@ -711,7 +836,7 @@ POST /api/update/apply  → 202 { ok: true } | 409 JOB_RUNNING (đang có job re
 
 ## Ghi chú cho render Remotion
 
-- Composition duy nhất `Assemble`, data-driven từ props (schema = meta.json, xem skill `remotion-assemble`).
+- Composition lắp ráp video là `Assemble`, data-driven từ props (schema = meta.json, xem skill `remotion-assemble`); Root.tsx còn đăng ký 2 composition still: `Poster` (image project) và `Thumbnail` (thumbnail video).
 - `calculateMetadata` đọc width/height/fps/tổng durationInFrames từ props.
 - Asset không đọc trực tiếp từ đường dẫn tuyệt đối — server stage bằng hardlink (`fs.linkSync`, fallback copy) vào `engines/remotion/public/staging/<projectId>/` rồi props dùng `staticFile("staging/<projectId>/<file>")`.
 - Nhạc nền: `audio.music = { file, volume=0.35, duckVolume=0.12, speech: [[startSec,endSec],...] } | null`

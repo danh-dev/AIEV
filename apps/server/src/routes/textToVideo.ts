@@ -105,13 +105,48 @@ router.get("/", (_req, res) => {
   res.json(readAll());
 });
 
+/**
+ * Tên tạm khi user bỏ trống ô tên: lấy slug cuối của URL (thường là tiêu đề
+ * bài), không có thì hostname, không có URL thì vài chữ đầu của đoạn văn dán.
+ * Bước extract có tiêu đề thật sẽ thay tên này (xem cờ autoNamed).
+ */
+function provisionalName(src: Record<string, unknown>): string {
+  const url = typeof src.url === "string" ? src.url.trim() : "";
+  if (url) {
+    try {
+      const u = new URL(url);
+      const slug = u.pathname.split("/").filter(Boolean).pop() ?? "";
+      const fromSlug = toKebabAscii(slug.replace(/\.[a-z0-9]+$/i, ""));
+      if (fromSlug) return fromSlug;
+      const host = u.hostname.replace(/^www\./, "");
+      if (host) return host;
+    } catch {
+      /* URL hỏng - rơi xuống nhánh text */
+    }
+  }
+  const text = typeof src.text === "string" ? src.text.trim() : "";
+  if (text) {
+    const firstWords = text.split(/\s+/).slice(0, 6).join(" ").slice(0, 60).trim();
+    if (firstWords) return firstWords;
+  }
+  return "text-to-video";
+}
+
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (!name) throw new HttpError(400, "INVALID_NAME", "Thiếu tên phiên");
-
   const src = (body.source ?? {}) as Record<string, unknown>;
+  // UI ghi rõ ô tên là tùy chọn ("tên tự lấy từ tiêu đề bài viết") - thiếu tên
+  // KHÔNG phải lỗi: đặt tên tạm từ nguồn và đánh dấu autoNamed để bước extract
+  // thay bằng tiêu đề thật khi bóc được bài.
+  let name = typeof body.name === "string" ? body.name.trim() : "";
+  let autoNamed = false;
+  if (!name) {
+    name = provisionalName(src);
+    autoNamed = true;
+  }
+
   const meta = defaultTextToVideoMeta(uniqueId(name), name);
+  meta.autoNamed = autoNamed;
   if (src.kind === "text" || src.kind === "url") meta.source.kind = src.kind;
   if (typeof src.url === "string") meta.source.url = src.url.trim();
   if (typeof src.text === "string") meta.source.text = src.text;
@@ -129,7 +164,11 @@ router.patch("/:id", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
 
   const patch: Partial<TextToVideoMeta> = {};
-  if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
+  if (typeof body.name === "string" && body.name.trim()) {
+    patch.name = body.name.trim();
+    // User đã tự đặt tên - hạ cờ để bước extract không ghi đè bằng tiêu đề bài
+    patch.autoNamed = false;
+  }
 
   if (body.source && typeof body.source === "object") {
     const s = body.source as Record<string, unknown>;
@@ -218,13 +257,20 @@ router.post("/:id/extract", async (req, res) => {
   patchTextToVideo(meta.id, { status: "extracting", error: null });
   try {
     const article = await extractArticleFromUrl(url);
-    const next = patchTextToVideo(meta.id, {
+    const patch: Partial<TextToVideoMeta> = {
       article,
       // Đổ chữ đã bóc vào ô text để người dùng sửa trực tiếp trước khi viết kịch bản
       source: { ...meta.source, text: [article.title, ...article.blocks].join("\n\n") },
       status: "draft",
       error: null,
-    });
+    };
+    // Phiên được đặt tên tạm lúc tạo (user bỏ trống ô tên) - giờ có tiêu đề
+    // thật thì thay; tên user tự đặt thì KHÔNG bao giờ đụng tới.
+    if (meta.autoNamed && article.title.trim()) {
+      patch.name = article.title.trim();
+      patch.autoNamed = false;
+    }
+    const next = patchTextToVideo(meta.id, patch);
     res.json(next);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -272,10 +318,20 @@ function scriptPrompt(meta: TextToVideoMeta, targetSeconds: number): string {
 router.post("/:id/script", async (req, res) => {
   const meta = mustRead(req.params.id);
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const targetSeconds =
-    typeof body.targetSeconds === "number" && body.targetSeconds >= 15
-      ? Math.min(600, Math.round(body.targetSeconds))
-      : 60;
+  // Ngoài khoảng 15-600 giây thì báo lỗi rõ thay vì lặng lẽ quay về 60: user
+  // gõ 10 giây rồi nhận kịch bản 60 giây sẽ tưởng hệ thống bỏ qua lựa chọn.
+  let targetSeconds = 60;
+  if (body.targetSeconds !== undefined && body.targetSeconds !== null) {
+    const t = body.targetSeconds;
+    if (typeof t !== "number" || !Number.isFinite(t) || t < 15 || t > 600) {
+      throw new HttpError(
+        400,
+        "INVALID_TARGET_SECONDS",
+        "Độ dài mục tiêu phải là số giây trong khoảng 15 đến 600.",
+      );
+    }
+    targetSeconds = Math.round(t);
+  }
 
   const source = sourceTextOf(meta);
   if (source.trim().length < 100) {

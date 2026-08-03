@@ -7,7 +7,8 @@ const router = Router();
 
 // GET /api/overview - dữ liệu tổng hợp cho dashboard
 router.get("/", async (_req, res) => {
-  const running = db.getRunningJob();
+  // Queue chạy song song tối đa 4 job - lấy đủ danh sách, không chỉ 1
+  const running = db.getRunningJobs();
   const recentJobs = db.listJobs(5).map(db.jobToApi);
   // Join token usage như GET /api/projects - thiếu join là cột TOKEN trên Dashboard = 0
   const usage = db.tokensByProject();
@@ -21,7 +22,9 @@ router.get("/", async (_req, res) => {
   const health = await getHealth();
 
   res.json({
-    runningJob: running ? db.jobToApi(running) : null,
+    // Field cũ giữ cho tương thích - job đang chạy đầu tiên (null nếu không có)
+    runningJob: running.length > 0 ? db.jobToApi(running[0]) : null,
+    runningJobs: running.map(db.jobToApi),
     queuedCount: db.countQueuedJobs(),
     recentJobs,
     recentProjects,

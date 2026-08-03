@@ -3,7 +3,14 @@ import path from "node:path";
 import { paths } from "../config.js";
 import { updateJob } from "../db.js";
 import type { JobCtx } from "../queue.js";
-import { briefOf, projectDirOf, readMeta, writeMeta, type ProjectMeta } from "../meta.js";
+import {
+  briefOf,
+  projectDirOf,
+  readMeta,
+  writeMeta,
+  type ProjectMeta,
+  type SceneMeta,
+} from "../meta.js";
 import { syncBrandLogo } from "../childProject.js";
 import { getStyle } from "../styles.js";
 import { ensureDir, remotionCli } from "../util.js";
@@ -32,10 +39,16 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
   fs.rmSync(stagingAbs, { recursive: true, force: true });
   ensureDir(stagingAbs);
 
+  // Cache theo đường dẫn nguồn ĐÃ CHUẨN HÓA (path.resolve): cùng một file được
+  // tham chiếu bằng nhiều cách viết ("assets/voice.wav", "assets\\voice.wav",
+  // "./assets/voice.wav") phải trúng cache thay vì bị coi là hai nguồn khác
+  // nhau. Windows không phân biệt hoa thường trong tên file nên khóa so sánh
+  // hạ hết về chữ thường ở đó.
+  const keyOf = (s: string): string => (process.platform === "win32" ? s.toLowerCase() : s);
   const staged = new Map<string, string>();
+  /** Nguồn đang "sở hữu" mỗi tên flat trong staging - để phân biệt trùng thật/giả */
+  const flatOwner = new Map<string, { rel: string; srcKey: string; publicRel: string }>();
   const stage = (relFromProject: string): string => {
-    const cached = staged.get(relFromProject);
-    if (cached) return cached;
     const srcAbs = path.join(projectDir, relFromProject);
     // meta.json do agent ghi - chặn traversal kiểu "../../.env" thoát khỏi project
     const resolved = path.resolve(srcAbs);
@@ -44,19 +57,47 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
         `Đường dẫn asset "${relFromProject}" nằm ngoài project ${projectId} - từ chối stage`,
       );
     }
+    const srcKey = keyOf(resolved);
+    const cached = staged.get(srcKey);
+    if (cached) return cached;
     if (!fs.existsSync(srcAbs)) {
       throw new Error(`Thiếu asset "${relFromProject}" trong project ${projectId}`);
     }
     // Flatten đường dẫn để mọi file nằm phẳng trong staging/vid-<projectId>/
     const flat = relFromProject.split(/[\\/]+/).join("__");
     const dstAbs = path.join(stagingAbs, flat);
+    const publicRel = `staging/${stagingId}/${flat}`;
+    // Tên flat đã có chủ: nếu chủ cũ trỏ về CÙNG file nguồn (chỉ khác cách viết
+    // đường dẫn) thì không phải xung đột - dùng lại bản đã stage. Chỉ khi hai
+    // NGUỒN khác nhau thật sự (vd "a/b.mp4" và "a__b.mp4") cùng flatten về một
+    // tên mới là xung đột: để rơi xuống linkSync thì EEXIST bị catch nhầm thành
+    // "FS không hỗ trợ hardlink" và copyFileSync ghi đè im lặng file trước -
+    // phải chặn bằng lỗi rõ ràng chỉ đích danh hai đường dẫn.
+    const owner = flatOwner.get(keyOf(flat));
+    if (owner) {
+      if (owner.srcKey === srcKey) {
+        staged.set(srcKey, owner.publicRel);
+        return owner.publicRel;
+      }
+      throw new Error(
+        `Xung đột tên khi stage: "${relFromProject}" và "${owner.rel}" ` +
+          `cùng flatten về "${flat}" - đổi tên một trong hai file trong project ${projectId}`,
+      );
+    }
+    if (fs.existsSync(dstAbs)) {
+      // Không có chủ trong map mà file đích vẫn tồn tại (staging chưa được dọn
+      // sạch?) - trạng thái bất thường, vẫn từ chối ghi đè im lặng
+      throw new Error(
+        `File staging "${flat}" đã tồn tại trước khi stage "${relFromProject}" - staging chưa sạch, chạy lại job`,
+      );
+    }
     try {
       fs.linkSync(srcAbs, dstAbs); // hardlink - không tốn dung lượng
     } catch {
       fs.copyFileSync(srcAbs, dstAbs); // fallback (khác ổ đĩa / FS không hỗ trợ)
     }
-    const publicRel = `staging/${stagingId}/${flat}`;
-    staged.set(relFromProject, publicRel);
+    staged.set(srcKey, publicRel);
+    flatOwner.set(keyOf(flat), { rel: relFromProject, srcKey, publicRel });
     ctx.log(`[stage] ${relFromProject} -> ${publicRel}`);
     return publicRel;
   };
@@ -85,6 +126,28 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
         }
       }
       scene.render = stage(renderRel);
+    } else if (
+      (typeof scene.srcVideo === "string" && scene.srcVideo) ||
+      (typeof scene.srcImage === "string" && scene.srcImage)
+    ) {
+      // Scene footage/ảnh nhưng còn sót field `render` cũ: Remotion (SceneClip)
+      // check `render` TRƯỚC srcVideo/srcImage - render cũ chưa stage sẽ vừa
+      // 404 giữa chừng vừa đè mất footage. Footage thắng: bỏ field render thừa.
+      if (scene.render != null) {
+        if (typeof scene.render === "string" && scene.render) {
+          ctx.log(`[warn] Scene "${scene.id}" có cả render lẫn footage - bỏ field render thừa`);
+        }
+        delete scene.render;
+      }
+    } else if (typeof scene.render === "string" && scene.render) {
+      // Scene chỉ có `render` (không src/srcVideo/srcImage) - vẫn phải stage,
+      // nếu không Remotion load đường dẫn renders/... từ public/ và 404 giữa render.
+      if (!fs.existsSync(path.join(projectDir, scene.render))) {
+        throw new Error(
+          `Scene "${scene.id}": không thấy file render "${scene.render}" trong project ${projectId}`,
+        );
+      }
+      scene.render = stage(scene.render);
     }
     if (typeof scene.srcVideo === "string" && scene.srcVideo) {
       scene.srcVideo = stage(scene.srcVideo);
@@ -95,6 +158,47 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
       scene.srcImage = stage(scene.srcImage);
     }
   }
+
+  // ---- Kẹp transitionOverlap về giới hạn an toàn ----
+  // transitionOverlap là số frame chồng lấn với scene KẾ TIẾP (xem
+  // engines/remotion/src/manifest.ts: from += duration - transitionOverlap).
+  // Overlap lớn hơn thời lượng của một trong hai scene liền kề đẩy mốc from
+  // lùi quá đà: scene sau bắt đầu TRƯỚC cả scene trước nó, hiện ra thành cảnh
+  // nhấp nháy / scene trong mờ chồng nhau. Kẹp về min(scene này, scene kế):
+  // overlap bằng đúng thời lượng (crossfade phủ trọn scene) vẫn render được nên
+  // không đụng - chỉ kẹp phần vượt quá, giữ nguyên output của manifest đang chạy tốt.
+  {
+    // Cách tính thời lượng frame khớp resolveSceneDurationInFrames bên Remotion:
+    // durationInFrames, hoặc scene srcVideo suy từ (to - from) * fps.
+    const frameOf = (scene: SceneMeta): number | null => {
+      if (typeof scene.durationInFrames === "number") return scene.durationInFrames;
+      if (
+        typeof scene.srcVideo === "string" &&
+        scene.srcVideo &&
+        typeof scene.from === "number" &&
+        typeof scene.to === "number"
+      ) {
+        return Math.max(1, Math.round((scene.to - scene.from) * props.fps));
+      }
+      return null; // thiếu thời lượng - để Remotion tự báo lỗi rõ ở bước render
+    };
+    const scenes = props.scenes ?? [];
+    for (let i = 0; i < scenes.length; i++) {
+      const overlap = scenes[i].transitionOverlap;
+      if (typeof overlap !== "number" || overlap <= 0) continue;
+      const cur = frameOf(scenes[i]);
+      const next = i + 1 < scenes.length ? frameOf(scenes[i + 1]) : null;
+      if (cur === null || next === null) continue;
+      const limit = Math.max(0, Math.min(cur, next));
+      if (overlap > limit) {
+        ctx.log(
+          `[warn] Scene "${scenes[i].id}": transitionOverlap ${overlap} vượt thời lượng scene liền kề - kẹp về ${limit}`,
+        );
+        scenes[i].transitionOverlap = limit;
+      }
+    }
+  }
+
   // ---- Logo thương hiệu đóng góc (BẮT BUỘC khi Style Design có logo) ----
   //
   // Chèn Ở ĐÂY chứ không giao cho agent: logo đóng góc là thứ phải có ở MỌI
@@ -110,6 +214,11 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     };
     ctx.log(`[watermark] logo góc trên trái: assets/${logoFile}`);
   } else {
+    // Xóa mọi watermark agent lỡ ghi vào meta.json: watermark là việc RIÊNG
+    // của server (xem comment trên), và đường dẫn agent ghi chưa qua stage nên
+    // Remotion sẽ 404 giữa chừng render. null = không đóng logo, khớp
+    // watermarkSchema (nullable) bên engines/remotion/src/manifest.ts.
+    (props as ProjectMeta & { watermark?: unknown }).watermark = null;
     ctx.log("[watermark] Style Design không có logo - video không đóng logo");
   }
 
@@ -117,6 +226,35 @@ export async function runAssemble(ctx: JobCtx): Promise<void> {
     if (typeof props.audio.voice === "string" && props.audio.voice) {
       props.audio.voice = stage(props.audio.voice);
     }
+    // Kiểm tra sfx TRƯỚC khi stage: meta.ts để atFrame optional nhưng schema
+    // Remotion (engines/remotion/src/manifest.ts sfxSchema) BẮT BUỘC atFrame là
+    // số nguyên >= 0, volume 0..1, mediaStart >= 0. Thiếu/sai là render chết
+    // giữa chừng với lỗi zod khó hiểu - chặn ở đây với thông báo chỉ đích danh.
+    (props.audio.sfx ?? []).forEach((sfx, i) => {
+      const label = `audio.sfx[${i}] (file "${typeof sfx.file === "string" ? sfx.file : "?"}")`;
+      if (typeof sfx.atFrame !== "number" || !Number.isInteger(sfx.atFrame) || sfx.atFrame < 0) {
+        throw new Error(
+          `${label}: atFrame phải là số nguyên >= 0 (hiện tại: ${JSON.stringify(sfx.atFrame)}) - sửa meta.json rồi chạy lại`,
+        );
+      }
+      if (
+        sfx.volume !== undefined &&
+        (typeof sfx.volume !== "number" || sfx.volume < 0 || sfx.volume > 1)
+      ) {
+        throw new Error(
+          `${label}: volume phải nằm trong khoảng 0..1 (hiện tại: ${JSON.stringify(sfx.volume)})`,
+        );
+      }
+      const mediaStart = sfx.mediaStart; // field mở rộng - meta.ts không khai báo kiểu
+      if (
+        mediaStart !== undefined &&
+        (typeof mediaStart !== "number" || !Number.isFinite(mediaStart) || mediaStart < 0)
+      ) {
+        throw new Error(
+          `${label}: mediaStart phải là số >= 0 (hiện tại: ${JSON.stringify(mediaStart)})`,
+        );
+      }
+    });
     for (const sfx of props.audio.sfx ?? []) {
       if (typeof sfx.file === "string" && sfx.file) sfx.file = stage(sfx.file);
     }

@@ -1,6 +1,6 @@
 ---
 name: short-form-video
-description: Build and iterate short-form vertical (9:16) videos in Hyperframes - TikTok/Reels/Shorts style. Use when Nate says "short-form video", "vertical video", "TikTok/Reels/Shorts", "make a short", "talking-head + motion graphics", or when the target is a 1080x1920 composition with face video + synced scene overlays + karaoke captions. Encodes the full May Shorts 19 playbook: face-mode choreography, audio-synced scene timing, karaoke captions, and the 10-rule quality checklist.
+description: Build and iterate short-form vertical (9:16) videos in Hyperframes - TikTok/Reels/Shorts style. Use when the user says "short-form video", "vertical video", "TikTok/Reels/Shorts", "make a short", "talking-head + motion graphics", or when the target is a 1080x1920 composition with face video + synced scene overlays + karaoke captions. Encodes the full May Shorts 19 playbook: face-mode choreography, audio-synced scene timing, karaoke captions, and the 10-rule quality checklist.
 ---
 
 # Short-Form Vertical Video (Hyperframes)
@@ -12,6 +12,11 @@ in that section **COMPLETELY REPLACE** every color/font/branding rule in this sk
 (including "dark fintech blue", the GĐT hex codes, the default gradients...). Keep only: animation technique,
 layout, cut rhythm, render workflow, and the bug fixes. Illustrations generated via /api/illustrations
 MUST pass the correct styleId in the prompt. NO Style Design section -> use this skill's default branding.
+
+If the edit prompt ALSO contains a **"PHONG CÁCH DỰNG"** (video style) section: that section **WINS over this
+skill** for ALL visual and motion language - materials, transitions, camera moves, effects. This skill then
+keeps only PROCESS: step order, cutting, captions/keys, draft->final, QC. Do not mix the skill's default
+visuals into the video style - half-and-half is exactly the failure this rule exists to prevent.
 
 Short-form = 1080x1920 vertical, 10–30s, talking-head face + motion-graphic scene overlays + karaoke captions. Everything in this skill is distilled from the May Shorts 19 iteration autopsy (v1 → v4) and should be applied on every new short.
 
@@ -27,7 +32,7 @@ Short-form = 1080x1920 vertical, 10–30s, talking-head face + motion-graphic sc
 ## The playbook (high-level)
 
 1. **Audio is source of truth.** Edit audio FIRST (cut retakes, pauses). Save as `<name>-edit.mp4`. Measure exact duration with `ffprobe` - this is the composition's `data-duration`.
-2. **Transcribe the edited audio** with `npx hyperframes transcribe <edit>.mp4 --model small.en --json`, or if retiming an existing build with a `shift()` function in captions, keep the existing captions and just shift scene starts.
+2. **Transcribe the edited audio** with `npx hyperframes transcribe <edit>.mp4 --model small.en --json` (English only - for Vietnamese use faster-whisper per the noti skills), or if retiming an existing build with a `shift()` function in captions, keep the existing captions and just shift scene starts.
 3. **Author scene boundaries in edited-time** - NEVER mix original-time and edited-time anchors in the same file. See "Audio-sync protocol" below.
 4. **Build the composition scaffold** (4 layers: ambient-bg, seam-treatment, captions, face) - see "Composition scaffold" below.
 5. **Author scenes with LOCAL offsets** relative to each scene's `data-start`. Each scene is its own sub-composition under `compositions/scene<N>-<label>.html`.
@@ -139,7 +144,7 @@ One scene = one sub-composition file. Scenes sit on the same `data-track-index` 
 ## Captions (karaoke style)
 
 - Montserrat 900, 46–58px (for 1080 width), 100% white base
-- Active word: scale-1.08 pop + color change to accent (`#37bdf8` for AIS, adapt to brand)
+- Active word: scale-1.08 pop + color change to the brand accent color (from the Style Design)
 - Stroke via layered `text-shadow`, NEVER `-webkit-text-stroke` (renders inconsistently in Chromium render)
 - Drop the rgba background pill - let the stroke hold readability. Captions should feel like graffiti on the frame, not a subtitle track.
 - For retimes, use a `shift()` function inside `captions.html` to map transcript word timestamps → edited-time. This keeps the transcript JSON untouched and makes retimes mechanical.
@@ -155,7 +160,7 @@ Minimum viable background stack:
 3. **4–8 drifting particle dots** or grid traces
 4. **Subtle vignette**
 
-`background: #07121c` alone is a placeholder, not a design. For techy/control-room aesthetic, use the 6-layer stack from `feedback_techy_background_layers.md` (HUD grid masked to vignette + circuit traces + pulse nodes + scan beam + telemetry ticker + corner mono labels).
+`background: #07121c` alone is a placeholder, not a design. For a techy/control-room aesthetic, use a 6-layer stack: HUD grid masked to vignette + circuit traces + pulse nodes + scan beam + telemetry ticker + corner mono labels.
 
 ## Audio reactivity
 
@@ -164,6 +169,8 @@ Minimum viable background stack:
 - Use a SEEDED offline analyser (pre-compute the audio feature track) so renders are deterministic. Do NOT use `AnalyserNode` in the render path - `Math.random()` and real-time audio nodes break determinism.
 
 ## Transitions
+
+> When the edit prompt has a PHONG CÁCH DỰNG (video style) section, its motion spec overrides these transition/effect rules.
 
 - **Rotate flavors.** No two consecutive transitions the same type. Six hard cuts in a row is the #1 tell for AI editing.
 - Face-mode transitions (`BOTTOM ↔ FULLSCREEN`) double as scene transitions when the mode changes between scenes.
@@ -216,7 +223,7 @@ Spot-check 3–4 frames from the final render (same timestamps, different folder
 
 ## The 10 rules (quality checklist - run BEFORE first draft)
 
-Every short-form build. Run this list during authoring, not after.
+Every short-form build. Run this list during authoring, not after. When a PHONG CÁCH DỰNG (video style) section is present, its motion spec overrides the transition/effect rules below - keep the process, swap the visuals.
 
 1. **No dead frames.** Every 100ms has an animating element.
 2. **Scene payoff ≥ 1s hold.** Budget by reveal time, not total time.
@@ -314,7 +321,7 @@ Three simultaneous changes = "a real editor edited this." Any one alone = rigid.
 
 ### 4. Data-feel scenes beat decoration scenes mid-video
 
-For scenes 3–5 of a 15–20s short (the "middle grind" where attention drops the hardest), lean on visuals that read as information - bar races, stat grids with counting numbers, heatmaps, sparklines, flowcharts, dashboard chrome with telemetry ticking, pain-point grids that flash red in sequence. may-shorts-18 v1 scene 4 was a radar-rings + terminal-chip + sparks combo - functional but decorative, and Nate called it "bland." v2 replaced it with a 3×3 pain-point grid lighting up red-orange in sequence + a sparkline stroke-drawing with a YOU-ARE-HERE marker + the payoff slam - same time budget, much higher engagement.
+For scenes 3–5 of a 15–20s short (the "middle grind" where attention drops the hardest), lean on visuals that read as information - bar races, stat grids with counting numbers, heatmaps, sparklines, flowcharts, dashboard chrome with telemetry ticking, pain-point grids that flash red in sequence. may-shorts-18 v1 scene 4 was a radar-rings + terminal-chip + sparks combo - functional but decorative, and the user called it "bland." v2 replaced it with a 3×3 pain-point grid lighting up red-orange in sequence + a sparkline stroke-drawing with a YOU-ARE-HERE marker + the payoff slam - same time budget, much higher engagement.
 
 **Rule:** pure typography-plus-icon scenes feel like slides. Data-feel scenes feel like evidence. When a middle scene feels bland, replace the decoration with something that reads as *information*: a small number ticking up, a bar filling, a chart stroking in, a grid flashing in sequence.
 
@@ -329,12 +336,3 @@ For scenes 3–5 of a 15–20s short (the "middle grind" where attention drops t
 - `/hyperframes-cli` - CLI commands (init, lint, preview, render)
 - `/gsap` - animation library reference
 - `/hyperframes-registry` - installing transition blocks
-- `/seedance-loop-prompt` - if the short needs an AI-generated looping background video
-
-## Memory pointers (relevant feedback entries)
-
-- `feedback_short_form_principles.md` - the 10 rules, full rationale
-- `feedback_contrast_technique.md` - glow localization + text-shadow halos + brightening dim text
-- `feedback_techy_background_layers.md` - 6-layer control-room background stack
-- `feedback_visual_verification.md` - the verification gate
-- `project_ais_brand_specs.md` - if the short is AIS-branded (hex codes, fonts, logo glow)

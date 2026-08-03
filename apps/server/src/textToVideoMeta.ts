@@ -157,6 +157,12 @@ export type TextToVideoStatus =
 export interface TextToVideoMeta {
   id: string;
   name: string;
+  /**
+   * true = tên do server tự đặt tạm (user bỏ trống ô tên khi tạo). Bước bóc
+   * bài có tiêu đề thật thì thay tên và hạ cờ; user tự sửa tên cũng hạ cờ -
+   * tên user đặt KHÔNG bao giờ bị ghi đè.
+   */
+  autoNamed: boolean;
   source: TextToVideoSource;
   /** Bài đã bóc (kind="url"); null khi dán text thẳng hoặc chưa bóc */
   article: ExtractedArticle | null;
@@ -217,6 +223,7 @@ export function defaultTextToVideoMeta(id: string, name: string): TextToVideoMet
   return {
     id,
     name,
+    autoNamed: false,
     source: { kind: "url", url: "", text: "" },
     article: null,
     script: [],
@@ -249,6 +256,8 @@ export function readTextToVideo(id: string): TextToVideoMeta {
     typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fb;
   return {
     ...base,
+    // Bản ghi cũ không có field này - mặc định false (coi như tên do user đặt)
+    autoNamed: raw.autoNamed === true,
     source: {
       kind: src.kind === "text" ? "text" : "url",
       url: typeof src.url === "string" ? src.url : "",

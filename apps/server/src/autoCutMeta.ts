@@ -144,6 +144,14 @@ export interface AutoCutMeta {
   segments: AutoCutSegment[];
   /** Lỗi gần nhất - hiện trên UI khi status = failed */
   error?: string | null;
+  /**
+   * Bước nào gây ra status "failed". CẦN THIẾT vì re-plan hỏng vẫn để nguyên
+   * segments CŨ trong meta: chỉ nhìn "failed + có segments" là không đủ để cho
+   * cắt lại (sẽ cắt theo kế hoạch cũ đã lỗi thời). Route /cut chỉ nhận lại
+   * phiên failed khi failedStep === "cut". null/thiếu = không có lỗi (kể cả
+   * bản ghi cũ trước khi có field này - các bản đó không cho retry tắt).
+   */
+  failedStep?: "plan" | "cut" | null;
   createdAt: string;
   updatedAt: string;
 }

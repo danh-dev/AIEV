@@ -17,15 +17,21 @@ import { useVietnameseFont, VIETNAMESE_FONT_FAMILY, vietnameseFontFaceCss } from
  * hiện 2–4s đúng lúc câu đó được nói, dạng thẻ Liquid Glass. Dùng cho brief
  * "phụ đề: không" nhưng vẫn muốn key nổi bật lúc video chạy.
  *
- * Vị trí (skill key-layout):
- * - tier "main" (KEY CHÍNH) → band TRÊN, paddingTop ~7% chiều cao (vùng y
- *   5–18%, tránh mặt người thường bắt đầu ~20%).
- * - tier "sub" (key liên quan) → neo ĐÁY: dọc paddingBottom 300 (trên safe
- *   zone TikTok ~288px), ngang 240 (band y ~700–840 trên canvas 1080 cao).
- *   Khi composition CÓ phụ đề (`raised`) thì đẩy lên (dọc 560 / ngang 380)
+ * Vị trí (skill key-layout, khớp QC safe-area trong apps/server/src/qc.ts):
+ * - tier "main" (KEY CHÍNH) → band TRÊN: paddingTop = 10% chiều cao (dải UI
+ *   TikTok/Reels, SAFE_TOP_RATIO) + DRIFT_MAX + 8px lề - tính bằng px theo
+ *   chiều cao thật nên đúng cho cả dọc lẫn ngang, kể cả khi thẻ trôi lên hết
+ *   drift ở cuối cue (dọc 1920: 192+14+8=214; ngang 1080: 108+14+8=130).
+ * - tier "sub" (key liên quan) → neo ĐÁY: dọc paddingBottom 330 (mép dưới
+ *   pill y=1590, nằm trọn trên dải UI 16% dưới bắt đầu y=1613), ngang 240.
+ *   Khi composition CÓ phụ đề (`raised`) thì đẩy lên (dọc 700 / ngang 470)
  *   để không đè lên thẻ caption.
- * Mọi px thiết kế cho canvas dọc 1080×1920 — nhân đơn vị tỉ lệ `u`.
+ * Mọi px thiết kế cho canvas dọc 1080×1920 - nhân đơn vị tỉ lệ `u`.
  */
+
+// Thẻ trôi lên tối đa chừng này px trong suốt cue (translateY 0 → -DRIFT_MAX).
+// Dùng chung cho animation drift VÀ phép tính paddingTop để hai chỗ không lệch nhau.
+const DRIFT_MAX = 14;
 
 const ACCENTS = {
   hot: { text: "#ff7849", glow: "rgba(237,60,71,0.45)", bar: "linear-gradient(90deg,#ed3c47,#ff7849)" },
@@ -49,7 +55,9 @@ const Cue: React.FC<{ cue: HighlightCue; raised: boolean }> = ({
   // Band dưới cho tier "sub": có caption thì đẩy lên trên vùng caption.
   // ⚠️ raised = 560 vẫn bị thẻ caption 3 dòng (cao tới y≈626 tính từ đáy) đè lên
   // — pill phải nằm TRÊN mép trên của caption dài nhất, nên 700.
-  const bottomBase = raised ? (vertical ? 700 : 470) : (vertical ? 300 : 240);
+  // ⚠️ không caption: 300 làm mép dưới pill chạm dải UI TikTok 16% (y=1613) — QC
+  // safe-area khoanh đỏ đúng mép pill. 330 giữ pill nằm trọn trên dải đỏ.
+  const bottomBase = raised ? (vertical ? 700 : 470) : (vertical ? 330 : 240);
 
   // Vào 5 frame / ra 6 frame — bật tắt cứng trông rẻ trên footage thật.
   const opacity = interpolate(
@@ -64,7 +72,7 @@ const Cue: React.FC<{ cue: HighlightCue; raised: boolean }> = ({
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const drift = interpolate(frame, [0, last], [0, -14], {
+  const drift = interpolate(frame, [0, last], [0, -DRIFT_MAX], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -80,7 +88,12 @@ const Cue: React.FC<{ cue: HighlightCue; raised: boolean }> = ({
         // KEY CHÍNH neo band TRÊN (skill key-layout); key liên quan neo đáy.
         justifyContent: main ? "flex-start" : "flex-end",
         alignItems: "center",
-        paddingTop: main ? Math.round(height * 0.07) : 0,
+        // ⚠️ 7% từng làm kicker của thẻ main lọt vào dải UI TikTok/Reels 10% phía
+        // trên (QC safe-area khoanh đỏ, SAFE_TOP_RATIO trong qc.ts). Tính bằng px:
+        // 10% chiều cao (đáy dải đỏ) + DRIFT_MAX (thẻ trôi lên tối đa chừng này
+        // ở cuối cue) + 8px lề an toàn - mép trên thẻ luôn nằm dưới dải đỏ ở mọi
+        // frame, đúng cho cả dọc lẫn ngang (không phụ thuộc một tỉ lệ duy nhất).
+        paddingTop: main ? Math.round(height * 0.1) + DRIFT_MAX + 8 : 0,
         paddingBottom: main ? 0 : Math.round(bottomBase * u),
         paddingLeft: Math.round(72 * u),
         paddingRight: Math.round(72 * u),

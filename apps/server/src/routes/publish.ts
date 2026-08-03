@@ -341,6 +341,16 @@ router.get("/:id/publish", (req, res) => {
   }
   try {
     const pack = JSON.parse(fs.readFileSync(file, "utf8")) as PublishPack;
+    // File ghi dở/bị sửa tay có thể thiếu field cốt lõi - trả as-is là vỡ card trên web
+    if (
+      !pack ||
+      typeof pack !== "object" ||
+      typeof pack.transcriptRel !== "string" ||
+      !Array.isArray(pack.items)
+    ) {
+      res.json({ pack: null });
+      return;
+    }
     res.json({ pack });
   } catch {
     // File hỏng thì coi như chưa có - người dùng chỉ cần bấm soạn lại

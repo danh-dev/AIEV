@@ -10,6 +10,7 @@ import {
   projectDirOf,
   projectExists,
   readMeta,
+  writeMeta,
 } from "../meta.js";
 import { remotionGlArgs } from "../renderSettings.js";
 import { getStyle, styleExists } from "../styles.js";
@@ -221,6 +222,10 @@ router.post("/:id/thumbnail", async (req, res) => {
   }
   // Staging chỉ cần trong lúc still - dọn luôn, không tích rác
   fs.rmSync(stagingAbs, { recursive: true, force: true });
+
+  // Chạm updatedAt (writeMeta tự set) để web bust cache thumbnail ?v=updatedAt -
+  // không chạm là browser giữ ảnh cũ. Đọc lại meta vì job khác có thể đã ghi trong lúc render.
+  writeMeta(id, readMeta(id));
 
   res.status(201).json({
     file: "thumbnail.png",

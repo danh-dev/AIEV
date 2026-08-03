@@ -190,11 +190,12 @@ router.get("/log", (req, res) => {
 // POST /api/update/apply - spawn script update DETACHED rồi trả 202 ngay.
 // Script sẽ kill server này, nên process con phải sống độc lập (detached + unref).
 router.post("/apply", (_req, res) => {
-  if (db.getRunningJob()) {
+  // Job queued cũng phải chặn - nó có thể bắt đầu chạy đúng lúc script update kill server
+  if (db.getRunningJob() || db.countQueuedJobs() > 0) {
     res.status(409).json({
       error: {
         code: "JOB_RUNNING",
-        message: "Đang có job render chạy - chờ xong rồi cập nhật.",
+        message: "Đang có job render chạy/chờ trong hàng đợi - chờ xong rồi cập nhật.",
       },
     });
     return;

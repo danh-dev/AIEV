@@ -13,6 +13,11 @@ in that section **COMPLETELY REPLACE** every color/font/branding rule in this sk
 layout, cutting rhythm, render workflow, the bug fixes. Illustrations generated through /api/illustrations
 must pass the correct styleId in the prompt. NO Style Design section → use the skill's default branding.
 
+If the edit prompt ALSO contains a **"PHONG CÁCH DỰNG"** (video style) section: that section **WINS over this
+skill** for ALL visual and motion language - materials, transitions, camera moves, effects. This skill then
+keeps only PROCESS: step order, cutting, captions/keys, draft→final, QC. Do not mix the skill's default
+visuals into the video style - half-and-half is exactly the failure this rule exists to prevent.
+
 This skill builds Vietnamese vertical TikTok videos with HyperFrames (HTML/CSS/JS + GSAP → MP4).
 **Fully shipped reference project:** `video-projects/sapo/` - copying its structure is the fastest start.
 
@@ -47,7 +52,7 @@ Video editor working in HyperFrames. Compose HTML/CSS/JS, animate with GSAP, ren
 ---
 
 ## 🔍 ZOOM / PUNCH-IN (kills static, boring footage)
-A talking head sitting still for 30–60s is deadly dull. Add camera motion (zoom) **locked to timestamps + matched to SFX + fitting the content** to hold the eye. This is the main retention driver → it is MANDATORY in every video.
+A talking head sitting still for 30–60s is deadly dull. Add camera motion (zoom) **locked to timestamps + matched to SFX + fitting the content** to hold the eye. This is the main retention driver → it is MANDATORY in every video, unless the video style's (PHONG CÁCH DỰNG) motion spec says otherwise.
 
 ### ⚠️⚠️ TECHNIQUE (MANDATORY - getting this wrong freezes the frame)
 - NEVER animate `width/height/top/left` on a `<video>` → the frame freezes (already noted in RENDER CONTRACT). **Zoom = animate `scale` (transform) on the DIV wrapping the video** (`#face-wrapper`), never directly on the `<video>`.
@@ -104,6 +109,13 @@ Wiring it in:
 3. ⚠️ Every SFX gets its OWN `data-track-index` (4,5,6,…) - clips on the same track must NOT overlap in time. Narration is on track 0; SFX use tracks **4 and up**.
 4. ⚠️ Volume `data-volume` **0.4–0.6** (under the narration at 1.0) so it never buries the voice; a comedic punch can go 0.55–0.65.
 5. `data-duration` long enough for the SFX to finish ringing (1–3s); too short and it gets cut off.
+
+### SFX loudness and lead silence (verified)
+Four production-verified lessons - skipping any of them produced audible bugs:
+1. **Trim lead silence via `data-media-start`, not by re-encoding.** Many library files carry 0.1–1.0s of silence before the actual sound, so the SFX lands late even with a correct `data-start`. Probe each file with `ffmpeg -af silencedetect=noise=-45dB:d=0.05` and set `data-media-start` (HyperFrames) / `mediaStart` (Remotion manifest) to skip it.
+2. **Set the volume with an ffmpeg mix test, not by guessing.** Mix voice + SFX, then measure a NARROW window around the SFX onset (roughly the SFX ring time, e.g. `-ss <onset> -t 1.5` + `volumedetect`/`ebur128`) - a whole-file mean tells you nothing about whether the hit buries the voice at that moment.
+3. **When picking SFX, reject by the file's own PEAK, not just its mean loudness.** A file with a modest mean can still have a peak that spikes over the voice.
+4. **Give the voice headroom BEFORE layering SFX.** A voice source peaking at -0.0 dB has no room for anything on top - scale it first (measured: peak -0.0 dB → `volume=0.71`), then mix the SFX and re-check true peak.
 
 ---
 
@@ -212,5 +224,5 @@ npx hyperframes render --quality standard --output renders/final.mp4
 # verify SFX: ffmpeg -ss <t> -i renders/draft.mp4 -t 4 -vn out.wav  → listen that the SFX lands on the zoom beat and never buries the narration
 ```
 
-## OUTPUT for the user
-The file `renders/final.mp4` (1080×1920, 30fps) + a scene timeline table + a **ZOOM & SFX table: timecode | event | zoom type | SFX file | volume**. Clean up the temporary draft/test files when you are done.
+## OUTPUT - hand off to the pipeline
+`renders/final.mp4` is NOT the finished product. Continue with the `video-pipeline` skill: automated QC on the draft → assemble final via the render queue (Remotion) → `outputs/<id>-v<N>.mp4` → update `meta.json` (status + output) → thumbnail/publish. Report to the user: the scene timeline table + a **ZOOM & SFX table: timecode | event | zoom type | SFX file | volume**. Clean up the temporary draft/test files when you are done.

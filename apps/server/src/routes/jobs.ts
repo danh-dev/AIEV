@@ -8,14 +8,18 @@ import { projectExists } from "../meta.js";
 import { isQcReportStale, readQcReport } from "../qc.js";
 import { queue } from "../queue.js";
 import { readRenderSettings } from "../renderSettings.js";
-import { HttpError } from "../util.js";
+import { HttpError, nowIso } from "../util.js";
 
 const router = Router();
 
-// GET /api/jobs?limit=50 - mới nhất trước
+// GET /api/jobs?limit=50&projectId=... - mới nhất trước, projectId lọc theo project (tùy chọn)
 router.get("/", (req, res) => {
   const limit = Number(req.query.limit) || 50;
-  res.json(db.listJobs(limit).map(db.jobToApi));
+  const projectId =
+    typeof req.query.projectId === "string" && req.query.projectId.trim()
+      ? req.query.projectId.trim()
+      : undefined;
+  res.json(db.listJobs(limit, projectId).map(db.jobToApi));
 });
 
 // GET /api/jobs/:id - Job + log đầy đủ
@@ -40,7 +44,7 @@ router.post("/", (req, res) => {
     throw new HttpError(
       400,
       "INVALID_TYPE",
-      `type phải là một trong: ${db.JOB_TYPES.join(", ")}`,
+      `type phải là một trong các loại tạo được qua POST /api/jobs: ${db.JOB_TYPES.join(", ")}`,
     );
   }
   if (type === "auto-cut") {
@@ -137,7 +141,14 @@ router.post("/:id/cancel", (req, res) => {
   const job = db.getJob(req.params.id);
   if (!job) throw new HttpError(404, "JOB_NOT_FOUND", `Không tìm thấy job "${req.params.id}"`);
   if (job.status === "queued" || job.status === "running") {
-    queue.cancel(job.id);
+    const handled = queue.cancel(job.id);
+    // Dòng 'queued' trong DB nhưng không còn trong hàng đợi in-memory (zombie sau
+    // restart) - queue không biết gì, tự đánh canceled ở DB + broadcast như queue làm
+    if (!handled && db.getJob(job.id)?.status === "queued") {
+      db.updateJob(job.id, { status: "canceled", step: "Đã hủy", finishedAt: nowIso() });
+      db.appendJobLog(job.id, "[queue] Job bị hủy khi đang chờ (không còn trong hàng đợi sau restart).");
+      broadcast("job", db.jobToApi(db.getJob(job.id)!));
+    }
   }
   res.json(db.jobToApi(db.getJob(job.id)!));
 });

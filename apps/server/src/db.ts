@@ -166,6 +166,10 @@ export type JobType =
   | "text-to-video";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
+/**
+ * Các loại job tạo được qua POST /api/jobs. CỐ Ý thiếu "text-to-video" -
+ * loại đó chỉ được tạo qua route build của Text to video, không tạo tay qua API jobs.
+ */
 export const JOB_TYPES: JobType[] = [
   "scene-draft",
   "scene-final",
@@ -245,16 +249,32 @@ export function appendJobLog(id: string, line: string): void {
   db.prepare("UPDATE jobs SET log = log || ? WHERE id = ?").run(line + "\n", id);
 }
 
-export function listJobs(limit = 50): JobRow[] {
+export function listJobs(limit = 50, projectId?: string): JobRow[] {
+  const capped = Math.max(1, Math.min(500, limit));
+  // Lọc theo project để web không phải kéo 50 job toàn cục rồi lọc client-side
+  if (projectId) {
+    return db
+      .prepare(
+        "SELECT * FROM jobs WHERE projectId = ? ORDER BY createdAt DESC, rowid DESC LIMIT ?",
+      )
+      .all(projectId, capped) as JobRow[];
+  }
   return db
     .prepare("SELECT * FROM jobs ORDER BY createdAt DESC, rowid DESC LIMIT ?")
-    .all(Math.max(1, Math.min(500, limit))) as JobRow[];
+    .all(capped) as JobRow[];
 }
 
 export function getRunningJob(): JobRow | undefined {
   return db.prepare("SELECT * FROM jobs WHERE status = 'running' LIMIT 1").get() as
     | JobRow
     | undefined;
+}
+
+/** Toàn bộ job đang chạy - queue chạy song song nên có thể nhiều hơn 1 */
+export function getRunningJobs(): JobRow[] {
+  return db
+    .prepare("SELECT * FROM jobs WHERE status = 'running' ORDER BY startedAt")
+    .all() as JobRow[];
 }
 
 /** Project đang có job running/queued? - chặn thao tác dọn file trung gian khi job cần chúng */
@@ -284,11 +304,17 @@ export function hasDoneAssembleDraft(projectId: string): boolean {
   return row !== undefined;
 }
 
-/** Job đang treo status running từ lần chạy trước (server crash) → đánh failed */
+/** Job đang treo status running/queued từ lần chạy trước (server crash) → đánh failed */
 export function failStaleRunningJobs(): void {
   db.prepare(
     `UPDATE jobs SET status = 'failed', step = 'Server khởi động lại khi job đang chạy',
      finishedAt = ? WHERE status = 'running'`,
+  ).run(nowIso());
+  // Hàng đợi nằm trong RAM - restart là mất, không ai re-enqueue lại các dòng 'queued'.
+  // Không dọn thì queuedCount phồng mãi và hasActiveJobForProject chặn 409 vĩnh viễn.
+  db.prepare(
+    `UPDATE jobs SET status = 'failed', step = 'Server khởi động lại khi job còn trong hàng đợi',
+     finishedAt = ? WHERE status = 'queued'`,
   ).run(nowIso());
 }
 

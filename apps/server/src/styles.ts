@@ -43,6 +43,18 @@ export interface StylesFile {
 export const COLOR_KEYS = ["primary", "secondary", "background", "text", "accent"] as const;
 export const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
+/**
+ * Chuẩn hóa hex: lowercase + nở 3 ký tự thành 6 (web chỉ render dạng 6 ký tự);
+ * 8 ký tự (có alpha) giữ nguyên. Input phải đã qua HEX_RE.
+ */
+export function normHexColor(hex: string): string {
+  const v = hex.toLowerCase();
+  if (v.length === 4) {
+    return "#" + v.slice(1).split("").map((ch) => ch + ch).join("");
+  }
+  return v;
+}
+
 const stylesFilePath = () => path.join(paths.stylesDir, "styles.json");
 const legacyFilePath = () => path.join(paths.brandDir, "design-system.json");
 
@@ -95,7 +107,7 @@ function normStyle(raw: unknown): StyleDesign | null {
     const c = s.colors as Record<string, unknown>;
     for (const key of COLOR_KEYS) {
       if (typeof c[key] === "string" && HEX_RE.test(c[key] as string)) {
-        base.colors[key] = (c[key] as string).toLowerCase();
+        base.colors[key] = normHexColor(c[key] as string);
       }
     }
   }

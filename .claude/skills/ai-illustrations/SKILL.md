@@ -40,6 +40,21 @@ curl -s -X POST http://localhost:6869/api/illustrations \
 - Images are saved to `video-projects/<id>/assets/illustrations/<name>.png`, and the description is written into assets.json automatically.
 - **Write the prompt in English and DESCRIBE THE SCENE CONTENT** - do not add brand colors/tone (the server
   mixes the Style Design in itself), and do not instruct "no text" (the server adds that itself).
+- **Do NOT describe layout/placement in the prompt** ("subject at the top", "leave the bottom empty"...). The
+  server appends video-specific composition rules itself: by default (brief `illustrationPosition: "auto"`) the
+  subject is vertically CENTERED with the top band (main key) and bottom band (captions/related keys) kept as
+  low-detail atmosphere. A placement instruction in your prompt fights those rules - the verified failure was
+  the subject sitting in the upper third and being covered by the main key card.
+- The user can pick a subject position in the brief (3x3 grid, like the logo position picker) - the edit prompt
+  states the chosen position and the server applies it automatically. Only pass a `position` field in the POST
+  body when ONE specific image needs a different layout for a clear reason (e.g. footage PiP covers one side);
+  otherwise omit it so the brief's choice rules.
+- **Image density (`brief.illustrationsPerMinute`)**: when the edit prompt states "Mật độ ảnh minh họa: N ảnh
+  MỖI PHÚT", compute the total from the REAL video duration (voice duration in meta.json), spread the images
+  evenly along the content flow, and switch the background image at each idea change - a long Text to video
+  must not sit on one static background. Each image still needs its own content-specific prompt; do NOT
+  mass-generate near-identical variations. When the prompt says "AI tự quyết" (density null), keep the old
+  behavior: pick only the moments that genuinely need an illustration.
 - `aspect` must match the video frame (vertical video -> "9:16"). If it fails with a missing GEMINI_API_KEY, tell
   the user to enter the key on the "Kết nối" (Connections) tab and move on to another part of the video - do not get stuck.
 - `description` MUST always state which point the image illustrates + the second it is expected to be composited at.
@@ -62,7 +77,7 @@ or the user explicitly asks for it. How to do it:
 ## Compositing into the video
 
 - HyperFrames: insert `<img src="assets/illustrations/<file>.png">` in the scene, animate it in and out
-  (gentle fade/slide/scale per MOTION_PHILOSOPHY), and hold it 2-4 seconds around the exact sentence it relates to.
+  (gentle fade/slide/scale per the hyperframes skill's house-style), and hold it 2-4 seconds around the exact sentence it relates to.
 - Sensible coverage: an illustration usually covers 50-75% of a vertical frame and MUST NOT cover the speaker's face
   mid-way through an important sentence; bring it in on the sentence beat (use transcript timestamps).
 - Verify with a snapshot after inserting: image in the right place, not distorted (aspect ratio preserved), not bleeding off the edge.

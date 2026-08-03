@@ -63,7 +63,8 @@ Edit-Video-AI/
 │   ├── styles/                ← Style Design (styles.json + font files)
 │   ├── prompts/               ← thư viện prompt mẫu
 │   ├── sound-effects/         ← thư viện sound effect dùng chung (library.json)
-│   ├── brand-logos/           ← 116 logo brand (Simple Icons, CC0) + library.json
+│   ├── music/                 ← thư viện nhạc nền dùng chung (library.json, tag theo mood)
+│   ├── brand-logos/           ← 116+ logo brand (Simple Icons, CC0) + library.json — tự lớn dần
 │   └── voices/                ← giọng đã nhân bản (gitignore - là giọng thật của người dùng)
 ├── docs/                      ← tài liệu (API.md — contract backend)
 ├── start/                     ← script khởi động (start.ps1)
@@ -80,7 +81,7 @@ Edit-Video-AI/
 | HyperFrames Studio preview | 3002 | Nội bộ, mở khi cần soi scene |
 | Remotion Studio | 3000 | Nội bộ, chỉ dùng khi debug composition lắp ráp |
 
-- **Node 20+**, **FFmpeg trên PATH**, **Chrome mới nhất** (HyperFrames và Remotion đều render qua headless Chromium).
+- **Node 22+** (hyperframes yêu cầu `node >= 22`), **FFmpeg trên PATH**, **Chrome mới nhất** (HyperFrames và Remotion đều render qua headless Chromium).
 - Xác thực Claude cho Chat/AI: tự dùng **subscription OAuth** của Claude Code đã đăng nhập trên máy (`~/.claude/.credentials.json`); hoặc `ANTHROPIC_API_KEY` trong `.env` nếu muốn dùng API key.
 - Giọng đọc có **hai engine chạy song song**, người dùng chọn từng phiên:
   - **Gemini TTS** (mặc định) - cần `GEMINI_API_KEY`, 30 giọng dựng sẵn, tốn tiền theo lượt.

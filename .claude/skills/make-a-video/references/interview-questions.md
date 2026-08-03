@@ -2,6 +2,9 @@
 
 Used by `/make-a-video` Gates 1–3. Ask one at a time via `AskUserQuestion`, multiple-choice where possible.
 
+> Routing note: when running from a project brief in the AI Edit Video pipeline, the edit prompt's
+> STYLE DESIGN and PHONG CÁCH DỰNG (video style) sections override these interview defaults.
+
 ## Before asking anything - inventory first
 
 Run these to see what already exists so you don't ask for supplied assets:
@@ -98,7 +101,8 @@ Probe: industry · expertise level · platform they'll watch on · what should t
 
 **Q14. Logo file?**
 - Path to file
-- None - text wordmark instead? Ask for the text and weight/style
+- None, but a brand is named - look in `assets/brand-logos/`, or fetch with `POST /api/brand-logos {"name":"..."}`
+- Text wordmark ONLY after a `404 BRAND_LOGO_NOT_FOUND` - then ask for the text and weight/style. Never draw or generate a logo.
 
 **Q15. Reference videos?**
 - URLs or file paths - "the vibe I want"

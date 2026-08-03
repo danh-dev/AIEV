@@ -258,7 +258,9 @@ export async function runAgent(
       error:
         "Chưa có xác thực Claude. Cách 1 (khuyên dùng): đăng nhập Claude Code trên máy này (VSCode extension hoặc chạy `claude` trong terminal rồi /login) - hệ thống tự dùng gói subscription. Cách 2: điền ANTHROPIC_API_KEY vào file .env rồi khởi động lại server.",
     });
-    emit({ sessionId, kind: "done" });
+    // "done" phải kèm status rõ ràng: thiếu status thì web mặc định coi là
+    // thành công, trong khi lượt này thất bại ngay từ guard
+    emit({ sessionId, kind: "done", status: "error" });
     return;
   }
 
@@ -268,7 +270,8 @@ export async function runAgent(
       kind: "error",
       error: "Agent đang chạy trong phiên này - chờ xong hoặc bấm dừng (interrupt) trước.",
     });
-    emit({ sessionId, kind: "done" });
+    // Kèm status "error": done không status bị web mặc định thành thành công
+    emit({ sessionId, kind: "done", status: "error" });
     return;
   }
 
@@ -324,7 +327,8 @@ export async function runAgent(
       kind: "error",
       error: `Không khởi động được agent: ${err instanceof Error ? err.message : String(err)}`,
     });
-    emit({ sessionId, kind: "done" });
+    // Kèm status "error": done không status bị web mặc định thành thành công
+    emit({ sessionId, kind: "done", status: "error" });
     return;
   }
 

@@ -13,6 +13,11 @@ in that section **COMPLETELY REPLACE** every color/font/branding rule in this sk
 layout, cutting rhythm, render workflow, the bug fixes. Illustrations generated through /api/illustrations
 must pass the correct styleId in the prompt. NO Style Design section → use the skill's default branding.
 
+If the edit prompt ALSO contains a **"PHONG CÁCH DỰNG"** (video style) section: that section **WINS over this
+skill** for ALL visual and motion language - materials, transitions, camera moves, effects. This skill then
+keeps only PROCESS: step order, cutting, captions/keys, draft→final, QC. Do not mix the skill's default
+visuals into the video style - half-and-half is exactly the failure this rule exists to prevent.
+
 Build a Vietnamese vertical explainer with HyperFrames (HTML/CSS/JS + GSAP → MP4).
 All text is a **real HTML element** so it can be animated and stays razor sharp. There are text scenes and PDF paper-page scenes.
 
@@ -88,7 +93,7 @@ Every sub-comp (`data-composition-src`) renders in its own context, inheriting N
 
 ## COMPONENTS (reusable)
 1. **Page counter** top left "01 / 12", grey, wide letter-spacing.
-2. **NO watermark/branding** - the video carries no "@noti.vn", no logo, no TikTok text. Leave the bottom right corner empty.
+2. **Never add your own corner logo/watermark** - the Remotion assembly layer stamps the Style Design logo automatically when the style has one (adding your own means two logos stacked). No "@noti.vn" text, no TikTok text; leave the bottom right corner empty.
 3. **Animated caption** bottom center, chunks of 3–6 words on their timestamps, one keyword in orange-red, fade+slide-up 0.25s (obeying the no-overlapping-lines rule above).
 4. **Stat callout** "95.8% → 58.3%": big figures at 900, the bad number in orange-red, the → arrow in orange-red, count-up as it appears.
 5. **List item**: a huge "01" + title + grey sub-label, with a vertical blue gradient bar on the left.
@@ -201,5 +206,5 @@ npx hyperframes render --quality standard --output renders/final.mp4
 # verify SFX: ffmpeg -ss <t> -i renders/draft.mp4 -t 4 -vn out.wav → listen that the SFX lands on its beat and never buries the narration
 ```
 
-## OUTPUT for the user
-The file `renders/final.mp4` (1080×1920, 30fps) + a timeline table: scene | duration | component | content + an **SFX table: timecode | event | file | volume**. Clean up the temporary draft/test files when you are done.
+## OUTPUT - hand off to the pipeline
+`renders/final.mp4` is NOT the finished product. Continue with the `video-pipeline` skill: automated QC on the draft → assemble final via the render queue (Remotion) → `outputs/<id>-v<N>.mp4` → update `meta.json` (status + output) → thumbnail/publish. Report to the user: a timeline table: scene | duration | component | content + an **SFX table: timecode | event | file | volume**. Clean up the temporary draft/test files when you are done.

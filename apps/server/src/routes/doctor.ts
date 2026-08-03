@@ -132,7 +132,8 @@ router.post("/fix", async (req, res) => {
   const check = report.checks.find((c) => c.id === id);
   if (!check) throw new HttpError(404, "UNKNOWN_CHECK", `Không có mục "${id}"`);
   if (check.status === "ok") {
-    res.json({ ok: true, log: [], report });
+    // Trả đủ shape như nhánh cài bên dưới - web coi thiếu `installed` là thất bại
+    res.json({ ok: true, installed: true, timedOut: false, log: [], report });
     return;
   }
   // Chặn ở server chứ không chỉ ẩn nút trên UI: /api/doctor/fix là đường chạy

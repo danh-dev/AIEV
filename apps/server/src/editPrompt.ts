@@ -130,6 +130,40 @@ export function buildEditPrompt(input: {
         "styleId của style đã chọn; server trộn màu + tone + hiệu ứng của style vào prompt - KHÔNG tự thêm màu brand, " +
         "KHÔNG dùng bảng màu khác dù skill/prompt gợi ý.",
     );
+    if (brief.illustrationsPerMinute) {
+      const n = brief.illustrationsPerMinute;
+      lines.push(
+        `  Mật độ ảnh minh họa: khoảng ${n} ảnh MỖI PHÚT video. Tính tổng theo thời lượng thật ` +
+          `(ví dụ video 3 phút → ~${n * 3} ảnh), rải ĐỀU theo dòng nội dung - mỗi ảnh làm nền/cutaway ` +
+          "cho một ý, đổi ảnh khi sang ý mới để video không bị một nền tĩnh kéo dài. " +
+          "Mỗi ảnh vẫn phải có prompt riêng bám đúng ý nó minh họa (đọc skill `ai-illustrations`), " +
+          "không sinh hàng loạt ảnh na ná nhau.",
+      );
+    } else {
+      lines.push(
+        "  Số lượng ảnh: AI tự quyết theo nội dung - chọn những khoảnh khắc cần minh họa nhất.",
+      );
+    }
+    {
+      // Nhãn tiếng Việt cho vị trí chủ thể - agent đọc hiểu ngay, khỏi tra bảng
+      const pos = brief.illustrationPosition ?? "auto";
+      const posLabel =
+        pos === "auto"
+          ? "tự động (giữa khung, chừa band key trên + caption dưới)"
+          : pos
+              .replace("top", "trên")
+              .replace("middle", "giữa")
+              .replace("bottom", "dưới")
+              .replace("left", "trái")
+              .replace("center", "giữa")
+              .replace("right", "phải")
+              .replace("-", " - ");
+      lines.push(
+        `  Vị trí chủ thể ảnh: ${posLabel}. Server tự chèn quy tắc bố cục này vào prompt ảnh - ` +
+          "KHÔNG tự tả vị trí/bố cục chủ thể trong prompt; chỉ truyền position khác trong body " +
+          "khi một ảnh cụ thể cần bố cục riêng có lý do rõ ràng.",
+      );
+    }
     lines.push(
       brief.illustrationText
         ? "  Ảnh minh họa ĐƯỢC PHÉP CÓ CHỮ: truyền allowText:true khi POST /api/illustrations và ghi RÕ NGUYÊN VĂN " +

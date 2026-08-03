@@ -682,7 +682,14 @@ router.post("/:id/plan", (req, res) => {
 router.post("/:id/cut", (req, res) => {
   const meta = readAutoCut(req.params.id); // ném 404 nếu không có
   assertNotBusy(meta);
-  if (meta.status !== "planned") {
+  // Failed Ở BƯỚC CUT và vẫn còn segments = kế hoạch còn nguyên giá trị
+  // (jobs/autoCut.ts ghi failed và không có gì trả về planned) - cho cắt lại
+  // thay vì bắt re-plan, vì re-plan xóa mất tiêu đề user đã sửa tay.
+  // PHẢI check failedStep === "cut": re-plan hỏng cũng để status failed nhưng
+  // segments lúc đó là kế hoạch CŨ đã lỗi thời, không được cắt theo nó.
+  const retryableFailed =
+    meta.status === "failed" && meta.failedStep === "cut" && meta.segments.length > 0;
+  if (meta.status !== "planned" && !retryableFailed) {
     throw new HttpError(
       409,
       "NOT_PLANNED",

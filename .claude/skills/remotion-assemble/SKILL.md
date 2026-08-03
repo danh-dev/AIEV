@@ -14,21 +14,30 @@ engines/remotion/
 ├── package.json          ← remotion, @remotion/cli, @remotion/renderer
 ├── remotion.config.ts
 └── src/
-    ├── Root.tsx               ← registers 2 compositions: "Assemble" + "Poster"
+    ├── Root.tsx               ← registers 3 compositions: "Assemble" + "Poster" + "Thumbnail"
     ├── Assemble.tsx           ← master composition: read manifest → build timeline
-    ├── Poster.tsx             ← static poster/thumbnail composition
+    ├── Poster.tsx             ← static poster composition (image projects)
+    ├── Thumbnail.tsx          ← static video-thumbnail composition (frame card + title)
     ├── manifest.ts            ← load + validate video props (zod)
     ├── posterManifest.ts      ← load + validate poster props (zod)
+    ├── thumbnailManifest.ts   ← load + validate thumbnail props (zod)
     ├── brandFonts.ts          ← load brand fonts via staticFile (offline)
     ├── index.ts               ← entry point registering Root
     └── components/
         ├── SceneClip.tsx      ← <OffthreadVideo>/<Img> for one scene/footage clip
         ├── Transition.tsx     ← hard cut / crossfade (fade) - only these 2
         ├── SfxTrack.tsx       ← places <Audio> at sfx[].atFrame
+        ├── MusicTrack.tsx     ← background music: loop + fade + deterministic ducking
         ├── CaptionTrack.tsx   ← karaoke captions from word timestamps
         ├── HighlightTrack.tsx ← main/related key bands (key-layout)
         └── vietnameseFont.ts  ← @font-face Inter vietnamese subset
 ```
+
+Manifest fields beyond scenes/captions/overlays (see `manifest.ts`):
+- `watermark` - the Style Design corner logo, stamped by the SERVER (`jobs/assemble.ts`), never by the AI; `null` = the style has no logo.
+- `audio.music` - background music `{ file, volume, duckVolume, speech: [[startSec,endSec],...] }` with deterministic ducking over speech ranges (see the `background-music` skill); `null` = no music.
+- `scenes[].zoom` - camera move on footage `{ origin?, keys: [{frame, scale, ease?}] }`; `frame` counts from the START OF THE SCENE, applied to the wrapper div (never the video element).
+- `audio.sfx[].mediaStart` - seconds skipped at the head of the sfx file (lead silence trim, see noti-tiktok-vn "SFX loudness and lead silence").
 
 ## Core principles
 

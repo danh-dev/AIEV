@@ -9,7 +9,11 @@
       "Bash(ffprobe:*)",
       "Bash(node:*)",
       "Bash(curl:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)"
     ],
     "deny": [
       "Read(./.env)",

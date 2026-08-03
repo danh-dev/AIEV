@@ -322,12 +322,31 @@ router.get("/:name", (req, res) => {
 router.post("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const content = typeof body.content === "string" ? body.content : "";
+  let content = typeof body.content === "string" ? body.content : "";
   assertValidName(name);
   if (!content.trim()) throw new HttpError(400, "INVALID_CONTENT", "Thiếu content");
-  parseFrontmatter(content);
+  const fm = parseFrontmatter(content);
   if (fs.existsSync(skillFileOf(name))) {
     throw new HttpError(409, "SKILL_EXISTS", `Skill "${name}" đã tồn tại`);
+  }
+  if (fm.name !== name) {
+    // Đồng bộ frontmatter name với tên folder cuối (như /generate) - draft bị đổi tên
+    // trước khi lưu mà không sửa lại là hai tên lệch nhau vĩnh viễn.
+    // Chỉ thay dòng name TRONG block frontmatter (giữa "---" đầu và "---" thứ hai) -
+    // tránh đụng dòng "name:" xuất hiện trong thân skill
+    content = content.replace(/^---\r?\n[\s\S]*?\r?\n---/, (frontmatter) =>
+      frontmatter.replace(/^name\s*:.*$/m, `name: ${name}`),
+    );
+    // Regex không khớp (vd viết "name": có ngoặc kép - gray-matter vẫn parse được)
+    // thì replace ở trên im lặng không làm gì → kiểm lại, lệch thì báo hẳn ra
+    // thay vì lưu file mang hai tên khác nhau
+    if (parseFrontmatter(content).name !== name) {
+      throw new HttpError(
+        422,
+        "NAME_MISMATCH",
+        `Không đồng bộ được frontmatter name với tên skill "${name}" - sửa dòng "name:" trong frontmatter cho khớp rồi lưu lại`,
+      );
+    }
   }
   ensureDir(skillDirOf(name));
   fs.writeFileSync(skillFileOf(name), content, "utf8");

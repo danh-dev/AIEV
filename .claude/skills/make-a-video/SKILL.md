@@ -19,6 +19,10 @@ Two phases, eight sequential gates. Every gate produces a concrete artifact the 
 - The user explicitly wants a 9:16 vertical talking-head with face-cam + scene overlays → run Gates 1–4 here, then invoke `/short-form-video` from Gate 5 onward
 - The user asks for framework rules, not a video → invoke `/hyperframes`
 
+**Routing note (AI Edit Video pipeline):** when this skill runs from a project brief, the edit prompt's
+STYLE DESIGN and PHONG CÁCH DỰNG (video style) sections override the interview defaults below - do not
+re-ask style questions the brief already answers.
+
 ## The two phases
 
 - **Phase 1 - INTERVIEW (Gates 1–4):** one conversational pass to gather *everything* before touching code. Intent, format, script, voice, style, assets, pacing. Synthesize into a `BRIEF.md` and wait for explicit approval.
@@ -46,8 +50,8 @@ Full question bank: `Read: references/interview-questions.md`
 ## Gate 2 · Script & voice
 
 1. Script source? (paste · outline → I'll draft · I'll record · TTS from text · no narration)
-2. If TTS: voice preference. Offer choices from `npx hyperframes tts --help`. Also capture pace.
-3. If face-cam: recording path · full-screen or corner placement · need transcription? (`npx hyperframes transcribe <file> --model small.en --json`)
+2. If TTS: voice preference. Offer choices from `npx hyperframes tts --help`. Also capture pace. `hyperframes tts` (Kokoro) is English-only - Vietnamese narration goes through the system's `/api/tts` (Gemini TTS or VieNeu) instead.
+3. If face-cam: recording path · full-screen or corner placement · need transcription? (`npx hyperframes transcribe <file> --model small.en --json` - English only; for Vietnamese use faster-whisper per the noti-tiktok-vn skill)
 4. Captions? (off · hype · corporate · karaoke-word-by-word · minimal)
 
 **Gate:** script captured (or drafted), audio plan captured, caption plan captured.
@@ -63,7 +67,7 @@ Then ask progressively - they don't need answers to all of these:
 1. Style guide or brand doc? (paste/path · no)
 2. Color palette? (hex codes · none - use MOTION_PHILOSOPHY defaults)
 3. Fonts? (Google Fonts name(s) · file paths · none - use Inter + JetBrains Mono defaults)
-4. Logo file? (path · none - use text wordmark instead)
+4. Logo file? (path · none). If a brand is named but no file is given: look in `assets/brand-logos/`, or fetch it with `POST /api/brand-logos {"name":"..."}` - a text wordmark is allowed ONLY after a `404 BRAND_LOGO_NOT_FOUND`. Never draw or generate a logo.
 5. Reference videos for vibe? (URLs/paths · none)
 6. Other assets? (screenshots · product photos · b-roll · music - list paths)
 7. MOTION_PHILOSOPHY aesthetic (black canvas · chrome type · perspective grid · whip transitions) or a different feel?
@@ -227,7 +231,7 @@ Hand the user `http://localhost:8080/<slug>-draft.mp4`. **WAIT for explicit sign
 npx hyperframes render --quality standard --output renders/<slug>-final.mp4
 ```
 
-Report the output path. Done.
+In the AI Edit Video pipeline this is NOT the end: continue with the `video-pipeline` skill (QC → assemble final via the render queue → `outputs/<id>-v<N>.mp4` → update `meta.json` → thumbnail/publish). Standalone use outside the pipeline: report the output path. Done.
 
 Full preflight + pre-delivery checklist: `Read: references/build-checklist.md`
 

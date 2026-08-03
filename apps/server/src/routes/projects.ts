@@ -17,8 +17,6 @@ import {
 import { paths, repoRoot } from "../config.js";
 import * as db from "../db.js";
 import {
-  MUSIC_MODES,
-  SFX_MODES,
   applyBriefPatch,
   briefOf,
   defaultBrief,
@@ -35,9 +33,7 @@ import {
   writeAssetEntry,
   writeMeta,
   type Brief,
-  type MusicMode,
   type ProjectMeta,
-  type SfxMode,
 } from "../meta.js";
 import { parseModelEffort } from "./providers.js";
 import { styleExists } from "../styles.js";
@@ -123,11 +119,18 @@ router.get("/:id", (req, res) => {
   const id = req.params.id;
   const meta = readMeta(id); // ném 404 nếu không có
   const dir = projectDirOf(id);
+  // Chuẩn hóa + enrich GIỐNG route danh sách (projectSummaryOf) - nếu không, status
+  // AI ghi lệch (vd "completed") lọt qua detail và các check === "done" âm thầm sai
+  const summary = projectSummaryOf(id);
+  const usage = db.tokensByProject();
   res.json({
     ...meta,
     // AI có thể ghi meta lệch hợp đồng (vd output là object) - chuẩn hóa trước khi trả
+    status: summary?.status ?? "draft",
     output: normOutput(meta.output),
     tags: normTags(meta.tags),
+    tokensUsed: usage[id]?.tokens ?? 0,
+    costUsd: usage[id]?.costUsd ?? 0,
     brief: briefOf(meta),
     // Thumbnail đã tạo (POST /api/projects/:id/thumbnail) - null = chưa có
     thumbnail: fs.existsSync(path.join(dir, "thumbnail.png")) ? "thumbnail.png" : null,
@@ -449,6 +452,14 @@ router.delete("/:id", (req, res) => {
   }
   if (!projectExists(id) && !fs.existsSync(projectDirOf(id))) {
     throw new HttpError(404, "PROJECT_NOT_FOUND", `Không tìm thấy project "${id}"`);
+  }
+  // Job đang chạy/chờ vẫn đọc-ghi file trong project - xóa lúc này là rút thảm dưới chân job
+  if (db.hasActiveJobForProject(id)) {
+    throw new HttpError(
+      409,
+      "JOB_RUNNING",
+      "Project đang có job chạy/chờ trong hàng đợi - đợi xong hoặc hủy job rồi mới xóa",
+    );
   }
   fs.rmSync(projectDirOf(id), { recursive: true, force: true });
   res.status(204).end();
