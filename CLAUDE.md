@@ -116,6 +116,10 @@ Quy tắc bắt buộc:
 2. **Mọi render đều đi qua render queue của backend** (kể cả khi Claude tự chạy) để web UI luôn thấy được trạng thái.
 3. Video tiếng Việt: áp dụng các fix đã kiểm chứng trong skills (chữ gradient mất dấu, transcription tiếng Việt, PATH ffmpeg).
 4. Xong final render thì cập nhật `meta.json` của project (trạng thái, đường dẫn output, thời lượng).
+5. **Hai lớp "style" chồng lên nhau, đừng gộp:**
+   - **Style Design** (`brief.styleId`, `assets/styles/`) = nhận diện thương hiệu: MÀU, FONT, logo. Luôn cưỡng chế 100%.
+   - **Phong cách dựng** (`brief.videoStyleId`, `apps/server/src/videoStyles.ts`) = ngôn ngữ thị giác của riêng video: CHẤT LIỆU và CHUYỂN ĐỘNG (giấy gấp, mực tàu, người que…). 20 phong cách, `null` = AI tự quyết.
+   - Phong cách dựng **thay thế** chỉ đạo mỹ thuật mặc định trong prompt ảnh, không cộng thêm — cộng vào là ra thứ nửa nọ nửa kia. Vài phong cách có `palette: "loose"` (mực tàu, Đông Hồ, ảnh thật): ảnh theo bảng màu ruột của phong cách, màu brand tụt xuống làm điểm nhấn, còn chữ/đồ họa vẫn theo Style Design.
 
 ## 6. Web UI — quy tắc thiết kế (chi tiết ở skill `webui-design`)
 

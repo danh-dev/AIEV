@@ -3,6 +3,7 @@ import type { Brief, FileInfoWithDescription, ProjectMeta } from "./meta.js";
 import type { MusicEntry } from "./routes/music.js";
 import type { SfxEntry } from "./routes/sfx.js";
 import type { StyleDesign } from "./styles.js";
+import { getVideoStyle } from "./videoStyles.js";
 
 /**
  * Soạn prompt tiếng Việt cho POST /api/projects/:id/edit - server tự tổng hợp
@@ -158,6 +159,33 @@ export function buildEditPrompt(input: {
     );
     lines.push("kỹ thuật animation/layout/nhịp của skill vẫn áp dụng bình thường.");
     lines.push(`Ảnh minh họa (POST /api/illustrations) truyền styleId="${style.id}".`);
+    lines.push("");
+  }
+
+  // --- Phong cách dựng (ngôn ngữ thị giác) - CHỒNG LÊN Style Design, không thay thế
+  const videoStyle = getVideoStyle(brief.videoStyleId);
+  if (videoStyle) {
+    lines.push("## PHONG CÁCH DỰNG (BẮT BUỘC)");
+    lines.push(
+      `Phong cách: "${videoStyle.name}" - đây là NGÔN NGỮ THỊ GIÁC của cả video, ` +
+        "áp cho mọi scene HyperFrames, mọi ảnh minh họa và mọi chuyển cảnh.",
+    );
+    lines.push(`- Dựng cảnh và chuyển động: ${videoStyle.motion}`);
+    lines.push(
+      "- Server đã tự trộn chỉ đạo mỹ thuật của phong cách này vào prompt ảnh minh họa; " +
+        "KHÔNG cần (và không được) tự mô tả lại phong cách trong prompt ảnh - chỉ mô tả NỘI DUNG cần vẽ.",
+    );
+    if (videoStyle.palette === "loose") {
+      lines.push(
+        "- LƯU Ý MÀU: phong cách này có bảng màu riêng của nó, nên ảnh minh họa sẽ KHÔNG bám sát " +
+          "bảng màu thương hiệu (màu brand chỉ còn là điểm nhấn). Phần CHỮ và đồ họa do HyperFrames/" +
+          "Remotion vẽ thì VẪN theo đúng Style Design.",
+      );
+    }
+    lines.push(
+      "LUẬT ƯU TIÊN: phong cách dựng quyết định CHẤT LIỆU và CHUYỂN ĐỘNG; Style Design vẫn quyết định " +
+        "MÀU và FONT. Hai thứ chồng lên nhau, không cái nào hủy cái nào.",
+    );
     lines.push("");
   }
 

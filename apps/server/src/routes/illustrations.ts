@@ -4,6 +4,7 @@ import { Router } from "express";
 import { generateBackground } from "../gemini.js";
 import { briefOf, projectExists, readMeta, writeAssetEntry } from "../meta.js";
 import { getStyle, styleExists } from "../styles.js";
+import { getVideoStyle } from "../videoStyles.js";
 import { paths } from "../config.js";
 import { HttpError, ensureDir, toKebabAscii } from "../util.js";
 import type { ImageAspect } from "../imageMeta.js";
@@ -63,6 +64,10 @@ router.post("/", async (req, res) => {
   const design = getStyle(styleId || brief.styleId || null);
   // Cho phép chữ trong ảnh: body.allowText → brief.illustrationText của project (mặc định false)
   const allowText = typeof body.allowText === "boolean" ? body.allowText : brief.illustrationText;
+  // Phong cách dựng lấy từ brief của project, KHÔNG cho body ghi đè: cả video
+  // phải cùng một ngôn ngữ thị giác, mà agent gọi endpoint này hàng chục lần -
+  // chỉ cần một lần nó truyền khác là video có một tấm lạc phong cách.
+  const videoStyle = getVideoStyle(brief.videoStyleId);
   const { promptUsed } = await generateBackground({
     prompt,
     kind: "concept",
@@ -72,6 +77,7 @@ router.post("/", async (req, res) => {
     usageProjectId: projectId,
     model,
     allowText,
+    videoStyle,
   });
 
   // Ghi mô tả vào assets.json để cả UI lẫn các phiên AI sau đều biết ảnh này là gì

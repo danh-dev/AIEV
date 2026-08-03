@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { paths } from "./config.js";
+import { videoStyleExists } from "./videoStyles.js";
 import {
   HttpError,
   ensureDir,
@@ -84,6 +85,14 @@ export interface Brief {
   illustrationText: boolean;
   /** Style Design áp cho video (id trong assets/styles/styles.json) - null = style default */
   styleId: string | null;
+  /**
+   * Phong cách dựng video (id trong videoStyles.ts) - null = AI tự quyết.
+   *
+   * KHÁC styleId: styleId là nhận diện thương hiệu (màu/font/logo), còn cái này
+   * là ngôn ngữ thị giác của video (giấy gấp, mực tàu, người que...). Hai thứ
+   * chồng lên nhau chứ không thay thế nhau.
+   */
+  videoStyleId: string | null;
   /** Ghi chú tự do cho AI */
   notes: string;
 }
@@ -105,6 +114,7 @@ export function defaultBrief(): Brief {
     illustrationModel: null,
     illustrationText: false,
     styleId: null,
+    videoStyleId: null,
     notes: "",
   };
 }
@@ -138,6 +148,11 @@ export function briefOf(meta: ProjectMeta): Brief {
   }
   if (typeof b.illustrationText === "boolean") base.illustrationText = b.illustrationText;
   if (typeof b.styleId === "string" && b.styleId.trim()) base.styleId = b.styleId.trim();
+  // Phong cách đã bị gỡ khỏi catalog (đổi tên id) thì lùi về null = AI tự quyết,
+  // chứ không giữ một id chết làm mọi lời gọi sau đó báo lỗi
+  if (typeof b.videoStyleId === "string" && videoStyleExists(b.videoStyleId.trim())) {
+    base.videoStyleId = b.videoStyleId.trim();
+  }
   if (typeof b.notes === "string") base.notes = b.notes;
   return base;
 }
@@ -221,6 +236,15 @@ export function applyBriefPatch(
   const styleId = nullableStr("styleId");
   if (styleId && checkStyle && !checkStyle(styleId)) {
     throw new HttpError(400, "STYLE_NOT_FOUND", `Không tìm thấy style "${styleId}"`);
+  }
+
+  const videoStyleId = nullableStr("videoStyleId");
+  if (videoStyleId && !videoStyleExists(videoStyleId)) {
+    throw new HttpError(
+      400,
+      "VIDEO_STYLE_NOT_FOUND",
+      `Không tìm thấy phong cách dựng "${videoStyleId}". Xem danh sách tại GET /api/video-styles.`,
+    );
   }
 
   return brief;

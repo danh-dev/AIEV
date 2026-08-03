@@ -1826,4 +1826,85 @@ export const vi: Record<string, string> = {
   "ttv.section.expand": "Mở rộng",
   "ttv.section.collapse": "Thu gọn",
   "ttv.section.done-collapsed": "Đã xong - thu gọn cho gọn màn hình",
+
+  // ===== Phong cách dựng video =====
+  "vstyle.label": "Phong cách dựng",
+  "vstyle.hint":
+    "Ngôn ngữ thị giác của video: chất liệu hình ảnh và cách chuyển động. Khác Style Design (màu, font, logo) - hai thứ chồng lên nhau.",
+  "vstyle.selected": "Đang chọn:",
+  "vstyle.auto": "AI tự quyết",
+  "vstyle.auto-desc":
+    "Để AI tự chọn cách thể hiện theo nội dung. Giữ nguyên cách hệ thống chạy từ trước tới nay.",
+  "vstyle.search": "Tìm phong cách theo tên hoặc mô tả",
+  "vstyle.no-match": "Không có phong cách nào khớp.",
+  "vstyle.load-error": "Không tải được danh sách phong cách dựng.",
+  "vstyle.missing":
+    "Phong cách đã lưu không còn trong danh sách - chọn lại một phong cách khác.",
+  "vstyle.loose-badge": "màu riêng",
+  "vstyle.vs-style-design":
+    "Phong cách quyết định CHẤT LIỆU và CHUYỂN ĐỘNG; Style Design vẫn quyết định MÀU và FONT. Phong cách gắn nhãn \"màu riêng\" có bảng màu đặc trưng nên ảnh sẽ không bám sát màu thương hiệu - chữ và đồ họa thì vẫn theo.",
+
+  // -- Tên 20 phong cách --
+  "vstyle.giay-gap-nhat.name": "Gấp giấy Nhật Bản",
+  "vstyle.vox-explainer.name": "Giải thích kiểu VOX",
+  "vstyle.tranh-ve-tay.name": "Tranh vẽ tay (màu nước)",
+  "vstyle.nguoi-que.name": "Người que bảng trắng",
+  "vstyle.flat-vector.name": "Vector phẳng",
+  "vstyle.isometric.name": "Đẳng cự 3D",
+  "vstyle.dat-set.name": "Đất sét stop-motion",
+  "vstyle.cat-dan-zine.name": "Cắt dán báo",
+  "vstyle.muc-tau.name": "Tranh mực tàu",
+  "vstyle.dong-ho.name": "Tranh Đông Hồ",
+  "vstyle.neon-cyber.name": "Neon cyberpunk",
+  "vstyle.in-retro-70.name": "In retro thập niên 70",
+  "vstyle.ban-ve-ky-thuat.name": "Bản vẽ kỹ thuật",
+  "vstyle.pixel-art.name": "Pixel art",
+  "vstyle.anime-cel.name": "Anime cel-shading",
+  "vstyle.3d-studio.name": "3D studio bóng bẩy",
+  "vstyle.anh-tai-lieu.name": "Ảnh thật tài liệu",
+  "vstyle.infographic.name": "Infographic số liệu",
+  "vstyle.cat-out-puppet.name": "Rối giấy cắt",
+  "vstyle.giao-dien-app.name": "Giao diện app",
+
+  // -- Mô tả 20 phong cách --
+  "vstyle.giay-gap-nhat.desc":
+    "Giấy gấp và cắt xếp lớp, thớ giấy washi, bóng đổ mềm giữa các lớp. Chuyển cảnh bằng gấp và lật.",
+  "vstyle.vox-explainer.desc":
+    "Đồ họa báo chí hiện đại: chữ cực đậm, tram halftone, ảnh cắt dán, mũi tên chú giải vẽ tay. Cắt cảnh dứt khoát.",
+  "vstyle.tranh-ve-tay.desc":
+    "Màu nước và gouache trên giấy có thớ, nét cọ và vệt loang còn nguyên. Hình hiện ra như mực thấm.",
+  "vstyle.nguoi-que.desc":
+    "Người que vẽ bút lông trên bảng trắng, nét đơn giản. Nét được vẽ dần theo lời giảng.",
+  "vstyle.flat-vector.desc":
+    "Vector phẳng, màu đặc, hình khối hình học, nhiều khoảng trống. Chuyển động dứt khoát theo lưới.",
+  "vstyle.isometric.desc":
+    "Phối cảnh đẳng cự 30 độ, khối công trình và hệ thống rõ ràng như sơ đồ. Khối dựng lên từng tầng.",
+  "vstyle.dat-set.desc":
+    "Nhân vật nặn đất sét còn dấu vân tay, phim trường tí hon. Chuyển động giật nhẹ đúng chất stop-motion.",
+  "vstyle.cat-dan-zine.desc":
+    "Xé báo tạp chí dán chồng, chữ mỗi cỡ một kiểu, băng dính và ghim. Mảnh giấy dập xuống theo nhịp trống.",
+  "vstyle.muc-tau.desc":
+    "Mực tàu trên giấy dó, nét bút dứt khoát, rất nhiều khoảng trống. Nhịp chậm và tĩnh.",
+  "vstyle.dong-ho.desc":
+    "Tranh khắc gỗ dân gian Việt Nam, viền đen dày, màu khoáng, giấy điệp lấp lánh. Hình hiện như đóng dấu.",
+  "vstyle.neon-cyber.desc":
+    "Đêm mưa phản chiếu, biển hiệu neon, sương mù dày, viền sáng hồng lam. Nhiễu số ở mỗi lần cắt cảnh.",
+  "vstyle.in-retro-70.desc":
+    "In offset thập niên 70: ba màu mực, lệch bản in, hạt giấy thô, tram chấm. Mỗi lần cắt cảnh lệch rồi khớp lại.",
+  "vstyle.ban-ve-ky-thuat.desc":
+    "Nét trắng trên nền xanh đậm, đường kích thước và mặt cắt, lưới bản vẽ. Nét vẽ dần theo thứ tự lắp ráp.",
+  "vstyle.pixel-art.desc":
+    "Pixel 16-bit sắc nét, bảng màu hạn chế, tô bóng bằng dither. Mọi thứ dịch chuyển theo bước pixel.",
+  "vstyle.anime-cel.desc":
+    "Nét vẽ sạch, tô bóng hai tông cạnh cứng, đường tốc độ, ánh sáng rực. Cắt cảnh nhanh ở cao trào.",
+  "vstyle.3d-studio.desc":
+    "Render 3D studio: ánh sáng mềm, nền vô cực, tương phản nhám và bóng, xoá phông nhẹ. Camera trôi rất mượt.",
+  "vstyle.anh-tai-lieu.desc":
+    "Ảnh chụp thật kiểu phóng sự, ánh sáng tự nhiên, khoảnh khắc đời thường. Phóng và trôi rất chậm trên ảnh tĩnh.",
+  "vstyle.infographic.desc":
+    "Biểu đồ và sơ đồ sạch, thứ bậc con số rõ, nhiều khoảng trắng. Cột mọc lên và số đếm tăng dần.",
+  "vstyle.cat-out-puppet.desc":
+    "Rối giấy cắt rời từng khớp, giấy thủ công, mép cắt hơi thô. Nhân vật cử động bằng cách xoay quanh khớp.",
+  "vstyle.giao-dien-app.desc":
+    "Panel giao diện kính mờ nổi trên nền, bóng đổ nhiều lớp, icon sắc nét. Con trỏ giả lập thao tác thật.",
 };

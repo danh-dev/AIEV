@@ -25,6 +25,7 @@ import { TagInput } from "@/components/TagInput";
 import { useGeminiImageModels } from "@/components/ImageProjectForm";
 import { useProviders } from "@/components/ModelPicker";
 import { StyleSelect } from "@/components/StyleSelect";
+import { VideoStyleSelect } from "@/components/VideoStyleSelect";
 import { useT } from "@/lib/i18n";
 
 export const DEFAULT_BRIEF: Brief = {
@@ -45,6 +46,7 @@ export const DEFAULT_BRIEF: Brief = {
   illustrationModel: null,
   illustrationText: false,
   styleId: null,
+  videoStyleId: null,
 };
 
 // Giá trị là KEY dictionary - dịch bằng t() lúc render.
@@ -537,6 +539,20 @@ export function BriefFields({
           />
         </div>
       )}
+
+      {/* 4b. Phong cách dựng - đặt NGAY DƯỚI Style Design vì hai thứ hay bị lẫn:
+          Style Design = màu/font/logo thương hiệu, cái này = chất liệu hình ảnh.
+          Đứng cạnh nhau thì người dùng đọc một lượt là phân biệt được. */}
+      <div>
+        <FieldLabel
+          label={t("vstyle.label")}
+          hint={t("vstyle.hint")}
+        />
+        <VideoStyleSelect
+          value={value.videoStyleId}
+          onChange={(v) => set("videoStyleId", v)}
+        />
+      </div>
 
       {/* 5. Skill */}
       <div>

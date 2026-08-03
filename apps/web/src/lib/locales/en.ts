@@ -1830,4 +1830,85 @@ export const en: Record<string, string> = {
   "ttv.section.expand": "Expand",
   "ttv.section.collapse": "Collapse",
   "ttv.section.done-collapsed": "Finished - collapsed to save space",
+
+  // ===== Video edit style =====
+  "vstyle.label": "Edit style",
+  "vstyle.hint":
+    "The visual language of the video: what it is made of and how it moves. Different from Style Design (colours, fonts, logo) - the two stack.",
+  "vstyle.selected": "Selected:",
+  "vstyle.auto": "Let the AI decide",
+  "vstyle.auto-desc":
+    "The AI picks a treatment that fits the content. This is how the system behaved before this setting existed.",
+  "vstyle.search": "Search styles by name or description",
+  "vstyle.no-match": "No style matches.",
+  "vstyle.load-error": "Could not load the edit styles.",
+  "vstyle.missing":
+    "The saved style is no longer in the list - pick another one.",
+  "vstyle.loose-badge": "own palette",
+  "vstyle.vs-style-design":
+    "The style decides MATERIAL and MOTION; Style Design still decides COLOUR and FONT. A style marked \"own palette\" has a signature palette of its own, so images will not follow the brand colours closely - text and graphics still will.",
+
+  // -- The 20 style names --
+  "vstyle.giay-gap-nhat.name": "Japanese paper craft",
+  "vstyle.vox-explainer.name": "VOX-style explainer",
+  "vstyle.tranh-ve-tay.name": "Hand-painted (watercolour)",
+  "vstyle.nguoi-que.name": "Whiteboard stick figures",
+  "vstyle.flat-vector.name": "Flat vector",
+  "vstyle.isometric.name": "Isometric 3D",
+  "vstyle.dat-set.name": "Claymation",
+  "vstyle.cat-dan-zine.name": "Zine paper collage",
+  "vstyle.muc-tau.name": "Ink wash painting",
+  "vstyle.dong-ho.name": "Dong Ho folk print",
+  "vstyle.neon-cyber.name": "Neon cyberpunk",
+  "vstyle.in-retro-70.name": "1970s retro print",
+  "vstyle.ban-ve-ky-thuat.name": "Technical blueprint",
+  "vstyle.pixel-art.name": "Pixel art",
+  "vstyle.anime-cel.name": "Anime cel-shading",
+  "vstyle.3d-studio.name": "Polished 3D studio",
+  "vstyle.anh-tai-lieu.name": "Documentary photography",
+  "vstyle.infographic.name": "Data infographic",
+  "vstyle.cat-out-puppet.name": "Cut-out paper puppets",
+  "vstyle.giao-dien-app.name": "App interface",
+
+  // -- The 20 style descriptions --
+  "vstyle.giay-gap-nhat.desc":
+    "Folded and cut paper in layers, washi fibre texture, soft shadows between layers. Scenes change by folding and flipping.",
+  "vstyle.vox-explainer.desc":
+    "Modern editorial graphics: very bold type, halftone dots, cut-out photo collage, hand-drawn annotation arrows. Hard cuts.",
+  "vstyle.tranh-ve-tay.desc":
+    "Watercolour and gouache on textured paper, brush strokes and pigment blooms left visible. Images bleed into view.",
+  "vstyle.nguoi-que.desc":
+    "Stick figures drawn in marker on a clean whiteboard. Lines draw themselves in time with the narration.",
+  "vstyle.flat-vector.desc":
+    "Flat vector, solid fills, geometric forms, generous white space. Crisp motion along a strict grid.",
+  "vstyle.isometric.desc":
+    "30-degree isometric projection, buildings and systems as clear diagrams. Structures build up layer by layer.",
+  "vstyle.dat-set.desc":
+    "Plasticine characters with fingerprints still in the clay, tabletop miniature set. Slightly jerky stop-motion movement.",
+  "vstyle.cat-dan-zine.desc":
+    "Torn newspaper and magazine scraps, ransom-note typography, tape and staples. Scraps slam down on the beat.",
+  "vstyle.muc-tau.desc":
+    "Ink on rice paper, confident brush strokes, a great deal of empty space. Slow and still.",
+  "vstyle.dong-ho.desc":
+    "Vietnamese folk woodblock print, thick black outlines, mineral pigments, shimmering diep paper. Images stamp into place.",
+  "vstyle.neon-cyber.desc":
+    "Rainy reflective night, neon signage, thick haze, magenta and cyan rim light. Digital glitch on every cut.",
+  "vstyle.in-retro-70.desc":
+    "1970s offset print: three ink colours, plate misregistration, heavy paper grain, halftone. Plates slip then snap into register on each cut.",
+  "vstyle.ban-ve-ky-thuat.desc":
+    "White lines on deep blue, dimension lines and cutaways, a drafting grid. Lines draw in assembly order.",
+  "vstyle.pixel-art.desc":
+    "Crisp 16-bit pixels, limited palette, dithered shading. Everything moves in whole-pixel steps.",
+  "vstyle.anime-cel.desc":
+    "Clean line art, hard-edged two-tone shading, speed lines, vivid key light. Fast cuts at the climax.",
+  "vstyle.3d-studio.desc":
+    "Studio 3D render: soft light, infinite backdrop, matte against gloss, shallow depth of field. Very smooth camera drift.",
+  "vstyle.anh-tai-lieu.desc":
+    "Real photojournalistic images, natural light, candid moments. Slow push and drift across stills.",
+  "vstyle.infographic.desc":
+    "Clean charts and diagrams, clear numeric hierarchy, plenty of white space. Bars grow and figures count up.",
+  "vstyle.cat-out-puppet.desc":
+    "Paper puppets jointed at the limbs, construction-paper texture, slightly rough cut edges. Characters move by rotating at the joints.",
+  "vstyle.giao-dien-app.desc":
+    "Frosted glass interface panels floating in space, layered shadows, crisp icons. A simulated cursor performs real actions.",
 };

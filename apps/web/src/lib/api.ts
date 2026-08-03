@@ -207,6 +207,33 @@ export interface Brief {
   illustrationText: boolean;
   /** Style Design sản phẩm phải tuân theo - null = style mặc định. */
   styleId: string | null;
+  /**
+   * Phong cách dựng video - null = AI tự quyết.
+   *
+   * KHÁC styleId: styleId là nhận diện thương hiệu (màu/font/logo) và luôn được
+   * cưỡng chế; cái này là ngôn ngữ thị giác của riêng video (giấy gấp, mực tàu,
+   * người que...). Hai thứ chồng lên nhau chứ không thay nhau.
+   */
+  videoStyleId: string | null;
+}
+
+/** Bảng màu của phong cách - xem ghi chú ở `VideoStyle.palette`. */
+export type VideoStylePalette = "brand" | "loose";
+
+/** Một phong cách dựng - GET /api/video-styles. */
+export interface VideoStyle {
+  id: string;
+  /** Tên tiếng Việt từ server - chỉ là lưới an toàn, web ưu tiên key `vstyle.<id>`. */
+  name: string;
+  /**
+   * "brand" = ảnh vẫn bám bảng màu thương hiệu.
+   * "loose" = phong cách có bảng màu ruột của nó (mực tàu, Đông Hồ, ảnh chụp
+   * thật), màu thương hiệu tụt xuống thành điểm nhấn. UI PHẢI nói rõ để người
+   * dùng không tưởng hệ thống làm sai style.
+   */
+  palette: VideoStylePalette;
+  /** Cách dựng cảnh và chuyển động - hiện cho người dùng biết video sẽ động ra sao. */
+  motion: string;
 }
 
 /** Prompt mẫu tái sử dụng - đổ vào ô "Yêu cầu edit" của brief. */
@@ -2543,6 +2570,9 @@ export const getTtsVoices = (engine?: TtsEngine) =>
 
 /** Engine nào dùng được trên MÁY NÀY - đừng đoán ở phía web, hỏi server. */
 export const getTtsEngines = () => request<TtsEngineStatus[]>("/api/tts/engines");
+
+/** 20 phong cách dựng - catalog tĩnh trong code server, không đổi giữa các lần gọi. */
+export const getVideoStyles = () => request<VideoStyle[]>("/api/video-styles");
 
 // --------------------------------------------------------------- Giọng nhân bản
 

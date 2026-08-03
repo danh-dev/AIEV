@@ -3,6 +3,7 @@ import path from "node:path";
 import type { StyleDesign } from "./styles.js";
 import { addTokenUsage } from "./db.js";
 import type { ImageAspect, ImageKind } from "./imageMeta.js";
+import type { VideoStyle } from "./videoStyles.js";
 import { ensureDir } from "./util.js";
 
 /**
@@ -68,6 +69,8 @@ export function buildImagePrompt(input: {
   design: StyleDesign;
   /** true = cho phép Gemini vẽ chữ tiếng Việt vào ảnh (mặc định false - chữ do Remotion đặt) */
   allowText?: boolean;
+  /** Phong cách dựng video - null = giữ chỉ đạo mỹ thuật mặc định (ảnh quảng cáo) */
+  videoStyle?: VideoStyle | null;
 }): string {
   const { design } = input;
   const c = design.colors;
@@ -84,10 +87,20 @@ export function buildImagePrompt(input: {
     `A ${KIND_PHRASES[input.kind]} for the brand "${design.name}".`,
   ];
   if (input.prompt.trim()) parts.push(input.prompt.trim());
+  // Phong cách "loose" có bảng màu ruột của nó (mực tàu đen trắng, Đông Hồ màu
+  // khoáng, ảnh chụp thật) - ép bảng màu thương hiệu vào là mất luôn phong cách,
+  // nên hạ xuống thành màu điểm nhấn thay vì bỏ hẳn ràng buộc thương hiệu.
+  const loosePalette = input.videoStyle?.palette === "loose";
   parts.push(
-    `Use the brand color palette: primary ${c.primary}, secondary ${c.secondary}, dark background ${c.background}, accent ${c.accent}.`,
-    "STRICT BRAND COMPLIANCE: this style guide is mandatory - stay within the palette above (plus its neutral tints/shades); do not introduce a different color scheme even if the scene description implies one.",
+    loosePalette
+      ? `Brand colours appear only as accents where they fit naturally: primary ${c.primary}, secondary ${c.secondary}, accent ${c.accent}. The artistic style's own traditional palette leads.`
+      : `Use the brand color palette: primary ${c.primary}, secondary ${c.secondary}, dark background ${c.background}, accent ${c.accent}.`,
   );
+  if (!loosePalette) {
+    parts.push(
+      "STRICT BRAND COMPLIANCE: this style guide is mandatory - stay within the palette above (plus its neutral tints/shades); do not introduce a different color scheme even if the scene description implies one.",
+    );
+  }
   if (design.tone.trim()) parts.push(`Brand tone and mood: ${design.tone.trim()}.`);
   // Hiệu ứng của style - áp vào chất liệu hình ảnh
   if (design.effects.liquidGlass) {
@@ -98,10 +111,15 @@ export function buildImagePrompt(input: {
   if (design.effects.gradient) {
     parts.push("Smooth color gradients blending the brand palette across lighting and surfaces.");
   }
-  parts.push(
-    "High quality, professional advertising background, cohesive lighting, cinematic depth.",
-    NEGATIVE_SPACE[input.aspect],
-  );
+  // Chỉ đạo mỹ thuật: phong cách dựng THAY THẾ hẳn câu mặc định, không cộng vào.
+  // Cộng vào thì "ảnh quảng cáo bóng bẩy, chiều sâu điện ảnh" đánh nhau với
+  // "giấy gấp phẳng" hay "mực tàu trên giấy dó" - ra một thứ nửa nọ nửa kia.
+  if (input.videoStyle) {
+    parts.push(input.videoStyle.art, `Avoid: ${input.videoStyle.avoid}.`);
+  } else {
+    parts.push("High quality, professional advertising background, cohesive lighting, cinematic depth.");
+  }
+  parts.push(NEGATIVE_SPACE[input.aspect]);
   if (wantsLogos) {
     parts.push(
       "Decorative brand logos/icons requested above are allowed, but keep them small, fully inside the frame with generous margins, away from the reserved clean text area, and never cropped at the edges.",
@@ -154,6 +172,8 @@ export async function generateBackground(input: {
   model?: string;
   /** true = cho phép Gemini vẽ chữ vào ảnh (mặc định false - giữ hành vi cũ) */
   allowText?: boolean;
+  /** Phong cách dựng video - null = chỉ đạo mỹ thuật mặc định (ảnh quảng cáo) */
+  videoStyle?: VideoStyle | null;
 }): Promise<{ file: string; promptUsed: string }> {
   const key = geminiApiKey();
   if (!key) {
