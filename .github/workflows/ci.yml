@@ -21,11 +21,11 @@ jobs:
     name: Typecheck and build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Node 22: hyperframes khai engines ">=22", thấp hơn là npm cảnh báo và
       # một số API của nó không chạy
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
