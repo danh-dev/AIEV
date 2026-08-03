@@ -6,7 +6,7 @@
 
 **Please do not open a public issue for a security problem.**
 
-Use GitHub's private reporting instead: [**Report a vulnerability**](https://github.com/giapducthang/AIEV/security/advisories/new). It is private between you and the maintainer until a fix is out.
+Use GitHub's private reporting instead: [**Report a vulnerability**](https://github.com/notivn/AIEV/security/advisories/new). It is private between you and the maintainer until a fix is out.
 
 Include what you can: what an attacker can do, how to reproduce it, and the commit you tested. A proof of concept helps a lot. This is a small project maintained by one person, so expect a first reply within a few days rather than within hours.
 
@@ -42,7 +42,7 @@ Only the current `main` branch is supported. There are no long-lived release bra
 
 **Xin đừng mở issue công khai cho vấn đề bảo mật.**
 
-Hãy dùng kênh riêng của GitHub: [**Report a vulnerability**](https://github.com/giapducthang/AIEV/security/advisories/new). Nội dung chỉ có bạn và người duy trì repo thấy cho tới khi có bản vá.
+Hãy dùng kênh riêng của GitHub: [**Report a vulnerability**](https://github.com/notivn/AIEV/security/advisories/new). Nội dung chỉ có bạn và người duy trì repo thấy cho tới khi có bản vá.
 
 Ghi được gì thì ghi: kẻ tấn công làm được gì, cách tái hiện, và commit bạn đã thử. Có mã minh họa thì càng tốt. Dự án do một người duy trì, nên bạn hãy chờ phản hồi trong vài ngày chứ không phải vài giờ.
 

@@ -1,6 +1,6 @@
 # AIEV - AI Edit Video by [noti.vn](https://noti.vn)
 
-[![CI](https://github.com/giapducthang/AIEV/actions/workflows/ci.yml/badge.svg)](https://github.com/giapducthang/AIEV/actions/workflows/ci.yml)
+[![CI](https://github.com/notivn/AIEV/actions/workflows/ci.yml/badge.svg)](https://github.com/notivn/AIEV/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
 
 🇬🇧 English · [🇻🇳 Tiếng Việt](README.vi.md)
@@ -101,7 +101,7 @@ install whatever it can - see [Environment check](#environment-check) below.
 ## Getting started
 
 ```bash
-git clone https://github.com/giapducthang/AIEV.git
+git clone https://github.com/notivn/AIEV.git
 cd AIEV
 ```
 

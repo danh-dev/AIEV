@@ -13,7 +13,7 @@ Thanks for taking the time. This is a small project maintained by [noti.vn](http
 ## Getting the project running
 
 ```bash
-git clone https://github.com/giapducthang/AIEV.git
+git clone https://github.com/notivn/AIEV.git
 cd AIEV
 npm install
 npm run dev          # web on http://localhost:6868, backend on 6869

@@ -13,7 +13,7 @@ Cảm ơn bạn đã bỏ thời gian. Đây là dự án nhỏ do [noti.vn](htt
 ## Chạy dự án
 
 ```bash
-git clone https://github.com/giapducthang/AIEV.git
+git clone https://github.com/notivn/AIEV.git
 cd AIEV
 npm install
 npm run dev          # web ở http://localhost:6868, backend ở 6869

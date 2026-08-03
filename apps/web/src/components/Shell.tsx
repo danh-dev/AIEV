@@ -28,7 +28,7 @@ import { UpdateBadge } from "@/components/UpdateBadge";
 import { useT } from "@/lib/i18n";
 
 /** Mã nguồn dự án - hiện ở cuối sidebar, ngay trên badge phiên bản */
-const REPO_URL = "https://github.com/giapducthang/AIEV";
+const REPO_URL = "https://github.com/notivn/AIEV";
 
 /**
  * Logo GitHub dạng SVG inline. Lucide đã bỏ icon thương hiệu khỏi bộ chính nên
