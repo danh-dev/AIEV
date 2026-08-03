@@ -120,7 +120,20 @@ export function buildImagePrompt(input: {
     parts.push("High quality, professional advertising background, cohesive lighting, cinematic depth.");
   }
   parts.push(NEGATIVE_SPACE[input.aspect]);
-  if (wantsLogos) {
+  // Style CÓ file logo thật -> tuyệt đối không để model vẽ logo thương hiệu.
+  //
+  // ĐO ĐƯỢC, ĐỪNG NỚI RA: chỉ THÊM một câu cấm là KHÔNG đủ. Lần thử đầu vẫn
+  // giữ dòng "cho phép logo trang trí" bên dưới, và với prompt "bức tường có
+  // logo noti.vn" model vẽ ra ngay một monogram chữ N bóng bẩy - tức là nó theo
+  // dòng CHO PHÉP và bỏ dòng CẤM. Hai câu đá nhau thì model chọn câu dễ hơn.
+  // Nên khi đã có file logo thật: bỏ HẲN nhánh cho phép, và nhắc lại lệnh cấm ở
+  // cuối prompt (chỗ model bám nhất, đúng như cách chặn chữ ở dưới).
+  const hasRealLogo = Boolean(design.logoPath);
+  if (hasRealLogo) {
+    parts.push(
+      `Do NOT draw, invent, recreate or approximate any logo, wordmark, monogram, emblem or brand name for "${design.name}" anywhere in this image - not large, not small, not blurred, not on a wall, sign, plaque, screen, product, badge or reflection. Where a logo would naturally appear, render that surface as CLEAN AND COMPLETELY EMPTY (a blank wall, a blank plaque, a blank screen). The real logo is composited afterwards from an actual file by the design tool.`,
+    );
+  } else if (wantsLogos) {
     parts.push(
       "Decorative brand logos/icons requested above are allowed, but keep them small, fully inside the frame with generous margins, away from the reserved clean text area, and never cropped at the edges.",
     );
@@ -134,6 +147,12 @@ export function buildImagePrompt(input: {
     // Nhắc lại lệnh cấm chữ ở CUỐI - chốt chặn kép
     parts.push(
       "FINAL RULE (most important): the image must contain absolutely NO text of any kind.",
+    );
+  }
+  if (hasRealLogo) {
+    // Chốt chặn kép cho logo, đặt SAU cùng vì đó là chỗ model bám nhất
+    parts.push(
+      `FINAL RULE: absolutely no "${design.name}" logo, monogram or brand mark may be drawn - leave those surfaces blank.`,
     );
   }
   return parts.join(" ");

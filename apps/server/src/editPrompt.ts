@@ -21,9 +21,16 @@ export function buildEditPrompt(input: {
   music: MusicEntry[];
   /** Style Design đã resolve từ brief.styleId (hoặc default) - null = không cưỡng chế style */
   style: StyleDesign | null;
+  /**
+   * Tên file logo đã chép sẵn vào assets của project (xem syncBrandLogo) -
+   * null = style không có logo, khi đó KHÔNG được nhắc gì tới logo trong prompt
+   * (nhắc tới mà không có file là đúng cách đẩy agent đi tự vẽ một cái).
+   */
+  brandLogoFile?: string | null;
   extraNotes: string;
 }): string {
   const { id, meta, brief, assets, recommendedSfx, music, style, extraNotes } = input;
+  const brandLogoFile = input.brandLogoFile ?? null;
   const lines: string[] = [];
 
   // --- Rào chống prompt injection: nội dung do người dùng/asset cung cấp (brief,
@@ -160,6 +167,38 @@ export function buildEditPrompt(input: {
     lines.push("kỹ thuật animation/layout/nhịp của skill vẫn áp dụng bình thường.");
     lines.push(`Ảnh minh họa (POST /api/illustrations) truyền styleId="${style.id}".`);
     lines.push("");
+
+    // --- Logo: chỉ nói khi CÓ file thật nằm sẵn trong assets
+    if (brandLogoFile) {
+      lines.push("### LOGO THƯƠNG HIỆU (BẮT BUỘC - KHÔNG NGOẠI LỆ)");
+      lines.push(
+        `Style này CÓ logo. File thật đã nằm sẵn trong project: \`assets/${brandLogoFile}\`.`,
+      );
+      lines.push(
+        "- Video cần logo ở đâu thì CHÈN ĐÚNG FILE ẢNH NÀY (thẻ `<img>` trong scene HyperFrames, " +
+          "hoặc `srcImage`/overlay của Remotion).",
+      );
+      lines.push(
+        "- CẤM tự vẽ, tự dựng lại logo bằng CSS/SVG/hình khối, và CẤM sinh logo bằng Gemini.",
+      );
+      lines.push(
+        `- CẤM thay logo bằng CHỮ tên thương hiệu (viết "${style.name}" bằng font thay cho logo là SAI).`,
+      );
+      lines.push(
+        "- Giữ nguyên tỉ lệ khung ảnh (không bóp méo), không đổi màu, không xoay, không cắt xén, " +
+          "không thêm viền/đổ bóng vào chính logo. Chỉ được đổi KÍCH THƯỚC và VỊ TRÍ.",
+      );
+      lines.push(
+        "- Logo nền trong suốt (PNG/SVG) thì đặt trên nền đủ tương phản để nhìn rõ; " +
+          "không có chỗ nào tương phản thì đặt lên một mảng nền đặc của Style Design, " +
+          "KHÔNG tô lại chính logo.",
+      );
+      lines.push(
+        "- Nếu vì lý do gì mà không chèn được file này, PHẢI báo rõ trong báo cáo cuối - " +
+          "tuyệt đối không im lặng thay bằng phương án tự chế.",
+      );
+      lines.push("");
+    }
   }
 
   // --- Phong cách dựng (ngôn ngữ thị giác) - CHỒNG LÊN Style Design, không thay thế

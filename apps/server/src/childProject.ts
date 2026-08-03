@@ -22,7 +22,7 @@ import {
   type SceneMeta,
 } from "./meta.js";
 import { readProjectTranscript } from "./transcript.js";
-import { getStyle } from "./styles.js";
+import { getStyle, type StyleDesign } from "./styles.js";
 import { RECOMMENDED_TAG, readLibrary } from "./routes/sfx.js";
 import { readMusicLibrary } from "./routes/music.js";
 import { HttpError, ensureDir, fileKind, nowIso, toKebabAscii } from "./util.js";
@@ -386,6 +386,64 @@ export function sceneAssetPath(relInAssets: string): string {
  * `runAgent(sessionId, prompt)` - nhờ vậy nhiều project con chạy TUẦN TỰ được
  * (mở nhiều phiên agent cùng lúc rất nặng máy).
  */
+/**
+ * Chép logo của Style Design vào assets của project.
+ *
+ * VÌ SAO CHÉP CHỨ KHÔNG CHỈ ĐƯA ĐƯỜNG DẪN: agent dựng scene HyperFrames bằng
+ * HTML nằm trong `video-projects/<id>/`, và Remotion stage asset từ đúng thư
+ * mục assets của project. Đưa một đường dẫn trỏ ra ngoài repo-root thì scene
+ * xem thử được nhưng lúc render Remotion không stage -> ảnh 404 (đã dính đúng
+ * lỗi này với srcImage). Chép vào assets là logo đi chung đường với mọi ảnh
+ * khác, không có đường nào đi lạc.
+ *
+ * Tên file CỐ ĐỊNH và ghi đè mỗi lần mở phiên: đổi logo trong Style Design rồi
+ * chạy lại edit là video dùng logo mới, không phải dọn tay bản cũ.
+ *
+ * Trả về tên file trong assets, hoặc null nếu style không có logo.
+ */
+export function syncBrandLogo(id: string, style: StyleDesign | null): string | null {
+  const destDir = projectAssetsDirOf(id);
+  const srcRel = style?.logoPath ?? null;
+  const srcAbs = srcRel ? path.join(repoRoot, srcRel) : null;
+  const hasLogo = Boolean(srcAbs && fs.existsSync(srcAbs));
+  const ext = srcRel ? path.extname(srcRel).toLowerCase() || ".png" : "";
+  const fileName = hasLogo ? `brand-logo${ext}` : "";
+
+  // Dọn bản chép CŨ trước: đổi logo sang định dạng khác (png -> svg) hay gỡ hẳn
+  // logo khỏi style mà để lại file cũ thì nó vẫn nằm trong danh sách asset kèm
+  // mô tả "BẮT BUỘC dùng" - agent sẽ ngoan ngoãn dùng đúng cái logo đã bị bỏ.
+  if (fs.existsSync(destDir)) {
+    for (const f of fs.readdirSync(destDir)) {
+      if (/^brand-logo\./i.test(f) && f !== fileName) {
+        try {
+          fs.rmSync(path.join(destDir, f), { force: true });
+          writeAssetEntry(id, f, { description: "" });
+        } catch {
+          /* file đang bị giữ - bỏ qua, vòng sau dọn tiếp */
+        }
+      }
+    }
+  }
+  if (!hasLogo || !srcAbs || !style) return null;
+
+  ensureDir(destDir);
+  const destAbs = path.join(destDir, fileName);
+  try {
+    fs.copyFileSync(srcAbs, destAbs);
+  } catch {
+    // Không chép được (file đang bị khóa...) - vẫn để phiên chạy tiếp, phần
+    // prompt sẽ tự bỏ khối logo thay vì bắt agent dùng một file không có thật
+    return fs.existsSync(destAbs) ? fileName : null;
+  }
+  // Mô tả để agent đọc asset listing là hiểu ngay đây là gì và phải làm gì
+  writeAssetEntry(id, fileName, {
+    description:
+      `Logo thương hiệu "${style.name}" - BẮT BUỘC dùng đúng file ảnh này khi video cần logo. ` +
+      "Không tự vẽ lại, không thay bằng chữ tên thương hiệu.",
+  });
+  return fileName;
+}
+
 export function prepareEditSession(input: {
   id: string;
   meta: ProjectMeta;
@@ -407,6 +465,11 @@ export function prepareEditSession(input: {
       ? readMusicLibrary().filter((e) => fs.existsSync(path.join(paths.musicDir, e.file)))
       : [];
 
+  // Style Design cưỡng chế: style đã chọn trong brief hoặc style default
+  const style = getStyle(brief.styleId);
+  // Chép logo TRƯỚC khi liệt kê asset để nó nằm luôn trong danh sách agent đọc
+  const brandLogoFile = syncBrandLogo(id, style);
+
   const prompt = buildEditPrompt({
     id,
     meta,
@@ -414,8 +477,8 @@ export function prepareEditSession(input: {
     assets: listProjectAssets(id),
     recommendedSfx,
     music,
-    // Style Design cưỡng chế: style đã chọn trong brief hoặc style default
-    style: getStyle(brief.styleId),
+    style,
+    brandLogoFile,
     extraNotes: input.extraNotes ?? "",
   });
 

@@ -67,6 +67,30 @@ or the user explicitly asks for it. How to do it:
   mid-way through an important sentence; bring it in on the sentence beat (use transcript timestamps).
 - Verify with a snapshot after inserting: image in the right place, not distorted (aspect ratio preserved), not bleeding off the edge.
 
+## The brand logo is NEVER generated
+
+If the selected Style Design has a logo, the real file is copied into the project at
+`assets/brand-logo.<ext>` before the edit session starts, and the edit prompt carries a mandatory
+LOGO block. Rules:
+
+- Insert **that exact image file** (`<img>` in a HyperFrames scene, or `srcImage`/overlay in Remotion).
+- Never redraw the logo in CSS/SVG/shapes, never ask Gemini for it, and never substitute the brand
+  name set in a font. A typeset name where a logo belongs is a brand violation, not a fallback.
+- Only size and position may change: no distortion, recolouring, rotation, cropping, or added
+  borders/shadows on the mark itself.
+- If it genuinely cannot be placed, say so in the final report instead of improvising.
+
+**Symptom:** Gemini renders an invented logo - a glossy monogram on a wall, a mark on a t-shirt or phone screen.
+**Cause:** the scene prompt mentioned a logo, which flipped the permissive "decorative brand logos are allowed"
+clause on. Adding a prohibition alongside it is **not enough** - measured: with both clauses present the model
+followed the permissive one and drew an "N" monogram.
+**Fix (already in `buildImagePrompt`):** when `design.logoPath` exists the permissive branch is dropped entirely,
+the prohibition tells the model to leave that surface *blank*, and it is repeated as a FINAL RULE at the end of
+the prompt. Verified on three hard prompts (logo on a wall / on a t-shirt / on a phone screen): all three came
+back with a clean empty surface, which is exactly what you want to composite the real logo onto.
+So: **do not write "with the brand logo" into an illustration prompt.** Ask for the blank surface you need
+(an empty plaque, a blank screen) and place the real file on top yourself.
+
 ## Known issues
 
 - Generating an image and forgetting to composite it - final checklist: every image in `assets/illustrations/` must
