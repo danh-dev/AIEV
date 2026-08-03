@@ -119,8 +119,10 @@ Quy tắc bắt buộc:
 4. Xong final render thì cập nhật `meta.json` của project (trạng thái, đường dẫn output, thời lượng).
 5. **Logo không bao giờ được sinh ra, chỉ được chèn từ file:**
    - Style Design có logo → hệ thống **tự đóng logo góc trên trái** cho cả video ở bước lắp ráp Remotion (`jobs/assemble.ts` → `manifest.watermark`). AI không phải làm gì, và **không được** tự thêm logo góc nữa (thành hai logo chồng nhau). Không muốn đóng logo thì dùng Style Design không có logo.
-   - Logo brand khác (Meta, TikTok, Claude…): lấy file trong `assets/brand-logos/`, chép vào `assets/` của project rồi mới tham chiếu (Remotion chỉ stage file nằm trong project). Thiếu brand nào thì nói bằng chữ, **không bịa logo**.
-   - Bổ sung logo: `node scripts/fetch-brand-logos.mjs <slug>…`, hoặc bỏ thẳng file SVG vào thư mục rồi chạy lại script.
+   - Logo brand khác (Meta, TikTok, Claude…): kịch bản nhắc brand nào thì lấy file trong `assets/brand-logos/`, chép vào `assets/` của project rồi mới tham chiếu (Remotion chỉ stage file nằm trong project).
+   - **Chưa có trong thư viện thì TỰ TẢI**: `POST /api/brand-logos {"name":"OpenAI"}` — server tìm ở Simple Icons rồi Wikidata (thuộc tính P154 "logo image"), tải về `assets/brand-logos/` và trả `relPath`. Thư viện tự lớn dần theo từng video.
+   - Chỉ khi trả `404 BRAND_LOGO_NOT_FOUND` mới được bỏ logo: viết tên brand bằng chữ và ghi vào báo cáo. **Không bao giờ tự vẽ/tự chế logo.**
+   - Bổ sung hàng loạt: `node scripts/fetch-brand-logos.mjs <slug>…`, hoặc bỏ thẳng file SVG vào thư mục.
 6. **Hai lớp "style" chồng lên nhau, đừng gộp:**
    - **Style Design** (`brief.styleId`, `assets/styles/`) = nhận diện thương hiệu: MÀU, FONT, logo. Luôn cưỡng chế 100%.
    - **Phong cách dựng** (`brief.videoStyleId`, `apps/server/src/videoStyles.ts`) = ngôn ngữ thị giác của riêng video: CHẤT LIỆU và CHUYỂN ĐỘNG (giấy gấp, mực tàu, người que…). 20 phong cách, `null` = AI tự quyết.

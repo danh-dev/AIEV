@@ -97,8 +97,12 @@ marks. Place the logo by hand only where you deliberately want it (intro card, e
 
 ## Other companies' logos - use the library, never draw them
 
-`assets/brand-logos/` holds 116 official brand marks (Simple Icons, CC0-1.0) with each brand's official hex
-colour; `assets/brand-logos/library.json` is the index - read it rather than guessing file names.
+`assets/brand-logos/` holds official brand marks with each brand's official hex colour;
+`assets/brand-logos/library.json` is the index - read it rather than guessing file names. The library grows
+by itself: any brand a video mentions gets fetched once and stays for every later video.
+
+**Workflow:** read the script, list every brand it names, and resolve each one *before* building the scene
+that mentions it.
 
 - Need Facebook / TikTok / Claude / Gemini in a scene? **Use the file.** Never redraw a third-party logo and
   never ask Gemini for one; a wrong brand mark is spotted instantly.
@@ -106,9 +110,13 @@ colour; `assets/brand-logos/library.json` is the index - read it rather than gue
   the project, so pointing straight at `assets/brand-logos/` renders a 404.
 - The SVGs are single-colour (black by default). To recolour, inline the SVG and set `fill` - use the official
   hex from `library.json`, or plain white/black when the background demands it.
-- Brand not in the library (Microsoft, LinkedIn, OpenAI and others were removed at the trademark owners'
-  request): say the name in text using the Style Design font, and note the gap in the final report. Do not
-  source it from elsewhere on your own initiative.
+- **Brand not in the library? Fetch it, do not skip it.** `POST http://localhost:6869/api/brand-logos`
+  with `{"name":"OpenAI"}`. The server looks in Simple Icons, then Wikidata's P154 "logo image" property,
+  downloads the official file into `assets/brand-logos/`, and returns `relPath`. 201 = newly fetched,
+  200 = already there. Brands missing from Simple Icons because their owners asked to be removed
+  (OpenAI, Amazon, Microsoft…) come back from Wikidata in **full colour**.
+- Only a `404 BRAND_LOGO_NOT_FOUND` justifies going without: then set the brand name in the Style Design
+  font and record it in the final report. **Never** draw, improvise or generate a brand logo - in any case.
 - CC0 covers the *files*, not the trademarks. Referring to a brand is fine; implying it sponsors or endorses
   the video is not.
 

@@ -220,9 +220,13 @@ export function buildEditPrompt(input: {
         "tên file và MÃ MÀU chính thức của từng brand).",
     );
     lines.push(
-      "- Video cần nhắc tới một brand (Facebook, TikTok, Claude, Gemini...) thì DÙNG FILE " +
-        "TRONG THƯ VIỆN NÀY. CẤM tự vẽ lại logo brand, CẤM nhờ Gemini sinh logo brand - " +
-        "logo sai nhận diện là lỗi nhìn ra ngay.",
+      "QUY TRÌNH BẮT BUỘC: đọc kịch bản/transcript, LIỆT KÊ mọi thương hiệu được nhắc tới " +
+        "(Facebook, TikTok, Claude, Gemini, OpenAI, Shopee...), rồi với TỪNG brand tìm logo " +
+        "theo đúng thứ tự dưới đây trước khi dựng scene có nhắc tên brand đó.",
+    );
+    lines.push(
+      "- Có trong `assets/brand-logos/` -> DÙNG FILE ĐÓ. CẤM tự vẽ lại logo brand, CẤM nhờ " +
+        "Gemini sinh logo brand - logo sai nhận diện là lỗi nhìn ra ngay.",
     );
     lines.push(
       "- Cách dùng: CHÉP file cần dùng vào `assets/` của project trước, rồi mới tham chiếu. " +
@@ -233,8 +237,15 @@ export function buildEditPrompt(input: {
         "`fill` - dùng đúng mã màu brand trong library.json, hoặc trắng/đen tùy nền cho dễ đọc.",
     );
     lines.push(
-      "- Brand KHÔNG có trong thư viện: đừng bịa. Nói bằng CHỮ (tên brand đặt bằng font của " +
-        "Style Design) và ghi vào báo cáo cuối là thiếu logo brand đó.",
+      "- Brand CHƯA có trong thư viện: gọi `POST http://localhost:6869/api/brand-logos` với " +
+        '`{"name":"<tên brand>"}`. Server tự tìm logo chính thức trên mạng (Simple Icons rồi ' +
+        "Wikidata), tải về `assets/brand-logos/` và trả `relPath`. Chép file đó vào `assets/` " +
+        "của project rồi dùng như trên.",
+    );
+    lines.push(
+      "- Chỉ khi endpoint trả 404 BRAND_LOGO_NOT_FOUND thì mới được bỏ logo: khi đó viết TÊN " +
+        "brand bằng chữ (font của Style Design) và ghi vào báo cáo cuối. " +
+        "TUYỆT ĐỐI KHÔNG tự vẽ, không tự chế, không nhờ Gemini sinh logo - trong MỌI trường hợp.",
     );
     lines.push("");
   }
