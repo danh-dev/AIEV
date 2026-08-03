@@ -1,5 +1,8 @@
 # AIEV - AI Edit Video by [noti.vn](https://noti.vn)
 
+[![CI](https://github.com/giapducthang/AIEV/actions/workflows/ci.yml/badge.svg)](https://github.com/giapducthang/AIEV/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
+
 [🇬🇧 English](README.md) · 🇻🇳 Tiếng Việt
 
 > **Edit video tự động bằng AI.** Claude đóng vai đạo diễn - điều khiển **HyperFrames** (dựng scene motion-graphics bằng HTML + GSAP) và **Remotion** (lắp ráp timeline) - bạn giám sát mọi thứ qua web dashboard tại `http://localhost:6868`.
@@ -84,7 +87,7 @@ frame Remotion dựng song song. Hai job của **cùng một project** không ba
 
 ## Yêu cầu
 
-- **Node.js 20+**
+- **Node.js 22+** (HyperFrames yêu cầu `>=22`)
 - **FFmpeg** trên PATH (macOS: `brew install ffmpeg`)
 - **Google Chrome** (HyperFrames và Remotion render qua headless Chromium)
 - **Claude**: đăng nhập [Claude Code](https://claude.com/claude-code) trên máy (dùng subscription OAuth - khuyên dùng) *hoặc* điền `ANTHROPIC_API_KEY` vào `.env`
@@ -154,7 +157,7 @@ Trang **Voices** quản lý giọng thuyết minh: 30 giọng Gemini dựng sẵ
 
 ### Sound effects & nhạc nền
 
-**Sound Effects** là thư viện: 100+ file có tag kèm bộ "đề xuất" AI ưu tiên dùng; upload và gắn tag thêm thoải mái. Nhạc nền nằm trong `assets/music/`, tự nhỏ xuống khi có thoại lúc lắp ráp.
+**Sound Effects** là thư viện: 100+ file có tag kèm bộ "đề xuất" AI ưu tiên dùng; upload và gắn tag thêm thoải mái. Nhạc nền nằm trong `assets/music/` và **repo cố ý không kèm sẵn bài nào** - bạn tự thêm nhạc của mình (trang Sound Effects → tab Nhạc nền → tải lên), AI sẽ chọn bài theo mood và tự hạ âm lượng khi có thoại. Xem [`assets/music/README.md`](assets/music/README.md).
 
 ### Render queue & Cấu hình
 
@@ -220,6 +223,12 @@ Trong trang project, ở card **Nguồn & Asset** bấm **Kết nối điện th
 
 Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk) · [HyperFrames](https://www.npmjs.com/package/hyperframes) · [Remotion](https://remotion.dev) · Gemini API · faster-whisper · FFmpeg
 
+## Đóng góp
+
+Rất hoan nghênh báo lỗi, bản vá và skill mới. Đọc [CONTRIBUTING.vi.md](CONTRIBUTING.vi.md) trước - trong đó có cách chạy dự án, hai lệnh CI chạy trên mọi PR (`npm run typecheck` và `npm run build`), và các quy ước của codebase này. Việc lớn hơn một sửa nhỏ thì mở issue trước khi bắt tay làm.
+
+Phát hiện lỗ hổng bảo mật? Đừng mở issue công khai, làm theo [SECURITY.md](SECURITY.md).
+
 ## Giấy phép
 
 [MIT](LICENSE) - tự do dùng, sửa và phân phối, kể cả cho mục đích thương mại.
@@ -227,6 +236,10 @@ Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude A
 > Lưu ý về phụ thuộc: dự án này cấp phép MIT, nhưng các công cụ đi kèm giữ giấy phép riêng.
 > Remotion miễn phí cho cá nhân và công ty tối đa 3 người; vượt mức đó cần
 > [Company License](https://remotion.pro). Chi phí Claude và Gemini tính vào tài khoản của bạn.
+>
+> Lưu ý về asset đi kèm: logo trong `assets/brand-logos/` là **nhãn hiệu của chủ thương hiệu**,
+> KHÔNG nằm trong giấy phép MIT này - xem [`assets/brand-logos/README.md`](assets/brand-logos/README.md).
+> Font và mọi media bạn tự thêm vào cũng giữ giấy phép riêng của chúng.
 
 ---
 

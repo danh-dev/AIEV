@@ -1,5 +1,8 @@
 # AIEV - AI Edit Video by [noti.vn](https://noti.vn)
 
+[![CI](https://github.com/giapducthang/AIEV/actions/workflows/ci.yml/badge.svg)](https://github.com/giapducthang/AIEV/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
+
 🇬🇧 English · [🇻🇳 Tiếng Việt](README.vi.md)
 
 > **Automatic AI video editing.** Claude acts as the director - driving **HyperFrames** (motion-graphics scenes built with HTML + GSAP) and **Remotion** (timeline assembly) - while you supervise everything through the web dashboard at `http://localhost:6868`.
@@ -85,7 +88,7 @@ belonging to the **same project** never run at the same time.
 
 ## Requirements
 
-- **Node.js 20+**
+- **Node.js 22+** (HyperFrames requires `>=22`)
 - **FFmpeg** on PATH (macOS: `brew install ffmpeg`)
 - **Google Chrome** (HyperFrames and Remotion render through headless Chromium)
 - **Claude**: sign in to [Claude Code](https://claude.com/claude-code) on this machine (uses subscription OAuth - recommended) *or* put `ANTHROPIC_API_KEY` in `.env`
@@ -155,7 +158,7 @@ The **Voices** page manages narration voices: 30 Gemini preset voices (online, p
 
 ### Sound effects & music
 
-**Sound Effects** hosts the library: 100+ files with tags and a curated "recommended" set the AI reaches for first; upload and tag your own. Background music lives in `assets/music/` and ducks automatically under speech during assembly.
+**Sound Effects** hosts the library: 100+ files with tags and a curated "recommended" set the AI reaches for first; upload and tag your own. Background music lives in `assets/music/`, which **ships empty on purpose** - add your own tracks (Sound Effects page → Music tab → upload) and the AI picks one by mood and ducks it automatically under speech. See [`assets/music/README.md`](assets/music/README.md).
 
 ### Render queue & Settings
 
@@ -221,6 +224,12 @@ On a project page, in the **Sources & Assets** card click **Connect phone** - sc
 
 Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk) · [HyperFrames](https://www.npmjs.com/package/hyperframes) · [Remotion](https://remotion.dev) · Gemini API · faster-whisper · FFmpeg
 
+## Contributing
+
+Bug reports, fixes and skills are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first - it covers the setup, the two commands CI runs on every PR (`npm run typecheck` and `npm run build`), and the conventions this codebase follows. For anything larger than a small fix, open an issue before you build.
+
+Found a security problem? Do not open a public issue - follow [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE) - free to use, modify and distribute, including commercially.
@@ -228,6 +237,11 @@ Next.js 16 · React 19 · Tailwind 4 · Express 5 · better-sqlite3 · [Claude A
 > Note on dependencies: this project's own license is MIT, but bundled tools keep their own.
 > Remotion in particular is free for individuals and companies of up to 3 people; beyond that you
 > need a [Company License](https://remotion.pro). Claude and Gemini usage is billed to your own account.
+>
+> Note on bundled assets: the brand logos under `assets/brand-logos/` are trademarks of their
+> respective owners and are **not** covered by this MIT license - see
+> [`assets/brand-logos/README.md`](assets/brand-logos/README.md). Fonts and any media you add
+> yourself keep their own licenses too.
 
 ---
 
