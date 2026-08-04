@@ -27,9 +27,12 @@ import {
 } from "@/lib/api";
 import { useUploadEvents } from "@/lib/useEvents";
 import { Button } from "@/components/Button";
+import { CheckboxField, Field } from "@/components/Field";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
 import { Modal } from "@/components/Modal";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
+import { Panel } from "@/components/Panel";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StyleSelect } from "@/components/StyleSelect";
 import {
@@ -67,48 +70,13 @@ function briefPayload(brief: Brief): Partial<Brief> {
   return payload;
 }
 
-/** Thẻ chọn được (mode / layout / nền): tiêu đề + một dòng giải thích. */
-function OptionCard({
-  active,
-  disabled,
-  title,
-  desc,
-  onClick,
-}: {
-  active: boolean;
-  disabled?: boolean;
-  title: string;
-  desc: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-pressed={active}
-      onClick={onClick}
-      className={`flex min-w-[180px] flex-1 flex-col gap-0.5 rounded-[var(--radius)] border p-3 text-left transition-colors duration-150 ${
-        active
-          ? "border-[var(--primary)] bg-[var(--primary-soft)]"
-          : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--bg-subtle)]"
-      } disabled:cursor-not-allowed disabled:opacity-45`}
-    >
-      <span
-        className={`text-[13px] font-semibold ${
-          active ? "text-[var(--primary)]" : "text-[var(--text)]"
-        }`}
-      >
-        {title}
-      </span>
-      <span className="text-[11px] leading-snug text-[var(--text-muted)]">
-        {desc}
-      </span>
-    </button>
-  );
-}
-
-/** Ô nhập số nhỏ - dùng cho phút/giây/số đoạn. */
+/**
+ * Ô nhập số nhỏ - dùng cho phút/giây/số đoạn.
+ * Chỉ còn là <Field> + <input type="number">: nhãn, cỡ chữ và chỗ đặt gợi ý do
+ * primitive quyết định, ở đây chỉ chọn bề rộng.
+ */
 function NumField({
+  id,
   label,
   value,
   min,
@@ -116,6 +84,7 @@ function NumField({
   onChange,
   width = "w-28",
 }: {
+  id: string;
   label: string;
   value: string;
   min: number;
@@ -124,9 +93,9 @@ function NumField({
   width?: string;
 }) {
   return (
-    <label className={`flex ${width} flex-col gap-1 text-xs text-[var(--text-muted)]`}>
-      {label}
+    <Field label={label} htmlFor={id} className={width}>
       <input
+        id={id}
         className="input"
         type="number"
         min={min}
@@ -134,7 +103,7 @@ function NumField({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       />
-    </label>
+    </Field>
   );
 }
 
@@ -310,17 +279,21 @@ export function AutoCutCreateModal({
     `${t("brief.music-label")}: ${t(MUSIC_MODE_LABEL[brief.musicMode])}`,
   ].join(" · ");
 
+  // Dấu X và nút Hủy đi CHUNG một đường - đang tạo phiên thì cả hai cùng bị chặn
+  function close() {
+    if (!creating) onClose();
+  }
+
   return (
+    // KHÔNG `wide`: đây là biểu mẫu MỘT CỘT (nguồn → cách cắt → đầu ra → tùy
+    // chọn), đọc từ trên xuống. Kéo rộng ra 960px chỉ làm mỗi dòng dài thượt.
     <Modal
       title={t("autocut.create-title")}
       open={open}
-      onClose={() => {
-        if (!creating) onClose();
-      }}
-      wide
+      onClose={close}
       footer={
         <>
-          <Button variant="secondary" disabled={creating} onClick={onClose}>
+          <Button variant="secondary" disabled={creating} onClick={close}>
             {t("common.cancel")}
           </Button>
           {createdId && createError ? (
@@ -349,8 +322,7 @@ export function AutoCutCreateModal({
       )}
 
       {/* ---- 1. Nguồn ---- */}
-      <div>
-        <span className="label">{t("autocut.source")}</span>
+      <Panel title={t("autocut.source")}>
         {sourcesError && (
           <ErrorBanner message={t("autocut.sources-error")} detail={sourcesError} />
         )}
@@ -393,31 +365,24 @@ export function AutoCutCreateModal({
             {uploading ? t("autocut.uploading") : t("autocut.upload")}
           </Button>
         </div>
-        {uploading && (
-          <div className="mt-2">
-            {uploadPct === null ? (
-              <div className="progress-indeterminate" />
-            ) : (
-              <ProgressBar progress={uploadPct} />
-            )}
-          </div>
-        )}
+        {uploading &&
+          (uploadPct === null ? (
+            <div className="progress-indeterminate" />
+          ) : (
+            <ProgressBar progress={uploadPct} />
+          ))}
         {uploadError && (
-          <div className="mt-2">
-            <ErrorBanner message={t("autocut.upload-error")} detail={uploadError} />
-          </div>
+          <ErrorBanner message={t("autocut.upload-error")} detail={uploadError} />
         )}
+        {/* Đường dẫn + dung lượng = phụ chú đi kèm lựa chọn ở trên */}
         {selectedSource && (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
+          <p className="text-meta text-[var(--text-muted)]">
             {selectedSource.relPath} · {formatBytes(selectedSource.size)}
           </p>
         )}
-      </div>
+      </Panel>
 
-      <div>
-        <label className="label" htmlFor="autocut-name">
-          {t("autocut.name")}
-        </label>
+      <Field label={t("autocut.name")} htmlFor="autocut-name">
         <input
           id="autocut-name"
           className="input"
@@ -426,34 +391,35 @@ export function AutoCutCreateModal({
           placeholder={t("autocut.name-placeholder")}
           onChange={(e) => setName(e.target.value)}
         />
-      </div>
+      </Field>
 
       {/* ---- 2. Cách cắt ---- */}
-      <div>
-        <span className="label">
-          {t("autocut.how")}
+      <Panel
+        title={t("autocut.how")}
+        actions={
           <InfoHint
-            className="ml-1.5 align-middle"
             titleKey="help.autocut-mode.title"
             bodyKey="help.autocut-mode.body"
           />
-        </span>
-        <div className="flex flex-wrap gap-2">
+        }
+      >
+        <OptionCardGroup label={t("autocut.how")}>
           {MODES.map((m) => (
             <OptionCard
               key={m}
-              active={mode === m}
+              selected={mode === m}
               disabled={creating}
               title={t(MODE_LABEL[m])}
-              desc={t(MODE_DESC[m])}
-              onClick={() => setMode(m)}
+              description={t(MODE_DESC[m])}
+              onSelect={() => setMode(m)}
             />
           ))}
-        </div>
+        </OptionCardGroup>
 
         {mode === "time" ? (
-          <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap items-start gap-2">
             <NumField
+              id="autocut-minutes"
               label={t("autocut.minutes")}
               value={minutes}
               min={1}
@@ -461,6 +427,7 @@ export function AutoCutCreateModal({
               onChange={setMinutes}
             />
             <NumField
+              id="autocut-overlap"
               label={t("autocut.overlap")}
               value={overlapSec}
               min={0}
@@ -469,11 +436,15 @@ export function AutoCutCreateModal({
             />
           </div>
         ) : (
-          <div className="mt-2 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
             {mode === "prompt" && (
-              <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
-                {t("autocut.request")}
+              <Field
+                label={t("autocut.request")}
+                htmlFor="autocut-request"
+                error={requestMissing ? t("autocut.request-required") : null}
+              >
                 <textarea
+                  id="autocut-request"
                   className="input"
                   rows={2}
                   value={request}
@@ -481,15 +452,11 @@ export function AutoCutCreateModal({
                   placeholder={t("autocut.request-placeholder")}
                   onChange={(e) => setRequest(e.target.value)}
                 />
-                {requestMissing && (
-                  <span className="text-[var(--danger)]">
-                    {t("autocut.request-required")}
-                  </span>
-                )}
-              </label>
+              </Field>
             )}
-            <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-wrap items-start gap-2">
               <NumField
+                id="autocut-count"
                 label={t("autocut.count")}
                 value={count}
                 min={1}
@@ -498,6 +465,7 @@ export function AutoCutCreateModal({
                 width="w-24"
               />
               <NumField
+                id="autocut-min-sec"
                 label={t("autocut.min-sec")}
                 value={minSec}
                 min={5}
@@ -505,6 +473,7 @@ export function AutoCutCreateModal({
                 onChange={setMinSec}
               />
               <NumField
+                id="autocut-max-sec"
                 label={t("autocut.max-sec")}
                 value={maxSec}
                 min={6}
@@ -514,212 +483,199 @@ export function AutoCutCreateModal({
             </div>
           </div>
         )}
-      </div>
+      </Panel>
 
       {/* ---- 3. Đầu ra ---- */}
-      <div>
-        <span className="label">
-          {t("autocut.aspect")}
+      <Panel
+        title={t("autocut.aspect")}
+        actions={
           <InfoHint
-            className="ml-1.5 align-middle"
             titleKey="help.autocut-aspect.title"
             bodyKey="help.autocut-aspect.body"
           />
-        </span>
-        <div className="flex flex-wrap gap-2">
+        }
+      >
+        {/* Tỉ lệ khung hình cũng là <OptionCard> - trước đây nó là bản viết lại
+            LẦN THỨ HAI của thẻ lựa chọn ngay trong chính file đã tự định nghĩa
+            một thẻ lựa chọn khác. Kích thước pixel đóng vai mô tả. */}
+        <OptionCardGroup
+          label={t("autocut.aspect")}
+          className="grid-cols-[repeat(auto-fit,minmax(120px,1fr))]"
+        >
           {ASPECTS.map((a) => {
             const size = aspectSize(a);
-            const active = aspect === a;
             return (
-              <button
+              <OptionCard
                 key={a}
-                type="button"
+                selected={aspect === a}
                 disabled={creating}
-                aria-pressed={active}
-                onClick={() => setAspect(a)}
-                className={`flex min-w-[92px] flex-1 flex-col items-center gap-0.5 rounded-[var(--radius)] border px-3 py-2 transition-colors duration-150 ${
-                  active
-                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-                } disabled:cursor-not-allowed disabled:opacity-45`}
-              >
-                <span className="text-[13px] font-semibold">
-                  {a === "keep" ? t("autocut.aspect.keep") : a}
-                </span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {size ? `${size.width}x${size.height}` : t("autocut.aspect.keep-size")}
-                </span>
-              </button>
+                title={a === "keep" ? t("autocut.aspect.keep") : a}
+                description={
+                  size
+                    ? `${size.width}x${size.height}`
+                    : t("autocut.aspect.keep-size")
+                }
+                onSelect={() => setAspect(a)}
+              />
             );
           })}
-        </div>
-      </div>
+        </OptionCardGroup>
+        {!reframing && (
+          <p className="text-sm text-[var(--text-muted)]">
+            {t("autocut.keep-note")}
+          </p>
+        )}
+      </Panel>
 
-      {reframing ? (
+      {reframing && (
         <>
-          <div>
-            <span className="label">
-              {t("autocut.layout")}
+          <Panel
+            title={t("autocut.layout")}
+            actions={
               <InfoHint
-                className="ml-1.5 align-middle"
                 titleKey="help.autocut-layout.title"
                 bodyKey="help.autocut-layout.body"
               />
-            </span>
-            <div className="flex flex-wrap gap-2">
+            }
+          >
+            <OptionCardGroup label={t("autocut.layout")}>
               {LAYOUTS.map((l) => (
                 <OptionCard
                   key={l}
-                  active={layout === l}
+                  selected={layout === l}
                   disabled={creating}
                   title={t(LAYOUT_LABEL[l])}
-                  desc={t(LAYOUT_DESC[l])}
-                  onClick={() => setLayout(l)}
+                  description={t(LAYOUT_DESC[l])}
+                  onSelect={() => setLayout(l)}
                 />
               ))}
-            </div>
-          </div>
+            </OptionCardGroup>
+          </Panel>
 
           {needBackground && (
-            <div>
-              <span className="label">
-                {t("autocut.background")}
+            <Panel
+              title={t("autocut.background")}
+              actions={
                 <InfoHint
-                  className="ml-1.5 align-middle"
                   titleKey="help.autocut-background.title"
                   bodyKey="help.autocut-background.body"
                 />
-              </span>
-              <div className="flex flex-wrap gap-2">
+              }
+            >
+              <OptionCardGroup label={t("autocut.background")}>
                 {BACKGROUNDS.map((b) => (
                   <OptionCard
                     key={b}
-                    active={background === b}
+                    selected={background === b}
                     disabled={creating}
                     title={t(BACKGROUND_LABEL[b])}
-                    desc={t(BACKGROUND_DESC[b])}
-                    onClick={() => setBackground(b)}
+                    description={t(BACKGROUND_DESC[b])}
+                    onSelect={() => setBackground(b)}
                   />
                 ))}
-              </div>
-              <label className="mt-2 flex flex-col gap-1 text-xs text-[var(--text-muted)]">
-                {t("autocut.style")}
+              </OptionCardGroup>
+              {/* htmlFor + id BẮT BUỘC đi cùng nhau: <Field> chỉ render <label>
+                  khi có htmlFor (không thì ra <span>), mà bản cũ dựa vào việc
+                  bọc control trong <label> để có nhãn ngầm. Bỏ cả hai là còn
+                  đúng một combobox không tên cho trình đọc màn hình. */}
+              <Field label={t("autocut.style")} htmlFor="autocut-style">
                 <StyleSelect
+                  id="autocut-style"
                   value={styleId}
                   disabled={creating}
                   onChange={setStyleId}
                 />
-              </label>
-            </div>
+              </Field>
+            </Panel>
           )}
         </>
-      ) : (
-        <p className="text-xs text-[var(--text-muted)]">
-          {t("autocut.keep-note")}
-        </p>
       )}
 
       {/* ---- 4. Tùy chọn ---- */}
-      <div>
-        <span className="label">{t("autocut.options")}</span>
-        {/* Nhãn dùng htmlFor thay vì bọc input, để nút (i) là anh em của nhãn
-            chứ không nằm TRONG <label> (bấm (i) sẽ tick nhầm checkbox) */}
-        <div className="flex items-start gap-2 text-xs">
-          <input
-            id="autocut-transcribe"
-            type="checkbox"
-            className="checkbox mt-0.5"
-            checked={transcribe}
-            disabled={transcribeLocked || creating}
-            onChange={(e) => setTranscribe(e.target.checked)}
-          />
-          <span>
-            <label htmlFor="autocut-transcribe" className="cursor-pointer">
-              {t("autocut.transcribe")}
-            </label>
-            <InfoHint
-              className="ml-1.5 align-middle"
-              titleKey="help.autocut-transcribe.title"
-              bodyKey="help.autocut-transcribe.body"
-            />
-            <span className="block text-[var(--text-muted)]">
-              {transcribeLocked
-                ? t("autocut.transcribe-locked")
-                : t("autocut.transcribe-hint")}
-            </span>
-          </span>
-        </div>
-        <div className="mt-2 flex items-start gap-2 text-xs">
-          <input
-            id="autocut-auto-edit"
-            type="checkbox"
-            className="checkbox mt-0.5"
-            checked={autoEdit}
-            disabled={creating}
-            onChange={(e) => setAutoEdit(e.target.checked)}
-          />
-          <span>
-            <label htmlFor="autocut-auto-edit" className="cursor-pointer">
-              {t("autocut.auto-edit")}
-            </label>
-            <InfoHint
-              className="ml-1.5 align-middle"
-              titleKey="help.autocut-autoedit.title"
-              bodyKey="help.autocut-autoedit.body"
-            />
-            <span className="block text-[var(--text-muted)]">
-              {t("autocut.auto-edit-hint")}
-            </span>
-          </span>
-        </div>
+      <Panel title={t("autocut.options")}>
+        {/* <CheckboxField> lo cả nhãn, gợi ý và nút (i) - nút (i) là ANH EM của
+            nhãn chứ không nằm trong <label>, nếu không bấm (i) sẽ tick nhầm ô */}
+        <CheckboxField
+          id="autocut-transcribe"
+          label={t("autocut.transcribe")}
+          hint={
+            transcribeLocked
+              ? t("autocut.transcribe-locked")
+              : t("autocut.transcribe-hint")
+          }
+          hintKeys={{
+            titleKey: "help.autocut-transcribe.title",
+            bodyKey: "help.autocut-transcribe.body",
+          }}
+          checked={transcribe}
+          disabled={transcribeLocked || creating}
+          onChange={setTranscribe}
+        />
+        <CheckboxField
+          id="autocut-auto-edit"
+          label={t("autocut.auto-edit")}
+          hint={t("autocut.auto-edit-hint")}
+          hintKeys={{
+            titleKey: "help.autocut-autoedit.title",
+            bodyKey: "help.autocut-autoedit.body",
+          }}
+          checked={autoEdit}
+          disabled={creating}
+          onChange={setAutoEdit}
+        />
+      </Panel>
 
-        {/* Kịch bản edit dùng chung cho cả phiên - cấu hình một lần, mọi video
-            cắt ra edit được ngay, khỏi vào từng project chỉnh lại */}
-        <div className="mt-3 rounded-[var(--radius)] border border-[var(--border)]">
-          <button
-            type="button"
-            aria-expanded={briefOpen}
-            onClick={() => setBriefOpen((v) => !v)}
-            className="flex w-full items-start gap-2 rounded-[var(--radius)] p-3 text-left transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
-          >
-            {briefOpen ? (
-              <ChevronDown
-                size={15}
-                strokeWidth={2}
-                className="mt-0.5 shrink-0 text-[var(--text-muted)]"
-              />
-            ) : (
-              <ChevronRight
-                size={15}
-                strokeWidth={2}
-                className="mt-0.5 shrink-0 text-[var(--text-muted)]"
-              />
-            )}
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium text-[var(--text)]">
-                {t("autocut.brief-title")}
-              </span>
-              <span className="mt-0.5 block truncate text-[11px] text-[var(--text-muted)]">
-                {briefOpen ? t("autocut.brief-hint") : briefSummary}
-              </span>
-            </span>
-          </button>
-          {briefOpen && (
-            <div className="border-t border-[var(--border)] p-3">
-              <BriefFields
-                value={brief}
-                onChange={(p) => setBrief((b) => ({ ...b, ...p }))}
-                // Style Design đã có ô riêng phía trên; mô tả từng đoạn do server tự viết
-                show={{ styleId: false, sourceDescription: false }}
-                disabled={creating}
-              />
-            </div>
+      {/* Kịch bản edit dùng chung cho cả phiên - cấu hình một lần, mọi video
+          cắt ra edit được ngay, khỏi vào từng project chỉnh lại */}
+      {/* CỐ Ý không phải <Panel>: bên trong là <BriefFields>, mà component đó
+          đã tự dựng một <Panel> cho cụm công tắc. Lồng Panel trong Panel là ba
+          tầng viền trong modal - đúng thứ Panel.tsx cấm. Ở đây chỉ cần một
+          đường viền để gom phần gấp/mở, KHÔNG tô nền --bg-subtle, nhờ vậy hộp
+          bên trong vẫn nổi lên rõ ràng. */}
+      <div className="flex min-w-0 flex-col rounded-[var(--radius)] border border-[var(--border)]">
+        <button
+          type="button"
+          aria-expanded={briefOpen}
+          onClick={() => setBriefOpen((v) => !v)}
+          className="flex w-full items-start gap-2 rounded-[var(--radius)] p-3 text-left transition-colors duration-150 hover:bg-[var(--border)]"
+        >
+          {briefOpen ? (
+            <ChevronDown
+              size={15}
+              strokeWidth={2}
+              className="mt-1 shrink-0 text-[var(--text-muted)]"
+            />
+          ) : (
+            <ChevronRight
+              size={15}
+              strokeWidth={2}
+              className="mt-1 shrink-0 text-[var(--text-muted)]"
+            />
           )}
-        </div>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">
+              {t("autocut.brief-title")}
+            </span>
+            <span className="block truncate text-meta text-[var(--text-muted)]">
+              {briefOpen ? t("autocut.brief-hint") : briefSummary}
+            </span>
+          </span>
+        </button>
+        {briefOpen && (
+          <div className="border-t border-[var(--border)] p-3">
+            <BriefFields
+              value={brief}
+              onChange={(p) => setBrief((b) => ({ ...b, ...p }))}
+              // Style Design đã có ô riêng phía trên; mô tả từng đoạn do server tự viết
+              show={{ styleId: false, sourceDescription: false }}
+              disabled={creating}
+            />
+          </div>
+        )}
       </div>
 
       {selectedSource?.relPath && mode === "time" && (
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-meta text-[var(--text-muted)]">
           {tf("autocut.time-hint", { minutes: clock(Number(minutes) * 60 || 0) })}
         </p>
       )}

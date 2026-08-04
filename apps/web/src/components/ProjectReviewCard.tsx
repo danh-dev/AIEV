@@ -24,23 +24,16 @@ import {
   type ReviewNote,
   type ReviewNoteStatus,
 } from "@/lib/api";
+import { Badge, type BadgeTone } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { IconButton } from "@/components/IconButton";
+import { Panel } from "@/components/Panel";
+import { clock } from "@/lib/format";
 import { useT } from "@/lib/i18n";
-
-/**
- * Giây → "mm:ss" (phút vượt 59 vẫn hiện đúng với video dài).
- * Viết tại chỗ vì lib/format.ts chưa có helper thời lượng dạng đồng hồ.
- */
-function clock(sec: number): string {
-  const total = Math.max(0, Math.floor(sec));
-  const mm = Math.floor(total / 60);
-  const ss = total % 60;
-  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-}
 
 /** Bộ đếm ký tự chỉ hiện khi sắp chạm trần - không làm ồn ô nhập lúc gõ ngắn. */
 const COUNTER_FROM = REVIEW_TEXT_MAX - 80;
@@ -51,22 +44,11 @@ const STATUS_KEY: Record<ReviewNoteStatus, string> = {
   resolved: "review.status-resolved",
 };
 
-/** Chip trạng thái ghi chú - dùng lại bảng màu badge của design system. */
-function NoteStatusChip({ status }: { status: ReviewNoteStatus }) {
-  const { t } = useT();
-  const cls =
-    status === "resolved"
-      ? "badge-success"
-      : status === "sent"
-        ? "badge-running"
-        : "badge-muted";
-  return (
-    <span className={`badge ${cls} shrink-0`}>
-      <span className="badge-dot" />
-      {t(STATUS_KEY[status])}
-    </span>
-  );
-}
+const STATUS_TONE: Record<ReviewNoteStatus, BadgeTone> = {
+  open: "muted",
+  sent: "running",
+  resolved: "success",
+};
 
 /**
  * Card "Duyệt bản draft": xem draft, ghim ghi chú tại đúng giây, gửi cả loạt
@@ -250,16 +232,8 @@ export function ProjectReviewCard({
 
   return (
     <Card
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          {t("review.title")}
-          <InfoHint
-            titleKey="help.review.title"
-            bodyKey="help.review.body"
-            size={14}
-          />
-        </span>
-      }
+      title={t("review.title")}
+      hint={{ titleKey: "help.review.title", bodyKey: "help.review.body" }}
     >
       {loadError && (
         <div className="mb-3">
@@ -278,7 +252,7 @@ export function ProjectReviewCard({
             className="mx-auto max-h-[280px] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
           />
           {draftMissing && (
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-meta text-[var(--text-muted)]">
               {t("review.watching-final")}
             </p>
           )}
@@ -295,26 +269,26 @@ export function ProjectReviewCard({
               <Pin size={14} strokeWidth={2} />
               {tf("review.pin-at", { time: clock(currentSec) })}
             </Button>
-            <span className="text-xs text-[var(--text-muted)]">
+            <span className="text-meta text-[var(--text-muted)]">
               {t("review.pin-hint")}
             </span>
           </div>
 
           {pinAt !== null && (
-            <div className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-[var(--primary)]">
-                  {clock(pinAt)}
-                </span>
-                <button
-                  type="button"
-                  aria-label={t("common.close")}
+            <Panel
+              title={
+                <span className="text-[var(--primary)]">{clock(pinAt)}</span>
+              }
+              actions={
+                <IconButton
+                  label={t("common.close")}
+                  size="sm"
                   onClick={() => setPinAt(null)}
-                  className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)]"
                 >
                   <X size={14} strokeWidth={2} />
-                </button>
-              </div>
+                </IconButton>
+              }
+            >
               <textarea
                 ref={newInputRef}
                 className="input"
@@ -334,7 +308,7 @@ export function ProjectReviewCard({
                 }}
               />
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-[var(--text-muted)]">
+                <span className="text-meta text-[var(--text-muted)]">
                   {newText.length >= COUNTER_FROM
                     ? tf("review.chars-left", { n: newLeft })
                     : ""}
@@ -352,13 +326,15 @@ export function ProjectReviewCard({
                   {t("review.add")}
                 </Button>
               </div>
-            </div>
+            </Panel>
           )}
         </div>
       )}
 
       {actionError && (
-        <p className="mt-2 text-xs text-[var(--danger)]">{actionError}</p>
+        <div className="mt-2">
+          <ErrorBanner message={actionError} />
+        </div>
       )}
 
       {/* Danh sách ghi chú theo thứ tự thời gian trong video */}
@@ -366,25 +342,27 @@ export function ProjectReviewCard({
         {notes.length === 0 ? (
           <EmptyState icon={ClipboardCheck} description={t("review.no-notes")} />
         ) : (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col divide-y divide-[var(--border)]">
             {notes.map((n) => {
               const busy = busyId === n.id;
               return (
                 <li
                   key={n.id}
-                  className="flex flex-wrap items-start gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
+                  // Nét kẻ ngăn hàng thay cho hộp viền riêng từng hàng - xem lý
+                  // do ở danh sách clip trong ProjectClipsCard.
+                  className="flex flex-wrap items-start gap-2 py-2 first:pt-0 last:pb-0"
                 >
                   <button
                     type="button"
                     onClick={() => seekTo(n.atSec)}
                     aria-label={tf("review.seek-aria", { time: clock(n.atSec) })}
-                    className="shrink-0 rounded-[var(--radius)] bg-[var(--surface)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[var(--primary)] transition-colors duration-150 hover:bg-[var(--primary-soft)]"
+                    className="shrink-0 rounded-[var(--radius)] bg-[var(--surface)] px-1.5 py-0.5 font-mono text-meta font-semibold text-[var(--primary)] transition-colors duration-150 hover:bg-[var(--primary-soft)]"
                   >
                     {clock(n.atSec)}
                   </button>
 
                   {editingId === n.id ? (
-                    <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
+                    <div className="flex min-w-[180px] flex-1 flex-col gap-2">
                       <textarea
                         className="input"
                         rows={2}
@@ -403,7 +381,7 @@ export function ProjectReviewCard({
                         }}
                       />
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-[var(--text-muted)]">
+                        <span className="text-meta text-[var(--text-muted)]">
                           {editText.length >= COUNTER_FROM
                             ? tf("review.chars-left", { n: editLeft })
                             : ""}
@@ -429,52 +407,51 @@ export function ProjectReviewCard({
                       </div>
                     </div>
                   ) : (
-                    <p className="min-w-[140px] flex-1 whitespace-pre-line text-[13px] leading-snug">
+                    <p className="min-w-[140px] flex-1 whitespace-pre-line text-sm leading-snug">
                       {n.text}
                     </p>
                   )}
 
                   <span className="ml-auto flex shrink-0 items-center gap-1">
-                    <NoteStatusChip status={n.status} />
+                    <Badge
+                      tone={STATUS_TONE[n.status] ?? "muted"}
+                      label={t(STATUS_KEY[n.status])}
+                      className="shrink-0"
+                    />
                     {editingId !== n.id && (
                       <>
-                        <button
-                          type="button"
-                          title={t("review.edit-note")}
-                          aria-label={t("review.edit-note")}
+                        <IconButton
+                          label={t("review.edit-note")}
+                          size="sm"
                           disabled={busy}
                           onClick={() => {
                             setEditingId(n.id);
                             setEditText(n.text);
                           }}
-                          className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)] disabled:opacity-50"
                         >
                           <Pencil size={13} strokeWidth={2} />
-                        </button>
+                        </IconButton>
                         {n.status !== "resolved" && (
-                          <button
-                            type="button"
-                            title={t("review.mark-resolved")}
-                            aria-label={t("review.mark-resolved")}
+                          <IconButton
+                            label={t("review.mark-resolved")}
+                            size="sm"
                             disabled={busy}
                             onClick={() =>
                               patchNote(n.id, { status: "resolved" })
                             }
-                            className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:opacity-50"
                           >
                             <Check size={13} strokeWidth={2} />
-                          </button>
+                          </IconButton>
                         )}
-                        <button
-                          type="button"
-                          title={t("review.delete-note")}
-                          aria-label={t("review.delete-note")}
+                        <IconButton
+                          label={t("review.delete-note")}
+                          size="sm"
+                          tone="danger"
                           disabled={busy}
                           onClick={() => removeNote(n.id)}
-                          className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
                         >
                           <Trash2 size={13} strokeWidth={2} />
-                        </button>
+                        </IconButton>
                       </>
                     )}
                   </span>
@@ -499,7 +476,7 @@ export function ProjectReviewCard({
           onChange={(e) => setExtraNotes(e.target.value)}
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs text-[var(--text-muted)]">
+          <span className="text-meta text-[var(--text-muted)]">
             {sendBlocked
               ? t("review.busy")
               : openCount === 0
@@ -522,9 +499,7 @@ export function ProjectReviewCard({
             {sending ? t("review.sending") : tf("review.send", { n: openCount })}
           </Button>
         </div>
-        {sentInfo && (
-          <p className="text-xs text-[var(--success)]">{sentInfo}</p>
-        )}
+        {sentInfo && <Banner tone="success" message={sentInfo} />}
         {sendError && (
           <ErrorBanner message={t("review.send-error")} detail={sendError} />
         )}

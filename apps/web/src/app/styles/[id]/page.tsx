@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Chi tiết một Style Design - bộ nhận diện (màu, font, logo, tone).
+ *
+ * Bố cục dùng bộ khối workspace 3 cột dùng chung, KHÔNG tự dựng lưới bằng media
+ * query nữa: bề rộng thật của vùng nội dung còn phụ thuộc rail trái và panel
+ * phải đang gấp hay mở, nên số cột phải do container query của `.workspace-grid`
+ * quyết định (xem ghi chú "Workspace 3 cột" trong globals.css).
+ *
+ * Mọi hành động cấp trang (Lưu, Đặt mặc định, Xóa) nằm trên PageHeader - giống
+ * các trang chi tiết khác - chứ không còn một thanh hành động tự chế ở đáy trang.
+ */
+
 import {
   ArrowLeft,
   Check,
@@ -24,7 +36,6 @@ import {
   deleteStyle,
   deleteStyleFont,
   getStyles,
-  mediaUrl,
   setDefaultStyle,
   styleFontGoogle,
   updateStyle,
@@ -36,17 +47,24 @@ import {
   type StyleEffects,
   type StyleFontSlot,
 } from "@/lib/api";
+import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { CheckboxField, Field } from "@/components/Field";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { IconButton } from "@/components/IconButton";
 import {
   MediaPreviewModal,
   ZoomableThumb,
   imageFileInfo,
 } from "@/components/MediaPreviewModal";
 import { PageHeader } from "@/components/PageHeader";
+import { Panel } from "@/components/Panel";
+import { Skeleton } from "@/components/Skeleton";
 import { TagInput } from "@/components/TagInput";
+import { Workspace, WorkspaceColumn } from "@/components/Workspace";
 import { refreshStyles } from "@/components/StyleSelect";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -110,29 +128,28 @@ function ColorField({
   const { t } = useT();
   const valid = HEX_RE.test(value);
   return (
-    <div>
-      <label className="label" htmlFor={id}>
-        {label}
-      </label>
+    <Field label={label} htmlFor={id}>
       <div className="flex items-center gap-2">
         <input
           type="color"
           aria-label={`${label} ${t("styleDetail.palette-aria")}`}
-          className="h-9 w-9 shrink-0 cursor-pointer rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-0.5"
+          className="h-9 w-9 shrink-0 cursor-pointer rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-1"
           value={valid ? hex6(value) : COLOR_INPUT_FALLBACK}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />
+        {/* `.input` chuẩn 14px - ô này chứa DỮ LIỆU brand người dùng gõ vào, thu
+            nhỏ xuống 12px thì chính thứ cần đọc lại là chữ nhỏ nhất màn hình */}
         <input
           id={id}
-          className="input h-9 flex-1 font-mono text-xs"
+          className="input min-w-0 flex-1 font-mono"
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
           placeholder="#rrggbb"
         />
       </div>
-    </div>
+    </Field>
   );
 }
 
@@ -168,6 +185,8 @@ function StylePreview({ style }: { style: StyleDesign }) {
         className="flex items-baseline gap-4 px-4 py-3"
         style={{ backgroundColor: c.background }}
       >
+        {/* 26px là DỮ LIỆU thương hiệu (mẫu chữ), không phải chrome của app -
+            nên nó nằm ngoài thang chữ ba bậc, cố ý giữ nguyên */}
         <span
           className="text-[26px] font-bold leading-none"
           style={{ color: c.text }}
@@ -211,8 +230,7 @@ export default function StyleDetailPage() {
     Partial<Record<StyleFontSlot, { busy?: boolean; error?: string }>>
   >({});
 
-  // Upload file font thủ công (collapse) - một input file dùng chung
-  const [manualFontOpen, setManualFontOpen] = useState(false);
+  // Upload file font thủ công - một input file dùng chung cho cả hai slot
   const [fontBusy, setFontBusy] = useState<StyleFontSlot | null>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
   const fontSlotRef = useRef<StyleFontSlot>("heading");
@@ -381,27 +399,61 @@ export default function StyleDetailPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={style?.name ?? styleId}
+        hint={{ titleKey: "help.styles.title", bodyKey: "help.styles.body" }}
         subtitle={
           style
             ? tf("styleDetail.updated", { time: formatRelative(style.updatedAt) })
             : undefined
         }
         actions={
-          <Button variant="secondary" onClick={() => router.push("/styles")}>
-            <ArrowLeft size={15} strokeWidth={2} />
-            {t("nav.styles")}
-          </Button>
+          /* Nút xóa đứng CUỐI, ngoài cụm nút thường, ngăn bằng vạch dọc - quy
+             ước chung của 7 trang chi tiết, lý do viết đầy đủ ở
+             `src/app/images/[id]/page.tsx`. */
+          <>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/styles")}>
+                <ArrowLeft size={15} strokeWidth={2} />
+                {t("nav.styles")}
+              </Button>
+              {style && !isDefault && (
+                <Button
+                  variant="secondary"
+                  disabled={settingDefault || busy}
+                  onClick={onSetDefault}
+                >
+                  <Star size={15} strokeWidth={2} />
+                  {settingDefault
+                    ? t("styleDetail.setting-default")
+                    : t("styleDetail.set-default")}
+                </Button>
+              )}
+              <Button onClick={onSave} disabled={!style || busy}>
+                <Save size={15} strokeWidth={2} />
+                {saving ? t("common.saving") : t("common.save")}
+              </Button>
+            </span>
+            <span className="flex items-center border-l border-[var(--border)] pl-2">
+              <Button
+                variant="destructive"
+                disabled={!style || busy}
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 size={15} strokeWidth={2} />
+                {deleting ? t("common.deleting") : t("styleDetail.delete")}
+              </Button>
+            </span>
+          </>
         }
       />
 
       {style && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+          {/* dot={false}: đây là nhãn PHÂN LOẠI, chấm tròn là quy ước của TRẠNG
+              THÁI - gắn vào đây người dùng đọc thành "đang chạy / đã xong" */}
           {isDefault && (
-            <span className="rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-              {t("styles.default")}
-            </span>
+            <Badge tone="running" label={t("styles.default")} dot={false} />
           )}
-          <span>ID: {style.id}</span>
+          <span className="text-meta">ID: {style.id}</span>
         </div>
       )}
 
@@ -418,43 +470,75 @@ export default function StyleDetailPage() {
       {deleteError && (
         <ErrorBanner message={t("styleDetail.delete-error")} detail={deleteError} />
       )}
+      {saved && <Banner tone="success" message={t("common.saved")} />}
+
+      {!style && !loadError && !notFound && (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      )}
 
       {style && (
         <>
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            {/* ============ Cột trái - Nhận diện ============ */}
-            <Card title={t("styleDetail.identity")}>
-              <div className="flex flex-col gap-4">
-                <StylePreview style={style} />
+          <Workspace>
+            {/* Trang này KHÔNG có kết quả sinh ra lúc chạy (không OutputBlock,
+                không job) - cả ba cột đều là form. Nên cột 3 mang role="setup"
+                chứ không phải "output": `.workspace-col-output` bị
+                `grid-column: 1 / -1` trong khoảng 700-1200px, tức là cái form
+                cuối trải hết bề ngang nằm dưới hai card nửa-rộng, gãy hẳn nhịp
+                lưới. Tên cột lấy luôn tên nhóm nội dung (Nhận diện / Màu & hiệu
+                ứng / Chữ & Logo) thay vì nhãn chung "Yêu cầu & thiết lập" - hai
+                cột cùng role mà cùng một nhãn thì không phân biệt được; card
+                bên trong bỏ tiêu đề để khỏi nhắc lại đúng chữ đó hai lần. */}
+            {/* ============ Cột 1 - Nhận diện ============ */}
+            <WorkspaceColumn
+              role="source"
+              title={t("styleDetail.identity")}
+              ariaLabel={t("styleDetail.identity")}
+            >
+              <Card>
+                <div className="flex flex-col gap-4">
+                  <StylePreview style={style} />
 
-                <div>
-                  <label className="label" htmlFor="style-name">
-                    {t("stylesPage.name-label")}
-                  </label>
-                  <input
-                    id="style-name"
-                    className="input"
-                    value={style.name}
-                    disabled={busy}
-                    onChange={(e) => patch({ name: e.target.value })}
-                    placeholder={t("stylesPage.name-placeholder")}
-                  />
+                  <Field
+                    label={t("stylesPage.name-label")}
+                    htmlFor="style-name"
+                  >
+                    <input
+                      id="style-name"
+                      className="input"
+                      value={style.name}
+                      disabled={busy}
+                      onChange={(e) => patch({ name: e.target.value })}
+                      placeholder={t("stylesPage.name-placeholder")}
+                    />
+                  </Field>
+
+                  <Field label={t("common.tags")} htmlFor="style-tags">
+                    <TagInput
+                      id="style-tags"
+                      tags={style.tags}
+                      onChange={(tags) => patch({ tags })}
+                    />
+                  </Field>
                 </div>
+              </Card>
+            </WorkspaceColumn>
 
-                <div>
-                  <label className="label" htmlFor="style-tags">
-                    {t("common.tags")}
-                  </label>
-                  <TagInput
-                    id="style-tags"
-                    tags={style.tags}
-                    onChange={(tags) => patch({ tags })}
-                  />
-                </div>
-
-                <div>
-                  <span className="label">{t("styleDetail.palette")}</span>
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+            {/* ============ Cột 2 - Màu & hiệu ứng ============ */}
+            <WorkspaceColumn
+              role="setup"
+              title={t("styleDetail.palette")}
+              ariaLabel={t("styleDetail.palette")}
+            >
+              <Card>
+                <div className="flex flex-col gap-4">
+                  {/* auto-fit chứ không `grid-cols-2`: mỗi ColorField là swatch
+                      36px + ô hex, ở bố cục 3 cột thì nửa cột chỉ còn ~155px và
+                      ô hex bị bóp. Ít chỗ thì xuống một cột, rộng thì tự xếp 2-3
+                      ô - lưới co theo chỗ thật của cột, không theo bề rộng cửa sổ. */}
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3">
                     {COLOR_FIELDS.map(({ key, label }) => (
                       <ColorField
                         key={key}
@@ -468,78 +552,67 @@ export default function StyleDetailPage() {
                       />
                     ))}
                   </div>
-                </div>
 
-                <div>
-                  <span className="label">{t("styleDetail.effects")}</span>
-                  <div className="flex flex-col gap-3">
-                    <label className="flex cursor-pointer items-start gap-2.5">
-                      <input
-                        type="checkbox"
-                        className="checkbox mt-0.5"
-                        checked={effects.gradient}
-                        disabled={busy}
-                        onChange={(e) =>
-                          patch({
-                            effects: { ...effects, gradient: e.target.checked },
-                          })
-                        }
-                      />
-                      <span>
-                        <span className="block text-sm font-medium">
-                          Gradient
-                        </span>
-                        <span className="block text-xs text-[var(--text-muted)]">
-                          {t("styleDetail.gradient-hint")}
-                        </span>
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-2.5">
-                      <input
-                        type="checkbox"
-                        className="checkbox mt-0.5"
-                        checked={effects.liquidGlass}
-                        disabled={busy}
-                        onChange={(e) =>
-                          patch({
-                            effects: {
-                              ...effects,
-                              liquidGlass: e.target.checked,
-                            },
-                          })
-                        }
-                      />
-                      <span>
-                        <span className="block text-sm font-medium">
-                          Liquid Glass
-                        </span>
-                        <span className="block text-xs text-[var(--text-muted)]">
-                          {t("styleDetail.liquid-hint")}
-                        </span>
-                      </span>
-                    </label>
-                  </div>
+                  <Panel title={t("styleDetail.effects")}>
+                    <CheckboxField
+                      id="style-fx-gradient"
+                      label="Gradient"
+                      hint={t("styleDetail.gradient-hint")}
+                      checked={effects.gradient}
+                      disabled={busy}
+                      onChange={(gradient) =>
+                        patch({ effects: { ...effects, gradient } })
+                      }
+                    />
+                    <CheckboxField
+                      id="style-fx-liquid"
+                      label="Liquid Glass"
+                      hint={t("styleDetail.liquid-hint")}
+                      checked={effects.liquidGlass}
+                      disabled={busy}
+                      onChange={(liquidGlass) =>
+                        patch({ effects: { ...effects, liquidGlass } })
+                      }
+                    />
+                  </Panel>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </WorkspaceColumn>
 
-            {/* ============ Cột phải - Chữ & Logo ============ */}
-            <Card title={t("styleDetail.type-logo")}>
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-3">
+            {/* ============ Cột 3 - Chữ & Logo ============ */}
+            <WorkspaceColumn
+              role="setup"
+              title={t("styleDetail.type-logo")}
+              ariaLabel={t("styleDetail.type-logo")}
+            >
+              <Card>
+                <div className="flex flex-col gap-4">
+                  {/* Đường CHÍNH: gõ tên font rồi để hệ thống tải từ Google */}
                   {FONT_SLOTS.map(({ slot, label }) => {
                     const dl = fontDl[slot];
                     const relPath = style.fontFiles?.[slot] ?? null;
                     const fileName = relPath ? relPath.split("/").pop() : null;
                     return (
-                      <div key={slot}>
-                        <label className="label" htmlFor={`style-font-${slot}`}>
-                          {t(label)}
-                        </label>
+                      <Field
+                        key={slot}
+                        label={t(label)}
+                        htmlFor={`style-font-${slot}`}
+                        error={dl?.error ?? null}
+                        hint={
+                          fileName ? (
+                            <span className="inline-flex items-center gap-1 text-[var(--success)]">
+                              <Check size={13} strokeWidth={2.5} />
+                              {t("styleDetail.font-ready")} {fileName}
+                            </span>
+                          ) : (
+                            t("styleDetail.font-missing")
+                          )
+                        }
+                      >
                         <div className="flex items-center gap-2">
                           <input
                             id={`style-font-${slot}`}
-                            className="input flex-1"
+                            className="input min-w-0 flex-1"
                             list="google-fonts-vn"
                             value={style.fonts[slot]}
                             disabled={busy || !!dl?.busy}
@@ -571,25 +644,12 @@ export default function StyleDetailPage() {
                             ) : (
                               <Download size={13} strokeWidth={2} />
                             )}
-                            {dl?.busy ? t("styleDetail.downloading") : t("styleDetail.download-font")}
+                            {dl?.busy
+                              ? t("styleDetail.downloading")
+                              : t("styleDetail.download-font")}
                           </Button>
                         </div>
-                        {dl?.error && (
-                          <p className="mt-1 text-xs text-[var(--danger)]">
-                            {dl.error}
-                          </p>
-                        )}
-                        {fileName ? (
-                          <p className="mt-1 flex items-center gap-1 text-xs text-[var(--success)]">
-                            <Check size={12} strokeWidth={2.5} />
-                            {t("styleDetail.font-ready")} {fileName}
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-xs text-[var(--text-muted)]">
-                            {t("styleDetail.font-missing")}
-                          </p>
-                        )}
-                      </div>
+                      </Field>
                     );
                   })}
                   <datalist id="google-fonts-vn">
@@ -598,189 +658,144 @@ export default function StyleDetailPage() {
                     ))}
                   </datalist>
 
-                  <button
-                    type="button"
-                    className="self-start text-xs text-[var(--text-muted)] underline underline-offset-2 transition-colors duration-150 hover:text-[var(--text)]"
-                    onClick={() => setManualFontOpen((o) => !o)}
-                  >
-                    {t("styleDetail.manual-upload")}
-                  </button>
-
-                  {manualFontOpen && (
-                    <div className="flex flex-col gap-2">
-                      {FONT_SLOTS.map(({ slot }) => {
-                        const relPath = style.fontFiles?.[slot] ?? null;
-                        const fileName = relPath
-                          ? relPath.split("/").pop()
-                          : null;
-                        const label =
-                          slot === "heading" ? "Heading" : "Body";
-                        return (
-                          <div
-                            key={slot}
-                            className="flex items-center gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2"
+                  {/* Đường PHỤ cho cùng một trường: file font tự có trên máy.
+                      Trước đây khối này nấp sau một nút "hoặc tự upload file
+                      font", nên cùng một việc lại trông như hai tính năng và
+                      người dùng không thấy được mình ĐANG có file nào. */}
+                  <Panel title={t("styleDetail.font-files")}>
+                    {FONT_SLOTS.map(({ slot }) => {
+                      const relPath = style.fontFiles?.[slot] ?? null;
+                      const fileName = relPath ? relPath.split("/").pop() : null;
+                      const label = slot === "heading" ? "Heading" : "Body";
+                      return (
+                        <div key={slot} className="flex items-center gap-2">
+                          <span className="w-16 shrink-0 text-sm font-medium">
+                            {label}
+                          </span>
+                          <span
+                            className={`min-w-0 flex-1 truncate text-meta ${
+                              fileName ? "" : "text-[var(--text-muted)]"
+                            }`}
+                            title={fileName ?? undefined}
                           >
-                            <span className="w-16 shrink-0 text-[13px] font-medium">
-                              {label}
-                            </span>
-                            <span
-                              className={`min-w-0 flex-1 truncate text-[13px] ${
-                                fileName ? "" : "text-[var(--text-muted)]"
-                              }`}
-                              title={fileName ?? undefined}
-                            >
-                              {fileName ?? t("styleDetail.no-font-file")}
-                            </span>
-                            <Button
-                              variant="secondary"
-                              small
+                            {fileName ?? t("styleDetail.no-font-file")}
+                          </span>
+                          <Button
+                            variant="secondary"
+                            small
+                            disabled={fontBusy !== null || busy}
+                            onClick={() => {
+                              fontSlotRef.current = slot;
+                              fontInputRef.current?.click();
+                            }}
+                          >
+                            <Upload size={13} strokeWidth={2} />
+                            {fontBusy === slot
+                              ? t("styleDetail.downloading")
+                              : t("styleDetail.upload-file")}
+                          </Button>
+                          {fileName && (
+                            <IconButton
+                              label={tf("styleDetail.remove-font-aria", { label })}
+                              size="sm"
+                              tone="danger"
                               disabled={fontBusy !== null || busy}
-                              onClick={() => {
-                                fontSlotRef.current = slot;
-                                fontInputRef.current?.click();
-                              }}
+                              onClick={() => onFontRemove(slot)}
                             >
-                              <Upload size={13} strokeWidth={2} />
-                              {fontBusy === slot ? t("styleDetail.downloading") : t("styleDetail.upload-file")}
-                            </Button>
-                            {fileName && (
-                              <button
-                                type="button"
-                                aria-label={tf("styleDetail.remove-font-aria", { label })}
-                                disabled={fontBusy !== null || busy}
-                                className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg)] hover:text-[var(--danger)] disabled:opacity-50"
-                                onClick={() => onFontRemove(slot)}
-                              >
-                                <X size={14} strokeWidth={2} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
+                              <X size={13} strokeWidth={2} />
+                            </IconButton>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <input
+                      ref={fontInputRef}
+                      type="file"
+                      accept=".ttf,.otf,.woff,.woff2"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) onFontPicked(fontSlotRef.current, f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </Panel>
+
+                  <Panel title="Logo">
+                    <div className="flex items-center gap-3">
+                      {style.logoPath ? (
+                        <ZoomableThumb
+                          file={imageFileInfo(style.logoPath, {
+                            name: tf("stylesPage.logo-alt", { name: style.name }),
+                          })}
+                          alt={tf("stylesPage.logo-alt", { name: style.name })}
+                          onOpen={setPreview}
+                          className="h-14 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)]"
+                          imgClassName="h-full w-auto p-2"
+                          iconSize={16}
+                        />
+                      ) : (
+                        <span className="flex h-14 w-14 items-center justify-center rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)]">
+                          <ImageIcon
+                            size={18}
+                            strokeWidth={1.5}
+                            className="text-[var(--text-muted)] opacity-40"
+                          />
+                        </span>
+                      )}
+                      <Button
+                        variant="secondary"
+                        small
+                        disabled={uploadingLogo || busy}
+                        onClick={() => logoInputRef.current?.click()}
+                      >
+                        <Upload size={14} strokeWidth={2} />
+                        {uploadingLogo
+                          ? t("common.uploading")
+                          : t("styleDetail.upload-logo")}
+                      </Button>
                       <input
-                        ref={fontInputRef}
+                        ref={logoInputRef}
                         type="file"
-                        accept=".ttf,.otf,.woff,.woff2"
+                        accept=".png,.jpg,.jpeg,.svg,.webp"
                         className="hidden"
                         onChange={(e) => {
                           const f = e.target.files?.[0];
-                          if (f) onFontPicked(fontSlotRef.current, f);
+                          if (f) onLogoPicked(f);
                           e.target.value = "";
                         }}
                       />
                     </div>
-                  )}
-                </div>
+                  </Panel>
 
-                <div>
-                  <span className="label">Logo</span>
-                  <div className="flex items-center gap-3">
-                    {style.logoPath ? (
-                      <ZoomableThumb
-                        file={imageFileInfo(style.logoPath, {
-                          name: tf("stylesPage.logo-alt", { name: style.name }),
-                        })}
-                        alt={tf("stylesPage.logo-alt", { name: style.name })}
-                        onOpen={setPreview}
-                        className="h-14 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]"
-                        imgClassName="h-full w-auto p-2"
-                        iconSize={16}
-                      />
-                    ) : (
-                      <span className="flex h-14 w-14 items-center justify-center rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]">
-                        <ImageIcon
-                          size={18}
-                          strokeWidth={1.5}
-                          className="text-[var(--text-muted)] opacity-40"
-                        />
-                      </span>
-                    )}
-                    <Button
-                      variant="secondary"
-                      small
-                      disabled={uploadingLogo || busy}
-                      onClick={() => logoInputRef.current?.click()}
-                    >
-                      <Upload size={14} strokeWidth={2} />
-                      {uploadingLogo ? t("common.uploading") : t("styleDetail.upload-logo")}
-                    </Button>
+                  <Field label="Tone" htmlFor="style-tone">
                     <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept=".png,.jpg,.jpeg,.svg,.webp"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) onLogoPicked(f);
-                        e.target.value = "";
-                      }}
+                      id="style-tone"
+                      className="input"
+                      value={style.tone}
+                      disabled={busy}
+                      onChange={(e) => patch({ tone: e.target.value })}
+                      placeholder={t("styleDetail.tone-placeholder")}
                     />
-                  </div>
+                  </Field>
+
+                  <Field label="Guidelines" htmlFor="style-guidelines">
+                    <textarea
+                      id="style-guidelines"
+                      className="input"
+                      rows={5}
+                      value={style.guidelines}
+                      disabled={busy}
+                      onChange={(e) => patch({ guidelines: e.target.value })}
+                      placeholder={t("styleDetail.guidelines-placeholder")}
+                    />
+                  </Field>
                 </div>
+              </Card>
+            </WorkspaceColumn>
+          </Workspace>
 
-                <div>
-                  <label className="label" htmlFor="style-tone">
-                    Tone
-                  </label>
-                  <input
-                    id="style-tone"
-                    className="input"
-                    value={style.tone}
-                    disabled={busy}
-                    onChange={(e) => patch({ tone: e.target.value })}
-                    placeholder={t("styleDetail.tone-placeholder")}
-                  />
-                </div>
-
-                <div>
-                  <label className="label" htmlFor="style-guidelines">
-                    Guidelines
-                  </label>
-                  <textarea
-                    id="style-guidelines"
-                    className="input"
-                    rows={5}
-                    value={style.guidelines}
-                    disabled={busy}
-                    onChange={(e) => patch({ guidelines: e.target.value })}
-                    placeholder={t("styleDetail.guidelines-placeholder")}
-                  />
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Hàng hành động cuối trang */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-4">
-            <Button onClick={onSave} disabled={busy}>
-              <Save size={15} strokeWidth={2} />
-              {saving ? t("common.saving") : t("common.save")}
-            </Button>
-            {!isDefault && (
-              <Button
-                variant="secondary"
-                disabled={settingDefault || busy}
-                onClick={onSetDefault}
-              >
-                <Star size={14} strokeWidth={2} />
-                {settingDefault ? t("styleDetail.setting-default") : t("styleDetail.set-default")}
-              </Button>
-            )}
-            {saved && (
-              <span className="text-sm text-[var(--success)]">{t("common.saved")}</span>
-            )}
-            <button
-              type="button"
-              disabled={busy}
-              className="ml-auto flex items-center gap-1.5 text-xs font-medium text-[var(--danger)] transition-colors duration-150 hover:opacity-75 disabled:opacity-50"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 size={13} strokeWidth={2} />
-              {deleting ? t("common.deleting") : t("styleDetail.delete")}
-            </button>
-          </div>
-
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-meta text-[var(--text-muted)]">
             {t("styleDetail.note")}
           </p>
         </>

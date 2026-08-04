@@ -142,12 +142,12 @@ export function InfoHint({
                 type="button"
                 onClick={() => setPos(null)}
                 aria-label={t("common.close")}
-                className="-mr-1 -mt-1 shrink-0 rounded-[var(--radius)] p-0.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+                className="-mr-1 -mt-1 shrink-0 rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
               >
                 <X size={13} strokeWidth={2} />
               </button>
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               {paragraphs.map((p, i) => (
                 <p
                   key={i}

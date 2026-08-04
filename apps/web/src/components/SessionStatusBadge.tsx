@@ -48,7 +48,7 @@ export function SessionStatusBadge({
   const tone = TONE[status] ?? "badge-muted";
   return (
     <span
-      className={`badge ${tone} ${large ? "px-3 py-1 text-[13px]" : ""}`}
+      className={`badge ${tone} ${large ? "px-3 py-1 text-meta" : ""}`}
     >
       <span
         className={`badge-dot ${status === "running" ? "badge-dot-pulse" : ""}`}

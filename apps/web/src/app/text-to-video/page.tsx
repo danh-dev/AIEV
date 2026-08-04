@@ -9,7 +9,7 @@
 import { ExternalLink, FileText, Link2, Loader2, Trash2, Type } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createTextToVideo,
   deleteTextToVideo,
@@ -21,6 +21,7 @@ import {
   TEXT_TO_VIDEO_STATUS_TONE,
   type TextSourceKind,
   type TextToVideoMeta,
+  type TextToVideoStatus,
 } from "@/lib/api";
 import { useAgentEvents, useEvents, useJobEvents } from "@/lib/useEvents";
 import { Badge } from "@/components/Badge";
@@ -29,13 +30,32 @@ import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
+import { Segmented } from "@/components/Segmented";
+import { TableSkeleton } from "@/components/Skeleton";
+import { Toolbar } from "@/components/Toolbar";
 // clock() (giây → mm:ss) đã có sẵn ở đây, lib/format.ts chưa có helper tương đương
 import { clock } from "@/components/AutoCutCommon";
 import { formatDateTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+
+/**
+ * Badge trạng thái phiên - một component riêng, y như <AutoCutStatusBadge>.
+ *
+ * VÌ SAO KHÔNG VIẾT THẲNG TRONG BẢNG: bản cũ nội tuyến
+ * `label={LABEL[s.status] ? t(…) : String(s.status)}`, nên server thêm một
+ * trạng thái mà web chưa có nhãn là chữ máy (`extracting`) rơi thẳng vào giữa
+ * giao diện tiếng Việt. Nhãn mặc định phải là một câu DỊCH ĐƯỢC.
+ */
+function TtvStatusBadge({ status }: { status: TextToVideoStatus }) {
+  const { t } = useT();
+  const tone = TEXT_TO_VIDEO_STATUS_TONE[status] ?? "muted";
+  const key = TEXT_TO_VIDEO_STATUS_LABEL[status];
+  return <Badge tone={tone} label={key ? t(key) : t("common.status-unknown")} />;
+}
 
 /** Một dòng mô tả nguồn của phiên: link rút gọn hoặc mấy chữ đầu văn bản. */
 function sourceLine(s: TextToVideoMeta): string {
@@ -127,47 +147,43 @@ function CreateModal({
         />
       )}
 
-      <div>
-        <span className="label">
-          {t("ttv.source")}
-          <InfoHint
-            className="ml-1.5 align-middle"
-            titleKey="help.ttv-source.title"
-            bodyKey="help.ttv-source.body"
-          />
-        </span>
-        <div className="flex gap-1.5" role="radiogroup" aria-label={t("ttv.source")}>
-          {(
-            [
-              ["url", "ttv.source.url", Link2],
-              ["text", "ttv.source.text", Type],
-            ] as const
-          ).map(([k, label, Icon]) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={kind === k}
-              disabled={creating}
-              onClick={() => setKind(k)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors duration-150 ${
-                kind === k
-                  ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-                  : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-              } disabled:cursor-not-allowed disabled:opacity-45`}
-            >
-              <Icon size={13} strokeWidth={2} />
-              {t(label)}
-            </button>
-          ))}
-        </div>
-      </div>
+      <Field
+        label={t("ttv.source")}
+        hintKeys={{
+          titleKey: "help.ttv-source.title",
+          bodyKey: "help.ttv-source.body",
+        }}
+      >
+        <Segmented
+          label={t("ttv.source")}
+          value={kind}
+          disabled={creating}
+          onChange={(v) => setKind(v)}
+          options={[
+            {
+              value: "url" as TextSourceKind,
+              label: (
+                <>
+                  <Link2 size={13} strokeWidth={2} aria-hidden="true" />
+                  {t("ttv.source.url")}
+                </>
+              ),
+            },
+            {
+              value: "text" as TextSourceKind,
+              label: (
+                <>
+                  <Type size={13} strokeWidth={2} aria-hidden="true" />
+                  {t("ttv.source.text")}
+                </>
+              ),
+            },
+          ]}
+        />
+      </Field>
 
       {kind === "url" ? (
-        <div>
-          <label className="label" htmlFor="ttv-url">
-            {t("ttv.url")}
-          </label>
+        <Field label={t("ttv.url")} htmlFor="ttv-url" hint={t("ttv.url-hint")}>
           <input
             id="ttv-url"
             className="input"
@@ -176,15 +192,9 @@ function CreateModal({
             placeholder={t("ttv.url-placeholder")}
             onChange={(e) => setUrl(e.target.value)}
           />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("ttv.url-hint")}
-          </p>
-        </div>
+        </Field>
       ) : (
-        <div>
-          <label className="label" htmlFor="ttv-text">
-            {t("ttv.text")}
-          </label>
+        <Field label={t("ttv.text")} htmlFor="ttv-text" hint={t("ttv.text-hint")}>
           <textarea
             id="ttv-text"
             className="input"
@@ -194,16 +204,10 @@ function CreateModal({
             placeholder={t("ttv.text-placeholder")}
             onChange={(e) => setText(e.target.value)}
           />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("ttv.text-hint")}
-          </p>
-        </div>
+        </Field>
       )}
 
-      <div>
-        <label className="label" htmlFor="ttv-name">
-          {t("ttv.name")}
-        </label>
+      <Field label={t("ttv.name")} htmlFor="ttv-name">
         <input
           id="ttv-name"
           className="input"
@@ -212,7 +216,7 @@ function CreateModal({
           placeholder={t("ttv.name-placeholder")}
           onChange={(e) => setName(e.target.value)}
         />
-      </div>
+      </Field>
     </Modal>
   );
 }
@@ -226,6 +230,7 @@ export default function TextToVideoPage() {
   const [sessions, setSessions] = useState<TextToVideoMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Phiên đang chờ xác nhận xóa
   const [target, setTarget] = useState<TextToVideoMeta | null>(null);
@@ -257,6 +262,17 @@ export default function TextToVideoPage() {
     if (e.kind === "done") load();
   });
 
+  // Lọc tại chỗ theo tên + dòng nguồn (link hoặc mấy chữ đầu văn bản)
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !sessions) return sessions;
+    return sessions.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        sourceLine(s).toLowerCase().includes(q)
+    );
+  }, [sessions, query]);
+
   async function onDelete() {
     if (!target || deleting) return;
     setDeleting(true);
@@ -275,12 +291,8 @@ export default function TextToVideoPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.text-to-video")}
-            <InfoHint titleKey="help.ttv.title" bodyKey="help.ttv.body" size={14} />
-          </span>
-        }
+        title={t("nav.text-to-video")}
+        hint={{ titleKey: "help.ttv.title", bodyKey: "help.ttv.body" }}
         subtitle={t("ttv.subtitle")}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -293,7 +305,14 @@ export default function TextToVideoPage() {
       {error && <ErrorBanner message={t("ttv.load-error")} detail={error} />}
 
       <Card>
-        {sessions && sessions.length > 0 ? (
+        <Toolbar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: t("ttv.search"),
+          }}
+        />
+        {shown && shown.length > 0 ? (
           // Bảng nhiều cột - màn hẹp thì cuộn ngang thay vì vỡ layout
           <div className="overflow-x-auto">
             <table className="table">
@@ -317,7 +336,7 @@ export default function TextToVideoPage() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => (
+                {shown.map((s) => (
                   <tr
                     key={s.id}
                     className="row-click"
@@ -325,19 +344,12 @@ export default function TextToVideoPage() {
                   >
                     <td>
                       <span className="font-medium">{s.name}</span>
-                      <span className="mt-0.5 block max-w-[360px] truncate text-xs text-[var(--text-muted)]">
+                      <span className="mt-1 block max-w-[360px] truncate text-meta text-[var(--text-muted)]">
                         {sourceLine(s)}
                       </span>
                     </td>
                     <td>
-                      <Badge
-                        tone={TEXT_TO_VIDEO_STATUS_TONE[s.status] ?? "muted"}
-                        label={
-                          TEXT_TO_VIDEO_STATUS_LABEL[s.status]
-                            ? t(TEXT_TO_VIDEO_STATUS_LABEL[s.status])
-                            : String(s.status)
-                        }
-                      />
+                      <TtvStatusBadge status={s.status} />
                     </td>
                     <td className="hidden text-[var(--text-muted)] xl:table-cell">
                       {s.source.kind === "url"
@@ -358,7 +370,7 @@ export default function TextToVideoPage() {
                       {s.projectId ? (
                         <Link
                           href={`/projects/${s.projectId}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                         >
                           <ExternalLink size={12} strokeWidth={2} />
                           {t("ttv.open-project")}
@@ -371,39 +383,43 @@ export default function TextToVideoPage() {
                       {formatDateTime(s.updatedAt)}
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        title={t("common.delete")}
-                        aria-label={tf("ttv.delete-aria", { name: s.name })}
+                      <IconButton
+                        size="sm"
+                        tone="danger"
+                        label={tf("ttv.delete-aria", { name: s.name })}
                         onClick={() => {
                           setDeleteError(null);
                           setTarget(s);
                         }}
-                        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                       >
                         <Trash2 size={15} strokeWidth={2} />
-                      </button>
+                      </IconButton>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : sessions ? (
-          <EmptyState
-            icon={FileText}
-            description={t("ttv.empty")}
-            action={
-              <Button onClick={() => setCreateOpen(true)}>
-                <FileText size={16} strokeWidth={2} />
-                {t("ttv.new")}
-              </Button>
-            }
-          />
+        ) : shown ? (
+          query.trim() ? (
+            <EmptyState icon={FileText} description={t("common.no-match")} />
+          ) : (
+            <EmptyState
+              icon={FileText}
+              description={t("ttv.empty")}
+              action={
+                <Button onClick={() => setCreateOpen(true)}>
+                  <FileText size={16} strokeWidth={2} />
+                  {t("ttv.new")}
+                </Button>
+              }
+            />
+          )
         ) : (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
+          // Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+          // ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải
+          // lỗi" cùng lúc, mà cho danh sách về rỗng thì lại nói dối "chưa có gì".
+          !error && <TableSkeleton />
         )}
       </Card>
 

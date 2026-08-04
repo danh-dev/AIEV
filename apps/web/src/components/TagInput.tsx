@@ -34,7 +34,7 @@ export function TagInput({
   return (
     <div>
       {tags.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
+        <div className="mb-2 flex flex-wrap gap-2">
           {tags.map((tag) => (
             <span key={tag} className="chip">
               {tag}

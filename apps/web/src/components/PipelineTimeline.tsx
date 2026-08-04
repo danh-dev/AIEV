@@ -7,7 +7,7 @@
  * nguồn sự thật về job, component chỉ đọc.
  */
 
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import type { FileInfo, Job, ProjectStatus, SceneMeta } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
@@ -104,19 +104,28 @@ export function deriveStage(input: PipelineStageInput): PipelineStage | null {
  * @param stage  bước hiện tại, đếm từ 1
  * @param active có việc đang chạy ở bước đó không (chấm nhấp nháy)
  * @param done   đã xong hết (bước cuối hiện tick thay vì chấm)
+ * @param marker hình đánh dấu bước ĐANG chạy: "dot" (chấm primary nhấp nháy,
+ *               mặc định - hợp với timeline nằm cùng hàng header) hoặc
+ *               "spinner" (vòng xoay, hợp với modal có một việc dài đang chạy)
+ * @param wrapLabels cho nhãn bước xuống dòng thay vì giữ một dòng - dùng khi
+ *               thanh nằm trong khung hẹp cố định (modal) chứ không phải header
  */
 export function StepperBar({
   steps,
   stage,
   active,
   done,
+  marker = "dot",
+  wrapLabels = false,
   ariaLabel,
 }: {
   steps: readonly string[];
   stage: number;
   active: boolean;
   done: boolean;
-  ariaLabel: string;
+  marker?: "dot" | "spinner";
+  wrapLabels?: boolean;
+  ariaLabel?: string;
 }) {
   const { t } = useT();
   return (
@@ -137,17 +146,27 @@ export function StepperBar({
             <li
               key={`c-${i}`}
               aria-hidden="true"
-              className={`mx-1 mt-[5.5px] h-px min-w-2 flex-1 ${
+              className={`mx-1 mt-2 h-px min-w-2 flex-1 ${
                 n <= stage ? "bg-[var(--success)]" : "bg-[var(--border)]"
               }`}
             />,
           );
         }
         items.push(
-          <li key={label} className="flex shrink-0 flex-col items-center gap-1">
-            <span aria-hidden="true" className="flex h-3 items-center justify-center">
+          <li
+            key={label}
+            className="flex shrink-0 flex-col items-center gap-1"
+            aria-current={current ? "step" : undefined}
+          >
+            <span aria-hidden="true" className="flex h-4 items-center justify-center">
               {passed ? (
                 <Check size={13} strokeWidth={3.5} className="text-[var(--success)]" />
+              ) : current && marker === "spinner" ? (
+                <Loader2
+                  size={14}
+                  strokeWidth={2.5}
+                  className="animate-spin text-[var(--primary)]"
+                />
               ) : current ? (
                 <span
                   className={`h-2.5 w-2.5 rounded-full bg-[var(--primary)] ring-[3px] ring-[var(--primary-soft)]${
@@ -159,7 +178,9 @@ export function StepperBar({
               )}
             </span>
             <span
-              className={`whitespace-nowrap text-center text-[10px] leading-none ${labelCls}`}
+              className={`text-center text-xs leading-tight ${
+                wrapLabels ? "" : "whitespace-nowrap"
+              } ${labelCls}`}
             >
               {t(label)}
             </span>

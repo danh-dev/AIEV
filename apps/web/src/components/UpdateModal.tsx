@@ -29,8 +29,12 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { Banner } from "@/components/Banner";
+import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { Panel } from "@/components/Panel";
+import { StepperBar } from "@/components/PipelineTimeline";
 import {
   ApiError,
   applyUpdate,
@@ -48,6 +52,8 @@ const STEP_LABEL: Record<UpdateStep, string> = {
   install: "update.step.install",
   restart: "update.step.restart",
 };
+/** Nhãn cho <StepperBar> - nó nhận KEY từ điển và tự dịch lúc render. */
+const STEP_KEYS: readonly string[] = STEPS.map((s) => STEP_LABEL[s]);
 
 const POLL_MS = 2_000; // nhịp poll log / health
 const LOG_TAIL = 200; // đủ để thấy đuôi bước pull
@@ -334,7 +340,10 @@ export function UpdateModal({
           : t("update.title");
 
   return (
+    // `wide`: đây là modal duy nhất trong app thật sự cần bề ngang - stepper 4
+    // bước, hộp log cuộn và danh sách commit đều là nội dung nằm ngang.
     <Modal
+      wide
       open={open}
       title={title}
       onClose={onClose}
@@ -348,39 +357,34 @@ export function UpdateModal({
     </Modal>
   );
 
+  /**
+   * Footer theo đúng luật chung: chỉ <Button> cỡ mặc định 36px, thứ tự
+   * [phụ] … [chính]. Trước đợt đại tu chỗ này có 8 nút `btn btn-* btn-sm` chép
+   * tay - vừa lệch cỡ với 5 modal còn lại, vừa là bản sao của <Button>.
+   */
   function renderFooter() {
     if (running) return undefined; // không có lối thoát giữa chừng
     if (phase === "done") {
       return (
-        <button
-          type="button"
-          onClick={() => location.reload()}
-          className="btn btn-primary btn-sm"
-        >
+        <Button onClick={() => location.reload()}>
           {t("update.reload-now")}
-        </button>
+        </Button>
       );
     }
     if (phase === "failed") {
       return (
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-secondary btn-sm"
-          >
+          <Button variant="secondary" onClick={onClose}>
             {t("common.close")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => {
               setPhase("confirm");
               onRecheck();
             }}
-            className="btn btn-primary btn-sm"
           >
             {t("update.check-now")}
-          </button>
+          </Button>
         </>
       );
     }
@@ -388,47 +392,29 @@ export function UpdateModal({
     if (!status || status.upToDate) {
       return (
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-secondary btn-sm"
-          >
+          <Button variant="secondary" onClick={onClose}>
             {t("common.close")}
-          </button>
-          <button
-            type="button"
-            onClick={onRecheck}
-            disabled={checking}
-            className="btn btn-primary btn-sm"
-          >
+          </Button>
+          <Button onClick={onRecheck} disabled={checking}>
             {checking && (
-              <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+              <Loader2 size={15} strokeWidth={2} className="animate-spin" />
             )}
             {t("update.check-now")}
-          </button>
+          </Button>
         </>
       );
     }
     return (
       <>
-        <button
-          type="button"
-          onClick={onClose}
-          className="btn btn-secondary btn-sm"
-        >
+        <Button variant="secondary" onClick={onClose}>
           {t("update.later")}
-        </button>
-        <button
-          type="button"
-          onClick={onApply}
-          disabled={starting}
-          className="btn btn-primary btn-sm"
-        >
+        </Button>
+        <Button onClick={onApply} disabled={starting}>
           {starting && (
-            <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+            <Loader2 size={15} strokeWidth={2} className="animate-spin" />
           )}
           {starting ? t("update.starting") : t("update.apply-now")}
-        </button>
+        </Button>
       </>
     );
   }
@@ -446,11 +432,7 @@ export function UpdateModal({
           ? t("update.no-releases-note")
           : null;
     if (!note) return null;
-    return (
-      <p className="rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
-        {note}
-      </p>
-    );
+    return <Banner tone="muted" message={note} />;
   }
 
   function renderConfirm() {
@@ -471,62 +453,70 @@ export function UpdateModal({
     if (!status || status.upToDate) {
       return (
         <>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs">
-            <span className="text-[var(--text-muted)]">
-              {t("update.current-label")}
-            </span>
-            <span className="font-mono">{fromLabel || "?"}</span>
-            {status && !status.error && (
-              <span className="inline-flex items-center gap-1 text-[var(--success)]">
-                <Check size={14} strokeWidth={3} />
-                {t("update.up-to-date")}
-              </span>
-            )}
-          </div>
-          {renderChannelNote()}
+          {/* Lỗi ở ĐẦU thân modal - không nhét xuống dưới phần trạng thái */}
           {status?.error && (
             <ErrorBanner
               message={t("update.check-failed")}
               detail={status.error}
             />
           )}
+          <Panel>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="text-[var(--text-muted)]">
+                {t("update.current-label")}
+              </span>
+              <span className="font-mono">{fromLabel || "?"}</span>
+              {status && !status.error && (
+                <span className="inline-flex items-center gap-1 text-[var(--success)]">
+                  <Check size={15} strokeWidth={3} />
+                  {t("update.up-to-date")}
+                </span>
+              )}
+            </div>
+          </Panel>
+          {renderChannelNote()}
         </>
       );
     }
 
     return (
       <>
+        {applyError && <ErrorBanner message={applyError} />}
+
         {/* Hàng phiên bản: bản đang chạy -> bản sắp lên (v1.0.0 → v1.0.1) */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs">
-          <span className="text-[var(--text-muted)]">
-            {t("update.current-label")}
-          </span>
-          <span className="font-mono">{fromLabel || "?"}</span>
-          <ArrowRight
-            size={14}
-            strokeWidth={2}
-            className="shrink-0 text-[var(--text-muted)]"
-          />
-          <span className="text-[var(--text-muted)]">
-            {t("update.latest-label")}
-          </span>
-          <span className="font-mono font-semibold text-[var(--primary)]">
-            {toLabel}
-          </span>
-          {(status?.latestVersion || latestHash) && (
+        <Panel>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <span className="text-[var(--text-muted)]">
-              ({tf("update.behind", { n: status?.behind ?? 0 })})
+              {t("update.current-label")}
             </span>
-          )}
-        </div>
+            <span className="font-mono">{fromLabel || "?"}</span>
+            <ArrowRight
+              size={15}
+              strokeWidth={2}
+              className="shrink-0 text-[var(--text-muted)]"
+            />
+            <span className="text-[var(--text-muted)]">
+              {t("update.latest-label")}
+            </span>
+            <span className="font-mono font-semibold text-[var(--primary)]">
+              {toLabel}
+            </span>
+            {(status?.latestVersion || latestHash) && (
+              <span className="text-[var(--text-muted)]">
+                ({tf("update.behind", { n: status?.behind ?? 0 })})
+              </span>
+            )}
+          </div>
+        </Panel>
 
         {renderChannelNote()}
 
-        {/* Có gì mới */}
-        <div>
-          <p className="mb-1.5 text-xs font-semibold">{t("update.whats-new")}</p>
+        {/* Có gì mới - ghi chú phát hành là NỘI DUNG người dùng thật sự đọc
+            trước khi quyết định cập nhật, nên ở bậc 14px chứ không phải 12px */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold">{t("update.whats-new")}</p>
           {commits.length === 0 ? (
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-sm text-[var(--text-muted)]">
               {status?.latestMessage || t("update.no-commits")}
             </p>
           ) : (
@@ -534,16 +524,16 @@ export function UpdateModal({
               {commits.map((c) => (
                 <li
                   key={c.hash}
-                  className="flex items-start gap-2 border-b border-[var(--border)] px-3 py-1.5 text-xs last:border-b-0"
+                  className="flex items-start gap-2 border-b border-[var(--border)] p-2 text-sm last:border-b-0"
                 >
-                  <span className="shrink-0 font-mono text-[var(--text-muted)]">
+                  <span className="shrink-0 font-mono text-meta text-[var(--text-muted)]">
                     {c.hash}
                   </span>
                   <span className="min-w-0 break-words">{c.message}</span>
                 </li>
               ))}
               {rest > 0 && (
-                <li className="px-3 py-1.5 text-xs text-[var(--text-muted)]">
+                <li className="p-2 text-meta text-[var(--text-muted)]">
                   {tf("update.commits-more", { n: rest })}
                 </li>
               )}
@@ -551,10 +541,9 @@ export function UpdateModal({
           )}
         </div>
 
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           {t("update.warn-restart")}
         </p>
-        {applyError && <ErrorBanner message={applyError} />}
       </>
     );
   }
@@ -562,12 +551,25 @@ export function UpdateModal({
   function renderRunning() {
     return (
       <>
-        <Stepper current={stepIdx} done={false} />
+        <StepperBar
+          steps={STEP_KEYS}
+          stage={stepIdx + 1}
+          active
+          done={false}
+          // Vòng xoay chứ không phải chấm nhấp nháy: lúc cập nhật, server bị
+          // tắt hẳn vài phút và log không ra dòng nào - vòng xoay là tín hiệu
+          // "vẫn đang chạy, chưa treo" mạnh nhất còn lại trên màn hình.
+          marker="spinner"
+          // Modal hẹp: để nhãn bước xuống dòng thay vì bị cắt cụt.
+          wrapLabels
+          ariaLabel={t("update.running-title")}
+        />
         <div
           className="progress-indeterminate"
           aria-label={t("update.running-title")}
         />
-        <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+        {/* Số bước và đồng hồ là PHỤ CHÚ đi kèm thanh tiến trình → text-meta */}
+        <div className="flex items-center justify-between gap-3 text-meta text-[var(--text-muted)]">
           <span className="truncate">
             {tf("update.step-of", { n: stepIdx + 1 })} ·{" "}
             {t(STEP_LABEL[STEPS[stepIdx]])}
@@ -579,12 +581,9 @@ export function UpdateModal({
 
         {/* Server tắt là ĐÚNG QUY TRÌNH - nói rõ để người dùng không hoảng */}
         {serverDown && (
-          <p
-            aria-live="polite"
-            className="rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]"
-          >
-            {t("update.server-down")}
-          </p>
+          <div aria-live="polite">
+            <Banner tone="muted" message={t("update.server-down")} />
+          </div>
         )}
 
         <LogBox
@@ -605,7 +604,7 @@ export function UpdateModal({
           </span>
           <div className="min-w-0">
             <p className="text-sm font-semibold">{t("update.success-title")}</p>
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-sm text-[var(--text-muted)]">
               {/* Có tag release thì khoe phiên bản, không thì đành nói hash */}
               {newVersion
                 ? `${tf("update.updated-to", { version: newVersion })} · ${t("update.reloading")}`
@@ -615,18 +614,25 @@ export function UpdateModal({
             </p>
           </div>
         </div>
-        <Stepper current={STEPS.length - 1} done />
+        <StepperBar
+          steps={STEP_KEYS}
+          stage={STEPS.length}
+          active={false}
+          done
+          ariaLabel={t("update.success-title")}
+        />
         {lines.length > 0 && (
           <>
             <button
               type="button"
               onClick={() => setShowLog((v) => !v)}
-              className="inline-flex items-center gap-1 self-start text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+              aria-expanded={showLog}
+              className="inline-flex items-center gap-1 self-start text-meta font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
             >
               {showLog ? (
-                <ChevronDown size={12} strokeWidth={2} />
+                <ChevronDown size={13} strokeWidth={2} />
               ) : (
-                <ChevronRight size={12} strokeWidth={2} />
+                <ChevronRight size={13} strokeWidth={2} />
               )}
               {showLog ? t("update.hide-log") : t("update.view-log")}
             </button>
@@ -651,11 +657,11 @@ export function UpdateModal({
           detail={lines.length > 0 ? lines.join("\n") : undefined}
         />
         {safe && (
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-sm text-[var(--text-muted)]">
             {t("update.failed-safe")}
           </p>
         )}
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           {t("update.log-hint")}
         </p>
         <LogBox lines={lines} empty={t("update.waiting-log")} />
@@ -665,74 +671,13 @@ export function UpdateModal({
 }
 
 /**
- * Stepper 4 bước, cùng phong cách PipelineTimeline: xong = tích xanh,
- * đang chạy = spinner primary, chưa tới = chấm xám.
+ * Khối log mono, chiều cao cố định, cuộn dọc.
+ *
+ * Là <Panel> chứ không phải hộp chép tay, và chữ ở bậc `text-meta` chứ không
+ * phải 11px tự chế - log vẫn là thứ người dùng phải ĐỌC ĐƯỢC khi có lỗi.
+ * Padding nằm ở div bên trong (Panel bị `p-0`) để vùng cuộn ôm trọn hộp: đặt
+ * padding ở khung ngoài thì dòng cuối cùng bị đệm che mất một nửa khi cuộn hết.
  */
-function Stepper({ current, done }: { current: number; done: boolean }) {
-  const { t } = useT();
-  return (
-    <ol className="flex w-full min-w-0 items-start">
-      {STEPS.flatMap((step, i) => {
-        const passed = i < current || (i === current && done);
-        const active = i === current && !done;
-        const items = [];
-        if (i > 0) {
-          items.push(
-            <li
-              key={`c-${step}`}
-              aria-hidden="true"
-              className={`mx-1 mt-2 h-px min-w-2 flex-1 ${
-                i <= current ? "bg-[var(--success)]" : "bg-[var(--border)]"
-              }`}
-            />
-          );
-        }
-        items.push(
-          <li
-            key={step}
-            className="flex shrink-0 flex-col items-center gap-1"
-            aria-current={active ? "step" : undefined}
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-4 items-center justify-center"
-            >
-              {passed ? (
-                <Check
-                  size={14}
-                  strokeWidth={3.5}
-                  className="text-[var(--success)]"
-                />
-              ) : active ? (
-                <Loader2
-                  size={14}
-                  strokeWidth={2.5}
-                  className="animate-spin text-[var(--primary)]"
-                />
-              ) : (
-                <span className="h-2 w-2 rounded-full bg-[var(--border)]" />
-              )}
-            </span>
-            <span
-              className={`text-center text-[10px] leading-tight ${
-                active
-                  ? "font-semibold text-[var(--text)]"
-                  : passed
-                    ? "text-[var(--text-muted)]"
-                    : "text-[var(--text-muted)] opacity-60"
-              }`}
-            >
-              {t(STEP_LABEL[step])}
-            </span>
-          </li>
-        );
-        return items;
-      })}
-    </ol>
-  );
-}
-
-/** Khối log mono, chiều cao cố định, cuộn dọc. */
 function LogBox({
   lines,
   empty,
@@ -743,19 +688,16 @@ function LogBox({
   boxRef?: RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div
-      ref={boxRef}
-      className="h-40 overflow-y-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-    >
-      {lines.length === 0 ? (
-        <p className="font-mono text-[11px] text-[var(--text-muted)]">
-          {empty}
-        </p>
-      ) : (
-        <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-[var(--text-muted)]">
-          {lines.join("\n")}
-        </pre>
-      )}
-    </div>
+    <Panel className="p-0">
+      <div ref={boxRef} className="h-40 overflow-y-auto p-3">
+        {lines.length === 0 ? (
+          <p className="font-mono text-meta text-[var(--text-muted)]">{empty}</p>
+        ) : (
+          <pre className="font-mono text-meta leading-relaxed whitespace-pre-wrap text-[var(--text-muted)]">
+            {lines.join("\n")}
+          </pre>
+        )}
+      </div>
+    </Panel>
   );
 }

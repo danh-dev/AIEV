@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  CheckCircle2,
   Copy,
+  Filter,
   Image as ImageIcon,
   Images,
   Pencil,
@@ -26,11 +26,16 @@ import {
 } from "@/lib/api";
 import { useJobEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
+import { TableSkeleton } from "@/components/Skeleton";
+import { Toolbar } from "@/components/Toolbar";
 import {
   AspectChip,
   DEFAULT_IMAGE_DRAFT,
@@ -44,7 +49,6 @@ import {
   imageFileInfo,
 } from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
-import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { RenameProjectModal } from "@/components/RenameProjectModal";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -58,6 +62,8 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   const router = useRouter();
   const [list, setList] = useState<ImageProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tìm theo tên / id - cùng khuôn với trang Videos Project
+  const [query, setQuery] = useState("");
   // Xem chi tiết ảnh ngay từ danh sách, không phải vào trang con
   const [preview, setPreview] = useState<FileInfo | null>(null);
   // Tiến trình thật của job image-gen theo projectId - cho ProgressBar mini trong bảng
@@ -143,12 +149,36 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
     }
   });
 
+  const filtered = useMemo(() => {
+    if (!list) return null;
+    const q = query.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+    );
+  }, [list, query]);
+
+  // Đổi từ khóa tìm kiếm thì BỬe những mục đã tick mà giờ không còn hiện.
+  // Không dọn thì: lọc "a" → chọn 5 → đổi sang "b" → thanh công cụ vẫn báo
+  // "5 đã chọn" trong khi màn hình toàn hàng khác, và "Xóa đã chọn" xóa luôn
+  // 5 mục người dùng không nhìn thấy.
+  useEffect(() => {
+    if (!filtered) return;
+    const visible = new Set(filtered.map((p) => p.id));
+    setSelected((cur) => {
+      const next = new Set([...cur].filter((id) => visible.has(id)));
+      return next.size === cur.size ? cur : next;
+    });
+  }, [filtered]);
+
   // ---- Chọn / bỏ chọn ----
+  // Tick "chọn tất cả" chỉ áp lên các hàng ĐANG HIỆN, không lén chọn cả những
+  // dự án bị ô tìm kiếm lọc ra ngoài.
 
   const allSelected =
-    !!list && list.length > 0 && list.every((p) => selected.has(p.id));
+    !!filtered && filtered.length > 0 && filtered.every((p) => selected.has(p.id));
   const someSelected =
-    !!list && !allSelected && list.some((p) => selected.has(p.id));
+    !!filtered && !allSelected && filtered.some((p) => selected.has(p.id));
 
   function toggleOne(id: string) {
     setSelected((cur) => {
@@ -160,13 +190,13 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   }
 
   function toggleAll() {
-    if (!list) return;
+    if (!filtered) return;
     setSelected((cur) => {
       const next = new Set(cur);
       if (allSelected) {
-        for (const p of list) next.delete(p.id);
+        for (const p of filtered) next.delete(p.id);
       } else {
-        for (const p of list) next.add(p.id);
+        for (const p of filtered) next.add(p.id);
       }
       return next;
     });
@@ -292,12 +322,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
           detail={bulkErrors.join("\n")}
         />
       )}
-      {bulkActionNotice && (
-        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
-          <CheckCircle2 size={15} strokeWidth={2} className="shrink-0" />
-          {bulkActionNotice}
-        </div>
-      )}
+      {bulkActionNotice && <Banner tone="success" message={bulkActionNotice} />}
       {bulkActionErrors.length > 0 && (
         <ErrorBanner
           message={tf("imagesPage.bulk-action-errors", { n: bulkActionErrors.length })}
@@ -309,58 +334,64 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
           tiết (nhảy thẳng sang bản sao): ở đây người ta thường nhân bản vài cái
           liền tay, bị đá sang trang khác là mất mạch */}
       {cloneNotice && (
-        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
-          <Copy size={15} strokeWidth={2} className="shrink-0" />
-          <span>
-            {t("projects.cloned-to")}{" "}
-            <span className="font-medium">{cloneNotice.name}</span> -{" "}
-            <Link
-              href={`/images/${cloneNotice.id}`}
-              className="font-medium underline underline-offset-2"
-            >
-              {t("projects.open-new")}
-            </Link>
-          </span>
-        </div>
+        <Banner
+          tone="success"
+          message={
+            <>
+              {t("projects.cloned-to")}{" "}
+              <span className="font-medium">{cloneNotice.name}</span> -{" "}
+              <Link
+                href={`/images/${cloneNotice.id}`}
+                className="font-medium underline underline-offset-2"
+              >
+                {t("projects.open-new")}
+              </Link>
+            </>
+          }
+        />
       )}
 
       <Card>
-        {selected.size > 0 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
-            <span className="text-sm font-medium">
-              {tf("imagesPage.selected", { n: selected.size })}
-            </span>
-            <span className="flex-1" />
-            <Button
-              variant="secondary"
-              small
-              disabled={bulkDeleting || junkBusy}
-              onClick={() => setSelected(new Set())}
-            >
-              {t("common.deselect")}
-            </Button>
-            <Button
-              variant="secondary"
-              small
-              disabled={bulkDeleting || junkBusy}
-              onClick={onBulkCleanJunk}
-            >
-              <Trash2 size={14} strokeWidth={2} />
-              {junkBusy ? t("junk.cleaning") : t("junk.clean")}
-            </Button>
-            <Button
-              variant="destructive"
-              small
-              disabled={bulkDeleting || junkBusy}
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              <Trash2 size={14} strokeWidth={2} />
-              {bulkDeleting ? t("common.deleting") : t("common.delete-selected")}
-            </Button>
-          </div>
-        )}
+        <Toolbar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: t("imagesPage.search-placeholder"),
+          }}
+          selectedCount={selected.size}
+          onClearSelection={() => setSelected(new Set())}
+          bulkActions={
+            <>
+              <Button
+                variant="secondary"
+                small
+                disabled={bulkDeleting || junkBusy}
+                onClick={onBulkCleanJunk}
+              >
+                <Trash2 size={14} strokeWidth={2} />
+                {junkBusy ? t("junk.cleaning") : t("junk.clean")}
+              </Button>
+              <Button
+                variant="destructive"
+                small
+                disabled={bulkDeleting || junkBusy}
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                <Trash2 size={14} strokeWidth={2} />
+                {bulkDeleting
+                  ? t("common.deleting")
+                  : t("common.delete-selected")}
+              </Button>
+            </>
+          }
+        />
 
-        {list && list.length > 0 ? (
+        {/* Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+            ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải lỗi"
+            cùng lúc, mà cho danh sách về rỗng thì lại nói dối là "chưa có gì". */}
+        {!list ? (
+          !error && <TableSkeleton />
+        ) : filtered && filtered.length > 0 ? (
           <table className="table">
             <thead>
               <tr>
@@ -391,7 +422,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
               </tr>
             </thead>
             <tbody>
-              {list.map((p) => {
+              {filtered.map((p) => {
                 const thumb = p.final ?? p.background;
                 return (
                   <tr
@@ -436,7 +467,7 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                     </td>
                     <td>
                       <span className="font-medium">{p.name}</span>
-                      <span className="ml-2 text-xs text-[var(--text-muted)]">
+                      <span className="ml-2 text-meta text-[var(--text-muted)]">
                         {p.id}
                       </span>
                     </td>
@@ -469,25 +500,21 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                     {/* stopPropagation: cả hàng click được để mở project, nút ở
                         đây phải làm việc của nó chứ không mở trang chi tiết */}
                     <td onClick={(e) => e.stopPropagation()}>
-                      <span className="flex items-center gap-0.5">
-                        <button
-                          type="button"
-                          title={t("projects.rename")}
-                          aria-label={tf("projects.rename-aria", { name: p.name })}
+                      <span className="flex items-center gap-1">
+                        <IconButton
+                          size="sm"
+                          label={tf("projects.rename-aria", { name: p.name })}
                           onClick={() => setRenameTarget(p)}
-                          className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
                         >
-                          <Pencil size={15} strokeWidth={2} />
-                        </button>
-                        <button
-                          type="button"
-                          title={t("clone.title")}
-                          aria-label={tf("projects.clone-aria", { name: p.name })}
+                          <Pencil size={14} strokeWidth={2} />
+                        </IconButton>
+                        <IconButton
+                          size="sm"
+                          label={tf("projects.clone-aria", { name: p.name })}
                           onClick={() => setCloneSource({ id: p.id, name: p.name })}
-                          className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
                         >
-                          <Copy size={15} strokeWidth={2} />
-                        </button>
+                          <Copy size={14} strokeWidth={2} />
+                        </IconButton>
                       </span>
                     </td>
                   </tr>
@@ -495,7 +522,9 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
               })}
             </tbody>
           </table>
-        ) : list ? (
+        ) : list.length > 0 ? (
+          <EmptyState icon={Filter} description={t("common.no-match")} />
+        ) : (
           <EmptyState
             icon={Images}
             description={t("imagesPage.empty")}
@@ -506,10 +535,6 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
               </Button>
             }
           />
-        ) : (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
         )}
       </Card>
 
@@ -602,37 +627,27 @@ export default function ImagesPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.images")}
-            <InfoHint
-              titleKey="help.images.title"
-              bodyKey="help.images.body"
-              size={14}
-            />
-          </span>
-        }
-        subtitle={t("imagesPage.subtitle")}
-        actions={
+        title={t("nav.images")}
+        hint={{ titleKey: "help.images.title", bodyKey: "help.images.body" }}
+        subtitle={
           <>
-            <Button onClick={openCreate}>
-              <Plus size={16} strokeWidth={2} />
-              {t("imagesPage.create")}
-            </Button>
+            {t("imagesPage.subtitle")} · {t("imagesPage.style-note")}{" "}
+            <Link
+              href="/styles"
+              className="font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+            >
+              Style Design
+            </Link>
+            .
           </>
         }
+        actions={
+          <Button onClick={openCreate}>
+            <Plus size={16} strokeWidth={2} />
+            {t("imagesPage.create")}
+          </Button>
+        }
       />
-
-      <p className="text-[13px] text-[var(--text-muted)]">
-        {t("imagesPage.style-note")}{" "}
-        <Link
-          href="/styles"
-          className="font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-        >
-          Style Design
-        </Link>
-        .
-      </p>
 
       <ImageProjectList onCreate={openCreate} />
 
@@ -660,10 +675,7 @@ export default function ImagesPage() {
         }
       >
         {createError && <ErrorBanner message={createError} />}
-        <div>
-          <label className="label" htmlFor="image-name">
-            {t("common.name")}
-          </label>
+        <Field label={t("common.name")} htmlFor="image-name">
           <input
             id="image-name"
             className="input"
@@ -673,7 +685,7 @@ export default function ImagesPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder={t("imagesPage.name-placeholder")}
           />
-        </div>
+        </Field>
         <ImageProjectFields
           value={draft}
           onChange={(p) => setDraft((d) => ({ ...d, ...p }))}

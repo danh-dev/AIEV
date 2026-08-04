@@ -9,7 +9,7 @@
  * Chỗ nào lưu, lưu đi đâu là việc của component cha.
  */
 
-import { AlertTriangle, Loader2, Plus, ScrollText, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -23,12 +23,31 @@ import {
   type SkillMeta,
   type TrimAggressiveness,
 } from "@/lib/api";
+import { CheckboxField, Field, SwitchField } from "@/components/Field";
+import { Panel } from "@/components/Panel";
+import { Segmented } from "@/components/Segmented";
 import { TagInput } from "@/components/TagInput";
 import { TextPositionPicker, useGeminiImageModels } from "@/components/ImageProjectForm";
 import { useProviders } from "@/components/ModelPicker";
 import { StyleSelect } from "@/components/StyleSelect";
 import { VideoStyleSelect } from "@/components/VideoStyleSelect";
 import { useT } from "@/lib/i18n";
+
+/**
+ * Nút dạng LIÊN KẾT trong biểu mẫu ("Quản lý prompt", "Thêm từ khóa").
+ * Một class duy nhất cho cả file - trước đây mỗi chỗ tự chế một biến thể
+ * (12px đổi màu lúc hover ở chỗ này, 12px gạch chân ở chỗ kia).
+ */
+const LINK_BTN =
+  "inline-flex w-fit items-center gap-1 text-sm font-medium text-[var(--primary)] hover:underline disabled:opacity-50";
+
+/**
+ * Vùng con bung ra khi một công tắc được BẬT.
+ * Thụt lề bằng KHOẢNG TRẮNG, không thêm đường kẻ: hộp ngoài đã là <Panel> có
+ * viền, thêm border-t cho mỗi vùng bung nữa là ba tầng đường kẻ lồng nhau
+ * trong đúng một hộp 12px - mắt không còn đọc ra cái nào thuộc cái nào.
+ */
+const SUBFIELDS = "flex flex-col gap-3 pl-4";
 
 export const DEFAULT_BRIEF: Brief = {
   sourceDescription: "",
@@ -83,67 +102,6 @@ const AUTO_CUT_LEVEL_HINT: Record<TrimAggressiveness, string> = {
   tight: "brief.autocut-level-tight-hint",
 };
 
-function Switch({
-  checked,
-  onChange,
-  label,
-  hint,
-  id,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  hint?: string;
-  id: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <label htmlFor={id} className="cursor-pointer text-sm font-medium">
-          {label}
-        </label>
-        {hint && (
-          <p className="text-xs text-[var(--text-muted)]">{hint}</p>
-        )}
-      </div>
-      <button
-        id={id}
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        className="switch"
-        onClick={() => onChange(!checked)}
-      />
-    </div>
-  );
-}
-
-/** Label + dòng phụ giải thích cho một field của brief. */
-function FieldLabel({
-  htmlFor,
-  label,
-  hint,
-}: {
-  htmlFor?: string;
-  label: string;
-  hint: string;
-}) {
-  const cls = "block text-sm font-medium text-[var(--text)]";
-  return (
-    <div className="mb-1.5">
-      {htmlFor ? (
-        <label className={cls} htmlFor={htmlFor}>
-          {label}
-        </label>
-      ) : (
-        <span className={cls}>{label}</span>
-      )}
-      <p className="text-xs text-[var(--text-muted)]">{hint}</p>
-    </div>
-  );
-}
-
 export function BriefFields({
   value,
   onChange,
@@ -162,7 +120,6 @@ export function BriefFields({
   const showStyle = show?.styleId ?? true;
   const showSource = show?.sourceDescription ?? true;
 
-  const [keywordInput, setKeywordInput] = useState("");
   const [showKeywords, setShowKeywords] = useState(false);
   // Bố cục Key: false = AI tự đề xuất & sử dụng (mặc định), true = user tự chỉ định
   const [keyManual, setKeyManual] = useState(
@@ -210,14 +167,6 @@ export function BriefFields({
     onChange({ [key]: v } as Partial<Brief>);
   }
 
-  function addKeyword() {
-    const kw = keywordInput.trim();
-    if (!kw) return;
-    setKeywordInput("");
-    if (value.highlightKeywords.includes(kw)) return;
-    set("highlightKeywords", [...value.highlightKeywords, kw]);
-  }
-
   /** Đổ content của prompt mẫu vào ô "Yêu cầu edit" - confirm nếu sắp ghi đè. */
   function applyPrompt(id: string) {
     const p = prompts.find((x) => x.id === id);
@@ -237,16 +186,15 @@ export function BriefFields({
   return (
     <fieldset
       disabled={disabled}
-      className={`flex flex-col gap-5 ${disabled ? "opacity-60" : ""}`}
+      className={`flex flex-col gap-4 ${disabled ? "opacity-60" : ""}`}
     >
       {/* 1. Mô tả video gốc */}
       {showSource && (
-        <div>
-          <FieldLabel
-            htmlFor="brief-source"
-            label={t("brief.source-label")}
-            hint={t("brief.source-hint")}
-          />
+        <Field
+          label={t("brief.source-label")}
+          htmlFor="brief-source"
+          hint={t("brief.source-hint")}
+        >
           <textarea
             id="brief-source"
             className="input"
@@ -255,19 +203,18 @@ export function BriefFields({
             onChange={(e) => set("sourceDescription", e.target.value)}
             placeholder={t("brief.source-placeholder")}
           />
-        </div>
+        </Field>
       )}
 
       {/* 2. Yêu cầu edit (prompt) - nội dung chính gửi AI */}
-      <div>
-        <FieldLabel
-          htmlFor="brief-notes"
-          label={t("brief.notes-label")}
-          hint={t("brief.notes-hint")}
-        />
-        <div className="mb-1.5 flex items-center gap-2">
+      <Field
+        label={t("brief.notes-label")}
+        htmlFor="brief-notes"
+        hint={t("brief.notes-hint")}
+      >
+        <div className="mb-2 flex items-center gap-2">
           <select
-            className="input h-8 flex-1 text-[13px]"
+            className="input flex-1"
             value=""
             onChange={(e) => applyPrompt(e.target.value)}
             aria-label={t("brief.use-prompt-aria")}
@@ -283,11 +230,8 @@ export function BriefFields({
               </option>
             ))}
           </select>
-          <Link
-            href="/prompts"
-            className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-          >
-            <ScrollText size={13} strokeWidth={2} />
+          <Link href="/prompts" className={`${LINK_BTN} shrink-0`}>
+            <ScrollText size={14} strokeWidth={2} />
             {t("brief.manage-prompts")}
           </Link>
         </div>
@@ -299,11 +243,12 @@ export function BriefFields({
           onChange={(e) => set("notes", e.target.value)}
           placeholder={t("brief.notes-placeholder")}
         />
-      </div>
+      </Field>
 
-      {/* 3. Các toggle tính năng */}
-      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-        <Switch
+      {/* 3. Các toggle tính năng - MỘT hộp <Panel>, mỗi tính năng một hàng
+          <SwitchField>. Vùng bung ra khi bật chỉ thụt lề, không kẻ thêm viền. */}
+      <Panel className="gap-4">
+        <SwitchField
           id="brief-autocut"
           checked={value.autoCut}
           onChange={(v) => set("autoCut", v)}
@@ -312,117 +257,82 @@ export function BriefFields({
         />
         {/* Mức mạnh tay - chỉ hiện khi toggle BẬT (autoCut vẫn là công tắc duy nhất) */}
         {value.autoCut && (
-          <div className="border-t border-[var(--border)] pt-2.5">
-            <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">
-              {t("brief.autocut-level")}
-            </span>
-            <div
-              className="flex flex-col gap-1.5"
-              role="radiogroup"
-              aria-label={t("brief.autocut-level")}
-            >
-              {AUTO_CUT_LEVELS.map((level) => (
-                <label
-                  key={level}
-                  className="flex cursor-pointer items-start gap-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    name="brief-autocut-level"
-                    className="mt-0.5 accent-[var(--primary)]"
-                    checked={value.autoCutLevel === level}
-                    onChange={() => set("autoCutLevel", level)}
-                  />
-                  <span>
-                    {t(AUTO_CUT_LEVEL_LABEL[level])}
-                    {level === "default" && (
-                      <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">
-                        {t("brief.autocut-level-recommended")}
+          <div className={SUBFIELDS}>
+            <Field label={t("brief.autocut-level")}>
+              <div
+                className="flex flex-col gap-2"
+                role="radiogroup"
+                aria-label={t("brief.autocut-level")}
+              >
+                {AUTO_CUT_LEVELS.map((level) => (
+                  <label
+                    key={level}
+                    className="flex cursor-pointer items-start gap-2 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="brief-autocut-level"
+                      className="mt-0.5 accent-[var(--primary)]"
+                      checked={value.autoCutLevel === level}
+                      onChange={() => set("autoCutLevel", level)}
+                    />
+                    <span>
+                      {t(AUTO_CUT_LEVEL_LABEL[level])}
+                      {level === "default" && (
+                        <span className="ml-1 text-meta font-normal text-[var(--text-muted)]">
+                          {t("brief.autocut-level-recommended")}
+                        </span>
+                      )}
+                      <span className="block text-meta font-normal text-[var(--text-muted)]">
+                        {t(AUTO_CUT_LEVEL_HINT[level])}
                       </span>
-                    )}
-                    <span className="block text-xs font-normal text-[var(--text-muted)]">
-                      {t(AUTO_CUT_LEVEL_HINT[level])}
                     </span>
-                  </span>
-                </label>
-              ))}
-            </div>
+                  </label>
+                ))}
+              </div>
+            </Field>
           </div>
         )}
-        <Switch
+        <SwitchField
           id="brief-subtitles"
           checked={value.subtitles}
           onChange={(v) => set("subtitles", v)}
           label={t("brief.subtitles-label")}
           hint={t("brief.subtitles-hint")}
         />
-        <Switch
+        <SwitchField
           id="brief-highlight"
           checked={value.highlightEnabled}
           onChange={(v) => set("highlightEnabled", v)}
           label={t("brief.highlight")}
           hint={t("brief.highlight-hint")}
         />
-        {/* Nâng cao: chỉ định thêm keyword - chỉ hiện khi toggle BẬT */}
+        {/* Nâng cao: chỉ định thêm keyword - chỉ hiện khi toggle BẬT.
+            Chip + ô gõ + Enter chính là <TagInput>, không dựng lại lần hai. */}
         {value.highlightEnabled && (
-          <div className="border-t border-[var(--border)] pt-2.5">
+          <div className={SUBFIELDS}>
             {!keywordsOpen ? (
               <button
                 type="button"
-                className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                className={LINK_BTN}
                 onClick={() => setShowKeywords(true)}
               >
-                <Plus size={13} strokeWidth={2} />
+                <Plus size={14} strokeWidth={2} />
                 {t("brief.add-keywords")}
               </button>
             ) : (
-              <div>
-                <label
-                  className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
-                  htmlFor="brief-keyword"
-                >
-                  {t("brief.keywords-label")}
-                </label>
-                {value.highlightKeywords.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
-                    {value.highlightKeywords.map((kw) => (
-                      <span key={kw} className="chip">
-                        {kw}
-                        <button
-                          type="button"
-                          aria-label={tf("brief.remove-keyword-aria", { keyword: kw })}
-                          className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
-                          onClick={() =>
-                            set(
-                              "highlightKeywords",
-                              value.highlightKeywords.filter((k) => k !== kw)
-                            )
-                          }
-                        >
-                          <X size={12} strokeWidth={2} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <input
+              <Field label={t("brief.keywords-label")} htmlFor="brief-keyword">
+                <TagInput
                   id="brief-keyword"
-                  className="input h-8 text-[13px]"
-                  value={keywordInput}
-                  onChange={(e) => setKeywordInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addKeyword();
-                    }
-                  }}
+                  tags={value.highlightKeywords}
+                  onChange={(tags) => set("highlightKeywords", tags)}
                   placeholder={t("brief.keyword-placeholder")}
                 />
-              </div>
+              </Field>
             )}
           </div>
         )}
-        <Switch
+        <SwitchField
           id="brief-key-layout"
           checked={value.keyLayoutEnabled}
           onChange={(v) => set("keyLayoutEnabled", v)}
@@ -431,82 +341,60 @@ export function BriefFields({
         />
         {/* Chế độ chọn key - chỉ hiện khi toggle BẬT */}
         {value.keyLayoutEnabled && (
-          <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-2.5">
-            <div className="flex gap-1.5" role="radiogroup" aria-label={t("brief.key-mode-aria")}>
-              {(
-                [
-                  [false, "brief.key-auto"],
-                  [true, "brief.key-manual"],
-                ] as const
-              ).map(([manual, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="radio"
-                  aria-checked={keyManual === manual}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                    keyManual === manual
-                      ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-                      : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                  }`}
-                  onClick={() => {
-                    setKeyManual(manual);
-                    if (!manual) {
-                      // Về chế độ AI: xóa key đã chỉ định để AI toàn quyền đề xuất
-                      onChange({ mainKey: "", relatedKeys: [] });
-                    }
-                  }}
-                >
-                  {t(label)}
-                </button>
-              ))}
-            </div>
+          <div className={SUBFIELDS}>
+            <Segmented
+              className="self-start"
+              label={t("brief.key-mode-aria")}
+              value={keyManual ? "manual" : "auto"}
+              options={[
+                { value: "auto", label: t("brief.key-auto") },
+                { value: "manual", label: t("brief.key-manual") },
+              ]}
+              onChange={(next) => {
+                const manual = next === "manual";
+                setKeyManual(manual);
+                if (!manual) {
+                  // Về chế độ AI: xóa key đã chỉ định để AI toàn quyền đề xuất
+                  onChange({ mainKey: "", relatedKeys: [] });
+                }
+              }}
+            />
             {!keyManual ? (
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-meta text-[var(--text-muted)]">
                 {t("brief.key-auto-desc")}
               </p>
             ) : (
               <>
-                <div>
-                  <label
-                    className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
-                    htmlFor="brief-main-key"
-                  >
-                    {t("brief.main-key")}
-                  </label>
+                <Field
+                  label={t("brief.main-key")}
+                  htmlFor="brief-main-key"
+                  hint={t("brief.main-key-hint")}
+                >
                   <input
                     id="brief-main-key"
-                    className="input h-8 text-[13px]"
+                    className="input"
                     value={value.mainKey}
                     onChange={(e) => set("mainKey", e.target.value)}
                     placeholder={t("brief.main-key-placeholder")}
                   />
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {t("brief.main-key-hint")}
-                  </p>
-                </div>
-                <div>
-                  <label
-                    className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
-                    htmlFor="brief-related-keys"
-                  >
-                    {t("brief.related-keys")}
-                  </label>
+                </Field>
+                <Field
+                  label={t("brief.related-keys")}
+                  htmlFor="brief-related-keys"
+                  hint={t("brief.related-keys-hint")}
+                >
                   <TagInput
                     id="brief-related-keys"
                     tags={value.relatedKeys}
                     onChange={(tags) => set("relatedKeys", tags)}
                     placeholder={t("brief.related-keys-placeholder")}
                   />
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {t("brief.related-keys-hint")}
-                  </p>
-                </div>
+                </Field>
               </>
             )}
           </div>
         )}
-        <Switch
+        <SwitchField
           id="brief-illustrations"
           checked={value.autoIllustrations}
           onChange={(v) => set("autoIllustrations", v)}
@@ -515,52 +403,47 @@ export function BriefFields({
         />
         {/* Chọn model vẽ - chỉ hiện khi toggle BẬT */}
         {value.autoIllustrations && (
-          <div className="border-t border-[var(--border)] pt-2.5">
-            <label
-              className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
+          <div className={SUBFIELDS}>
+            <Field
+              label={t("brief.illustration-model")}
               htmlFor="brief-illustration-model"
-            >
-              {t("brief.illustration-model")}
-            </label>
-            <select
-              id="brief-illustration-model"
-              className="input h-8 text-[13px]"
-              value={value.illustrationModel ?? ""}
-              onFocus={loadIllustrationModels}
-              onChange={(e) =>
-                set("illustrationModel", e.target.value || null)
+              hint={
+                illustrationModelsLoading ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                    {t("images.loading-models")}
+                  </span>
+                ) : undefined
               }
             >
-              <option value="">{t("images.model-default")}</option>
-              {illustrationModelMissing && (
-                <option value={value.illustrationModel!}>
-                  {value.illustrationModel}
-                </option>
-              )}
-              {illustrationModelOptions.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-            {illustrationModelsLoading && (
-              <p className="mt-1 flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                <Loader2
-                  size={12}
-                  strokeWidth={2}
-                  className="animate-spin"
-                />
-                {t("images.loading-models")}
-              </p>
-            )}
-            {/* Mật độ ảnh - số ảnh Gemini mỗi phút video; null = AI tự quyết */}
-            <div className="mt-2.5">
-              <label
-                className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]"
-                htmlFor="brief-illustration-density"
+              <select
+                id="brief-illustration-model"
+                className="input"
+                value={value.illustrationModel ?? ""}
+                onFocus={loadIllustrationModels}
+                onChange={(e) =>
+                  set("illustrationModel", e.target.value || null)
+                }
               >
-                {t("brief.illustration-density")}
-              </label>
+                <option value="">{t("images.model-default")}</option>
+                {illustrationModelMissing && (
+                  <option value={value.illustrationModel!}>
+                    {value.illustrationModel}
+                  </option>
+                )}
+                {illustrationModelOptions.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {/* Mật độ ảnh - số ảnh Gemini mỗi phút video; null = AI tự quyết */}
+            <Field
+              label={t("brief.illustration-density")}
+              htmlFor="brief-illustration-density"
+              hint={t("brief.illustration-density-hint")}
+            >
               <div className="flex items-center gap-2">
                 <input
                   id="brief-illustration-density"
@@ -568,7 +451,7 @@ export function BriefFields({
                   min={1}
                   max={20}
                   step={1}
-                  className="input h-8 w-24 text-[13px]"
+                  className="input w-24"
                   // Ô trống = null = AI tự quyết; gõ số là chốt mật độ cứng
                   value={value.illustrationsPerMinute ?? ""}
                   placeholder={t("brief.illustration-density-auto-short")}
@@ -584,51 +467,36 @@ export function BriefFields({
                     }
                   }}
                 />
-                <span className="text-xs text-[var(--text-muted)]">
+                <span className="text-sm text-[var(--text-muted)]">
                   {t("brief.illustration-density-unit")}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {t("brief.illustration-density-hint")}
-              </p>
-            </div>
+            </Field>
             {/* Vị trí chủ thể ảnh - lưới 3x3 như bộ chọn vị trí logo, chọn bằng mắt */}
-            <div className="mt-2.5">
-              <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">
-                {t("brief.illustration-position")}
-              </span>
+            <Field
+              label={t("brief.illustration-position")}
+              hint={
+                value.illustrationPosition === "auto"
+                  ? t("brief.illustration-position-auto-hint")
+                  : t("brief.illustration-position-hint")
+              }
+            >
               <TextPositionPicker
                 value={value.illustrationPosition}
                 onChange={(pos) => set("illustrationPosition", pos)}
               />
-              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-                {value.illustrationPosition === "auto"
-                  ? t("brief.illustration-position-auto-hint")
-                  : t("brief.illustration-position-hint")}
-              </p>
-            </div>
-            <label
-              className="mt-2.5 flex cursor-pointer items-start gap-2 text-sm"
-              htmlFor="brief-illustration-text"
-            >
-              <input
-                id="brief-illustration-text"
-                type="checkbox"
-                className="mt-0.5 accent-[var(--primary)]"
-                checked={value.illustrationText}
-                onChange={(e) => set("illustrationText", e.target.checked)}
-              />
-              <span>
-                {t("brief.illustration-text")}
-                <span className="block text-xs font-normal text-[var(--text-muted)]">
-                  {t("brief.illustration-text-hint")}
-                </span>
-              </span>
-            </label>
+            </Field>
+            <CheckboxField
+              id="brief-illustration-text"
+              checked={value.illustrationText}
+              onChange={(v) => set("illustrationText", v)}
+              label={t("brief.illustration-text")}
+              hint={t("brief.illustration-text-hint")}
+            />
             {!geminiConnected && (
-              <p className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-[var(--danger)]">
+              <p className="flex items-start gap-2 text-sm font-medium text-[var(--danger)]">
                 <AlertTriangle
-                  size={13}
+                  size={14}
                   strokeWidth={2}
                   className="mt-0.5 shrink-0"
                 />
@@ -637,45 +505,39 @@ export function BriefFields({
             )}
           </div>
         )}
-      </div>
+      </Panel>
 
       {/* 4. Style Design - NGAY TRÊN Skill, sản phẩm cưỡng chế theo style */}
       {showStyle && (
-        <div>
-          <FieldLabel
-            htmlFor="brief-style"
-            label="Style Design"
-            hint={t("brief.style-hint")}
-          />
+        <Field
+          label="Style Design"
+          htmlFor="brief-style"
+          hint={t("brief.style-hint")}
+        >
           <StyleSelect
             id="brief-style"
             value={value.styleId}
             onChange={(v) => set("styleId", v)}
           />
-        </div>
+        </Field>
       )}
 
       {/* 4b. Phong cách dựng - đặt NGAY DƯỚI Style Design vì hai thứ hay bị lẫn:
           Style Design = màu/font/logo thương hiệu, cái này = chất liệu hình ảnh.
           Đứng cạnh nhau thì người dùng đọc một lượt là phân biệt được. */}
-      <div>
-        <FieldLabel
-          label={t("vstyle.label")}
-          hint={t("vstyle.hint")}
-        />
+      <Field label={t("vstyle.label")} hint={t("vstyle.hint")}>
         <VideoStyleSelect
           value={value.videoStyleId}
           onChange={(v) => set("videoStyleId", v)}
         />
-      </div>
+      </Field>
 
       {/* 5. Skill */}
-      <div>
-        <FieldLabel
-          htmlFor="brief-skill"
-          label={t("brief.skill-label")}
-          hint={t("brief.skill-hint")}
-        />
+      <Field
+        label={t("brief.skill-label")}
+        htmlFor="brief-skill"
+        hint={t("brief.skill-hint")}
+      >
         <select
           id="brief-skill"
           className="input"
@@ -698,15 +560,15 @@ export function BriefFields({
             </option>
           ))}
         </select>
-      </div>
+      </Field>
 
       {/* 6. Sound effect */}
-      <div>
-        <FieldLabel
-          label="Sound effect"
-          hint={t("brief.sfx-hint")}
-        />
-        <div className="flex flex-col gap-1.5">
+      <Field label="Sound effect" hint={t("brief.sfx-hint")}>
+        <div
+          className="flex flex-col gap-2"
+          role="radiogroup"
+          aria-label="Sound effect"
+        >
           {(Object.keys(SFX_MODE_LABEL) as SfxMode[]).map((mode) => (
             <label
               key={mode}
@@ -723,36 +585,32 @@ export function BriefFields({
             </label>
           ))}
         </div>
+      </Field>
 
-        {/* Nhạc nền - thư viện assets/music/, AI duck tự động khi có thoại */}
-        <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <FieldLabel
-            label={t("brief.music-label")}
-            hint={t("brief.music-hint")}
-          />
-          <div
-            className="flex flex-col gap-1.5"
-            role="radiogroup"
-            aria-label={t("brief.music-label")}
-          >
-            {(Object.keys(MUSIC_MODE_LABEL) as MusicMode[]).map((mode) => (
-              <label
-                key={mode}
-                className="flex cursor-pointer items-center gap-2 text-sm"
-              >
-                <input
-                  type="radio"
-                  name="brief-music-mode"
-                  className="accent-[var(--primary)]"
-                  checked={value.musicMode === mode}
-                  onChange={() => set("musicMode", mode)}
-                />
-                {t(MUSIC_MODE_LABEL[mode])}
-              </label>
-            ))}
-          </div>
+      {/* 7. Nhạc nền - thư viện assets/music/, AI duck tự động khi có thoại */}
+      <Field label={t("brief.music-label")} hint={t("brief.music-hint")}>
+        <div
+          className="flex flex-col gap-2"
+          role="radiogroup"
+          aria-label={t("brief.music-label")}
+        >
+          {(Object.keys(MUSIC_MODE_LABEL) as MusicMode[]).map((mode) => (
+            <label
+              key={mode}
+              className="flex cursor-pointer items-center gap-2 text-sm"
+            >
+              <input
+                type="radio"
+                name="brief-music-mode"
+                className="accent-[var(--primary)]"
+                checked={value.musicMode === mode}
+                onChange={() => set("musicMode", mode)}
+              />
+              {t(MUSIC_MODE_LABEL[mode])}
+            </label>
+          ))}
         </div>
-      </div>
+      </Field>
     </fieldset>
   );
 }

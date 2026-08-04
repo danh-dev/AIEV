@@ -2,7 +2,23 @@
 
 import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
+import { IconButton } from "@/components/IconButton";
 import { useT } from "@/lib/i18n";
+
+/**
+ * LUẬT CHUNG CHO MỌI MODAL (trước đợt đại tu có 8 modal dùng file này theo 8
+ * kiểu khác nhau - giờ chốt lại):
+ *
+ * 1. Nút trong `footer` LUÔN là <Button> cỡ mặc định 36px. Không `small`, và
+ *    không <button> đeo class .btn-* chép tay (UpdateModal từng có 8 nút kiểu đó).
+ * 2. Thứ tự nút: [phụ] … [chính] - hành động chính ở ngoài cùng bên phải, và
+ *    LUÔN có một đường thoát (Hủy/Đóng) chứ không chỉ mỗi dấu X.
+ * 3. Lỗi đặt ở ĐẦU thân modal bằng <ErrorBanner>/<Banner tone="danger">, không
+ *    nhét xuống footer và không viết chữ đỏ trần.
+ * 4. `wide` chỉ dành cho nội dung THẬT SỰ nhiều cột (stepper + log + danh sách,
+ *    lưới preview). Biểu mẫu một cột để hẹp cho dễ đọc.
+ * 5. Nút Hủy và dấu X đi CÙNG một đường: modal đang bận thì cả hai cùng bị chặn.
+ */
 
 export function Modal({
   title,
@@ -57,14 +73,9 @@ export function Modal({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold">{title}</h2>
           {dismissible && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("common.close")}
-              className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-            >
-              <X size={16} strokeWidth={2} />
-            </button>
+            <IconButton label={t("common.close")} size="sm" onClick={onClose}>
+              <X size={15} strokeWidth={2} />
+            </IconButton>
           )}
         </div>
         <div className="flex flex-col gap-3">{children}</div>

@@ -14,21 +14,15 @@ import {
   type ProjectSummary,
   type RepurposeAspect,
 } from "@/lib/api";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { CheckboxField, Field } from "@/components/Field";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
-import { formatRelative } from "@/lib/format";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
+import { clock, formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
-
-/** Giây → "mm:ss" (lib/format.ts chưa có helper đồng hồ nên viết tại chỗ). */
-function clock(sec: number): string {
-  const total = Math.max(0, Math.floor(sec));
-  const mm = Math.floor(total / 60);
-  const ss = total % 60;
-  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-}
 
 const ASPECTS: RepurposeAspect[] = ["9:16", "16:9", "1:1", "4:5"];
 
@@ -180,16 +174,8 @@ export function ProjectClipsCard({
   return (
     <>
       <Card
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("clips.title")}
-            <InfoHint
-              titleKey="help.clips.title"
-              bodyKey="help.clips.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("clips.title")}
+        hint={{ titleKey: "help.clips.title", bodyKey: "help.clips.body" }}
       >
         {loadError && (
           <div className="mb-3">
@@ -197,11 +183,14 @@ export function ProjectClipsCard({
           </div>
         )}
 
-        {/* Cấu hình gợi ý - hàng gọn, màn hẹp thì tự xuống dòng */}
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex w-20 flex-col gap-1 text-xs text-[var(--text-muted)]">
-            {t("clips.count")}
+        {/* Ba ô số CÙNG MỘT LƯỚI đều nhau thay vì hàng flex tự co, mỗi ô một bề
+            rộng gõ tay (w-20 / w-24 / w-24) rồi kèm luôn cái nút ở cuối - trong
+            cột workspace hẹp (~340px) hàng đó gãy thành ba dòng lệch nhau.
+            `items-end` để nhãn dài xuống hai dòng cũng không đẩy ô nhập so le. */}
+        <div className="grid grid-cols-3 items-end gap-2">
+          <Field label={t("clips.count")} htmlFor={`clips-count-${projectId}`}>
             <input
+              id={`clips-count-${projectId}`}
               className="input"
               type="number"
               min={1}
@@ -210,10 +199,10 @@ export function ProjectClipsCard({
               disabled={suggesting}
               onChange={(e) => setCount(e.target.value)}
             />
-          </label>
-          <label className="flex w-24 flex-col gap-1 text-xs text-[var(--text-muted)]">
-            {t("clips.min-sec")}
+          </Field>
+          <Field label={t("clips.min-sec")} htmlFor={`clips-min-${projectId}`}>
             <input
+              id={`clips-min-${projectId}`}
               className="input"
               type="number"
               min={5}
@@ -221,10 +210,10 @@ export function ProjectClipsCard({
               disabled={suggesting}
               onChange={(e) => setMinSec(e.target.value)}
             />
-          </label>
-          <label className="flex w-24 flex-col gap-1 text-xs text-[var(--text-muted)]">
-            {t("clips.max-sec")}
+          </Field>
+          <Field label={t("clips.max-sec")} htmlFor={`clips-max-${projectId}`}>
             <input
+              id={`clips-max-${projectId}`}
               className="input"
               type="number"
               min={6}
@@ -232,8 +221,18 @@ export function ProjectClipsCard({
               disabled={suggesting}
               onChange={(e) => setMaxSec(e.target.value)}
             />
-          </label>
-          <Button disabled={suggesting} onClick={onSuggest}>
+          </Field>
+        </div>
+
+        {/* Nút hành động chính: full-width, cùng cỡ và cùng bề rộng với nút tạo
+            project ở chân card - hai nút của cùng một card không nên một cái
+            dính đuôi ô nhập, một cái nép góc phải. */}
+        <div className="mt-3">
+          <Button
+            className="w-full"
+            disabled={suggesting}
+            onClick={onSuggest}
+          >
             {suggesting ? (
               <Loader2 size={14} strokeWidth={2} className="animate-spin" />
             ) : (
@@ -245,7 +244,7 @@ export function ProjectClipsCard({
 
         {/* Gọi AI mất 1-3 phút - nói rõ để người dùng không tưởng treo máy */}
         {suggesting && (
-          <p className="mt-2 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+          <p className="mt-2 flex items-center gap-2 text-meta text-[var(--text-muted)]">
             <Loader2 size={13} strokeWidth={2} className="animate-spin" />
             {t("clips.suggest-hint")}
           </p>
@@ -262,21 +261,18 @@ export function ProjectClipsCard({
         {clips.length === 0 ? (
           <EmptyState icon={Scissors} description={t("clips.none")} />
         ) : (
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-3 flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="flex items-center gap-2 text-xs font-medium">
-                <input
-                  type="checkbox"
-                  className="checkbox"
-                  checked={allSelected}
-                  onChange={() =>
-                    setSelected(allSelected ? [] : clips.map((_, i) => i))
-                  }
-                />
-                {t("clips.select-all")}
-              </label>
+              <CheckboxField
+                id={`clips-all-${projectId}`}
+                label={t("clips.select-all")}
+                checked={allSelected}
+                onChange={() =>
+                  setSelected(allSelected ? [] : clips.map((_, i) => i))
+                }
+              />
               {suggestedAt && (
-                <span className="text-xs text-[var(--text-muted)]">
+                <span className="text-meta text-[var(--text-muted)]">
                   {tf("clips.suggested-at", {
                     time: formatRelative(suggestedAt),
                   })}
@@ -284,22 +280,33 @@ export function ProjectClipsCard({
               )}
             </div>
 
-            <ul className="flex flex-col gap-1.5">
-              {clips.map((c, i) => (
-                <li
-                  key={`${c.start}-${c.end}-${i}`}
-                  className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox mt-1"
-                    checked={selected.includes(i)}
-                    aria-label={tf("clips.select-aria", { title: c.title })}
-                    onChange={() => toggle(i)}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-mono text-xs text-[var(--text-muted)]">
+            {/* Hàng ngăn nhau bằng một nét kẻ, KHÔNG phải mỗi hàng một cái hộp
+                có viền: hộp lồng trong Card là hai tầng viền, mà danh sách này
+                có thể dài mười mấy dòng - đọc thành một chồng thẻ rời rạc.
+
+                MỖI HÀNG BA DÒNG, hàng nào cũng đúng nhịp đó:
+                  1. ô tick + mốc giờ + chip điểm
+                  2. tiêu đề clip
+                  3. MỘT đoạn mô tả (hook, không có thì reason)
+                Bản cũ nhét cả hook lẫn reason nên clip nào AI viết dài là hàng
+                đó cao gấp đôi hàng bên cạnh, danh sách nhìn như răng cưa. */}
+            <ul className="flex flex-col divide-y divide-[var(--border)]">
+              {clips.map((c, i) => {
+                const desc = c.hook || c.reason;
+                return (
+                  <li
+                    key={`${c.start}-${c.end}-${i}`}
+                    className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="checkbox shrink-0"
+                        checked={selected.includes(i)}
+                        aria-label={tf("clips.select-aria", { title: c.title })}
+                        onChange={() => toggle(i)}
+                      />
+                      <span className="font-mono text-meta text-[var(--text-muted)]">
                         {clock(c.start)} - {clock(c.end)} (
                         {Math.round(c.end - c.start)}s)
                       </span>
@@ -307,54 +314,45 @@ export function ProjectClipsCard({
                         {tf("clips.score", { score: c.score })}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[13px] font-semibold leading-snug">
+
+                    <p className="text-sm font-semibold leading-snug">
                       {c.title}
                     </p>
-                    {c.hook && (
-                      <p className="line-clamp-2 text-xs leading-snug text-[var(--text-muted)]">
-                        {c.hook}
+
+                    {/* Câu người dùng phải ĐỌC để quyết định tick clip nào -
+                        đây là nội dung, không phải chú thích */}
+                    {desc && (
+                      <p className="line-clamp-2 text-sm leading-snug text-[var(--text-muted)]">
+                        {desc}
                       </p>
                     )}
-                    {c.reason && (
-                      <p className="line-clamp-2 text-xs leading-snug text-[var(--text-muted)]">
-                        {c.reason}
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
 
-            <label className="flex items-start gap-2 text-xs">
-              <input
-                type="checkbox"
-                className="checkbox mt-0.5"
-                checked={autoEdit}
-                onChange={(e) => setAutoEdit(e.target.checked)}
-              />
-              <span>
-                {t("clips.auto-edit")}
-                <span className="block text-[var(--text-muted)]">
-                  {t("clips.auto-edit-hint")}
-                </span>
-              </span>
-            </label>
+            <CheckboxField
+              id={`clips-auto-edit-${projectId}`}
+              label={t("clips.auto-edit")}
+              hint={t("clips.auto-edit-hint")}
+              checked={autoEdit}
+              onChange={setAutoEdit}
+            />
 
-            <div className="flex justify-end">
-              <Button
-                disabled={creating || selected.length === 0}
-                onClick={onCreate}
-              >
-                {creating ? (
-                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                ) : (
-                  <Scissors size={14} strokeWidth={2} />
-                )}
-                {creating
-                  ? t("clips.creating")
-                  : tf("clips.create", { n: selected.length })}
-              </Button>
-            </div>
+            <Button
+              className="w-full"
+              disabled={creating || selected.length === 0}
+              onClick={onCreate}
+            >
+              {creating ? (
+                <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+              ) : (
+                <Scissors size={14} strokeWidth={2} />
+              )}
+              {creating
+                ? t("clips.creating")
+                : tf("clips.create", { n: selected.length })}
+            </Button>
           </div>
         )}
 
@@ -367,95 +365,104 @@ export function ProjectClipsCard({
           </div>
         )}
         {created.length > 0 && (
-          <div className="mt-2 flex flex-col gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5">
-            <span className="text-xs font-medium text-[var(--success)]">
-              {tf("clips.created", { n: created.length })}
-            </span>
-            {created.map((p) => (
-              <Link
-                key={p.id}
-                href={`/projects/${p.id}`}
-                className="truncate text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-              >
-                {p.name}
-              </Link>
-            ))}
-            {createNote && (
-              <span className="text-xs text-[var(--text-muted)]">
-                {createNote}
-              </span>
-            )}
+          <div className="mt-2">
+            <Banner
+              tone="success"
+              message={tf("clips.created", { n: created.length })}
+            >
+              <div className="mt-1 flex flex-col gap-1">
+                {created.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/projects/${p.id}`}
+                    className="truncate text-sm font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                  >
+                    {p.name}
+                  </Link>
+                ))}
+              </div>
+              {createNote && (
+                <p className="mt-1 text-meta text-[var(--text-muted)]">
+                  {createNote}
+                </p>
+              )}
+            </Banner>
           </div>
         )}
       </Card>
 
       <Card
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("clips.repurpose-title")}
-            <InfoHint
-              titleKey="help.repurpose.title"
-              bodyKey="help.repurpose.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("clips.repurpose-title")}
+        hint={{
+          titleKey: "help.repurpose.title",
+          bodyKey: "help.repurpose.body",
+        }}
       >
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           {t("clips.repurpose-desc")}
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {ASPECTS.map((a) => {
-            const size = REPURPOSE_SIZES[a];
-            const same = isSameAspect(a, width, height);
-            const active = aspect === a;
-            return (
-              <button
-                key={a}
-                type="button"
-                disabled={same || repurposing}
-                title={same ? t("clips.same-aspect") : undefined}
-                aria-pressed={active}
-                onClick={() => setAspect(a)}
-                className={`flex min-w-[92px] flex-1 flex-col items-center gap-0.5 rounded-[var(--radius)] border px-3 py-2 transition-colors duration-150 ${
-                  active
-                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-                } disabled:cursor-not-allowed disabled:opacity-45`}
-              >
-                <span className="text-[13px] font-semibold">{a}</span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {size.width}x{size.height}
-                </span>
-              </button>
-            );
-          })}
+        {/* Tỉ lệ trùng khung hiện tại bị khóa - lý do nằm ở tooltip của ô bọc
+            (title trên chính nút disabled không hiện được ở mọi trình duyệt) */}
+        {/* Số cột theo BỀ RỘNG THẬT của card (container query), không theo bề
+            rộng cửa sổ: `sm:grid-cols-4` cũ nhìn vào viewport nên màn hình to
+            là bốn thẻ bị nhồi vào cột workspace ~340px, mỗi thẻ còn ~80px và
+            dòng "1080x1920" tràn ra ngoài. */}
+        <div className="@container mt-3">
+          <OptionCardGroup
+            label={t("clips.repurpose-title")}
+            className="grid-cols-2 @md:grid-cols-4"
+          >
+            {ASPECTS.map((a) => {
+              const size = REPURPOSE_SIZES[a];
+              const same = isSameAspect(a, width, height);
+              return (
+                <div key={a} title={same ? t("clips.same-aspect") : undefined}>
+                  <OptionCard
+                    className="h-full w-full items-center text-center"
+                    selected={aspect === a}
+                    disabled={same || repurposing}
+                    onSelect={() => setAspect(a)}
+                    title={a}
+                    description={`${size.width}x${size.height}`}
+                  />
+                </div>
+              );
+            })}
+          </OptionCardGroup>
         </div>
 
-        <label className="mt-3 flex flex-col gap-1 text-xs text-[var(--text-muted)]">
-          {t("clips.new-name")}
-          <input
-            className="input"
-            value={newName}
-            disabled={repurposing}
-            placeholder={t("clips.new-name-placeholder")}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-        </label>
+        <div className="mt-3 flex flex-col gap-2">
+          <Field
+            label={t("clips.new-name")}
+            htmlFor={`repurpose-name-${projectId}`}
+          >
+            <input
+              id={`repurpose-name-${projectId}`}
+              className="input"
+              value={newName}
+              disabled={repurposing}
+              placeholder={t("clips.new-name-placeholder")}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+          </Field>
 
-        <label className="mt-2 flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            className="checkbox"
+          <CheckboxField
+            id={`repurpose-auto-edit-${projectId}`}
+            label={t("clips.auto-edit")}
             checked={repurposeAutoEdit}
-            onChange={(e) => setRepurposeAutoEdit(e.target.checked)}
+            onChange={setRepurposeAutoEdit}
           />
-          {t("clips.auto-edit")}
-        </label>
+        </div>
 
-        <div className="mt-3 flex justify-end">
-          <Button disabled={repurposing || !aspect} onClick={onRepurpose}>
+        {/* Cùng cỡ, cùng bề rộng với nút chân card bên trên - hai card này đứng
+            liền nhau trong một cột nên nút lệch cỡ là thấy ngay */}
+        <div className="mt-3">
+          <Button
+            className="w-full"
+            disabled={repurposing || !aspect}
+            onClick={onRepurpose}
+          >
             {repurposing ? (
               <Loader2 size={14} strokeWidth={2} className="animate-spin" />
             ) : (
@@ -476,17 +483,22 @@ export function ProjectClipsCard({
           </div>
         )}
         {repurposed && (
-          <p className="mt-2 flex flex-wrap items-center gap-1 text-xs">
-            <span className="text-[var(--success)]">
-              {t("clips.repurpose-done")}
-            </span>
-            <Link
-              href={`/projects/${repurposed.id}`}
-              className="font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-            >
-              {repurposed.name}
-            </Link>
-          </p>
+          <div className="mt-2">
+            <Banner
+              tone="success"
+              message={
+                <span className="flex flex-wrap items-center gap-1">
+                  {t("clips.repurpose-done")}
+                  <Link
+                    href={`/projects/${repurposed.id}`}
+                    className="font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                  >
+                    {repurposed.name}
+                  </Link>
+                </span>
+              }
+            />
+          </div>
         )}
       </Card>
     </>

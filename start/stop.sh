@@ -12,4 +12,7 @@ for port in 6868 6869; do
     STOPPED=true
   fi
 done
+# Xóa dấu vết "đang chạy" - để lại thì lần chạy start sau tưởng hệ thống vẫn sống.
+rm -f "$(cd "$(dirname "$0")/.." && pwd)/.aiev/run.json"
+
 $STOPPED || echo "  Không có gì đang chạy trên port 6868/6869."

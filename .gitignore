@@ -44,3 +44,7 @@ start/bin/
 start/backup-*/
 # Server ghi mốc cập nhật (tag release hoặc origin/main) cho script update đọc
 start/update-target.txt
+
+# Trạng thái cục bộ của script khởi động: dấu vân tay mã nguồn của bản build
+# gần nhất (build.json) và của lần chạy hiện tại (run.json). Riêng từng máy.
+/.aiev/

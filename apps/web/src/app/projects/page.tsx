@@ -1,15 +1,18 @@
 "use client";
 
 import {
-  CheckCircle2,
   Clapperboard,
   Copy,
   FileText,
+  Filter,
   Pencil,
   Play,
   Plus,
+  RectangleHorizontal,
+  RectangleVertical,
   Ruler,
   Sparkles,
+  Square,
   Tag,
   Trash2,
 } from "lucide-react";
@@ -29,16 +32,24 @@ import {
 } from "@/lib/api";
 import { Card } from "@/components/Card";
 import { ProjectBadge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { RenameProjectModal } from "@/components/RenameProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { InfoHint } from "@/components/InfoHint";
 import { Modal } from "@/components/Modal";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
 import { PageHeader } from "@/components/PageHeader";
+import { Panel } from "@/components/Panel";
+import { Segmented } from "@/components/Segmented";
+import { TableSkeleton } from "@/components/Skeleton";
 import { TagInput } from "@/components/TagInput";
+import { FilterChip, Toolbar } from "@/components/Toolbar";
 import {
   formatBytes,
   formatDateTime,
@@ -61,49 +72,11 @@ const PRESETS = [
 
 const FPS_OPTIONS = [24, 25, 30, 60] as const;
 
-/** Icon thuần CSS mô phỏng tỉ lệ khung hình của preset. */
-function AspectIcon({ width, height }: { width: number; height: number }) {
-  const style =
-    width >= height
-      ? { width: 22, aspectRatio: `${width} / ${height}` }
-      : { height: 22, aspectRatio: `${width} / ${height}` };
-  return (
-    <span className="flex h-6 w-6 items-center justify-center" aria-hidden>
-      <span
-        className="block rounded-[3px] border-[1.5px] border-current"
-        style={style}
-      />
-    </span>
-  );
-}
-
-/** Chip bấm được - dùng cho hàng lọc tag và tag dưới tên project. */
-function FilterChip({
-  active,
-  onClick,
-  children,
-  small,
-}: {
-  active: boolean;
-  onClick: (e: React.MouseEvent) => void;
-  children: React.ReactNode;
-  small?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 rounded-full border transition-colors duration-150 ${
-        small ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs"
-      } ${
-        active
-          ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-          : "border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text)]"
-      }`}
-    >
-      {children}
-    </button>
-  );
+/** Icon gợi hướng khung hình của preset - ngang / vuông / dọc. */
+function presetIcon(width: number, height: number) {
+  if (width > height) return RectangleHorizontal;
+  if (width === height) return Square;
+  return RectangleVertical;
 }
 
 export default function ProjectsPage() {
@@ -111,6 +84,9 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Tìm theo tên / id
+  const [query, setQuery] = useState("");
 
   // Lọc theo tag (multi-select, OR)
   const [tagFilter, setTagFilter] = useState<string[]>([]);
@@ -198,11 +174,19 @@ export default function ProjectsPage() {
 
   const filtered = useMemo(() => {
     if (!projects) return null;
-    if (tagFilter.length === 0) return projects;
-    return projects.filter((p) =>
-      (p.tags ?? []).some((t) => tagFilter.includes(t))
-    );
-  }, [projects, tagFilter]);
+    let out = projects;
+    if (tagFilter.length > 0) {
+      out = out.filter((p) => (p.tags ?? []).some((t) => tagFilter.includes(t)));
+    }
+    const q = query.trim().toLowerCase();
+    if (q) {
+      out = out.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+      );
+    }
+    return out;
+  }, [projects, tagFilter, query]);
 
   function toggleTag(tag: string) {
     setTagFilter((cur) =>
@@ -490,24 +474,14 @@ export default function ProjectsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.projects")}
-            <InfoHint
-              titleKey="help.projects.title"
-              bodyKey="help.projects.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("nav.projects")}
+        hint={{ titleKey: "help.projects.title", bodyKey: "help.projects.body" }}
         subtitle={t("projects.subtitle")}
         actions={
-          <>
-            <Button onClick={openCreate}>
-              <Plus size={16} strokeWidth={2} />
-              {t("projects.create")}
-            </Button>
-          </>
+          <Button onClick={openCreate}>
+            <Plus size={16} strokeWidth={2} />
+            {t("projects.create")}
+          </Button>
         }
       />
 
@@ -515,19 +489,9 @@ export default function ProjectsPage() {
         <ErrorBanner message={t("projects.load-error")} detail={error} />
       )}
 
-      {bulkNotice && (
-        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
-          <Sparkles size={15} strokeWidth={2} className="shrink-0" />
-          {bulkNotice}
-        </div>
-      )}
+      {bulkNotice && <Banner tone="success" message={bulkNotice} />}
 
-      {bulkActionNotice && (
-        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
-          <CheckCircle2 size={15} strokeWidth={2} className="shrink-0" />
-          {bulkActionNotice}
-        </div>
-      )}
+      {bulkActionNotice && <Banner tone="success" message={bulkActionNotice} />}
 
       {bulkActionErrors.length > 0 && (
         <ErrorBanner
@@ -537,95 +501,94 @@ export default function ProjectsPage() {
       )}
 
       {cloneNotice && (
-        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
-          <Copy size={15} strokeWidth={2} className="shrink-0" />
-          <span>
-            {t("projects.cloned-to")}{" "}
-            <span className="font-medium">{cloneNotice.name}</span> -{" "}
-            <Link
-              href={`/projects/${cloneNotice.id}`}
-              className="font-medium underline underline-offset-2"
-            >
-              {t("projects.open-new")}
-            </Link>
-          </span>
-        </div>
+        <Banner
+          tone="success"
+          message={
+            <>
+              {t("projects.cloned-to")}{" "}
+              <span className="font-medium">{cloneNotice.name}</span> -{" "}
+              <Link
+                href={`/projects/${cloneNotice.id}`}
+                className="font-medium underline underline-offset-2"
+              >
+                {t("projects.open-new")}
+              </Link>
+            </>
+          }
+        />
       )}
 
       <Card>
-        {selected.size > 0 ? (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
-            <span className="text-sm font-medium">
-              {tf("projects.selected", { n: selected.size })}
-            </span>
-            <span className="flex-1" />
-            <Button
-              variant="secondary"
-              small
-              disabled={junkBusy || renderBusy}
-              onClick={() => setSelected(new Set())}
-            >
-              {t("common.deselect")}
-            </Button>
-            {/* Nút (i) đặt CẠNH nút thao tác (không lồng trong <button>) */}
-            <span className="inline-flex items-center gap-1">
+        <Toolbar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: t("projects.search-placeholder"),
+          }}
+          selectedCount={selected.size}
+          onClearSelection={() => setSelected(new Set())}
+          bulkActions={
+            <>
+              {/* Nút (i) đặt CẠNH nút thao tác (không lồng trong <button>) */}
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  variant="secondary"
+                  small
+                  disabled={junkBusy || renderBusy}
+                  onClick={onBulkCleanJunk}
+                >
+                  <Trash2 size={14} strokeWidth={2} />
+                  {junkBusy ? t("junk.cleaning") : t("junk.clean")}
+                </Button>
+                <InfoHint
+                  titleKey="help.projects-junk.title"
+                  bodyKey="help.projects-junk.body"
+                />
+              </span>
               <Button
-                variant="secondary"
+                variant="destructive"
                 small
                 disabled={junkBusy || renderBusy}
-                onClick={onBulkCleanJunk}
+                onClick={openDelete}
               >
                 <Trash2 size={14} strokeWidth={2} />
-                {junkBusy ? t("junk.cleaning") : t("junk.clean")}
+                {t("common.delete-selected")}
               </Button>
-              <InfoHint
-                titleKey="help.projects-junk.title"
-                bodyKey="help.projects-junk.body"
-              />
-            </span>
-            <Button
-              variant="destructive"
-              small
-              disabled={junkBusy || renderBusy}
-              onClick={openDelete}
-            >
-              <Trash2 size={14} strokeWidth={2} />
-              {t("common.delete-selected")}
-            </Button>
-            <span className="inline-flex items-center gap-1">
-              <Button
-                small
-                disabled={junkBusy || renderBusy}
-                onClick={onBulkRenderFinal}
-              >
-                <Play size={14} strokeWidth={2} />
-                {renderBusy
-                  ? t("projects.creating-jobs")
-                  : tf("projects.render-final-n", { n: selected.size })}
-              </Button>
-              <InfoHint
-                titleKey="help.projects-render.title"
-                bodyKey="help.projects-render.body"
-              />
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Button
-                small
-                disabled={junkBusy || renderBusy}
-                onClick={openBulkEdit}
-              >
-                <Sparkles size={14} strokeWidth={2} />
-                {tf("projects.make-video-n", { n: selected.size })}
-              </Button>
-              <InfoHint
-                titleKey="help.projects-bulk-edit.title"
-                bodyKey="help.projects-bulk-edit.body"
-              />
-            </span>
-          </div>
-        ) : (
-          tagCounts.length > 0 && (
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  small
+                  disabled={junkBusy || renderBusy}
+                  onClick={onBulkRenderFinal}
+                >
+                  <Play size={14} strokeWidth={2} />
+                  {renderBusy
+                    ? t("projects.creating-jobs")
+                    : tf("projects.render-final-n", { n: selected.size })}
+                </Button>
+                <InfoHint
+                  titleKey="help.projects-render.title"
+                  bodyKey="help.projects-render.body"
+                />
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  small
+                  disabled={junkBusy || renderBusy}
+                  onClick={openBulkEdit}
+                >
+                  <Sparkles size={14} strokeWidth={2} />
+                  {tf("projects.make-video-n", { n: selected.size })}
+                </Button>
+                <InfoHint
+                  titleKey="help.projects-bulk-edit.title"
+                  bodyKey="help.projects-bulk-edit.body"
+                />
+              </span>
+            </>
+          }
+        >
+          {tagCounts.length > 0 && (
+            <>
               <Tag
                 size={14}
                 strokeWidth={2}
@@ -648,11 +611,16 @@ export default function ProjectsPage() {
                   <span className="opacity-70">{count}</span>
                 </FilterChip>
               ))}
-            </div>
-          )
-        )}
+            </>
+          )}
+        </Toolbar>
 
-        {filtered && filtered.length > 0 ? (
+        {/* Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+            ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải lỗi"
+            cùng lúc, mà cho danh sách về rỗng thì lại nói dối là "chưa có gì". */}
+        {!projects ? (
+          !error && <TableSkeleton />
+        ) : filtered && filtered.length > 0 ? (
           <table className="table">
             <thead>
               <tr>
@@ -697,7 +665,7 @@ export default function ProjectsPage() {
                   </td>
                   <td>
                     <span className="font-medium">{p.name}</span>
-                    <span className="ml-2 text-xs text-[var(--text-muted)]">
+                    <span className="ml-2 text-meta text-[var(--text-muted)]">
                       {p.id}
                     </span>
                     {/* Nguồn gốc: project do Text to video sinh ra thì nói rõ và
@@ -708,23 +676,22 @@ export default function ProjectsPage() {
                         href={`/text-to-video/${p.textToVideoId}`}
                         title={tf("project.from-ttv-title", { id: p.textToVideoId })}
                         onClick={(e) => e.stopPropagation()}
-                        className="ml-2 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] px-2 py-0.5 align-middle text-[11px] font-medium text-[var(--text-muted)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                        className="chip ml-2 align-middle font-medium transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)]"
                       >
-                        <FileText size={11} strokeWidth={2} aria-hidden="true" />
+                        <FileText size={12} strokeWidth={2} aria-hidden="true" />
                         {t("project.from-ttv")}
                       </Link>
                     )}
                     {(p.tags ?? []).length > 0 && (
-                      <span className="mt-1 flex flex-wrap gap-1">
+                      <span
+                        className="mt-1 flex flex-wrap gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {p.tags.map((t) => (
                           <FilterChip
                             key={t}
-                            small
                             active={tagFilter.includes(t)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTag(t);
-                            }}
+                            onClick={() => toggleTag(t)}
                           >
                             {t}
                           </FilterChip>
@@ -759,38 +726,32 @@ export default function ProjectsPage() {
                     {formatDateTime(p.updatedAt)}
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <span className="flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        title={t("projects.rename")}
-                        aria-label={tf("projects.rename-aria", { name: p.name })}
+                    <span className="flex items-center gap-1">
+                      <IconButton
+                        size="sm"
+                        label={tf("projects.rename-aria", { name: p.name })}
                         onClick={() => setRenameTarget(p)}
-                        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
                       >
-                        <Pencil size={15} strokeWidth={2} />
-                      </button>
-                      <button
-                        type="button"
-                        title={t("clone.title")}
-                        aria-label={tf("projects.clone-aria", { name: p.name })}
+                        <Pencil size={14} strokeWidth={2} />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
+                        label={tf("projects.clone-aria", { name: p.name })}
                         onClick={() =>
                           setCloneSource({ id: p.id, name: p.name })
                         }
-                        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
                       >
-                        <Copy size={15} strokeWidth={2} />
-                      </button>
+                        <Copy size={14} strokeWidth={2} />
+                      </IconButton>
                     </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : projects && projects.length > 0 ? (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("projects.no-tag-match")}
-          </p>
-        ) : projects ? (
+        ) : projects.length > 0 ? (
+          <EmptyState icon={Filter} description={t("common.no-match")} />
+        ) : (
           <EmptyState
             icon={Clapperboard}
             description={t("projects.empty")}
@@ -801,10 +762,6 @@ export default function ProjectsPage() {
               </Button>
             }
           />
-        ) : (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
         )}
       </Card>
 
@@ -835,7 +792,7 @@ export default function ProjectsPage() {
           selectedProjects.length > 0 ? (
             <p>
               {t("projects.delete-desc-1")}{" "}
-              <code className="rounded bg-[var(--bg-subtle)] px-1 text-xs">
+              <code className="rounded-[var(--radius)] bg-[var(--bg-subtle)] px-1 font-mono text-meta">
                 video-projects/&lt;id&gt;
               </code>{" "}
               {t("projects.delete-desc-2")}
@@ -908,20 +865,19 @@ export default function ProjectsPage() {
         {selectedProjects.length > 0 ? (
           <>
             <p className="text-sm">{t("projects.bulk-desc")}</p>
-            <ul className="flex flex-col gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-              {selectedProjects.map((p) => (
-                <li key={p.id} className="text-sm">
-                  <span className="font-medium">{p.name}</span>
-                  <span className="ml-2 text-xs text-[var(--text-muted)]">
-                    {p.id}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <div>
-              <label className="label" htmlFor="bulk-extra-notes">
-                {t("projects.bulk-notes")}
-              </label>
+            <Panel>
+              <ul className="flex flex-col gap-1">
+                {selectedProjects.map((p) => (
+                  <li key={p.id} className="text-sm">
+                    <span className="font-medium">{p.name}</span>
+                    <span className="ml-2 text-meta text-[var(--text-muted)]">
+                      {p.id}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+            <Field label={t("projects.bulk-notes")} htmlFor="bulk-extra-notes">
               <textarea
                 id="bulk-extra-notes"
                 className="input"
@@ -931,7 +887,7 @@ export default function ProjectsPage() {
                 onChange={(e) => setBulkNotes(e.target.value)}
                 placeholder={t("projects.notes-placeholder")}
               />
-            </div>
+            </Field>
           </>
         ) : (
           <p className="text-sm text-[var(--text-muted)]">
@@ -957,10 +913,8 @@ export default function ProjectsPage() {
         }
       >
         {createError && <ErrorBanner message={createError} />}
-        <div>
-          <label className="label" htmlFor="project-name">
-            {t("common.name")}
-          </label>
+
+        <Field label={t("common.name")} htmlFor="project-name">
           <input
             id="project-name"
             className="input"
@@ -972,14 +926,17 @@ export default function ProjectsPage() {
             }}
             placeholder={t("projects.name-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="project-id">
-            {t("projects.id-label")}
-          </label>
+        </Field>
+
+        <Field
+          label={t("projects.id-label")}
+          htmlFor="project-id"
+          hint={t("projects.id-hint")}
+          error={idValid ? null : t("projects.id-invalid")}
+        >
           <input
             id="project-id"
-            className="input h-8 text-xs text-[var(--text-muted)]"
+            className="input"
             value={id}
             onChange={(e) => {
               setId(e.target.value);
@@ -988,160 +945,102 @@ export default function ProjectsPage() {
             }}
             placeholder={t("projects.id-placeholder")}
           />
-          {idValid ? (
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("projects.id-hint")}
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-[var(--danger)]">
-              {t("projects.id-invalid")}
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="label" htmlFor="project-tags">
-            {t("common.tags")}
-          </label>
+        </Field>
+
+        <Field label={t("common.tags")} htmlFor="project-tags">
           <TagInput id="project-tags" tags={tags} onChange={setTags} />
-        </div>
-        <div>
-          <span className="label">{t("projects.format")}</span>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {PRESETS.map((preset) => {
-              const active =
-                !customActive &&
-                width === preset.width &&
-                height === preset.height;
-              return (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    setCustomSize(false);
-                    setWidth(preset.width);
-                    setHeight(preset.height);
-                  }}
-                  className={`flex flex-col items-center gap-1 rounded-[var(--radius)] border p-3 text-center transition-colors duration-150 ${
-                    active
-                      ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                      : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-                  }`}
-                >
-                  <AspectIcon width={preset.width} height={preset.height} />
-                  <span className="text-[13px] leading-tight font-medium">
-                    {t(preset.label)}
-                  </span>
-                  <span
-                    className={`text-[11px] ${
-                      active ? "opacity-80" : "text-[var(--text-muted)]"
-                    }`}
-                  >
-                    {preset.width}×{preset.height} · {preset.note}
-                  </span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setCustomSize(true)}
-              className={`flex flex-col items-center gap-1 rounded-[var(--radius)] border p-3 text-center transition-colors duration-150 ${
-                customActive
-                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                  : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-              }`}
-            >
-              <span className="flex h-6 w-6 items-center justify-center">
-                <Ruler size={18} strokeWidth={1.5} />
-              </span>
-              <span className="text-[13px] leading-tight font-medium">
-                {t("projects.custom")}
-              </span>
-              <span
-                className={`text-[11px] ${
-                  customActive ? "opacity-80" : "text-[var(--text-muted)]"
-                }`}
-              >
-                {customActive ? `${width}×${height}` : t("projects.custom-hint")}
-              </span>
-            </button>
+        </Field>
+
+        <Field label={t("projects.format")}>
+          <OptionCardGroup label={t("projects.format")}>
+            {PRESETS.map((preset) => (
+              <OptionCard
+                key={preset.label}
+                icon={presetIcon(preset.width, preset.height)}
+                selected={
+                  !customActive &&
+                  width === preset.width &&
+                  height === preset.height
+                }
+                onSelect={() => {
+                  setCustomSize(false);
+                  setWidth(preset.width);
+                  setHeight(preset.height);
+                }}
+                title={t(preset.label)}
+                description={`${preset.width}×${preset.height} · ${preset.note}`}
+              />
+            ))}
+            <OptionCard
+              icon={Ruler}
+              selected={customActive}
+              onSelect={() => setCustomSize(true)}
+              title={t("projects.custom")}
+              description={
+                customActive ? `${width}×${height}` : t("projects.custom-hint")
+              }
+            />
+          </OptionCardGroup>
+        </Field>
+
+        {customActive && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("projects.width")} htmlFor="project-width">
+              <input
+                id="project-width"
+                className="input"
+                type="number"
+                min={1}
+                value={width}
+                onChange={(e) => setWidth(Number(e.target.value))}
+              />
+            </Field>
+            <Field label={t("projects.height")} htmlFor="project-height">
+              <input
+                id="project-height"
+                className="input"
+                type="number"
+                min={1}
+                value={height}
+                onChange={(e) => setHeight(Number(e.target.value))}
+              />
+            </Field>
           </div>
-          {customActive && (
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div>
-                <label className="label" htmlFor="project-width">
-                  {t("projects.width")}
-                </label>
-                <input
-                  id="project-width"
-                  className="input"
-                  type="number"
-                  min={1}
-                  value={width}
-                  onChange={(e) => setWidth(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="label" htmlFor="project-height">
-                  {t("projects.height")}
-                </label>
-                <input
-                  id="project-height"
-                  className="input"
-                  type="number"
-                  min={1}
-                  value={height}
-                  onChange={(e) => setHeight(Number(e.target.value))}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-        <div>
-          <span className="label">FPS</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {FPS_OPTIONS.map((option) => {
-              const active = !customFps && fps === option;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    setCustomFps(false);
-                    setFps(option);
-                  }}
-                  className={`h-8 rounded-[var(--radius)] border px-3 text-[13px] font-medium transition-colors duration-150 ${
-                    active
-                      ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                      : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-                  }`}
-                >
-                  {option}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setCustomFps(true)}
-              className={`h-8 rounded-[var(--radius)] border px-3 text-[13px] font-medium transition-colors duration-150 ${
-                customFps
-                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                  : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-              }`}
-            >
-              {t("projects.other")}
-            </button>
+        )}
+
+        <Field label="FPS">
+          <span className="flex flex-wrap items-center gap-2">
+            <Segmented
+              label="FPS"
+              value={customFps ? "other" : String(fps)}
+              onChange={(next) => {
+                if (next === "other") {
+                  setCustomFps(true);
+                  return;
+                }
+                setCustomFps(false);
+                setFps(Number(next));
+              }}
+              options={[
+                ...FPS_OPTIONS.map((o) => ({
+                  value: String(o),
+                  label: String(o),
+                })),
+                { value: "other", label: t("projects.other") },
+              ]}
+            />
             {customFps && (
               <input
                 aria-label={t("projects.custom-fps")}
-                className="input h-8 w-24"
+                className="input w-24"
                 type="number"
                 min={1}
                 value={fps}
                 onChange={(e) => setFps(Number(e.target.value))}
               />
             )}
-          </div>
-        </div>
+          </span>
+        </Field>
       </Modal>
     </div>
   );

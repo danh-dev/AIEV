@@ -15,18 +15,15 @@ import {
   type AutoCutMode,
   type AutoCutStatus,
 } from "@/lib/api";
+import { clock } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-/** Giây → "mm:ss" (hoặc "h:mm:ss" khi dài hơn 1 giờ). lib/format.ts chưa có helper này. */
-export function clock(sec: number): string {
-  const total = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const mm = String(m).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
+/**
+ * Đồng hồ mm:ss nay nằm ở `lib/format.ts` (chỗ đúng của nó - trước đây cùng một
+ * hàm được viết lại ba lần, mỗi bản một kiểu làm tròn). Re-export để mọi nơi
+ * đang `import { clock } from "@/components/AutoCutCommon"` không phải sửa.
+ */
+export { clock };
 
 /** Nhãn độ dài một đoạn: "1:20" hoặc "45s" cho đoạn ngắn. */
 export function duration(sec: number): string {
@@ -95,7 +92,12 @@ const STATUS_TONE: Record<
 export function AutoCutStatusBadge({ status }: { status: AutoCutStatus }) {
   const { t } = useT();
   const tone = STATUS_TONE[status] ?? "muted";
-  const label = STATUS_LABEL[status] ? t(STATUS_LABEL[status]) : String(status);
+  // Trạng thái chưa có nhãn thì nói "không rõ" bằng tiếng người, KHÔNG đổ
+  // nguyên chuỗi enum của máy ("extracting") ra giữa giao diện tiếng Việt.
+  // Hai badge trạng thái mới của Text to video và Dịch video cũng làm đúng thế.
+  const label = STATUS_LABEL[status]
+    ? t(STATUS_LABEL[status])
+    : t("common.status-unknown");
   return <Badge tone={tone} label={label} />;
 }
 

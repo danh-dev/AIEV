@@ -72,6 +72,28 @@ export interface UsageTimelinePoint {
   byProvider: Record<string, number>;
 }
 
+/**
+ * Một dòng bảng "Chi phí AI theo model" - /api/usage/by-model.
+ *
+ * `costUsd` là tiền THẬT nhà cung cấp tính. `costInUsd`/`costOutUsd` là quy đổi
+ * theo đơn giá niêm yết, nên tổng của chúng thường KHÔNG bằng `costUsd` (prompt
+ * cache đọc lại chỉ tính ~10% giá token vào). Không biết đơn giá thì cả ba
+ * trường `price`/`costInUsd`/`costOutUsd` đều null - UI để trống ô, không đoán.
+ */
+export interface UsageByModel {
+  /** "claude" | "gemini" | "openai" */
+  provider: string;
+  /** null = dòng usage không gắn phiên chat nào (bóc lời, dịch, tạo ảnh…). */
+  model: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  /** Đơn giá USD trên 1 triệu token; null = không có trong bảng giá. */
+  price: { inPerM: number; outPerM: number } | null;
+  costInUsd: number | null;
+  costOutUsd: number | null;
+}
+
 export interface FileInfo {
   name: string;
   relPath: string;
@@ -957,6 +979,10 @@ export const getUsageTimeline = (days = 30, scope?: UsageScope) =>
   request<UsageTimelinePoint[]>(
     `/api/usage/timeline?days=${days}${scope && scope !== "all" ? `&scope=${scope}` : ""}`
   );
+
+/** Token + chi phí gộp theo model - bảng "Chi phí AI theo model" trên Dashboard. */
+export const getUsageByModel = (days = 30) =>
+  request<UsageByModel[]>(`/api/usage/by-model?days=${days}`);
 
 // ============ Projects ============
 

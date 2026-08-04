@@ -21,6 +21,11 @@ export const vi: Record<string, string> = {
   "common.actions": "Thao tác",
   "common.name": "Tên",
   "common.tags": "Tags",
+  "common.copy": "Copy",
+  "common.copied": "Đã copy",
+  "common.clear": "Xóa nội dung",
+  "common.selected": "đã chọn",
+  "common.search": "Tìm kiếm",
 
   // ===== Điều hướng (Shell) =====
   "nav.dashboard": "Dashboard",
@@ -307,7 +312,7 @@ export const vi: Record<string, string> = {
   // ===== Videos Project (danh sách) =====
   "projects.subtitle": "Mỗi project là một video trong video-projects/",
   "projects.create": "Tạo project",
-  "projects.create-title": "Tạo project mới",
+  "projects.create-title": "Tạo project",
   "projects.empty": "Chưa có project nào. Tạo project đầu tiên để bắt đầu dựng video.",
   "projects.load-error": "Không tải được danh sách project.",
   "projects.preset.tiktok": "TikTok/Reels dọc",
@@ -686,7 +691,7 @@ export const vi: Record<string, string> = {
 
   // ===== Images Project (danh sách) =====
   "imagesPage.subtitle": "Gemini vẽ ảnh nền · Remotion đặt chữ đồng bộ Style Design",
-  "imagesPage.create": "Tạo ảnh mới",
+  "imagesPage.create": "Tạo ảnh",
   "imagesPage.create-short": "Tạo ảnh",
   "imagesPage.load-error": "Không tải được danh sách dự án ảnh.",
   "imagesPage.junk-confirm": "Xóa {items} mục file rác của {projects} dự án ảnh, giải phóng {size}?\nẢnh nền, ảnh final và meta của dự án được giữ nguyên.",
@@ -926,7 +931,7 @@ export const vi: Record<string, string> = {
 
   // ===== Skills =====
   "skills.subtitle": "Know-how sản xuất của Claude - file markdown trong .claude/skills/",
-  "skills.create": "Tạo skill mới",
+  "skills.create": "Tạo skill",
   "skills.create-short": "Tạo skill",
   "skills.create-ai": "Tạo skill bằng AI",
   "skills.next-session-note": "Skill mới sẽ được Claude nhận ở phiên làm việc kế tiếp.",
@@ -1037,6 +1042,8 @@ export const vi: Record<string, string> = {
   "conn.delete-desc-1": "Xóa API key của",
   "conn.delete-desc-2": "Provider sẽ mất kết nối nếu không còn nguồn xác thực khác.",
   "conn.load-error": "Không tải được danh sách kết nối.",
+  "conn.save-key-error": "Không lưu được API key.",
+  "conn.delete-key-error": "Không xóa được API key.",
   "conn.empty": "Server chưa cấu hình provider nào - kiểm tra backend.",
 
   // ===== Cloudflare Tunnel (trang Kết nối) =====
@@ -1067,6 +1074,9 @@ export const vi: Record<string, string> = {
   "tunnel.warn-public":
     "Dashboard chưa có đăng nhập - bật public nên bọc thêm Cloudflare Access.",
   "tunnel.load-error": "Không tải được trạng thái tunnel.",
+  "tunnel.domain-error": "Không lưu được domain tunnel.",
+  "tunnel.start-error": "Không bật được tunnel.",
+  "tunnel.stop-error": "Không tắt được tunnel.",
 
   // ===== QC tự động + Gói xuất bản =====
   "qc.safe-area-hint": "Ảnh khoanh đỏ vùng bị UI nền tảng che - bấm để phóng to và tự soi xem có chữ hay key nào lọt vào vùng đỏ không (máy không phân biệt được chữ với cảnh quay).",
@@ -1214,7 +1224,7 @@ export const vi: Record<string, string> = {
 
   "autocut.subtitle":
     "Cắt một video dài thành nhiều video ngắn - mỗi đoạn tự thành một Videos Project dựng sẵn.",
-  "autocut.new": "Cắt video mới",
+  "autocut.new": "Tạo phiên cắt",
   "autocut.empty":
     "Chưa có phiên cắt nào. Đưa vào một video dài, chọn cách cắt, hệ thống cắt ra nhiều video ngắn và tạo sẵn Videos Project cho từng đoạn.",
   "autocut.load-error": "Không tải được danh sách phiên cắt.",
@@ -1260,7 +1270,7 @@ export const vi: Record<string, string> = {
   "autocut.aspect.keep": "Giữ nguyên",
   "autocut.aspect.keep-size": "Khung nguồn",
 
-  "autocut.create-title": "Cắt video mới",
+  "autocut.create-title": "Tạo phiên cắt",
   "autocut.source": "Video nguồn",
   "autocut.source-pick": "Chọn video trong imports/",
   "autocut.source-none": "Chưa có video nào trong imports/",
@@ -1303,7 +1313,7 @@ export const vi: Record<string, string> = {
     "Phiên đang chạy - sửa được cấu hình khi bước này xong.",
   "autocut.brief-applies-next":
     "Cấu hình này chỉ áp cho các đoạn cắt SAU. Project đã tạo rồi thì sửa kịch bản edit trong chính project đó.",
-  "autocut.create": "Tạo phiên & phân tích",
+  "autocut.create": "Tạo phiên cắt & phân tích",
   "autocut.creating": "Đang tạo…",
   "autocut.create-error": "Không tạo được phiên cắt.",
   "autocut.plan-error-created":
@@ -1434,6 +1444,10 @@ export const vi: Record<string, string> = {
   "help.autocut-brief.body":
     "Đặt một lần cách dựng cho TẤT CẢ video cắt ra từ phiên này: có phụ đề không, bố cục key, sound effect, nhạc nền.\nĐỡ phải mở mười project con chỉnh đi chỉnh lại cùng một thứ.\nCấu hình chỉ áp cho các đoạn cắt SAU khi sửa - project đã tạo rồi thì phải vào chính project đó đổi.",
 
+  "help.dashboard.title": "Dashboard để làm gì?",
+  "help.dashboard.body":
+    "Chỗ nhìn tổng thể cả hệ thống: có bao nhiêu project, xuất được mấy video, hôm nay chạy bao nhiêu job và còn mấy job đang chờ - bấm vào một ô là sang đúng danh sách đó.\nBiểu đồ và bảng phía dưới nói về tiền AI: token tiêu theo từng ngày và chi phí của từng model, để biết đang tốn ở đâu.\nDashboard chỉ NHÌN chứ không dựng video. Có gì hỏng thì các banner đỏ trên cùng báo trước (thiếu ffmpeg, chưa đăng nhập Claude, job lỗi hôm nay) rồi bạn sang trang tương ứng xử lý.",
+
   "help.projects.title": "Videos Project để làm gì?",
   "help.projects.body":
     "Chỗ chứa mọi video đang làm: mỗi project là một video với kích thước, fps, kịch bản edit và bản render riêng.\nBấm vào một hàng để mở project và bắt đầu dựng; tích ô đầu hàng để làm hàng loạt trên nhiều project cùng lúc.\nCột token cho biết project đó đã tiêu bao nhiêu tiền AI.",
@@ -1557,7 +1571,7 @@ export const vi: Record<string, string> = {
 
   "ttv.subtitle":
     "Biến bài viết thành video - AI viết kịch bản, TTS đọc thành giọng, tạo sẵn Videos Project.",
-  "ttv.new": "Bài viết mới",
+  "ttv.new": "Tạo phiên",
   "ttv.empty":
     "Chưa có phiên nào. Dán một link bài báo hoặc chính nội dung bài viết, hệ thống viết kịch bản đọc, tổng hợp giọng và tạo sẵn Videos Project để dựng tiếp.",
   "ttv.load-error": "Không tải được danh sách phiên.",
@@ -1579,7 +1593,7 @@ export const vi: Record<string, string> = {
   "ttv.status.done": "Xong",
   "ttv.status.failed": "Lỗi",
 
-  "ttv.create-title": "Bài viết mới",
+  "ttv.create-title": "Tạo phiên",
   "ttv.create": "Tạo phiên",
   "ttv.creating": "Đang tạo…",
   "ttv.create-error": "Không tạo được phiên.",
@@ -1959,7 +1973,7 @@ export const vi: Record<string, string> = {
   "vstyle.page.subtitle":
     "Thêm, sửa, xóa phong cách dựng. Phong cách quyết định chất liệu hình ảnh và cách chuyển động của video; chọn phong cách cho từng video ở phần Brief.",
   "vstyle.page.create": "Tạo phong cách",
-  "vstyle.page.create-short": "Tạo",
+  "vstyle.page.create-short": "Tạo phong cách",
   "vstyle.page.load-error": "Không tải được danh sách phong cách dựng.",
   "vstyle.page.create-error": "Không tạo được phong cách.",
   "vstyle.page.empty":
@@ -2016,7 +2030,7 @@ export const vi: Record<string, string> = {
   "vstyle.detail.palette-loose": "Phong cách có màu riêng",
   "vstyle.detail.palette-loose-desc":
     "Phong cách có bảng màu ruột của nó (mực tàu đen trắng, tranh Đông Hồ, ảnh chụp thật) - ép màu thương hiệu vào là mất chất. Khi đó màu thương hiệu tụt xuống làm ĐIỂM NHẤN trong ảnh, còn chữ và đồ họa do HyperFrames/Remotion vẽ thì VẪN theo đúng Style Design.",
-  "vstyle.detail.required": "Bốn ô trên đều bắt buộc - để trống là prompt gửi AI bị cụt.",
+  "vstyle.detail.required": "Ô có dấu * đều bắt buộc - để trống là prompt gửi AI bị cụt.",
   "vstyle.detail.usage-title": "Project đang dùng phong cách này",
   "vstyle.detail.usage-empty": "Chưa project nào dùng phong cách này.",
   "vstyle.detail.usage-hint":
@@ -2135,7 +2149,7 @@ export const vi: Record<string, string> = {
 
   "tv.subtitle":
     "Đưa video vào, hệ thống bóc lời thoại, AI dịch sang ngôn ngữ khác rồi đóng phụ đề lên video.",
-  "tv.new": "Video mới",
+  "tv.new": "Tạo phiên",
   "tv.empty":
     "Chưa có phiên nào. Tải một video lên, hệ thống bóc lời thoại, dịch sang ngôn ngữ bạn chọn rồi đóng phụ đề đã dịch lên chính video đó.",
   "tv.load-error": "Không tải được danh sách phiên.",
@@ -2155,7 +2169,7 @@ export const vi: Record<string, string> = {
   "tv.status.done": "Xong",
   "tv.status.failed": "Lỗi",
 
-  "tv.create-title": "Video mới",
+  "tv.create-title": "Tạo phiên",
   "tv.create": "Tạo phiên",
   "tv.creating": "Đang tạo…",
   "tv.create-error": "Không tạo được phiên.",
@@ -2420,4 +2434,71 @@ export const vi: Record<string, string> = {
   "workspace.output.failed": "Dựng video thất bại",
   "workspace.output.no-video": "Đã xong nhưng chưa có file video.",
   "workspace.output.download": "Tải video",
+
+  // ===== Đại tu giao diện 8/2026: tìm kiếm, lọc, trạng thái rỗng, chú thích =====
+  "dash.failed-today": "{n} job lỗi hôm nay",
+  "autocut.search": "Tìm theo tên hoặc file nguồn…",
+  "ttv.search": "Tìm theo tên hoặc nguồn…",
+  "tv.search": "Tìm theo tên hoặc file video…",
+  "styleDetail.font-files": "File font trên máy",
+  "vstyle.detail.card-identity": "Định danh",
+  "vstyle.detail.card-art": "Chỉ đạo mỹ thuật",
+  "vstyle.detail.card-motion": "Dựng cảnh & chuyển động",
+  "help.voices.title": "Trang Giọng đọc để làm gì?",
+  "help.voices.body": "Nhân bản giọng thật của bạn để Text to video đọc bằng chính giọng đó. Toàn bộ chạy trên máy bạn bằng VieNeu-TTS - không gửi tiếng nói đi đâu và không tốn tiền theo lượt.\nCần cài sẵn Python, gói vieneu và PyTorch; khối trên cùng nói rõ đang thiếu gì và cho chép luôn lệnh cài.\nMẫu tham chiếu chỉ cần 5-15 giây nói rõ ràng, không tạp âm - dài hơn KHÔNG tốt hơn vì model chỉ lấy phần đầu.",
+  "common.no-match": "Không có mục nào khớp với tìm kiếm hoặc bộ lọc hiện tại.",
+  "projects.search-placeholder": "Tìm project theo tên hoặc ID…",
+  "imagesPage.search-placeholder": "Tìm dự án ảnh theo tên hoặc ID…",
+  "queue.filter-by-status": "Lọc theo trạng thái",
+  "assetsPage.scope-aria": "Chọn bộ sưu tập file",
+  "stylesPage.count": "{n} style",
+  "stylesPage.search": "Tìm style theo tên hoặc tag…",
+  "stylesPage.no-match": "Không có style nào khớp với từ khóa đang tìm.",
+  "help.video-styles.title": "Phong cách dựng là gì?",
+  "help.video-styles.body": "Phong cách dựng là ngôn ngữ thị giác của riêng một video: CHẤT LIỆU (giấy gấp, mực tàu, pixel art…) và CHUYỂN ĐỘNG. Nó chồng lên Style Design chứ không thay thế - Style Design vẫn giữ màu, font và logo thương hiệu. Mỗi phong cách sửa được ở đây, và chọn cho từng video trong Kịch bản edit; để trống là AI tự quyết.",
+  "vstyle.page.delete-selected-title": "Xóa phong cách đã chọn",
+  "vstyle.page.delete-desc": "Xóa {n} phong cách sau? Hành động này không hoàn tác được.",
+  "vstyle.page.delete-in-use": "{n} phong cách trong số đó đang được project dùng - các project đó sẽ quay về \"AI tự quyết\".",
+  "vstyle.page.delete-n": "Xóa {n} phong cách",
+  "vstyle.page.delete-errors": "Không xóa được {n} phong cách.",
+
+  // ===== Đại tu giao diện 8/2026: tìm kiếm, lọc, trạng thái rỗng, chú thích =====
+  "imageDetail.ai-panel": "Nhật ký AI",
+  "imageDetail.ai-panel-empty": "Chưa chạy job tạo ảnh nào. Bấm \"Tạo ảnh\" để bắt đầu, log sẽ chảy về đây.",
+  "imageDetail.no-log": "Chưa có dòng log nào.",
+  "dash.cost-by-model": "Chi phí AI theo model",
+  // Nói rõ PHẠM VI: bảng này theo bộ lọc số ngày của biểu đồ nhưng KHÔNG theo
+  // bộ lọc loại project - im lặng thì người đọc tưởng hai khối cùng phạm vi.
+  "dash.cost-by-model-scope": "{n} ngày · mọi loại project",
+  "dash.cost-by-model-error": "Không tải được chi phí theo model",
+  "dash.no-usage-by-model": "Chưa có model nào phát sinh chi phí trong khoảng thời gian này.",
+  "dash.col-ai": "AI",
+  "dash.col-model": "Model",
+  "dash.col-tokens-in": "Token vào",
+  "dash.col-tokens-out": "Token ra",
+  "dash.col-cost-in": "$ vào",
+  "dash.col-cost-out": "$ ra",
+  "dash.col-cost-total": "Tổng $",
+  "dash.model-none": "(không rõ model)",
+  "dash.total-row": "Tổng",
+  "help.cost-by-model.title": "Hai cột tiền này khác nhau chỗ nào?",
+  "help.cost-by-model.body": "Cột \"$ vào\" và \"$ ra\" là tiền TẠM TÍNH: lấy số token nhân với bảng giá niêm yết của từng model, để bạn thấy phần nào tốn tiền - đọc dữ liệu vào hay AI viết ra.\nCột \"Tổng $\" mới là tiền THẬT mà nhà cung cấp tính, đúng bằng con số trên hóa đơn.\nHai số này lệch nhau là bình thường, không phải lỗi: những đoạn nội dung AI đã đọc lần trước được lưu lại (prompt cache), lần sau đọc lại chỉ tính khoảng 10% giá token vào - nên tiền thật thường THẤP hơn tạm tính.\nModel nào chưa có trong bảng giá thì hai ô $ để trống dấu \"-\": hệ thống không đoán giá.",
+  "dash.unpriced-note": "{n} dòng chưa có trong bảng giá nên hai cột \"$ vào\" và \"$ ra\" không tính phần đó. Cột \"Tổng $\" vẫn là tiền thật của tất cả các dòng.",
+
+  // ===== Đại tu giao diện 8/2026: tìm kiếm, lọc, trạng thái rỗng, chú thích =====
+  "common.status-unknown": "Trạng thái khác",
+  "prompts.count": "{n} prompt mẫu",
+  "prompts.search": "Tìm theo tên hoặc nội dung prompt…",
+  "skills.count": "{n} skill",
+  "skills.search": "Tìm theo tên hoặc mô tả skill…",
+  "queue.search": "Tìm theo project, scene hoặc id job…",
+  "assetsPage.search": "Tìm theo tên file…",
+  "music.search": "Tìm theo tên file, mood, mô tả…",
+  "voices.load-error": "Không tải được engine giọng hoặc kho giọng đã nhân bản.",
+  "autocut.stage.source": "Video nguồn",
+  "autocut.stage.plan": "Phân tích",
+  "autocut.stage.review": "Duyệt kế hoạch",
+  "autocut.stage.cut": "Cắt & tạo project",
+  "autocut.stage.done": "Xong",
+  "autocut.stage-aria": "Bước {stage}/5: {label}",
 };

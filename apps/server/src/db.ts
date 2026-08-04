@@ -480,6 +480,50 @@ export function usageTotals(): {
   };
 }
 
+/** Một dòng của bảng "Chi phí AI theo model" trên Dashboard. */
+export interface UsageByModelRow {
+  /** claude | gemini | openai */
+  provider: string;
+  /** null = dòng usage không gắn với phiên chat nào (bóc lời, dịch, tạo ảnh…) */
+  model: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  /** TIỀN THẬT nhà cung cấp trả về, cộng dồn - KHÔNG phải tính lại từ đơn giá. */
+  costUsd: number;
+}
+
+/**
+ * Token + chi phí gộp theo (nhà cung cấp, model).
+ *
+ * `token_usage` KHÔNG có cột model - model nằm ở `chat_sessions.model`, nên phải
+ * LEFT JOIN qua sessionId. LEFT chứ không INNER: dòng usage chạy ngoài phiên chat
+ * (STT, dịch, sinh ảnh) có sessionId null hoặc trỏ tới phiên đã xóa, INNER JOIN
+ * sẽ nuốt mất chúng và bảng cộng ra ít tiền hơn thực tế.
+ *
+ * `days` bỏ trống = tính từ đầu.
+ */
+export function usageByModel(days?: number): UsageByModelRow[] {
+  const where = days ? "WHERE u.createdAt >= ?" : "";
+  const params = days ? [new Date(Date.now() - days * 86_400_000).toISOString()] : [];
+  const rows = db
+    .prepare(
+      "SELECT COALESCE(u.provider, 'claude') AS provider, s.model AS model, " +
+        "COALESCE(SUM(u.inputTokens), 0) AS tokensIn, COALESCE(SUM(u.outputTokens), 0) AS tokensOut, " +
+        "COALESCE(SUM(u.costUsd), 0) AS costUsd " +
+        "FROM token_usage u LEFT JOIN chat_sessions s ON s.sessionId = u.sessionId " +
+        `${where} GROUP BY provider, model ` +
+        "ORDER BY COALESCE(SUM(u.inputTokens + u.outputTokens), 0) DESC",
+    )
+    .all(...params) as UsageByModelRow[];
+  return rows.map((r) => ({
+    provider: r.provider,
+    model: r.model ?? null,
+    tokensIn: r.tokensIn ?? 0,
+    tokensOut: r.tokensOut ?? 0,
+    costUsd: r.costUsd ?? 0,
+  }));
+}
+
 export function setChatSessionStatus(sessionId: string, status: ChatSessionStatus): void {
   db.prepare("UPDATE chat_sessions SET status = ?, updatedAt = ? WHERE sessionId = ?").run(
     status,

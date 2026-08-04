@@ -1,21 +1,44 @@
 "use client";
 
+/**
+ * Chi tiết một Images Project - lắp bằng bộ khối workspace 3 cột dùng chung
+ * (`components/Workspace.tsx`), đúng nhịp source → setup → output như mọi trang
+ * chi tiết khác:
+ *
+ * - Cột `source`: thiết lập nội dung (Style Design, prompt, loại ảnh, tỉ lệ,
+ *   chữ trên ảnh) - thứ mình BẮT ĐẦU TỪ ĐÓ.
+ * - Cột `setup`: nút chạy, model tạo nền, tải nền lên thủ công.
+ * - Cột `output`: ảnh thành phẩm ĐỨNG ĐẦU (đang chạy thì hiện tiến trình + log),
+ *   rồi tới các bước trung gian.
+ *
+ * Trước đợt đại tu trang này tự dựng `xl:grid-cols-5` bằng media query nên KHÔNG
+ * phản ứng khi người dùng gấp rail trái / panel phải - đúng cái lỗi mà container
+ * query của `.workspace-grid` được viết ra để tránh. Tệ hơn: cột kết quả nằm bên
+ * TRÁI, ngược với mọi trang chi tiết khác.
+ */
+
 import {
   ArrowLeft,
   Copy,
   Download,
   Image as ImageIcon,
   Layers,
-  Loader2,
   Maximize2,
   Save,
+  ScrollText,
   Trash2,
   Upload,
   Wand2,
   Zap,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   cloneImageProject,
   deleteImageProject,
@@ -38,12 +61,16 @@ import {
 } from "@/components/MediaPreviewModal";
 import { useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
+import { JobBadge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EditableTitle } from "@/components/EditableTitle";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import {
   AspectChip,
   ImageProjectFields,
@@ -53,7 +80,15 @@ import {
   type ImageDraft,
 } from "@/components/ImageProjectForm";
 import { PageHeader } from "@/components/PageHeader";
+import { Panel } from "@/components/Panel";
 import { ProgressBar } from "@/components/ProgressBar";
+import { ShellRightPanel } from "@/components/Shell";
+import { Skeleton } from "@/components/Skeleton";
+import {
+  Workspace,
+  WorkspaceBlock,
+  WorkspaceColumn,
+} from "@/components/Workspace";
 import { useProviders } from "@/components/ModelPicker";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -65,23 +100,6 @@ interface ActiveJob {
   step: string;
   status: JobStatus;
 }
-
-// Giá trị là KEY dictionary - dịch bằng t() lúc render.
-const JOB_STATUS_LABEL: Record<JobStatus, string> = {
-  queued: "imageDetail.job.queued",
-  running: "imageDetail.job.running",
-  done: "imageDetail.job.done",
-  failed: "imageDetail.job.failed",
-  canceled: "imageDetail.job.canceled",
-};
-
-const JOB_STATUS_TONE: Record<JobStatus, string> = {
-  queued: "badge-muted",
-  running: "badge-running",
-  done: "badge-success",
-  failed: "badge-danger",
-  canceled: "badge-muted",
-};
 
 /** Giữ card tiến trình thêm 3s sau khi job kết thúc rồi mới ẩn. */
 const JOB_LINGER_MS = 3000;
@@ -103,31 +121,34 @@ function StepThumb({
   alt: string;
   onOpen: (file: FileInfo) => void;
 }) {
-  const frame =
-    "flex h-36 w-full items-center justify-center overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]";
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-[var(--text-muted)]">
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="truncate text-meta text-[var(--text-muted)]" title={label}>
         {label}
       </span>
-      {file ? (
-        <ZoomableThumb
-          file={file}
-          alt={alt}
-          onOpen={onOpen}
-          className={frame}
-          imgClassName="h-full w-full object-contain"
-          iconSize={20}
-        />
-      ) : (
-        <div className={frame}>
+      {/* Cùng khung `.workspace-media` với ảnh thành phẩm - một hợp đồng CSS cho
+          mọi ô media trong dashboard, không chép tay lại viền/nền/bo góc. */}
+      <div
+        className="workspace-media"
+        style={{ "--workspace-aspect": "4 / 3" } as CSSProperties}
+      >
+        {file ? (
+          <ZoomableThumb
+            file={file}
+            alt={alt}
+            onOpen={onOpen}
+            className="h-full w-full"
+            imgClassName="h-full w-full object-contain"
+            iconSize={20}
+          />
+        ) : (
           <ImageIcon
             size={22}
             strokeWidth={1.5}
             className="text-[var(--text-muted)] opacity-40"
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -154,7 +175,7 @@ export default function ImageProjectDetailPage() {
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
-  // Select model ở hàng hành động - danh sách live + auto-save khi chọn
+  // Select model ở cột thiết lập - danh sách live + auto-save khi chọn
   const {
     models: liveModels,
     loading: modelsLoading,
@@ -180,7 +201,7 @@ export default function ImageProjectDetailPage() {
   const [logLines, setLogLines] = useState<string[]>([]);
   const activeJobIdRef = useRef<string | null>(null);
   const lingerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const logBoxRef = useRef<HTMLDivElement>(null);
+  const logBoxRef = useRef<HTMLPreElement>(null);
 
   const { providers } = useProviders();
   const gemini = providers?.find((p) => p.id === "gemini");
@@ -282,7 +303,7 @@ export default function ImageProjectDetailPage() {
     }
   });
 
-  // Log từng dòng của job đang theo dõi → khối "Xem log"
+  // Log từng dòng của job đang theo dõi → panel "Nhật ký AI" bên phải
   useJobLogEvents((e) => {
     if (e.jobId !== activeJobIdRef.current) return;
     setLogLines((cur) => [...cur.slice(-(MAX_LOG_LINES - 1)), e.line]);
@@ -366,7 +387,7 @@ export default function ImageProjectDetailPage() {
     setProj(p);
   }
 
-  /** Chọn model ở hàng hành động → PUT ngay (auto-save, không cần bấm Lưu). */
+  /** Chọn model ở cột thiết lập → PUT ngay (auto-save, không cần bấm Lưu). */
   async function onModelChange(next: string | null) {
     setDraft((d) => (d ? { ...d, model: next } : d));
     setModelSaving(true);
@@ -414,11 +435,14 @@ export default function ImageProjectDetailPage() {
     ? undefined
     : t("imageDetail.gemini-tooltip");
 
-  // Select model gọn ở hàng hành động - live list, fallback danh sách tĩnh
+  // Select model gọn ở cột thiết lập - live list, fallback danh sách tĩnh
   const currentModel = draft?.model ?? proj?.model ?? null;
   const modelOptions = liveModels ?? gemini?.models ?? [];
   const modelMissing =
     currentModel !== null && !modelOptions.some((m) => m.id === currentModel);
+
+  // Tỉ lệ khung của khung ảnh thành phẩm - "9:16" của meta đổi sang cú pháp CSS
+  const aspectRatio = (proj?.aspect ?? "9:16").replace(":", " / ");
 
   return (
     <div className="flex flex-col gap-4">
@@ -441,10 +465,48 @@ export default function ImageProjectDetailPage() {
             : undefined
         }
         actions={
-          <Button variant="secondary" onClick={() => router.push("/images")}>
-            <ArrowLeft size={15} strokeWidth={2} />
-            {t("imageDetail.back")}
-          </Button>
+          /* QUY ƯỚC NÚT PHÁ HỦY - áp giống hệt ở cả 7 trang chi tiết (Videos
+             Project, Images Project, Auto cut, Text to video, Dịch video, Style
+             Design, Phong cách dựng). Trang này từng là ví dụ tệ nhất: "Xóa
+             project" đứng KẸP GIỮA "Nhân bản" và nút chính "Lưu thay đổi", cùng
+             cỡ cùng gap-2 - trượt tay một nút là mất cả project, mà thao tác đó
+             không hoàn tác được.
+             Luật: mọi nút thường (kể cả nút chính) gom vào MỘT cụm; nút xóa
+             đứng CUỐI, ngoài cụm, ngăn bằng một vạch dọc `border-l` + `pl-2`.
+             Nó không bao giờ nằm giữa hai nút thường, và con trỏ phải đi qua
+             một ranh giới nhìn thấy được mới tới nó.
+             Vạch dọc chứ không phải `ml-auto`: hàng actions là flex item co
+             theo nội dung trong `justify-between` của PageHeader, không có chỗ
+             trống nào cho `auto` margin ăn - `ml-auto` ở đây không đẩy được gì. */
+          <>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/images")}>
+                <ArrowLeft size={15} strokeWidth={2} />
+                {t("imageDetail.back")}
+              </Button>
+              {/* Nhân bản KHÔNG bị khóa khi đang generate: bản sao là project
+                  khác, chép nền hiện có - không đụng gì tới job đang chạy */}
+              <Button
+                variant="secondary"
+                disabled={!proj}
+                title={t("imageDetail.clone-title")}
+                onClick={() => setCloneOpen(true)}
+              >
+                <Copy size={15} strokeWidth={2} />
+                {t("clone.action")}
+              </Button>
+              <Button onClick={onSave} disabled={saving || !draft}>
+                <Save size={15} strokeWidth={2} />
+                {saving ? t("common.saving") : t("imageDetail.save-changes")}
+              </Button>
+            </span>
+            <span className="flex items-center border-l border-[var(--border)] pl-2">
+              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 size={15} strokeWidth={2} />
+                {t("imageDetail.delete-project")}
+              </Button>
+            </span>
+          </>
         }
       />
 
@@ -452,7 +514,7 @@ export default function ImageProjectDetailPage() {
         <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
           <ImageStatusBadge status={proj.status} />
           <AspectChip aspect={proj.aspect} />
-          <span>ID: {proj.id}</span>
+          <span className="text-meta">ID: {proj.id}</span>
         </div>
       )}
 
@@ -462,146 +524,63 @@ export default function ImageProjectDetailPage() {
       {error && (
         <ErrorBanner message={t("imageDetail.load-error")} detail={error} />
       )}
+      {saveError && (
+        <ErrorBanner message={t("common.save-error")} detail={saveError} />
+      )}
+      {saved && <Banner tone="success" message={t("common.saved")} />}
       {proj?.status === "error" && proj.error && (
         <ErrorBanner message={t("imageDetail.last-gen-error")} detail={proj.error} />
       )}
 
-      <div className="grid items-start gap-4 xl:grid-cols-5">
-        {/* Cột trái - ảnh */}
-        <div className="flex flex-col gap-4 xl:col-span-3">
-          <Card
-            title={t("imageDetail.final-card")}
-            actions={
-              proj?.final ? (
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPreview(fileOf(proj.final!, "Final"))}
-                    className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-                  >
-                    <Maximize2 size={13} strokeWidth={2} />
-                    {t("common.zoom")}
-                  </button>
-                  <a
-                    href={imageFileUrl(imageId, proj.final, proj.updatedAt)}
-                    download
-                    className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-                  >
-                    <Download size={13} strokeWidth={2} />
-                    {t("imageDetail.download")}
-                  </a>
-                </div>
-              ) : undefined
-            }
-          >
-            {(activeJob || generating) && (
-              <div
-                className={`flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3 ${
-                  proj?.final ? "mb-3" : ""
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-medium">
-                    {t("imageDetail.progress")}
-                  </span>
-                  <span
-                    className={`badge ${
-                      JOB_STATUS_TONE[activeJob?.status ?? "running"]
-                    }`}
-                  >
-                    <span
-                      className={`badge-dot ${
-                        !activeJob || jobRunning ? "badge-dot-pulse" : ""
-                      }`}
-                    />
-                    {t(JOB_STATUS_LABEL[activeJob?.status ?? "running"])}
-                  </span>
-                </div>
-                {activeJob ? (
-                  <ProgressBar
-                    progress={activeJob.progress}
-                    step={activeJob.step || undefined}
-                  />
-                ) : (
-                  <div
-                    className="progress-indeterminate"
-                    aria-label={t("imageDetail.generating-aria")}
-                  />
-                )}
-                {activeJob?.status === "failed" && (
-                  <ErrorBanner
-                    message={t("imageDetail.gen-failed")}
-                    detail={proj?.error ?? undefined}
-                  />
-                )}
-                {logLines.length > 0 && (
-                  <details>
-                    <summary className="cursor-pointer text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]">
-                      {tf("imageDetail.view-log", { n: logLines.length })}
-                    </summary>
-                    <div
-                      ref={logBoxRef}
-                      className="mt-2 max-h-40 overflow-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-2 font-mono text-xs whitespace-pre-wrap"
-                    >
-                      {logLines.join("\n")}
-                    </div>
-                  </details>
-                )}
+      {/* Ba cột theo nhịp làm việc. Số cột do container query trong globals.css
+          lo, trang không tự tính pixel và không dùng media query. */}
+      <Workspace>
+        {/* ================= Cột 1: nội dung ================= */}
+        <WorkspaceColumn role="source" title={t("workspace.col.source")}>
+          <Card title={t("imageDetail.settings")}>
+            {draft ? (
+              <div className="flex flex-col gap-3">
+                <p className="t-eyebrow">{t("imageDetail.content")}</p>
+                {/* Tên KHÔNG còn ở đây - sửa thẳng trên tiêu đề trang, lưu ngay,
+                    không phải bấm Lưu chung với prompt/overlay đang sửa dở */}
+                <ImageProjectFields
+                  value={draft}
+                  onChange={(p) => {
+                    setDraft((d) => (d ? { ...d, ...p } : d));
+                    setSaved(false);
+                  }}
+                  disabled={saving}
+                  idPrefix="image-edit"
+                  showModel={false}
+                  sectioned
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-9 w-full" />
               </div>
             )}
-            {proj?.final ? (
-              // Ảnh chính cũng bấm được để xem full - không bắt người dùng phải
-              // tìm ra nút "Phóng to" ở góc card
-              <ZoomableThumb
-                file={fileOf(proj.final, "Final")}
-                alt={tf("imageDetail.final-alt-name", { name: proj.name })}
-                onOpen={setPreview}
-                className="mx-auto max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
-                imgClassName="max-h-[480px] w-auto max-w-full"
-                iconSize={24}
-              />
-            ) : !generating && !activeJob ? (
-              <EmptyState
-                icon={ImageIcon}
-                description={t("imageDetail.no-final")}
-              />
-            ) : null}
           </Card>
+        </WorkspaceColumn>
 
-          <Card title={t("imageDetail.steps")}>
-            <div className="grid grid-cols-2 gap-3">
-              <StepThumb
-                label={t("imageDetail.step-bg")}
-                file={
-                  proj?.background
-                    ? fileOf(proj.background, t("imageDetail.step-bg"))
-                    : null
-                }
-                alt={t("imageDetail.bg-alt")}
-                onOpen={setPreview}
-              />
-              <StepThumb
-                label="Final (Remotion)"
-                file={proj?.final ? fileOf(proj.final, "Final") : null}
-                alt={t("imageDetail.final-alt")}
-                onOpen={setPreview}
-              />
-            </div>
-          </Card>
-        </div>
-
-        {/* Cột phải - hành động + form */}
-        <div className="flex flex-col gap-4 xl:col-span-2">
+        {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
+        <WorkspaceColumn role="setup" title={t("workspace.col.setup")}>
           <Card title={t("imageDetail.generate-card")}>
             <div className="flex flex-col gap-3">
               {genError && (
-                <ErrorBanner message={t("imageDetail.run-error")} detail={genError} />
+                <Banner
+                  tone="danger"
+                  message={t("imageDetail.run-error")}
+                  detail={genError}
+                />
               )}
 
               {/* Hành động chính - full-width, một chạm */}
               <span title={geminiTooltip} className="block">
                 <Button
-                  className="h-10 w-full"
+                  className="w-full"
                   disabled={genSubmitting || generating || !geminiConnected}
                   onClick={() => runGenerate("all")}
                 >
@@ -611,25 +590,20 @@ export default function ImageProjectDetailPage() {
               </span>
 
               {/* Model tạo nền - live list, auto-save khi chọn */}
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <label className="label" htmlFor="image-quick-model">
-                    {t("imageDetail.bg-model")}
-                  </label>
-                  {(modelsLoading || modelSaving) && (
-                    <span className="mb-1.5 flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
-                      <Loader2
-                        size={11}
-                        strokeWidth={2}
-                        className="animate-spin"
-                      />
-                      {modelsLoading ? t("images.loading-models") : t("common.saving")}
-                    </span>
-                  )}
-                </div>
+              <Field
+                label={t("imageDetail.bg-model")}
+                htmlFor="image-quick-model"
+                hint={
+                  modelsLoading
+                    ? t("images.loading-models")
+                    : modelSaving
+                      ? t("common.saving")
+                      : undefined
+                }
+              >
                 <select
                   id="image-quick-model"
-                  className="input h-9 text-[13px]"
+                  className="input"
                   value={currentModel ?? ""}
                   disabled={modelSaving}
                   onFocus={loadModels}
@@ -645,7 +619,7 @@ export default function ImageProjectDetailPage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </Field>
 
               {/* Chạy từng bước riêng lẻ */}
               <div className="grid grid-cols-2 gap-2">
@@ -663,11 +637,7 @@ export default function ImageProjectDetailPage() {
                 </span>
                 <span
                   className="min-w-0"
-                  title={
-                    proj?.background
-                      ? undefined
-                      : t("imageDetail.need-bg")
-                  }
+                  title={proj?.background ? undefined : t("imageDetail.need-bg")}
                 >
                   <Button
                     variant="secondary"
@@ -682,46 +652,26 @@ export default function ImageProjectDetailPage() {
                 </span>
               </div>
               {!geminiConnected && gemini && (
-                <p className="text-xs text-[var(--text-muted)]">
+                <p className="text-meta text-[var(--text-muted)]">
                   {t("imageDetail.gemini-hint")}
                 </p>
               )}
 
-              {/* Hàng phụ - thao tác ít dùng. Xóa đứng RIÊNG một bên: nó không
-                  hoàn tác được, đừng để cạnh nút thường dễ bấm nhầm. */}
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[var(--border)] pt-3">
-                <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <button
-                    type="button"
-                    disabled={uploadingBg || generating}
-                    title={t("imageDetail.upload-bg-title")}
-                    className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={() => bgInputRef.current?.click()}
-                  >
-                    <Upload size={13} strokeWidth={2} />
-                    {uploadingBg ? t("imageDetail.uploading-bg") : t("imageDetail.upload-bg")}
-                  </button>
-                  {/* Nhân bản KHÔNG bị khóa khi đang generate: bản sao là project
-                      khác, chép nền hiện có - không đụng gì tới job đang chạy */}
-                  <button
-                    type="button"
-                    disabled={!proj}
-                    title={t("imageDetail.clone-title")}
-                    className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={() => setCloneOpen(true)}
-                  >
-                    <Copy size={13} strokeWidth={2} />
-                    {t("clone.action")}
-                  </button>
-                </span>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-xs font-medium text-[var(--danger)] transition-colors duration-150 hover:opacity-75"
-                  onClick={() => setDeleteOpen(true)}
+              {/* Đường vòng khi không có Gemini: tự tải ảnh nền lên. Xóa project
+                  đã dọn lên PageHeader cùng chỗ với 5 trang chi tiết khác. */}
+              <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+                <Button
+                  variant="secondary"
+                  small
+                  disabled={uploadingBg || generating}
+                  title={t("imageDetail.upload-bg-title")}
+                  onClick={() => bgInputRef.current?.click()}
                 >
-                  <Trash2 size={13} strokeWidth={2} />
-                  {t("imageDetail.delete-project")}
-                </button>
+                  <Upload size={14} strokeWidth={2} />
+                  {uploadingBg
+                    ? t("imageDetail.uploading-bg")
+                    : t("imageDetail.upload-bg")}
+                </Button>
               </div>
 
               <input
@@ -737,53 +687,168 @@ export default function ImageProjectDetailPage() {
               />
             </div>
           </Card>
+        </WorkspaceColumn>
 
-          <Card title={t("imageDetail.settings")}>
-            {draft ? (
-              <div className="flex flex-col gap-3">
-                {saveError && (
-                  <ErrorBanner message={t("common.save-error")} detail={saveError} />
-                )}
-                <p className="text-xs font-semibold tracking-wide text-[var(--text-muted)] uppercase">
-                  {t("imageDetail.content")}
-                </p>
-                {/* Tên KHÔNG còn ở đây - sửa thẳng trên tiêu đề trang, lưu ngay,
-                    không phải bấm Lưu chung với prompt/overlay đang sửa dở */}
-                <ImageProjectFields
-                  value={draft}
-                  onChange={(p) => {
-                    setDraft((d) => (d ? { ...d, ...p } : d));
-                    setSaved(false);
-                  }}
-                  disabled={saving}
-                  idPrefix="image-edit"
-                  showModel={false}
-                  sectioned
-                />
-                <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
-                  <Button
-                    className="w-full"
-                    onClick={onSave}
-                    disabled={saving}
+        {/* ============ Cột 3: tiến trình & kết quả ============ */}
+        <WorkspaceColumn role="output" title={t("workspace.col.output")}>
+          {/* Khối ĐẦU TIÊN của cột: ảnh thành phẩm. Cùng vai trò với
+              <OutputBlock> của trang video, chỉ khác nó dựng ảnh chứ không dựng
+              thẻ <video> - vẫn dùng chung khung `.workspace-media`. */}
+          <WorkspaceBlock
+            id="image-block-output"
+            icon={ImageIcon}
+            title={t("imageDetail.final-card")}
+            summary={proj?.final ?? t("imageDetail.no-final")}
+            actions={
+              proj?.final ? (
+                <>
+                  <IconButton
+                    label={t("common.zoom")}
+                    onClick={() => setPreview(fileOf(proj.final!, "Final"))}
                   >
-                    <Save size={15} strokeWidth={2} />
-                    {saving ? t("common.saving") : t("imageDetail.save-changes")}
-                  </Button>
-                  {saved && (
-                    <span className="text-center text-sm text-[var(--success)]">
-                      {t("common.saved")}
-                    </span>
+                    <Maximize2 size={15} strokeWidth={2} />
+                  </IconButton>
+                  <a
+                    href={imageFileUrl(imageId, proj.final, proj.updatedAt)}
+                    download
+                    title={t("imageDetail.download")}
+                    aria-label={t("imageDetail.download")}
+                    className="icon-btn"
+                  >
+                    <Download size={15} strokeWidth={2} />
+                  </a>
+                </>
+              ) : undefined
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {(activeJob || generating) && (
+                <Panel
+                  title={t("imageDetail.progress")}
+                  actions={<JobBadge status={activeJob?.status ?? "running"} />}
+                >
+                  {activeJob ? (
+                    <ProgressBar
+                      progress={activeJob.progress}
+                      step={activeJob.step || undefined}
+                    />
+                  ) : (
+                    <div
+                      className="progress-indeterminate"
+                      aria-label={t("imageDetail.generating-aria")}
+                    />
                   )}
-                </div>
+                  {activeJob?.status === "failed" && (
+                    <Banner
+                      tone="danger"
+                      message={t("imageDetail.gen-failed")}
+                      detail={proj?.error ?? undefined}
+                    />
+                  )}
+                </Panel>
+              )}
+
+              {/* Log KHÔNG còn ở đây - nó nằm trong panel phải của shell, cùng
+                  chỗ với Videos Project / Text to video / Dịch video. Để hai
+                  bản là cùng một dòng log hiện ở hai nơi. */}
+
+              <div
+                className="workspace-media"
+                // Tỉ lệ đi qua biến CSS chứ không qua class Tailwind: giá trị
+                // đến từ meta.json của project, không phải danh sách biết trước.
+                style={{ "--workspace-aspect": aspectRatio } as CSSProperties}
+              >
+                {proj?.final ? (
+                  // Ảnh chính cũng bấm được để xem full - không bắt người dùng
+                  // phải tìm ra nút "Phóng to" ở góc khối
+                  <ZoomableThumb
+                    file={fileOf(proj.final, "Final")}
+                    alt={tf("imageDetail.final-alt-name", { name: proj.name })}
+                    onOpen={setPreview}
+                    className="h-full w-full"
+                    imgClassName="h-full w-full object-contain"
+                    iconSize={24}
+                  />
+                ) : generating || activeJob ? (
+                  <>
+                    <span className="workspace-shimmer" aria-hidden="true" />
+                    <div
+                      className="relative px-4 text-center"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <p className="text-sm text-[var(--text-muted)]">
+                        {t("imageDetail.generating-aria")}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <EmptyState
+                    icon={ImageIcon}
+                    description={t("imageDetail.no-final")}
+                  />
+                )}
               </div>
-            ) : (
-              <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-                {t("common.loading")}
-              </p>
-            )}
+            </div>
+          </WorkspaceBlock>
+
+          {/* CHỈ còn ảnh nền. Ảnh final ĐÃ hiện ngay trên đầu cột trong
+              `workspace-media` của khối kết quả - để thêm một ô "Final" ở đây là
+              cùng một ảnh render hai lần trên cùng màn hình, và nhãn của nó còn
+              là chuỗi tiếng Anh gõ tay giữa giao diện tiếng Việt. */}
+          <Card title={t("imageDetail.steps")}>
+            <StepThumb
+              label={t("imageDetail.step-bg")}
+              file={
+                proj?.background
+                  ? fileOf(proj.background, t("imageDetail.step-bg"))
+                  : null
+              }
+              alt={t("imageDetail.bg-alt")}
+              onOpen={setPreview}
+            />
           </Card>
-        </div>
-      </div>
+        </WorkspaceColumn>
+      </Workspace>
+
+      {/* Nhật ký AI của job tạo ảnh - panel phải của shell, giống bốn trang chi
+          tiết còn lại. Panel LUÔN khai báo (kể cả lúc chưa chạy job nào) để
+          người dùng biết chỗ đó có gì; chưa có log thì hiện EmptyState chứ
+          không để panel trống trơn. Cây React vẫn nằm ở trang này nên state
+          logLines / SSE giữ nguyên, chỉ đổi chỗ vẽ ra màn hình. */}
+      <ShellRightPanel title={t("imageDetail.ai-panel")}>
+        {activeJob || logLines.length > 0 ? (
+          // min-h-0 + flex-1 để <pre> cao bằng panel rồi tự cuộn bên trong
+          <Panel
+            className="min-h-0 flex-1"
+            title={tf("imageDetail.view-log", { n: logLines.length })}
+            actions={
+              activeJob ? <JobBadge status={activeJob.status} /> : undefined
+            }
+          >
+            {/* Thanh tiến trình KHÔNG lặp lại ở đây - nó đã nằm trong khối kết
+                quả ở cột phải của workspace, panel này chỉ lo phần log. */}
+            {/* break-anywhere BẮT BUỘC: log của Gemini/Remotion có đường dẫn và
+                chuỗi base64 dài không một khoảng trắng, mà `pre-wrap` chỉ ngắt ở
+                khoảng trắng nên chúng đẩy toác cả panel. */}
+            <pre
+              ref={logBoxRef}
+              className="min-h-32 min-w-0 flex-1 overflow-auto rounded-[var(--radius)] bg-[var(--surface)] p-2 font-mono text-meta whitespace-pre-wrap [overflow-wrap:anywhere]"
+            >
+              {logLines.length > 0
+                ? logLines.join("\n")
+                : t("imageDetail.no-log")}
+            </pre>
+          </Panel>
+        ) : (
+          <Panel className="min-h-0 flex-1 items-center justify-center">
+            <EmptyState
+              icon={ScrollText}
+              description={t("imageDetail.ai-panel-empty")}
+            />
+          </Panel>
+        )}
+      </ShellRightPanel>
 
       {/* Modal xác nhận xóa dự án ảnh - bắt gõ DELETE */}
       <ConfirmDeleteModal
@@ -793,7 +858,7 @@ export default function ImageProjectDetailPage() {
           <>
             {t("imageDetail.delete-desc-1")}{" "}
             <span className="font-medium">{proj?.name ?? imageId}</span>? {t("project.delete-desc-2")}{" "}
-            <code className="rounded bg-[var(--bg-subtle)] px-1 text-xs">
+            <code className="rounded bg-[var(--bg-subtle)] px-1 text-meta">
               image-projects/{imageId}
             </code>{" "}
             {t("project.delete-desc-3")}

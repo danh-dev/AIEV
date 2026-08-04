@@ -9,14 +9,18 @@
  *   TỪ ĐÓ.
  * - Cột `setup`: cách cắt + tham số, kịch bản edit áp cho MỌI project con, và
  *   kế hoạch cắt (duyệt/sửa/bỏ tích từng đoạn) - "mình muốn ra cái gì".
- * - Cột `output`: khối kết quả ĐỨNG ĐẦU rồi mới tới nhật ký job.
+ * - Cột `output`: đang chạy thì `OutputBlock` đứng đầu (dùng chung với ba trang
+ *   chi tiết còn lại), rồi tới khối kết quả - danh sách Videos Project con.
+ *
+ * Nhật ký job KHÔNG nằm trong cột 3 nữa mà ở panel phải của shell
+ * (`<ShellRightPanel>`), đúng chỗ Videos Project / Text to video / Dịch video để
+ * log của chúng.
  *
  * Khác mọi trang chi tiết còn lại: phiên này KHÔNG đẻ ra một video thành phẩm mà
- * đẻ ra NHIỀU Videos Project con. Nên khối đầu cột kết quả không dùng
- * `OutputBlock` (khung video + nút tải) mà là một khối cùng vai trò: đang chạy
- * thì thanh tiến trình + chữ chờ, xong thì danh sách project con bấm vào mở được
- * ngay. Dùng OutputBlock ở đây sẽ hiện "Đã xong nhưng chưa có file video" - đúng
- * kỹ thuật nhưng sai hoàn toàn về nghĩa.
+ * đẻ ra NHIỀU Videos Project con. Vì thế `OutputBlock` ở đây CHỈ hiện lúc đang
+ * chạy: để nó lại sau khi xong thì nó hiện "Đã xong nhưng chưa có file video"
+ * trong một khung 16:9 rỗng - đúng kỹ thuật nhưng sai hoàn toàn về nghĩa. Xong
+ * việc thì thành phẩm LÀ danh sách project con, và khối đó lên đứng đầu cột.
  *
  * Vì bước cắt tốn thời gian encode, người dùng được DUYỆT danh sách đoạn trước:
  * bỏ tích đoạn không cần, sửa tiêu đề (tiêu đề này thành tên project con).
@@ -66,8 +70,12 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
+import { StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
+import { ShellRightPanel } from "@/components/Shell";
+import { Skeleton } from "@/components/Skeleton";
 import {
+  OutputBlock,
   useCollapseGroup,
   Workspace,
   WorkspaceBlock,
@@ -79,18 +87,24 @@ import {
   LAYOUT_LABEL,
   MODE_LABEL,
   aspectLabel,
-  clock,
   duration,
 } from "@/components/AutoCutCommon";
 import { BriefFields, DEFAULT_BRIEF } from "@/components/BriefFields";
-import { formatDateTime } from "@/lib/format";
+// clock() sống ở lib/format - trước đây mỗi trang một bản, mỗi bản làm tròn
+// một kiểu (xem chú thích trong lib/format.ts).
+import { clock, formatDateTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
 /** Gộp nhiều lần gõ phím thành một PATCH - không bắn request mỗi ký tự. */
 const PATCH_DEBOUNCE_MS = 700;
 
-/** Các khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
-const AC_BLOCKS = ["source", "config", "brief", "plan", "result", "job"] as const;
+/**
+ * Các khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung.
+ *
+ * KHÔNG có "job" ở đây nữa: nhật ký job đã chuyển sang panel phải của shell
+ * (<ShellRightPanel>), nơi shell tự lo việc gấp/mở.
+ */
+const AC_BLOCKS = ["source", "config", "brief", "plan", "result"] as const;
 type BlockKey = (typeof AC_BLOCKS)[number];
 
 /**
@@ -98,6 +112,42 @@ type BlockKey = (typeof AC_BLOCKS)[number];
  * trang là để mở các project vừa cắt ra, không phải để sửa kế hoạch nữa.
  */
 const AC_KEEP_EXPANDED: readonly BlockKey[] = ["result"];
+
+/**
+ * 5 giai đoạn của một phiên auto cut, cho thanh stepper trên header - cùng thanh
+ * `<StepperBar>` mà Text to video và Dịch video đang dùng, không dựng bản riêng.
+ * Trước đây trang này chỉ có một badge trạng thái, nên nhìn vào không biết còn
+ * mấy bước nữa - trong khi nó là trang duy nhất có pipeline thật mà thiếu thanh.
+ */
+const AC_STAGES = [
+  "autocut.stage.source",
+  "autocut.stage.plan",
+  "autocut.stage.review",
+  "autocut.stage.cut",
+  "autocut.stage.done",
+] as const;
+
+/**
+ * Giai đoạn suy THẲNG từ `status` của server, không đoán thêm từ dữ liệu phụ:
+ * backend là nguồn sự thật về trạng thái phiên. Lỗi thì đứng lại ở đúng bước đã
+ * hỏng (`failedStep`) chứ không tụt về đầu - người dùng cần biết mình hỏng ở đâu.
+ */
+function acStage(session: AutoCutMeta): { stage: number; active: boolean } {
+  switch (session.status) {
+    case "planning":
+      return { stage: 2, active: true };
+    case "planned":
+      return { stage: 3, active: false };
+    case "cutting":
+      return { stage: 4, active: true };
+    case "done":
+      return { stage: 5, active: false };
+    case "failed":
+      return { stage: session.failedStep === "cut" ? 4 : 2, active: false };
+    default:
+      return { stage: 1, active: false };
+  }
+}
 
 /** Tên file từ đường dẫn tương đối (imports/abc.mp4 → abc.mp4). */
 function baseName(relPath: string): string {
@@ -108,6 +158,11 @@ function baseName(relPath: string): string {
 /**
  * Khối log của job - đúng nội dung trang Render Queue hiển thị: tiến trình + từng
  * dòng log chảy về qua SSE `joblog`.
+ *
+ * Sống trong PANEL PHẢI của shell, giống hệt Videos Project, Text to video và
+ * Dịch video: bốn trang chi tiết, một chỗ duy nhất để nhìn log. Trước đây nó nằm
+ * trong cột 3 nên vừa phải cuộn đi tìm, vừa chiếm chỗ của danh sách project con -
+ * mà log là thứ chỉ cần liếc lúc đang chạy hoặc lúc chạy hỏng.
  */
 function JobLogBlock({ job }: { job: Job }) {
   const { t } = useT();
@@ -157,10 +212,16 @@ function JobLogBlock({ job }: { job: Job }) {
   }, [log]);
 
   return (
-    <div className="flex min-w-0 shrink-0 flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
+    // min-h-0 + flex-1 để <pre> CAO BẰNG panel rồi tự cuộn bên trong. Thiếu
+    // min-h-0 thì flex item không co dưới nội dung, log dài sẽ đẩy dài cả panel.
+    // Dùng `.card` chứ không <Panel>: đây là khối ĐỨNG ĐẦU trong panel phải, không
+    // lồng trong card nào cả - đúng như Dịch video làm với cùng khối log này.
+    <div className="card flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold">{t("autocut.job")}</span>
-        <span className="text-xs text-[var(--text-muted)]">{job.status}</span>
+        <span className="min-w-0 text-sm font-semibold">{t("autocut.job")}</span>
+        <span className="shrink-0 text-meta text-[var(--text-muted)]">
+          {job.status}
+        </span>
       </div>
       <ProgressBar progress={job.progress} step={job.step} />
       {error && <ErrorBanner message={t("autocut.job-log-error")} detail={error} />}
@@ -169,7 +230,7 @@ function JobLogBlock({ job }: { job: Job }) {
           trắng nên chúng đẩy toác cả cột. */}
       <pre
         ref={preRef}
-        className="max-h-48 min-h-16 min-w-0 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap [overflow-wrap:anywhere]"
+        className="min-h-32 min-w-0 flex-1 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-meta whitespace-pre-wrap [overflow-wrap:anywhere]"
       >
         {log || t("autocut.job-no-log")}
       </pre>
@@ -177,12 +238,20 @@ function JobLogBlock({ job }: { job: Job }) {
   );
 }
 
-/** Một dòng "nhãn - giá trị" trong khối cấu hình phiên. */
+/**
+ * Một dòng "nhãn - giá trị" trong khối cấu hình phiên. Cùng hình dạng với
+ * `BriefSummaryRow` bên Videos Project: nhãn là phụ chú 13px, giá trị là nội
+ * dung 14px - thứ người dùng thật sự đọc.
+ */
 function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2 text-xs">
-      <span className="w-32 shrink-0 text-[var(--text-muted)]">{label}</span>
-      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{value}</span>
+    <div className="flex gap-2">
+      <span className="w-32 shrink-0 text-meta text-[var(--text-muted)]">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">
+        {value}
+      </span>
     </div>
   );
 }
@@ -402,15 +471,20 @@ export default function AutoCutDetailPage() {
         {loadError ? (
           <ErrorBanner message={t("autocut.not-found")} detail={loadError} />
         ) : (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
+          // Khung xám giữ chỗ thay cho câu "Đang tải…" căn giữa - câu chữ biến
+          // mất là cả trang bị đẩy lên một nhịp đúng lúc dữ liệu về.
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
         )}
       </div>
     );
   }
 
   const running = session.status === "planning" || session.status === "cutting";
+  // Giai đoạn cho thanh stepper trên header - xem acStage() ở đầu file
+  const stage = acStage(session);
   // Server chỉ nhận PATCH segments ở trạng thái draft/planned - các trạng thái
   // khác (done/failed/đang chạy) mà cho sửa là banner lỗi + state lệch server.
   const canEditSegments =
@@ -458,39 +532,58 @@ export default function AutoCutDetailPage() {
     createdCount > 0
       ? tf("autocut.created-count", { n: createdCount })
       : t("autocut.no-project-yet-short");
-  const jobSummary = job ? `${job.type} · ${job.status}` : t("autocut.job-no-log");
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title={session.name}
+        hint={{ titleKey: "help.autocut.title", bodyKey: "help.autocut.body" }}
         subtitle={`${baseName(src.relPath)} · ${src.width}x${src.height} · ${src.fps}fps · ${clock(
           src.durationSec
         )}`}
+        center={
+          <StepperBar
+            steps={AC_STAGES}
+            stage={stage.stage}
+            active={stage.active}
+            done={session.status === "done"}
+            ariaLabel={tf("autocut.stage-aria", {
+              stage: stage.stage,
+              label: t(AC_STAGES[stage.stage - 1]),
+            })}
+          />
+        }
         actions={
+          /* Nút xóa đứng CUỐI, ngoài cụm nút thường, ngăn bằng vạch dọc - quy
+             ước chung của 7 trang chi tiết, lý do viết đầy đủ ở
+             `src/app/images/[id]/page.tsx`. */
           <>
-            <Button variant="secondary" onClick={() => router.push("/auto-cut")}>
-              <ArrowLeft size={15} strokeWidth={2} />
-              {t("autocut.back")}
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={running}
-              onClick={() => {
-                setDeleteError(null);
-                setDeleteOpen(true);
-              }}
-            >
-              <Trash2 size={15} strokeWidth={2} />
-              {t("common.delete")}
-            </Button>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/auto-cut")}>
+                <ArrowLeft size={15} strokeWidth={2} />
+                {t("autocut.back")}
+              </Button>
+            </span>
+            <span className="flex items-center border-l border-[var(--border)] pl-2">
+              <Button
+                variant="destructive"
+                disabled={running}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 size={15} strokeWidth={2} />
+                {t("common.delete")}
+              </Button>
+            </span>
           </>
         }
       />
 
       {/* Tóm tắt cấu hình phiên - nhìn một dòng biết phiên này cắt kiểu gì */}
       <Card>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+        <div className="flex flex-wrap items-center gap-2 text-meta text-[var(--text-muted)]">
           <AutoCutStatusBadge status={session.status} />
           <span className="chip">{t(MODE_LABEL[session.mode])}</span>
           <span className="chip">{aspectLabel(session.output.aspect, t)}</span>
@@ -507,7 +600,7 @@ export default function AutoCutDetailPage() {
           {session.status === "done" && group.anyCollapsed && (
             <span className="min-w-0">{t("workspace.done-collapsed")}</span>
           )}
-          <span className="ml-auto">
+          <span className="ml-auto shrink-0">
             {t("common.updated")}: {formatDateTime(session.updatedAt)}
           </span>
         </div>
@@ -550,7 +643,7 @@ export default function AutoCutDetailPage() {
                 src={sourceUrl}
                 className="max-h-[360px] w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
               />
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="chip">
                   {src.width}x{src.height}
                 </span>
@@ -560,7 +653,7 @@ export default function AutoCutDetailPage() {
                   <span className="chip">{src.rotation}°</span>
                 )}
               </div>
-              <p className="min-w-0 text-xs text-[var(--text-muted)] [overflow-wrap:anywhere]">
+              <p className="min-w-0 text-meta text-[var(--text-muted)] [overflow-wrap:anywhere]">
                 {src.relPath}
               </p>
               {session.transcriptRel && (
@@ -656,7 +749,7 @@ export default function AutoCutDetailPage() {
                 label={t("autocut.auto-edit")}
                 value={session.autoEdit ? t("common.yes") : t("common.no")}
               />
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
+              <p className="mt-1 text-meta text-[var(--text-muted)]">
                 {t("autocut.config-readonly")}
               </p>
             </div>
@@ -671,7 +764,7 @@ export default function AutoCutDetailPage() {
             onToggle={() => group.toggle("brief")}
             summary={briefSummary}
             title={
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 {t("autocut.brief-card")}
                 <InfoHint
                   titleKey="help.autocut-brief.title"
@@ -683,7 +776,7 @@ export default function AutoCutDetailPage() {
           >
             {brief ? (
               <>
-                <div className="mb-3 flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+                <div className="mb-3 flex flex-col gap-1 text-meta text-[var(--text-muted)]">
                   <p>{running ? t("autocut.brief-locked") : t("autocut.brief-hint")}</p>
                   {createdCount > 0 && <p>{t("autocut.brief-applies-next")}</p>}
                   {!running && <p>{t("autocut.brief-autosave")}</p>}
@@ -697,9 +790,10 @@ export default function AutoCutDetailPage() {
                 />
               </>
             ) : (
-              <p className="text-xs text-[var(--text-muted)]">
-                {t("common.loading")}
-              </p>
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
             )}
           </WorkspaceBlock>
 
@@ -711,7 +805,7 @@ export default function AutoCutDetailPage() {
             onToggle={() => group.toggle("plan")}
             summary={planSummary}
             title={
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 {t("autocut.segments")}
                 <InfoHint
                   titleKey="help.autocut-segments.title"
@@ -751,7 +845,7 @@ export default function AutoCutDetailPage() {
             ) : (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 text-xs font-medium">
+                  <label className="flex items-center gap-2 text-sm font-medium">
                     <input
                       type="checkbox"
                       className="checkbox"
@@ -761,7 +855,7 @@ export default function AutoCutDetailPage() {
                     />
                     {t("autocut.select-all")}
                   </label>
-                  <span className="text-xs text-[var(--text-muted)]">
+                  <span className="text-meta text-[var(--text-muted)]">
                     {tf("autocut.selected-count", { n: selectedCount })}
                     {createdCount > 0
                       ? ` · ${tf("autocut.created-count", { n: createdCount })}`
@@ -769,11 +863,15 @@ export default function AutoCutDetailPage() {
                   </span>
                 </div>
 
-                <ul className="flex flex-col gap-1.5">
+                {/* Hàng ngăn nhau bằng một gạch `border-b`, KHÔNG phải mỗi đoạn
+                    một cái hộp có viền: khối này đã nằm trong <Card>, thêm một
+                    lớp viền nữa là ba lớp lồng nhau và mắt hết phân biệt được.
+                    Đây cũng là lý do không dùng <Panel> cho từng thẻ. */}
+                <ul className="flex flex-col">
                   {segments.map((s) => (
                     <li
                       key={s.index}
-                      className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
+                      className="flex items-start gap-2 border-b border-[var(--border)] py-2 last:border-b-0"
                     >
                       <input
                         type="checkbox"
@@ -783,9 +881,9 @@ export default function AutoCutDetailPage() {
                         aria-label={tf("autocut.select-aria", { title: s.title })}
                         onChange={(e) => setSelected(s.index, e.target.checked)}
                       />
-                      <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="font-mono text-xs text-[var(--text-muted)]">
+                          <span className="font-mono text-meta text-[var(--text-muted)]">
                             {clock(s.start)} - {clock(s.end)} ({duration(s.end - s.start)})
                           </span>
                           {typeof s.score === "number" && (
@@ -799,31 +897,35 @@ export default function AutoCutDetailPage() {
                           {s.projectId && (
                             <Link
                               href={`/projects/${s.projectId}`}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                              className="inline-flex items-center gap-1 text-meta font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                             >
-                              <ExternalLink size={12} strokeWidth={2} />
+                              <ExternalLink size={13} strokeWidth={2} />
                               {t("autocut.open-project")}
                             </Link>
                           )}
                         </div>
                         <input
-                          className="input mt-1 h-8 text-[13px] font-semibold"
+                          className="input font-semibold"
                           value={s.title}
                           disabled={!canEditSegments}
                           aria-label={tf("autocut.title-aria", { n: s.index + 1 })}
                           onChange={(e) => setTitle(s.index, e.target.value)}
                           onBlur={() => flush()}
                         />
-                        {/* hook/reason là chữ tự do của AI - phải cho ngắt giữa từ,
-                            không thì một chuỗi dài đẩy toác cả cột */}
-                        {s.hook && (
-                          <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-[var(--text-muted)] [overflow-wrap:anywhere]">
-                            {s.hook}
-                          </p>
-                        )}
-                        {s.reason && (
-                          <p className="line-clamp-2 text-xs leading-snug text-[var(--text-muted)] [overflow-wrap:anywhere]">
-                            {s.reason}
+                        {/* MỘT dòng mô tả, không phải hai. Trước đây hook và
+                            reason xếp chồng nhau, cùng cỡ chữ, cùng màu mờ, mỗi
+                            cái `line-clamp-2` - bốn dòng chữ xám dưới mỗi đoạn,
+                            đọc không ra đâu là câu mở đầu đâu là lý do chọn. Hook
+                            là thứ đáng đọc (nó thành lời mở của video con); reason
+                            lùi xuống tooltip.
+                            break-anywhere: chữ tự do của AI có thể là một chuỗi
+                            dài không khoảng trắng, đẩy toác cả cột. */}
+                        {(s.hook || s.reason) && (
+                          <p
+                            title={s.reason || undefined}
+                            className="line-clamp-2 text-meta text-[var(--text-muted)] [overflow-wrap:anywhere]"
+                          >
+                            {s.hook || s.reason}
                           </p>
                         )}
                       </div>
@@ -837,9 +939,44 @@ export default function AutoCutDetailPage() {
 
         {/* ============ Cột 3: tiến trình & kết quả ============ */}
         <WorkspaceColumn role="output" title={t("workspace.col.output")}>
-          {/* Khối ĐẦU TIÊN của cột - vai trò của OutputBlock ở các trang khác:
-              đang chạy thì thanh tiến trình + chữ chờ, xong thì chính "thành
-              phẩm" của phiên này, tức là danh sách project con bấm vào mở được. */}
+          {/* Đang chạy → khối ĐẦU TIÊN của cột là <OutputBlock> dùng chung với ba
+              trang chi tiết còn lại: cùng khung nhấp nháy, cùng thanh tiến trình,
+              cùng chỗ đứng. Trước đây trang này tự dựng lại bằng một hộp viền +
+              <span> đậm 12px + ProgressBar nhét bên trong khối kết quả, nên bốn
+              trang chi tiết có bốn kiểu "đang chạy" khác nhau.
+
+              CHỈ hiện lúc chạy, cố ý: phiên này không đẻ ra file video nào, nên
+              lúc xong mà vẫn để OutputBlock thì nó hiện đúng câu "Đã xong nhưng
+              chưa có file video" trong một khung 16:9 rỗng - đúng kỹ thuật, sai
+              hoàn toàn về nghĩa. Xong việc thì thành phẩm LÀ danh sách project
+              con ngay dưới đây, và nó lên đứng đầu cột. */}
+          {running && (
+            <OutputBlock
+              id="ac-block-progress"
+              status="running"
+              progress={job?.progress ?? null}
+              step={job?.step}
+              aspect={`${src.width} / ${src.height}`}
+              title={
+                session.status === "planning"
+                  ? t("autocut.step-plan")
+                  : t("autocut.step-cut")
+              }
+              summary={
+                session.status === "planning"
+                  ? t("autocut.planning-hint")
+                  : t("autocut.cutting-hint")
+              }
+            >
+              <p className="text-sm text-[var(--text-muted)]">
+                {session.status === "planning"
+                  ? t("autocut.planning-hint")
+                  : t("autocut.cutting-hint")}
+              </p>
+            </OutputBlock>
+          )}
+
+          {/* Thành phẩm của phiên: các Videos Project con bấm vào mở được ngay */}
           <WorkspaceBlock
             id="ac-block-result"
             icon={Clapperboard}
@@ -856,86 +993,68 @@ export default function AutoCutDetailPage() {
               ) : undefined
             }
           >
-            <div className="flex flex-col gap-3">
-              {running && (
-                <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-                  <span className="text-xs font-semibold">
-                    {session.status === "planning"
-                      ? t("autocut.step-plan")
-                      : t("autocut.step-cut")}
-                  </span>
-                  <ProgressBar progress={job?.progress ?? 0} step={job?.step} />
-                  <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <Loader2
-                      size={13}
-                      strokeWidth={2}
-                      className="shrink-0 animate-spin"
-                    />
-                    <span className="min-w-0">
-                      {session.status === "planning"
-                        ? t("autocut.planning-hint")
-                        : t("autocut.cutting-hint")}
-                    </span>
-                  </p>
-                </div>
-              )}
-
-              {created.length > 0 ? (
-                <ul className="flex flex-col gap-1.5">
-                  {created.map((s) => (
-                    <li
-                      key={s.index}
-                      className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-                    >
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="min-w-0 truncate text-[13px] font-semibold">
-                          {s.title}
-                        </span>
-                        <span className="font-mono text-xs text-[var(--text-muted)]">
-                          {clock(s.start)} - {clock(s.end)} (
-                          {duration(s.end - s.start)})
-                        </span>
+            {created.length > 0 ? (
+              // Cùng một quy tắc với danh sách đoạn: hàng ngăn nhau bằng gạch
+              // `border-b`, không mỗi thẻ một cái hộp có viền trong một cái card.
+              <ul className="flex flex-col">
+                {created.map((s) => (
+                  <li
+                    key={s.index}
+                    className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] py-2 last:border-b-0"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {s.title}
                       </span>
-                      <Link
-                        href={`/projects/${s.projectId}`}
-                        className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-                      >
-                        <ExternalLink size={12} strokeWidth={2} />
-                        {t("autocut.open-project")}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                !running && (
-                  <EmptyState
-                    icon={Clapperboard}
-                    description={t("autocut.no-project-yet")}
-                  />
-                )
-              )}
-            </div>
-          </WorkspaceBlock>
-
-          {/* Nhật ký job phân tích/cắt - thứ SINH RA trong lúc chạy, đúng chỗ */}
-          <WorkspaceBlock
-            id="ac-block-job"
-            icon={ScrollText}
-            collapsed={group.isCollapsed("job")}
-            onToggle={() => group.toggle("job")}
-            summary={jobSummary}
-            title={t("autocut.card-job")}
-          >
-            {job ? (
-              <JobLogBlock job={job} />
+                      <span className="font-mono text-meta text-[var(--text-muted)]">
+                        {clock(s.start)} - {clock(s.end)} (
+                        {duration(s.end - s.start)})
+                      </span>
+                    </span>
+                    <Link
+                      href={`/projects/${s.projectId}`}
+                      className="inline-flex shrink-0 items-center gap-1 text-meta font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                    >
+                      <ExternalLink size={13} strokeWidth={2} />
+                      {t("autocut.open-project")}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : running ? (
+              // Đang chạy mà CHƯA có project nào (giai đoạn planning/cutting đầu
+              // tiên) thì vẫn phải có gì đó trong khối. Trước khi tách trạng
+              // thái chạy sang <OutputBlock>, hộp tiến trình nằm ngay đây nên
+              // khối không bao giờ rỗng; tách xong thì nhánh này bị bỏ quên và
+              // card trơ mỗi cái tiêu đề suốt lúc encode.
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
             ) : (
-              <p className="text-xs text-[var(--text-muted)]">
-                {t("autocut.job-no-log")}
-              </p>
+              <EmptyState
+                icon={Clapperboard}
+                description={t("autocut.no-project-yet")}
+              />
             )}
           </WorkspaceBlock>
         </WorkspaceColumn>
       </Workspace>
+
+      {/* Nhật ký job phân tích/cắt sống trong PANEL PHẢI của shell - đúng chỗ mà
+          Videos Project, Text to video và Dịch video để log của chúng. Trang chỉ
+          khai báo "tôi có panel, nội dung đây"; bề rộng, nút gấp và chế độ drawer
+          là việc của shell. Job mới nhất ở đây kể cả khi đã chạy xong: chạy hỏng
+          thì log là thứ DUY NHẤT nói vì sao. */}
+      <ShellRightPanel title={t("autocut.card-job")}>
+        {job ? (
+          <JobLogBlock job={job} />
+        ) : (
+          <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
+            <EmptyState icon={ScrollText} description={t("autocut.job-no-log")} />
+          </div>
+        )}
+      </ShellRightPanel>
 
       <ConfirmDeleteModal
         open={deleteOpen}

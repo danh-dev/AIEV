@@ -7,15 +7,8 @@
  * COPY đi dán lên TikTok/YouTube/Facebook nên mỗi phần có nút copy riêng.
  */
 
-import {
-  Check,
-  Copy,
-  Download,
-  Loader2,
-  Megaphone,
-  Sparkles,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Download, Loader2, Megaphone, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
   createPublishPack,
@@ -26,11 +19,15 @@ import {
   type PublishPack,
   type PublishPlatform,
 } from "@/lib/api";
+import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { LinkButton } from "@/components/LinkButton";
+import { CopyButton } from "@/components/CopyButton";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { Panel } from "@/components/Panel";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -41,93 +38,52 @@ const PLATFORM_LABEL: Record<PublishPlatform, string> = {
   facebook: "Facebook",
 };
 
-/** Báo "Đã copy" bao lâu rồi trả nút về trạng thái thường. */
-const COPIED_MS = 1500;
-
-/** Nút copy nhỏ - cùng trải nghiệm với nút copy ở trang Kết nối. */
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const { t } = useT();
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Card có thể bị unmount khi đang đếm ngược -> dọn timer, tránh setState rác
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    []
-  );
-
-  function onCopy() {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), COPIED_MS);
-    });
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onCopy}
-      title={label}
-      aria-label={label}
-      className="inline-flex shrink-0 items-center gap-1 rounded-[var(--radius)] px-1.5 py-0.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-    >
-      {copied ? (
-        <>
-          <Check size={12} strokeWidth={2} className="text-[var(--success)]" />
-          {t("publish.copied")}
-        </>
-      ) : (
-        <>
-          <Copy size={12} strokeWidth={2} />
-          {label}
-        </>
-      )}
-    </button>
-  );
-}
-
-/** Một nền tảng: chip tên + tiêu đề + mô tả + hashtag, mỗi phần copy riêng. */
+/** Một nền tảng: tên + tiêu đề + mô tả + hashtag, mỗi phần copy riêng. */
 function PlatformBlock({ item }: { item: PublishItem }) {
   const { t } = useT();
   const hashtagLine = item.hashtags.join(" ");
   return (
-    <div className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="chip">
-          {PLATFORM_LABEL[item.platform] ?? item.platform}
-        </span>
-        <CopyButton text={item.title} label={t("publish.copy-title")} />
-      </div>
-
+    <Panel
+      title={PLATFORM_LABEL[item.platform] ?? item.platform}
+      actions={
+        <CopyButton
+          value={item.title}
+          label={t("publish.copy-title")}
+          size="sm"
+        />
+      }
+    >
       <p className="text-sm font-semibold">{item.title}</p>
 
       <div className="flex flex-wrap items-start justify-between gap-2">
-        {/* Mô tả YouTube có danh sách chương xuống dòng - phải giữ nguyên */}
-        <p className="min-w-0 flex-1 whitespace-pre-wrap text-xs text-[var(--text-muted)]">
+        {/* Mô tả YouTube có danh sách chương xuống dòng - phải giữ nguyên.
+            14px: đây là đoạn văn phải đọc trước khi dán lên nền tảng, để 12px
+            thì nó nhỏ hơn cả cái tiêu đề nằm ngay trên. */}
+        <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm text-[var(--text-muted)]">
           {item.description}
         </p>
-        <CopyButton text={item.description} label={t("publish.copy-desc")} />
+        <CopyButton
+          value={item.description}
+          label={t("publish.copy-desc")}
+          size="sm"
+        />
       </div>
 
       {item.hashtags.length > 0 && (
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap gap-1">
             {item.hashtags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[11px] leading-none text-[var(--text-muted)]"
-              >
-                {tag}
-              </span>
+              <Badge key={tag} tone="muted" dot={false} label={tag} />
             ))}
           </div>
-          <CopyButton text={hashtagLine} label={t("publish.copy-tags")} />
+          <CopyButton
+            value={hashtagLine}
+            label={t("publish.copy-tags")}
+            size="sm"
+          />
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -217,16 +173,8 @@ export function ProjectPublishCard({
 
   return (
     <Card
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          {t("publish.title")}
-          <InfoHint
-            titleKey="help.publish.title"
-            bodyKey="help.publish.body"
-            size={14}
-          />
-        </span>
-      }
+      title={t("publish.title")}
+      hint={{ titleKey: "help.publish.title", bodyKey: "help.publish.body" }}
       actions={generateButton}
     >
       {error && <ErrorBanner message={error.message} detail={error.detail} />}
@@ -234,9 +182,9 @@ export function ProjectPublishCard({
       {/* Chưa có transcript là trạng thái BÌNH THƯỜNG của project mới - chỉ
           hướng dẫn bước tiếp theo, không dựng banner lỗi đỏ */}
       {noTranscript && (
-        <p className="mb-3 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
-          {t("publish.no-transcript")}
-        </p>
+        <div className="mb-3">
+          <Banner tone="muted" message={t("publish.no-transcript")} />
+        </div>
       )}
 
       {!pack ? (
@@ -249,7 +197,7 @@ export function ProjectPublishCard({
         )
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-[var(--text-muted)]">
             <span>
               {tf("publish.generated-at", {
                 time: formatRelative(pack.generatedAt),
@@ -268,27 +216,27 @@ export function ProjectPublishCard({
 
           {/* Phụ đề: link tải thật (cookie token của dashboard, ?k= khi ở /m) */}
           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
-            <span className="text-xs font-medium text-[var(--text-muted)]">
+            <span className="text-sm font-medium">
               {t("publish.subtitles")}
             </span>
-            <a
-              className="btn btn-secondary btn-sm"
+            <LinkButton
+              small
+              download
               href={subtitleDownloadUrl(projectId, "srt", version)}
-              download
             >
-              <Download size={13} strokeWidth={2} />
+              <Download size={14} strokeWidth={2} aria-hidden="true" />
               {t("publish.download-srt")}
-            </a>
-            <a
-              className="btn btn-secondary btn-sm"
-              href={subtitleDownloadUrl(projectId, "vtt", version)}
+            </LinkButton>
+            <LinkButton
+              small
               download
+              href={subtitleDownloadUrl(projectId, "vtt", version)}
             >
-              <Download size={13} strokeWidth={2} />
+              <Download size={14} strokeWidth={2} aria-hidden="true" />
               {t("publish.download-vtt")}
-            </a>
+            </LinkButton>
             {cues !== null && (
-              <span className="text-xs text-[var(--text-muted)]">
+              <span className="text-meta text-[var(--text-muted)]">
                 {tf("publish.cues", { n: cues })}
               </span>
             )}

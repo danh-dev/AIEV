@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { cloneProject } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
 import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
 
@@ -68,16 +69,19 @@ export function CloneProjectModal({
     }
   }
 
+  // Dấu X và nút Hủy đi CHUNG một đường - đang nhân bản thì cả hai cùng bị chặn
+  function close() {
+    if (!cloning) onClose();
+  }
+
   return (
     <Modal
       title={t("clone.title")}
       open={source !== null}
-      onClose={() => {
-        if (!cloning) onClose();
-      }}
+      onClose={close}
       footer={
         <>
-          <Button variant="secondary" disabled={cloning} onClick={onClose}>
+          <Button variant="secondary" disabled={cloning} onClick={close}>
             {t("common.cancel")}
           </Button>
           <Button disabled={cloning || name.trim().length === 0} onClick={onClone}>
@@ -91,10 +95,11 @@ export function CloneProjectModal({
         <ErrorBanner message={t("clone.error")} detail={error} />
       )}
       <p className="text-sm text-[var(--text-muted)]">{t(descriptionKey)}</p>
-      <div>
-        <label className="label" htmlFor="clone-project-name">
-          {t("clone.new-name")}
-        </label>
+      <Field
+        label={t("clone.new-name")}
+        htmlFor="clone-project-name"
+        hint={t("clone.id-hint")}
+      >
         <input
           id="clone-project-name"
           className="input"
@@ -109,10 +114,7 @@ export function CloneProjectModal({
             }
           }}
         />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("clone.id-hint")}
-        </p>
-      </div>
+      </Field>
     </Modal>
   );
 }

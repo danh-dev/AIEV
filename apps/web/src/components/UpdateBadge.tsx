@@ -77,7 +77,7 @@ export function UpdateBadge() {
         type="button"
         onClick={() => setOpen(true)}
         title={t("update.badge-open")}
-        className={`flex w-full items-center gap-2 rounded-[var(--radius)] border px-2.5 py-2 text-left text-xs transition-colors duration-150 ${
+        className={`flex w-full items-center gap-2 rounded-[var(--radius)] border p-2 text-left text-sm transition-colors duration-150 ${
           hasUpdate
             ? "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--bg-subtle)]"
             : "border-transparent text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
@@ -111,7 +111,7 @@ export function UpdateBadge() {
         {/* Trạng thái và phiên bản nằm CÙNG MỘT HÀNG. Sidebar chỉ rộng 220px nên
             khi hết chỗ thì cắt bớt phần nhãn (còn đọc được ý) và giữ nguyên phần
             phiên bản - đó mới là thông tin không đoán được. */}
-        <span className="flex min-w-0 flex-1 items-baseline gap-1.5 leading-tight">
+        <span className="flex min-w-0 flex-1 items-baseline gap-2 leading-tight">
           {/* Nhãn NGẮN riêng cho badge: cùng hàng với phiên bản thì chỗ chỉ đủ
               ~85px, dùng nhãn dài của modal sẽ bị cắt giữa từ ("Có bản cập..."). */}
           <span className="truncate">
@@ -121,7 +121,8 @@ export function UpdateBadge() {
                 ? t("update.badge-check-failed")
                 : t("update.up-to-date")}
           </span>
-          <span className="shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
+          {/* Phiên bản là PHỤ CHÚ đi kèm nhãn trạng thái → bậc text-meta */}
+          <span className="shrink-0 font-mono text-meta text-[var(--text-muted)]">
             {versionText}
           </span>
         </span>

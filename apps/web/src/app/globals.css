@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+/* ============ Thang chữ - BA BẬC, KHÔNG CÓ BẬC THỨ TƯ ============
+
+   Đây là thứ quyết định giao diện có bị rối mắt hay không, nên viết ra thành
+   luật chứ không để mỗi trang tự đoán. Trước đợt đại tu này toàn dashboard có
+   416 chỗ `text-xs` so với 136 chỗ `text-sm`: 12px đã lặng lẽ trở thành cỡ chữ
+   thân bài, kèm một đuôi dài 10px/11px/13px/15px tự chế. Hậu quả là mọi thứ
+   trông như nhau - không phân biệt được đâu là nội dung, đâu là chú thích.
+
+   Từ nay chỉ có ba bậc, chọn theo VAI TRÒ của chữ chứ không theo chỗ trống:
+
+     text-sm   14px  NỘI DUNG. Mọi thứ người dùng thật sự đọc: mô tả, giá trị,
+                     nhãn ô nhập, tên mục trong danh sách, câu thông báo.
+                     Đây là mặc định - phân vân thì chọn cái này.
+     text-meta 13px  PHỤ CHÚ. Chỉ dữ liệu đi kèm nội dung: mốc thời gian, id,
+                     số đếm, câu gợi ý dưới ô nhập, đường dẫn file.
+     text-xs   12px  CHI TIẾT KHUNG. CHỈ dùng trong badge/chip, <th> của bảng,
+                     và nhãn in hoa của cột (.t-eyebrow). Không dùng cho câu văn.
+
+   CẤM: text-[10px], text-[11px], text-[13px], text-[15px] và mọi cỡ tùy biến
+   khác. Cần 13px thì dùng `text-meta` - đó là lý do nó tồn tại. Dưới 12px thì
+   không có bậc nào cả: chữ đó hoặc đủ quan trọng để đọc được, hoặc không nên
+   có mặt. */
+
+@theme {
+  /* 13px. Có tên riêng để không ai phải gõ `text-[13px]` nữa - cỡ tùy biến gõ
+     tay chính là cách bậc thứ tư lẻn vào hệ thống. */
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.45;
+}
+
 /* ============ Design tokens - nguồn sự thật: .claude/skills/webui-design ============ */
 
 :root {
@@ -336,14 +366,91 @@ html[data-panel="collapsed"] {
   cursor: pointer;
 }
 
-/* KHÔNG có vạch màu bên trái: nền đã đủ tách khối thông báo khỏi trang, thêm
-   một vạch dày 3px nữa chỉ làm mép trái lởm chởm khi nhiều banner xếp chồng. */
+/* Banner - thông báo cấp TRANG (tải lỗi, lưu xong, cảnh báo trước khi chạy).
+
+   KHÔNG có vạch màu bên trái: nền đã đủ tách khối thông báo khỏi trang, thêm
+   một vạch dày 3px nữa chỉ làm mép trái lởm chởm khi nhiều banner xếp chồng.
+
+   Trước đợt đại tu, chỉ có mỗi biến thể danger; nên mỗi trang cần báo THÀNH
+   CÔNG lại tự chế một hộp riêng (skills/[name], video-styles/[id], styles/[id],
+   images/[id] - bốn kiểu khác nhau). Có đủ bốn tông ở đây thì không ai phải
+   chế nữa. */
+.banner {
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text);
+  /* Nội dung banner gần như luôn là chuỗi do SERVER trả về: đường dẫn file,
+     lệnh, URL - những thứ dài và KHÔNG có dấu cách để xuống dòng. Không cho
+     ngắt giữa từ thì một token dài đẩy toác cả Card. Đặt ở đây một lần thay vì
+     bắt từng chỗ gọi nhớ bọc `[overflow-wrap:anywhere]` - đã sót hai chỗ đúng
+     vì lý do đó. */
+  overflow-wrap: anywhere;
+}
 .banner-danger {
   background: var(--danger-bg);
   border-radius: var(--radius);
   padding: 12px 16px;
   font-size: 14px;
   color: var(--text);
+  overflow-wrap: anywhere;
+}
+.banner-success {
+  background: var(--success-bg);
+}
+.banner-info {
+  background: var(--primary-soft);
+}
+.banner-muted {
+  background: var(--bg-subtle);
+}
+
+/* Panel - hộp LỒNG BÊN TRONG card (nhóm thiết lập, hộp log, khối tóm tắt).
+   Thay cho 8 bản sao y hệt chuỗi
+   `rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3`
+   nằm rải rác trong ModelPicker, BriefFields, ImageProjectForm, ProjectPublishCard,
+   VideoStyleSelect, ConfirmDeleteModal, UpdateModal, AutoCutCreateModal.
+   Nền --bg-subtle chứ không phải --surface: lồng surface trong surface thì không
+   nhìn ra ranh giới, chỉ thấy một cái viền lơ lửng. */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  padding: 12px;
+}
+
+/* Nhãn in hoa cỡ nhỏ - tiêu đề cột workspace, tiêu đề nhóm trong trang cấu
+   hình. CÙNG một công thức với `.table th` và `.workspace-col-title`, tách ra
+   để chỗ nào cần cũng gọi đúng một tên. */
+.t-eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Khung xám lúc chờ dữ liệu. Trước đây có ba kiểu chờ khác nhau (câu chữ giữa
+   trang, card animate-pulse, component Skeleton định nghĩa ngay trong app/page.tsx)
+   - giờ chỉ còn class này, dùng qua <Skeleton />. */
+.skeleton {
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 .input {
@@ -399,12 +506,15 @@ textarea.input {
   background: var(--primary-soft);
 }
 
-/* Thanh tiến trình vô định - hiển thị khi AI đang làm việc */
+/* Thanh tiến trình vô định - hiển thị khi AI đang làm việc.
+   6px, ĐÚNG BẰNG <ProgressBar>: hai thanh này thay nhau xuất hiện ở cùng một
+   chỗ (chưa đo được phần trăm → đo được), lệch chiều cao là mỗi lần đổi trạng
+   thái nội dung dưới nó lại nhích một nhịp. */
 .progress-indeterminate {
   position: relative;
-  height: 4px;
+  height: 6px;
   border-radius: 9999px;
-  background: var(--border);
+  background: var(--bg-subtle);
   overflow: hidden;
 }
 .progress-indeterminate::after {
@@ -532,6 +642,130 @@ textarea.input {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* Nút chỉ có icon (sửa, xóa, phát thử, phóng to…).
+
+   Trước đợt đại tu có hơn 10 bản chép tay của cùng một chuỗi class, ở BỐN cỡ
+   khác nhau (p-1, p-1.5, h-7, h-8, h-9) và ba màu nền hover khác nhau - nhiều
+   khi đứng cạnh nhau trong đúng một ô bảng. Giờ chỉ có hai cỡ, và cỡ mặc định
+   cao 30px để xếp thẳng hàng với `.btn-sm`. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Bên trong hàng bảng dày đặc - vẫn đủ 24px vùng bấm theo khuyến nghị a11y */
+.icon-btn-sm {
+  width: 24px;
+  height: 24px;
+}
+/* Hành động phá hủy: chỉ ĐỔI MÀU LÚC HOVER, không đỏ sẵn. Đỏ sẵn thì mỗi hàng
+   trong bảng có một chấm đỏ, mắt đọc thành "hàng này lỗi". */
+.icon-btn-danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Nhóm nút phân đoạn (segmented) - chọn MỘT trong vài lựa chọn ngắn.
+   Thay cho 6 biến thể tự chế trước đây: 3 bán kính (9999px / --radius), 3 kiểu
+   padding và 2 màu chữ lúc không được chọn. Chốt hình vuông bo --radius chứ
+   không bo tròn hoàn toàn: bo tròn dễ bị đọc nhầm thành badge (thứ không bấm
+   được), mà hai thứ này hay đứng cạnh nhau. */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  /* Cho xuống hàng: nhóm này thiết kế cho 2-4 mục nhãn ngắn, nhưng trang Cấu
+     hình dùng nó cho số worker (7-9 nút, ~330px không ngắt được). Không cho
+     wrap thì `.card` không có overflow-x sẽ bị các nút đẩy tràn ra ngoài ở cột
+     hẹp. Với 2-4 mục thì thuộc tính này không đổi gì. */
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+.seg-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+.seg-item:hover:not(:disabled):not([aria-checked="true"]) {
+  color: var(--text);
+}
+/* Mục đang chọn NỔI LÊN bằng nền --surface + đổ bóng, không phải bằng màu
+   thương hiệu: cả nhóm đỏ rực thì nó tranh mất sự chú ý với nút primary thật. */
+.seg-item[aria-checked="true"],
+.seg-item[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+.seg-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Cỡ khớp hàng điều khiển: 2px đệm + 30px mục + 2px viền = 36px, ĐÚNG BẰNG
+   `.input` và `.btn`. Dùng khi segmented đứng cạnh ô nhập hay nút trên cùng một
+   hàng (header card biểu đồ ở Dashboard) - lệch 4px trên một hàng ngang là thứ
+   nhìn ra ngay dù không chỉ được tên. Đứng một mình thì cỡ mặc định 32px gọn hơn. */
+.seg-md .seg-item {
+  height: 30px;
+  padding: 0 12px;
+}
+
+/* Thẻ lựa chọn - lựa chọn "to" cần tiêu đề + mô tả (chế độ cắt, engine giọng
+   đọc, tỉ lệ khung hình, phong cách dựng). Trước đây có 5 bản dựng tay, mỗi bản
+   một cỡ chữ và một padding; hai trong số đó còn quên cả role="radio". */
+.option-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--transition), background-color var(--transition);
+}
+.option-card:hover:not(:disabled):not([aria-checked="true"]) {
+  border-color: var(--text-muted);
+}
+.option-card[aria-checked="true"],
+.option-card[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.option-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ---------------- App shell ---------------- */

@@ -14,7 +14,10 @@ import {
   type LanInfo,
   type TunnelStatus,
 } from "@/lib/api";
+import { Banner } from "@/components/Banner";
+import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
 import { Modal } from "@/components/Modal";
 import { InfoHint } from "@/components/InfoHint";
 import { useT } from "@/lib/i18n";
@@ -268,9 +271,48 @@ export function PhoneConnectModal({
     }
   }
 
+  /** Có nút "Bật đường Internet" trong footer hay không. */
+  const canStartTunnel = Boolean(
+    !viaTunnel && tunnel?.installed && !tunnel.running
+  );
+
   return (
-    <Modal open={open} onClose={onClose} title={t("phone.title")}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("phone.title")}
+      footer={
+        // [phụ] … [chính]. Trước đây modal này không có lối thoát nào ngoài dấu
+        // X, còn nút bật tunnel thì nằm lẫn giữa thân modal ở cỡ 30px.
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+          {canStartTunnel && (
+            <>
+              {/* (i) đặt CẠNH nút chứ không lồng trong nút - lồng button trong
+                  button là HTML không hợp lệ và bấm (i) sẽ bật luôn tunnel. */}
+              <InfoHint
+                className="self-center"
+                titleKey="help.phone-tunnel.title"
+                bodyKey="help.phone-tunnel.body"
+                size={15}
+              />
+              <Button
+                onClick={() => void handleStartTunnel()}
+                disabled={tunnelBusy !== null}
+              >
+                {tunnelBusy === "start"
+                  ? t("phone.tunnel-starting")
+                  : t("phone.tunnel-start")}
+              </Button>
+            </>
+          )}
+        </>
+      }
+    >
       {error && <ErrorBanner message={error} />}
+      {tunnelError && <ErrorBanner message={tunnelError} />}
 
       <p className="text-sm text-[var(--text-muted)]">{t("phone.desc")}</p>
 
@@ -281,22 +323,22 @@ export function PhoneConnectModal({
       )}
 
       {lan && lan.ips.length === 0 && !lan.tunnelDomain && (
-        <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">
-          {t("phone.no-ip")}
-        </p>
+        <Banner tone="danger" message={t("phone.no-ip")} />
       )}
 
       {lan && lan.ips.length + (lan.tunnelDomain ? 1 : 0) > 1 && (
-        <label className="flex flex-col gap-1 text-xs font-medium text-[var(--text-muted)]">
-          {t("phone.ip-label")}
+        <Field label={t("phone.ip-label")} htmlFor="phone-network">
           <select
+            id="phone-network"
             className="input"
             value={sel ?? ""}
             onChange={(e) => setSel(e.target.value)}
           >
+            {/* KHÔNG emoji làm icon (kể cả trong <option>) - dự án cấm hẳn.
+                Chữ "(Internet)" đã nói đủ ý mà máy đọc màn hình vẫn đọc được. */}
             {lan.tunnelDomain && (
               <option value={TUNNEL_OPTION}>
-                {`🌐 ${lan.tunnelDomain} (Internet)`}
+                {`${lan.tunnelDomain} (Internet)`}
               </option>
             )}
             {lan.ips.map((addr) => (
@@ -305,12 +347,17 @@ export function PhoneConnectModal({
               </option>
             ))}
           </select>
-        </label>
+        </Field>
       )}
 
       {url && (
         <div className="flex flex-col items-center gap-3">
           {qr && (
+            /* NGOẠI LỆ MÀU CÓ CHỦ Ý (đã ghi trong ALLOW của
+               scripts/check-design-system.mjs): `bg-white` không đổi theo theme.
+               Camera điện thoại đọc QR bằng tương phản đen/trắng - đặt nền
+               --surface thì ở theme tối mã QR thành sáng trên nền tối và nhiều
+               máy quét không nhận ra. Nền trắng ở đây là YÊU CẦU CHỨC NĂNG. */
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={qr}
@@ -318,7 +365,7 @@ export function PhoneConnectModal({
               className="h-60 w-60 rounded-[var(--radius)] border border-[var(--border)] bg-white p-2"
             />
           )}
-          <code className="select-all break-all rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-1.5 text-sm">
+          <code className="select-all break-all rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 text-sm">
             {url}
           </code>
         </div>
@@ -326,18 +373,15 @@ export function PhoneConnectModal({
 
       {/* Bảo mật: token upload bị thu hồi ngay khi đóng modal - và tunnel do
           chính modal bật cũng tắt theo, nên phải nói trước để không ai bất ngờ */}
-      <p className="text-xs font-medium text-[var(--text-muted)]">
+      <p className="text-sm text-[var(--text-muted)]">
         {startedHere ? t("phone.session-note-tunnel") : t("phone.session-note")}
       </p>
 
       {viaTunnel ? (
         // Đang đi đường Internet qua Cloudflare Tunnel - không cần cùng WiFi
-        <div className="flex flex-col gap-2">
-          <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-            {t("phone.tunnel-active")}
-          </p>
+        <Banner tone="info" message={t("phone.tunnel-active")}>
           {/* Link Internet là public - nhắc tắt khi xong, kèm nút tắt tại chỗ */}
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
             {t("phone.tunnel-warn")}{" "}
             <button
               type="button"
@@ -348,19 +392,12 @@ export function PhoneConnectModal({
               {t("phone.tunnel-stop")}
             </button>
           </p>
-          {tunnelError && (
-            <p className="text-xs font-medium text-[var(--danger)]">{tunnelError}</p>
-          )}
-        </div>
+        </Banner>
       ) : (
-        <div className="flex flex-col gap-2">
-          <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-            {t("phone.note")}
-          </p>
-
-          {/* Dùng ngoài mạng LAN (4G/5G) - bật Cloudflare Tunnel ngay tại đây */}
+        <Banner tone="info" message={t("phone.note")}>
+          {/* Dùng ngoài mạng LAN (4G/5G) - cloudflared chưa cài thì chỉ đường */}
           {tunnel && !tunnel.installed && (
-            <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+            <p className="mt-1 flex items-start gap-1 text-sm text-[var(--text-muted)]">
               <span className="min-w-0 flex-1">
                 {t("phone.tunnel-missing")}{" "}
                 <Link
@@ -377,31 +414,9 @@ export function PhoneConnectModal({
             </p>
           )}
 
-          {/* (i) đặt cạnh nút chứ KHÔNG lồng trong nút - lồng button trong
-              button là HTML không hợp lệ và bấm (i) sẽ kích hoạt luôn tunnel. */}
-          {tunnel?.installed && !tunnel.running && (
-            <div className="flex items-center justify-end gap-2">
-              <InfoHint
-                titleKey="help.phone-tunnel.title"
-                bodyKey="help.phone-tunnel.body"
-                size={14}
-              />
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => void handleStartTunnel()}
-                disabled={tunnelBusy !== null}
-              >
-                {tunnelBusy === "start"
-                  ? t("phone.tunnel-starting")
-                  : t("phone.tunnel-start")}
-              </button>
-            </div>
-          )}
-
           {/* Tunnel đã chạy sẵn nhưng QR đang trỏ IP LAN → mời đổi sang link Internet */}
           {tunnel?.running && lan?.tunnelDomain && (
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
               {t("phone.tunnel-ready")}{" "}
               <button
                 type="button"
@@ -412,16 +427,10 @@ export function PhoneConnectModal({
               </button>
             </p>
           )}
-
-          {tunnelError && (
-            <p className="text-xs font-medium text-[var(--danger)]">{tunnelError}</p>
-          )}
-        </div>
+        </Banner>
       )}
 
-      <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
-        {t("phone.keep-awake")}
-      </p>
+      <Banner tone="danger" message={t("phone.keep-awake")} />
     </Modal>
   );
 }

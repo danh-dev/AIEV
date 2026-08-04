@@ -18,11 +18,14 @@ import {
   type RenderSettingsResponse,
   type UpdateChannel,
 } from "@/lib/api";
+import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { Field, SwitchField } from "@/components/Field";
 import { PageHeader } from "@/components/PageHeader";
+import { Segmented } from "@/components/Segmented";
+import { Skeleton } from "@/components/Skeleton";
 import { SystemCheckCard } from "@/components/SystemCheckCard";
 import { useT } from "@/lib/i18n";
 
@@ -92,7 +95,14 @@ const UPDATE_CHANNEL_OPTIONS: SegOption<UpdateChannel>[] = [
   { value: "latest", label: "update.channel-latest" },
 ];
 
-/** Nhóm nút chọn một giá trị - style giống bộ chọn tỉ lệ của Tạo ảnh. */
+/**
+ * Nhóm nút chọn một giá trị. Ruột là <Segmented> dùng chung - trang này trước
+ * đây tự chế một biến thể riêng (viền + nền primary-soft) trong khi mọi nhóm
+ * chọn-một khác của dashboard lại là một hình dạng khác.
+ *
+ * Giá trị thật có thể là number hoặc null, còn <Segmented> chỉ nhận chuỗi -
+ * nên khóa hiển thị là String(value), chọn xong tra ngược về option gốc.
+ */
 function SegGroup<V extends SegValue>({
   options,
   value,
@@ -106,114 +116,37 @@ function SegGroup<V extends SegValue>({
 }) {
   const { t } = useT();
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label={ariaLabel}>
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={String(o.value)}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onSelect(o.value)}
-            title={o.recommended ? t("config.recommended-title") : undefined}
-            className={`min-w-[44px] rounded-[var(--radius)] border px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
-              active
-                ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-            }`}
-          >
+    <Segmented
+      label={ariaLabel}
+      value={String(value)}
+      onChange={(next) => {
+        const found = options.find((o) => String(o.value) === next);
+        if (found) onSelect(found.value);
+      }}
+      options={options.map((o) => ({
+        value: String(o.value),
+        title: o.recommended ? t("config.recommended-title") : undefined,
+        label: (
+          <>
             {t(o.label)}
             {o.recommended && (
-              <span aria-label={t("config.recommended-aria")} className="ml-1 text-[10px] align-top">
+              <span
+                aria-label={t("config.recommended-aria")}
+                className="ml-1 align-top text-xs"
+              >
                 ★
               </span>
             )}
-          </button>
-        );
-      })}
-    </div>
+          </>
+        ),
+      }))}
+    />
   );
 }
 
-/** Hàng field: label + hint + control (nhóm nút). */
-function FieldRow({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="py-4 first:pt-0 last:pb-0">
-      <p className="text-sm font-medium">{label}</p>
-      {hint && (
-        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{hint}</p>
-      )}
-      <div className="mt-2">{children}</div>
-    </div>
-  );
-}
-
-/** Hàng toggle: label + hint (muted hoặc danger) + switch. */
-function ToggleRow({
-  id,
-  label,
-  hint,
-  hintTone = "muted",
-  checked,
-  disabled = false,
-  disabledNote,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  hint: string;
-  hintTone?: "muted" | "danger";
-  checked: boolean;
-  disabled?: boolean;
-  disabledNote?: string;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
-      <div className={`min-w-0 ${disabled ? "opacity-60" : ""}`}>
-        <label
-          htmlFor={id}
-          className={`text-sm font-medium ${disabled ? "" : "cursor-pointer"}`}
-        >
-          {label}
-        </label>
-        <p
-          className={`mt-0.5 text-xs ${
-            hintTone === "danger"
-              ? "text-[var(--danger)]"
-              : "text-[var(--text-muted)]"
-          }`}
-        >
-          {hint}
-        </p>
-        {disabled && disabledNote && (
-          <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-            {disabledNote}
-          </p>
-        )}
-      </div>
-      <button
-        id={id}
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        className={`switch mt-0.5 ${
-          disabled ? "cursor-not-allowed opacity-50" : ""
-        }`}
-        onClick={() => onChange(!checked)}
-      />
-    </div>
-  );
+/** Một hàng thiết lập - nhịp dọc chung của cả card (khớp trang Kết nối). */
+function Row({ children }: { children: React.ReactNode }) {
+  return <div className="py-4 first:pt-0 last:pb-0">{children}</div>;
 }
 
 /** Card phần cứng - 3 khối CPU / RAM / GPU (tên + dòng chi tiết) + badges. */
@@ -257,57 +190,47 @@ function HardwareCard({ hw }: { hw: HardwareInfo }) {
   const cpuOnly = !hw.nvenc && !hw.videotoolbox;
   return (
     <Card
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          {t("config.hardware")}
-          <InfoHint
-            titleKey="help.config-hardware.title"
-            bodyKey="help.config-hardware.body"
-            size={14}
-          />
-        </span>
-      }
+      title={t("config.hardware")}
+      hint={{
+        titleKey: "help.config-hardware.title",
+        bodyKey: "help.config-hardware.body",
+      }}
     >
-      <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
         {blocks.map((b) => (
           <div key={b.label} className="min-w-0">
-            <div className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-              {b.label}
-            </div>
-            <div className="mt-1 truncate text-sm font-semibold" title={b.name}>
+            <p className="t-eyebrow">{b.label}</p>
+            <p className="mt-1 truncate text-sm font-semibold" title={b.name}>
               {b.name}
-            </div>
+            </p>
             {b.detail && (
-              <div className="mt-0.5 text-xs text-[var(--text-muted)]">{b.detail}</div>
+              <p className="text-meta text-[var(--text-muted)]">{b.detail}</p>
             )}
           </div>
         ))}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
-        <span className="text-xs text-[var(--text-muted)]">
+        <span className="text-meta text-[var(--text-muted)]">
           {t("config.os")} {PLATFORM_LABELS[hw.platform] ?? hw.platform}
         </span>
         <span className="grow" />
+        {/* Nhãn PHÂN LOẠI khả năng của máy, không phải trạng thái đang chạy -
+            nên không có chấm tròn. */}
         {hw.nvenc && (
-          <span className="badge badge-success">
-            <span className="badge-dot" />
-            {t("config.nvenc-badge")}
-          </span>
+          <Badge tone="success" dot={false} label={t("config.nvenc-badge")} />
         )}
         {hw.videotoolbox && (
-          <span className="badge badge-success">
-            <span className="badge-dot" />
-            VideoToolbox + Fast Capture (macOS)
-          </span>
+          <Badge
+            tone="success"
+            dot={false}
+            label="VideoToolbox + Fast Capture (macOS)"
+          />
         )}
         {cpuOnly && (
-          <span className="badge badge-muted">
-            <span className="badge-dot" />
-            {t("config.cpu-only")}
-          </span>
+          <Badge tone="muted" dot={false} label={t("config.cpu-only")} />
         )}
       </div>
-      <p className="mt-3 text-xs text-[var(--text-muted)]">
+      <p className="mt-3 text-meta text-[var(--text-muted)]">
         {t("config.portable-note")}
       </p>
     </Card>
@@ -395,19 +318,21 @@ export default function ConfigPage() {
   const gpuEncodeUnavailable = hw ? !hw.nvenc && !hw.videotoolbox : false;
   const gpuEncodeNote = t("config.gpu-note");
 
+  /** Gợi ý của toggle encode GPU: câu mô tả + (khi bị khóa) lý do khóa. */
+  const encodeHint = (text: string, danger = false) => (
+    <>
+      <span className={danger ? "text-[var(--danger)]" : ""}>{text}</span>
+      {gpuEncodeUnavailable && (
+        <span className="mt-1 block font-medium">{gpuEncodeNote}</span>
+      )}
+    </>
+  );
+
   return (
     <div className="flex w-full flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.config")}
-            <InfoHint
-            titleKey="help.config.title"
-            bodyKey="help.config.body"
-            size={14}
-          />
-          </span>
-        }
+        title={t("nav.config")}
+        hint={{ titleKey: "help.config.title", bodyKey: "help.config.body" }}
         subtitle={t("config.subtitle")}
       />
 
@@ -428,20 +353,15 @@ export default function ConfigPage() {
 
       {settings && data && (
         <Card
-          title={
-            <span className="inline-flex items-center gap-1.5">
-              {t("config.render-settings")}
-              <InfoHint
-                titleKey="help.config-render.title"
-                bodyKey="help.config-render.body"
-                size={14}
-              />
-            </span>
-          }
+          title={t("config.render-settings")}
+          hint={{
+            titleKey: "help.config-render.title",
+            bodyKey: "help.config-render.body",
+          }}
           actions={
             <div className="flex items-center gap-3">
               {applied && (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
+                <span className="inline-flex items-center gap-2 text-meta font-medium text-[var(--success)]">
                   <Check size={13} strokeWidth={2} className="shrink-0" />
                   {t("config.applied")}
                 </span>
@@ -457,121 +377,149 @@ export default function ConfigPage() {
             </div>
           }
         >
-          {/* 2 cột nội bộ trên md+ - mỗi cột một nhóm setting, mobile xếp dọc */}
-          <div className="grid md:grid-cols-2 md:gap-x-10">
-            {/* Cột trái: HyperFrames capture + encode GPU */}
-            <div className="divide-y divide-[var(--border)] pb-4 md:pb-0">
-              <FieldRow
-                label={t("config.workers")}
-                hint={workerHint}
-              >
-                <SegGroup
-                  ariaLabel={t("config.workers-aria")}
-                  options={workerOptions}
-                  value={settings.workers}
-                  onSelect={(v) => apply({ workers: v ?? 0 })}
-                />
-              </FieldRow>
+          {/* HAI CỘT, nhưng chỉ cho những hàng vừa một nửa card.
+              1. Chia theo CHIỀU CAO, không theo số hàng. Bản trước đếm "4 hàng
+                 mỗi bên" rồi vẫn so le gần 170px, vì một hàng công tắc chỉ cao
+                 2 dòng còn một hàng Field + Segmented cao 3-4 dòng. Giờ chia
+                 theo hình dạng hàng: TRÁI là toàn bộ công tắc bật/tắt (5 hàng
+                 thấp), PHẢI là toàn bộ ô chọn giá trị (3 hàng cao) - hai bên
+                 xấp xỉ bằng nhau, lệch chưa tới một hàng.
+              2. Nhóm nút chọn số worker / concurrency Remotion có tới 8-9 mốc,
+                 nhét vào nửa card là bị bóp thành mấy hàng nút vụn. Giờ hai
+                 hàng đó TRẢI HẾT bề ngang, nằm trên cùng.
+              Cắt cột bằng container query chứ không phải media query: bề rộng
+              thật của card phụ thuộc rail trái đang gấp hay mở, không phụ
+              thuộc bề rộng cửa sổ. */}
+          <div className="@container">
+            <div className="divide-y divide-[var(--border)]">
+              <Row>
+                <Field label={t("config.workers")} hint={workerHint}>
+                  <SegGroup
+                    ariaLabel={t("config.workers-aria")}
+                    options={workerOptions}
+                    value={settings.workers}
+                    onSelect={(v) => apply({ workers: v ?? 0 })}
+                  />
+                </Field>
+              </Row>
 
-              <ToggleRow
-                id="acc-browser-gpu"
-                label={t("config.browser-gpu")}
-                hint={t("config.browser-gpu-hint")}
-                checked={settings.browserGpu}
-                onChange={(v) => apply({ browserGpu: v })}
-              />
+              <Row>
+                <Field
+                  label="Remotion concurrency"
+                  hint={tf("config.remotion-hint", { n: rec.concurrency })}
+                >
+                  <SegGroup
+                    ariaLabel="Remotion concurrency"
+                    options={remotionOptions}
+                    value={settings.remotionConcurrency}
+                    onSelect={(v) => apply({ remotionConcurrency: v ?? 0 })}
+                  />
+                </Field>
+              </Row>
 
-              <ToggleRow
-                id="acc-gpu-draft"
-                label={t("config.gpu-draft")}
-                hint={t("config.gpu-draft-hint")}
-                checked={settings.gpuEncodeDraft}
-                disabled={gpuEncodeUnavailable}
-                disabledNote={gpuEncodeNote}
-                onChange={(v) => apply({ gpuEncodeDraft: v })}
-              />
+              {/* Nét kẻ nằm TRONG từng cột (mỗi cột một `divide-y` riêng), không
+                  kẻ một đường dài vắt ngang qua cả hai - hai cột là hai mạch
+                  đọc riêng. Xếp chồng lúc hẹp thì cột dưới tự mọc nét kẻ trên. */}
+              <div className="grid gap-x-6 pt-4 @3xl:grid-cols-2">
+                <div className="divide-y divide-[var(--border)] pb-4 @3xl:pb-0">
+                  <Row>
+                    <SwitchField
+                      id="acc-browser-gpu"
+                      label={t("config.browser-gpu")}
+                      hint={t("config.browser-gpu-hint")}
+                      checked={settings.browserGpu}
+                      onChange={(v) => apply({ browserGpu: v })}
+                    />
+                  </Row>
 
-              <ToggleRow
-                id="acc-gpu-final"
-                label={t("config.gpu-final")}
-                hint={t("config.gpu-final-hint")}
-                hintTone="danger"
-                checked={settings.gpuEncodeFinal}
-                disabled={gpuEncodeUnavailable}
-                disabledNote={gpuEncodeNote}
-                onChange={(v) => apply({ gpuEncodeFinal: v })}
-              />
-            </div>
+                  <Row>
+                    <SwitchField
+                      id="acc-gpu-draft"
+                      label={t("config.gpu-draft")}
+                      hint={encodeHint(t("config.gpu-draft-hint"))}
+                      checked={settings.gpuEncodeDraft}
+                      disabled={gpuEncodeUnavailable}
+                      onChange={(v) => apply({ gpuEncodeDraft: v })}
+                    />
+                  </Row>
 
-            {/* Cột phải: capture nhanh + concurrency + draft fps */}
-            <div className="divide-y divide-[var(--border)] border-t border-[var(--border)] pt-4 md:border-t-0 md:pt-0">
-              <ToggleRow
-                id="acc-fast-capture"
-                label="Fast capture (macOS)"
-                hint={t("config.fast-capture-hint")}
-                checked={settings.fastCapture}
-                onChange={(v) => apply({ fastCapture: v })}
-              />
+                  <Row>
+                    <SwitchField
+                      id="acc-gpu-final"
+                      label={t("config.gpu-final")}
+                      hint={encodeHint(t("config.gpu-final-hint"), true)}
+                      checked={settings.gpuEncodeFinal}
+                      disabled={gpuEncodeUnavailable}
+                      onChange={(v) => apply({ gpuEncodeFinal: v })}
+                    />
+                  </Row>
 
-              <FieldRow
-                label="Remotion concurrency"
-                hint={tf("config.remotion-hint", { n: rec.concurrency })}
-              >
-                <SegGroup
-                  ariaLabel="Remotion concurrency"
-                  options={remotionOptions}
-                  value={settings.remotionConcurrency}
-                  onSelect={(v) => apply({ remotionConcurrency: v ?? 0 })}
-                />
-              </FieldRow>
+                  <Row>
+                    <SwitchField
+                      id="acc-fast-capture"
+                      label="Fast capture (macOS)"
+                      hint={t("config.fast-capture-hint")}
+                      checked={settings.fastCapture}
+                      onChange={(v) => apply({ fastCapture: v })}
+                    />
+                  </Row>
 
-              <FieldRow
-                label={t("config.queue-concurrency")}
-                hint={t("config.queue-hint")}
-              >
-                <SegGroup
-                  ariaLabel={t("config.queue-aria")}
-                  options={QUEUE_OPTIONS}
-                  value={settings.queueConcurrency}
-                  onSelect={(v) => apply({ queueConcurrency: v ?? 1 })}
-                />
-              </FieldRow>
+                  {/* Cổng QC - server mặc định BẬT; server cũ chưa có field này
+                      thì vẫn coi như bật để UI không hiện sai trạng thái an toàn */}
+                  <Row>
+                    <SwitchField
+                      id="acc-qc-gate"
+                      label={t("qc.gate-label")}
+                      hint={t("qc.gate-hint")}
+                      checked={settings.qcGate !== false}
+                      onChange={(v) => apply({ qcGate: v })}
+                    />
+                  </Row>
+                </div>
 
-              <FieldRow
-                label="Draft fps"
-                hint={t("config.draft-fps-hint")}
-              >
-                <SegGroup
-                  ariaLabel={t("config.draft-fps-aria")}
-                  options={DRAFT_FPS_OPTIONS}
-                  value={settings.draftFps}
-                  onSelect={(v) => apply({ draftFps: v })}
-                />
-              </FieldRow>
+                <div className="divide-y divide-[var(--border)] border-t border-[var(--border)] pt-4 @3xl:border-t-0 @3xl:pt-0">
+                  <Row>
+                    <Field
+                      label={t("config.queue-concurrency")}
+                      hint={t("config.queue-hint")}
+                    >
+                      <SegGroup
+                        ariaLabel={t("config.queue-aria")}
+                        options={QUEUE_OPTIONS}
+                        value={settings.queueConcurrency}
+                        onSelect={(v) => apply({ queueConcurrency: v ?? 1 })}
+                      />
+                    </Field>
+                  </Row>
 
-              {/* Cổng QC - server mặc định BẬT; server cũ chưa có field này thì
-                  vẫn coi như bật để UI không hiện sai trạng thái an toàn */}
-              <ToggleRow
-                id="acc-qc-gate"
-                label={t("qc.gate-label")}
-                hint={t("qc.gate-hint")}
-                checked={settings.qcGate !== false}
-                onChange={(v) => apply({ qcGate: v })}
-              />
+                  <Row>
+                    <Field label="Draft fps" hint={t("config.draft-fps-hint")}>
+                      <SegGroup
+                        ariaLabel={t("config.draft-fps-aria")}
+                        options={DRAFT_FPS_OPTIONS}
+                        value={settings.draftFps}
+                        onSelect={(v) => apply({ draftFps: v })}
+                      />
+                    </Field>
+                  </Row>
 
-              {/* Kênh cập nhật - server mặc định "stable"; server cũ chưa trả
-                  field này thì vẫn hiện "stable" cho khớp hành vi thật */}
-              <FieldRow
-                label={t("config.update-channel")}
-                hint={t("config.update-channel-hint")}
-              >
-                <SegGroup
-                  ariaLabel={t("config.update-channel-aria")}
-                  options={UPDATE_CHANNEL_OPTIONS}
-                  value={settings.updateChannel ?? "stable"}
-                  onSelect={(v) => apply({ updateChannel: v })}
-                />
-              </FieldRow>
+                  {/* Kênh cập nhật - server mặc định "stable"; server cũ chưa
+                      trả field này thì vẫn hiện "stable" cho khớp hành vi thật */}
+                  <Row>
+                    <Field
+                      label={t("config.update-channel")}
+                      hint={t("config.update-channel-hint")}
+                    >
+                      <SegGroup
+                        ariaLabel={t("config.update-channel-aria")}
+                        options={UPDATE_CHANNEL_OPTIONS}
+                        value={settings.updateChannel ?? "stable"}
+                        onSelect={(v) => apply({ updateChannel: v })}
+                      />
+                    </Field>
+                  </Row>
+                </div>
+              </div>
             </div>
           </div>
         </Card>
@@ -580,8 +528,8 @@ export default function ConfigPage() {
       {!data && !loadError && (
         // Skeleton trong lúc chờ GET /api/render-settings
         <>
-          <div className="card h-[140px] animate-pulse bg-[var(--bg-subtle)]" />
-          <div className="card h-[360px] animate-pulse bg-[var(--bg-subtle)]" />
+          <Skeleton className="w-full" height={140} />
+          <Skeleton className="w-full" height={360} />
         </>
       )}
     </div>

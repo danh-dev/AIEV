@@ -85,8 +85,13 @@ import {
 } from "@/lib/api";
 import { useAgentEvents, useEvents, useJobEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
-import { ProjectBadge } from "@/components/Badge";
+import { Badge, ProjectBadge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
+import { Panel } from "@/components/Panel";
+import { Skeleton } from "@/components/Skeleton";
 import { ChatThread } from "@/components/ChatThread";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
@@ -153,6 +158,13 @@ const PROJECT_BLOCKS = [
   "thumbnail",
 ] as const;
 
+/**
+ * Một mục trong menu "Xem thêm". Ba mục trước đây chép tay ba lần cùng một chuỗi
+ * class, và cỡ chữ thì gõ tay 13px thay vì gọi bậc `text-meta`.
+ */
+const MENU_ITEM_CLASS =
+  "flex w-full items-center gap-2 rounded-[var(--radius)] px-3 py-2 text-left text-meta transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50";
+
 function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   const cls = "shrink-0 text-[var(--text-muted)]";
   switch (kind) {
@@ -190,9 +202,14 @@ function FileTable({ files }: { files: FileInfo[] }) {
   return (
     <>
       {revealError && (
-        <p className="mb-2 text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
-          {revealError}
-        </p>
+        <div className="mb-3">
+          <Banner
+            tone="danger"
+            message={
+              <span className="[overflow-wrap:anywhere]">{revealError}</span>
+            }
+          />
+        </div>
       )}
       {/* Bảng rộng hơn cột workspace → cuộn ngang TRONG khối, không đẩy cả trang */}
       <div className="overflow-x-auto">
@@ -218,10 +235,9 @@ function FileTable({ files }: { files: FileInfo[] }) {
                   <span className="flex items-center gap-2">
                     <KindIcon kind={f.kind} />
                     {f.name}
+                    {/* "mới" là nhãn PHÂN LOẠI, không phải trạng thái → không chấm */}
                     {isRecentFile(f.mtime) && (
-                      <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-                        {t("common.new")}
-                      </span>
+                      <Badge tone="running" label={t("common.new")} dot={false} />
                     )}
                   </span>
                 </td>
@@ -318,7 +334,7 @@ function ThumbnailBody({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="min-w-0 text-xs text-[var(--text-muted)]">
+        <span className="min-w-0 text-meta text-[var(--text-muted)]">
           {thumbnail ? thumbnail : t("project.no-thumb")}
         </span>
         <Button variant="secondary" small onClick={openModal}>
@@ -328,17 +344,23 @@ function ThumbnailBody({
       </div>
 
       {revealError && (
-        <p className="text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
-          {revealError}
-        </p>
+        <Banner
+          tone="danger"
+          message={
+            <span className="[overflow-wrap:anywhere]">{revealError}</span>
+          }
+        />
       )}
 
       {thumbnail ? (
         <div className="flex items-center gap-3">
+          {/* Ảnh bìa CHÍNH NÓ là nút mở xem lớn - không bọc vào <IconButton>
+              (30px cố định) vì như thế là bóp ảnh preview thành một cái icon. */}
           <button
             type="button"
             onClick={() => setThumbPreview(true)}
             title={t("project.view-thumb")}
+            aria-label={t("project.view-thumb")}
             className="min-w-0 shrink"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -392,18 +414,18 @@ function ThumbnailBody({
           </>
         }
       >
-        <label className="flex flex-col gap-1 text-sm">
-          {t("project.thumb-title")}
+        <Field label={t("project.thumb-title")} htmlFor="thumb-title" required>
           <input
+            id="thumb-title"
             className="input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("project.thumb-title-placeholder")}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t("project.thumb-frame")}
+        </Field>
+        <Field label={t("project.thumb-frame")} htmlFor="thumb-frame">
           <input
+            id="thumb-frame"
             className="input"
             type="number"
             min={0}
@@ -411,29 +433,37 @@ function ThumbnailBody({
             value={frameAt}
             onChange={(e) => setFrameAt(e.target.value)}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          {t("project.thumb-bg-prompt")}
+        </Field>
+        {/* Câu mô tả cách chạy làm gợi ý của chính ô prompt nền - nó nói về việc
+            Gemini vẽ nền, đứng rời ra thì đọc như chú thích của cả modal. */}
+        <Field
+          label={t("project.thumb-bg-prompt")}
+          htmlFor="thumb-bg-prompt"
+          hint={t("project.thumb-desc")}
+        >
           <input
+            id="thumb-bg-prompt"
             className="input"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={t("project.thumb-bg-placeholder")}
           />
-        </label>
-        <p className="text-xs text-[var(--text-muted)]">
-          {t("project.thumb-desc")}
-        </p>
+        </Field>
         {error && (
-          <p className="text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
-            {tf("project.thumb-error", { error })}
-          </p>
+          <Banner tone="danger" message={tf("project.thumb-error", { error })} />
         )}
       </Modal>
     </div>
   );
 }
 
+/**
+ * Một hàng "nhãn - giá trị" trong tóm tắt kịch bản edit.
+ *
+ * Nhãn là PHỤ CHÚ (13px muted, chỉ đường), giá trị là NỘI DUNG (14px) - thứ
+ * người dùng thật sự đọc để quyết định có bấm chạy hay không. Cùng hình dạng
+ * với `ConfigRow` bên trang Auto cut.
+ */
 function BriefSummaryRow({
   label,
   children,
@@ -442,9 +472,11 @@ function BriefSummaryRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex gap-2 text-sm">
-      <span className="w-32 shrink-0 text-[var(--text-muted)]">{label}</span>
-      <span className="min-w-0 flex-1">{children}</span>
+    <div className="flex gap-2">
+      <span className="w-32 shrink-0 text-meta text-[var(--text-muted)]">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 text-sm">{children}</span>
     </div>
   );
 }
@@ -1013,7 +1045,7 @@ export default function ProjectDetailPage() {
         }
         center={
           pipelineInput && showPipeline ? (
-            <div className="flex items-start gap-1.5">
+            <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <PipelineTimeline {...pipelineInput} />
               </div>
@@ -1026,88 +1058,116 @@ export default function ProjectDetailPage() {
           ) : undefined
         }
         actions={
+          /* Nút xóa đứng CUỐI, ngoài cụm nút thường, ngăn bằng vạch dọc - quy
+             ước chung của 7 trang chi tiết, lý do viết đầy đủ ở
+             `src/app/images/[id]/page.tsx`. */
           <>
-            <Button variant="secondary" onClick={() => router.push("/projects")}>
-              <ArrowLeft size={15} strokeWidth={2} />
-              {t("project.back")}
-            </Button>
-            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-              <Trash2 size={15} strokeWidth={2} />
-              {t("common.delete")}
-            </Button>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/projects")}>
+                <ArrowLeft size={15} strokeWidth={2} />
+                {t("project.back")}
+              </Button>
+            </span>
+            <span className="flex items-center border-l border-[var(--border)] pl-2">
+              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 size={15} strokeWidth={2} />
+                {t("common.delete")}
+              </Button>
+            </span>
           </>
         }
       />
 
-      {/* Tóm tắt project - nhìn một dòng biết project này đang ra sao */}
+      {/* Dải tóm tắt project - HAI HÀNG, không phải một hàng wrap.
+          Trước đây trạng thái + id + gạch + N tag + ô nhập tag + hai dòng lỗi +
+          câu gợi ý gấp + nút Nhân bản + nút (i) nhồi chung một hàng `flex-wrap`:
+          thêm vài tag là mọi thứ tự xếp lại chỗ khác, không đọc ra được đâu là
+          trạng thái đâu là thao tác. Giờ hàng 1 = project này là gì + làm gì với
+          nó, hàng 2 = tag; lỗi tách hẳn ra <Banner> chứ không nhét vào dải. */}
       {project && (
         <Card>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
-            <ProjectBadge status={project.status} />
-            <span>ID: {project.id}</span>
-            <span className="h-4 w-px bg-[var(--border)]" aria-hidden="true" />
-            {(project.tags ?? []).map((tag) => (
-              <span key={tag} className="chip">
-                {tag}
-                <button
-                  type="button"
-                  aria-label={tf("taginput.remove-aria", { tag })}
-                  className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
-                  onClick={() =>
-                    saveTags((project.tags ?? []).filter((x) => x !== tag))
-                  }
+          <div className="flex flex-col gap-3">
+            {/* Hàng 1: trạng thái · id · thao tác */}
+            <div className="flex flex-wrap items-center gap-3">
+              <ProjectBadge status={project.status} />
+              <span className="min-w-0 text-meta text-[var(--text-muted)] [overflow-wrap:anywhere]">
+                ID: {project.id}
+              </span>
+              {project.status === "done" && group.anyCollapsed && (
+                <span className="min-w-0 text-meta text-[var(--text-muted)]">
+                  {t("workspace.done-collapsed")}
+                </span>
+              )}
+              {/* (i) luôn nằm NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
+              <span className="ml-auto flex shrink-0 items-center gap-2">
+                <Button
+                  variant="secondary"
+                  small
+                  onClick={() => setCloneOpen(true)}
                 >
-                  <X size={12} strokeWidth={2} />
-                </button>
+                  <Copy size={14} strokeWidth={2} />
+                  {t("clone.action")}
+                </Button>
+                <InfoHint titleKey="help.clone.title" bodyKey="help.clone.body" />
               </span>
-            ))}
-            {addingTag ? (
-              <input
-                className="input h-7 w-36 rounded-full px-3 text-xs"
-                autoFocus
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addTag();
-                  } else if (e.key === "Escape") {
-                    setTagInput("");
-                    setAddingTag(false);
-                  }
-                }}
-                onBlur={addTag}
-                placeholder={t("project.new-tag-placeholder")}
-                aria-label={t("project.add-tag-aria")}
-              />
-            ) : (
-              <button
-                type="button"
-                className="chip transition-colors duration-150 hover:text-[var(--text)]"
-                onClick={() => setAddingTag(true)}
-              >
-                <Plus size={12} strokeWidth={2} />
-                Tag
-              </button>
-            )}
+            </div>
+
+            {/* Hàng 2: tag - hàng riêng nên thêm bao nhiêu tag cũng không đẩy
+                trạng thái và nút Nhân bản đi chỗ khác */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-meta text-[var(--text-muted)]">Tag</span>
+              {(project.tags ?? []).map((tag) => (
+                <span key={tag} className="chip">
+                  {tag}
+                  <IconButton
+                    size="sm"
+                    tone="danger"
+                    label={tf("taginput.remove-aria", { tag })}
+                    className="-mr-2"
+                    onClick={() =>
+                      saveTags((project.tags ?? []).filter((x) => x !== tag))
+                    }
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </IconButton>
+                </span>
+              ))}
+              {addingTag ? (
+                <input
+                  className="input w-40 rounded-full"
+                  autoFocus
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTag();
+                    } else if (e.key === "Escape") {
+                      setTagInput("");
+                      setAddingTag(false);
+                    }
+                  }}
+                  onBlur={addTag}
+                  placeholder={t("project.new-tag-placeholder")}
+                  aria-label={t("project.add-tag-aria")}
+                />
+              ) : (
+                <IconButton
+                  size="sm"
+                  label={t("project.add-tag-aria")}
+                  onClick={() => setAddingTag(true)}
+                >
+                  <Plus size={14} strokeWidth={2} />
+                </IconButton>
+              )}
+            </div>
+
             {tagError && (
-              <span className="min-w-0 text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
-                {tf("project.tags-error", { error: tagError })}
-              </span>
+              <Banner
+                tone="danger"
+                message={tf("project.tags-error", { error: tagError })}
+              />
             )}
-            {project.status === "done" && group.anyCollapsed && (
-              <span className="min-w-0 text-xs">
-                {t("workspace.done-collapsed")}
-              </span>
-            )}
-            {/* (i) luôn nằm NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
-            <span className="ml-auto flex shrink-0 items-center gap-1.5">
-              <Button variant="secondary" small onClick={() => setCloneOpen(true)}>
-                <Copy size={14} strokeWidth={2} />
-                {t("clone.action")}
-              </Button>
-              <InfoHint titleKey="help.clone.title" bodyKey="help.clone.body" />
-            </span>
           </div>
         </Card>
       )}
@@ -1172,7 +1232,7 @@ export default function ProjectDetailPage() {
             onToggle={() => group.toggle("brief")}
             summary={briefSummary}
             title={
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 {t("brief.title")}
                 <InfoHint
                   titleKey="help.brief.title"
@@ -1184,15 +1244,19 @@ export default function ProjectDetailPage() {
           >
             {brief ? (
               <div className="flex flex-col gap-4">
-                <p className="text-xs text-[var(--text-muted)]">
+                <p className="text-meta text-[var(--text-muted)]">
                   {briefSaved ? t("common.saved") : t("project.brief-autosave")}
                 </p>
                 <BriefFields value={brief} onChange={patchBrief} />
               </div>
             ) : (
-              <p className="text-xs text-[var(--text-muted)]">
-                {t("common.loading")}
-              </p>
+              // Khung xám giữ đúng chỗ của biểu mẫu - câu "Đang tải…" biến mất
+              // là cả cột nhảy lên một nhịp đúng lúc dữ liệu về.
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
             )}
           </WorkspaceBlock>
 
@@ -1209,15 +1273,18 @@ export default function ProjectDetailPage() {
           >
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
+                {/* Một cỡ nút duy nhất. Bản cũ phóng nút này lên h-12/15px khi
+                    chưa bắt đầu - nút to nhất toàn app, và là bậc chữ thứ tư.
+                    Nó đã là nút primary duy nhất trong khối, thế là đủ nổi. */}
                 <Button
-                  className={started ? "flex-1" : "h-12 flex-1 text-[15px]"}
+                  className="flex-1"
                   onClick={() => {
                     setStartError(null);
                     setExtraNotes("");
                     setEditOpen(true);
                   }}
                 >
-                  <Sparkles size={started ? 15 : 18} strokeWidth={2} />
+                  <Sparkles size={15} strokeWidth={2} />
                   {started
                     ? t("project.start-edit-new-session")
                     : t("project.start-edit")}
@@ -1253,16 +1320,22 @@ export default function ProjectDetailPage() {
                     <MoreHorizontal size={14} strokeWidth={2} />
                     {t("project.more")}
                   </Button>
+                  {/* Menu thả xuống giữ nguyên <div>/<button> thô: mục menu
+                      không phải nút bấm rời (<Button> có viền, có nền, và cao
+                      36px - xếp bốn cái là ra một cột nút chứ không phải menu),
+                      cũng không phải hộp nội dung nên không dùng <Panel>. Cái
+                      cần thống nhất là bậc chữ và padding - cả ba mục dưới đây
+                      dùng chung một chuỗi class. */}
                   {moreOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 top-full z-50 mt-1 w-52 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-card)]"
+                      className="absolute right-0 top-full z-50 mt-1 flex w-52 flex-col gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-card)]"
                     >
                       <button
                         type="button"
                         role="menuitem"
                         disabled={submitting}
-                        className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                        className={MENU_ITEM_CLASS}
                         onClick={() => {
                           setMoreOpen(false);
                           submitJob("scene-draft");
@@ -1279,7 +1352,7 @@ export default function ProjectDetailPage() {
                         type="button"
                         role="menuitem"
                         disabled={submitting}
-                        className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                        className={MENU_ITEM_CLASS}
                         onClick={() => {
                           setMoreOpen(false);
                           submitJob("assemble-draft");
@@ -1298,7 +1371,7 @@ export default function ProjectDetailPage() {
                           type="button"
                           role="menuitem"
                           disabled={cleaning}
-                          className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                          className={`${MENU_ITEM_CLASS} min-w-0 flex-1`}
                           onClick={() => {
                             setMoreOpen(false);
                             onCleanJunk();
@@ -1325,14 +1398,20 @@ export default function ProjectDetailPage() {
               {/* Thông báo/lỗi job là chuỗi tự do (có cả đường dẫn dài không dấu
                   cách) - phải cho ngắt ở giữa từ, không thì đẩy toác cả cột. */}
               {jobNotice && (
-                <p className="text-xs text-[var(--success)] [overflow-wrap:anywhere]">
-                  {jobNotice}
-                </p>
+                <Banner
+                  tone="success"
+                  message={
+                    <span className="[overflow-wrap:anywhere]">{jobNotice}</span>
+                  }
+                />
               )}
               {jobError && (
-                <p className="text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
-                  {jobError}
-                </p>
+                <Banner
+                  tone="danger"
+                  message={
+                    <span className="[overflow-wrap:anywhere]">{jobError}</span>
+                  }
+                />
               )}
             </div>
           </WorkspaceBlock>
@@ -1370,7 +1449,7 @@ export default function ProjectDetailPage() {
             onToggle={setOutputOverride}
             summary={outputSummary}
             title={
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 {t("project.video-output")}
                 <InfoHint
                   titleKey="help.video-output.title"
@@ -1381,47 +1460,49 @@ export default function ProjectDetailPage() {
             }
           >
             {aiRunning && (
-              <div className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+              <Panel>
                 <div
                   className="progress-indeterminate"
                   aria-label={t("project.ai-making")}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs text-[var(--text-muted)]">
+                  <span className="text-sm text-[var(--text-muted)]">
                     {t("project.ai-making-ellipsis")}
                   </span>
                   <SessionStatusBadge status="running" />
                 </div>
-              </div>
+              </Panel>
             )}
 
             {outputUrl ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
+                <span className="min-w-0 flex-1 truncate text-meta text-[var(--text-muted)]">
                   {outputName}
                 </span>
-                <span className="flex shrink-0 items-center gap-3">
-                  <button
-                    type="button"
+                {/* Hai thao tác trên đúng một file - cùng hình dạng nút icon.
+                    "Mở file" phải là <a target="_blank"> (mở tab mới) nên mượn
+                    class `.icon-btn` thay vì <IconButton>, cái đó là <button>. */}
+                <span className="flex shrink-0 items-center gap-1">
+                  <IconButton
+                    label={t("common.zoom")}
                     onClick={() => setZoomed(true)}
-                    className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                   >
-                    <Maximize2 size={13} strokeWidth={2} />
-                    {t("common.zoom")}
-                  </button>
+                    <Maximize2 size={15} strokeWidth={2} />
+                  </IconButton>
                   <a
                     href={outputUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                    className="icon-btn"
+                    title={t("common.open-file")}
+                    aria-label={t("common.open-file")}
                   >
-                    <ExternalLink size={13} strokeWidth={2} />
-                    {t("common.open-file")}
+                    <ExternalLink size={15} strokeWidth={2} />
                   </a>
                 </span>
               </div>
             ) : !busyNow ? (
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-sm text-[var(--text-muted)]">
                 {t("project.no-output")}
               </p>
             ) : null}
@@ -1443,9 +1524,16 @@ export default function ProjectDetailPage() {
             title="Scenes"
           >
             {sceneRevealError && (
-              <p className="mb-2 text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
-                {sceneRevealError}
-              </p>
+              <div className="mb-3">
+                <Banner
+                  tone="danger"
+                  message={
+                    <span className="[overflow-wrap:anywhere]">
+                      {sceneRevealError}
+                    </span>
+                  }
+                />
+              </div>
             )}
             {scenes.length > 0 ? (
               <div className="overflow-x-auto">
@@ -1571,7 +1659,7 @@ export default function ProjectDetailPage() {
             onToggle={() => group.toggle("thumbnail")}
             summary={thumbSummary}
             title={
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 Thumbnail
                 <InfoHint
                   titleKey="help.thumbnail.title"
@@ -1682,7 +1770,7 @@ export default function ProjectDetailPage() {
             {t("project.delete-desc-1")}{" "}
             <span className="font-medium">{project?.name ?? projectId}</span>?
             {t("project.delete-desc-2")}{" "}
-            <code className="rounded bg-[var(--bg-subtle)] px-1 text-xs">
+            <code className="rounded bg-[var(--bg-subtle)] px-1 text-meta">
               video-projects/{projectId}
             </code>{" "}
             {t("project.delete-desc-3")}
@@ -1734,7 +1822,7 @@ export default function ProjectDetailPage() {
         <p className="text-sm text-[var(--text-muted)]">
           {t("project.edit-modal-desc")}
         </p>
-        <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+        <Panel>
           <BriefSummaryRow label={t("project.sum-source")}>
             {briefView.sourceDescription.trim() || (
               <span className="text-[var(--text-muted)]">
@@ -1804,7 +1892,7 @@ export default function ProjectDetailPage() {
           <BriefSummaryRow label="Sound effect">
             {t(SFX_MODE_LABEL[briefView.sfxMode])}
           </BriefSummaryRow>
-        </div>
+        </Panel>
         <AiModelBlock
           model={editModel}
           effort={editEffort}
@@ -1812,10 +1900,7 @@ export default function ProjectDetailPage() {
           onEffortChange={setEditEffort}
           disabled={starting}
         />
-        <div>
-          <label className="label" htmlFor="edit-extra-notes">
-            {t("project.extra-notes")}
-          </label>
+        <Field label={t("project.extra-notes")} htmlFor="edit-extra-notes">
           <textarea
             id="edit-extra-notes"
             className="input"
@@ -1824,7 +1909,7 @@ export default function ProjectDetailPage() {
             onChange={(e) => setExtraNotes(e.target.value)}
             placeholder={t("projects.notes-placeholder")}
           />
-        </div>
+        </Field>
       </Modal>
     </div>
   );

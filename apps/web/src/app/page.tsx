@@ -6,12 +6,12 @@ import {
   ArrowUpFromLine,
   BarChart3,
   Clapperboard,
+  Coins,
   Film,
   ListVideo,
   MessagesSquare,
   Play,
   Sparkles,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,22 +20,28 @@ import {
   getJobs,
   getOverview,
   getProjects,
+  getUsageByModel,
   getUsageTimeline,
   type ChatSession,
   type Job,
   type Overview,
   type ProjectSummary,
+  type UsageByModel,
   type UsageScope,
   type UsageTimelinePoint,
 } from "@/lib/api";
 import { useAgentEvents, useEvents, useJobEvents } from "@/lib/useEvents";
+import { Banner } from "@/components/Banner";
 import { Card } from "@/components/Card";
-import { ProjectBadge } from "@/components/Badge";
+import { Badge, ProjectBadge } from "@/components/Badge";
 import { ProgressBar } from "@/components/ProgressBar";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/Button";
+import { Segmented } from "@/components/Segmented";
+import { Skeleton, TableSkeleton } from "@/components/Skeleton";
+import { StatTile } from "@/components/StatTile";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
 import { TokenTimelineChart } from "@/components/TokenTimelineChart";
 import { formatRelative, formatTokens, formatUsd } from "@/lib/format";
@@ -73,16 +79,24 @@ function localDayKey(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Skeleton nhẹ - khối pulse dùng chung khi dữ liệu chưa về. */
-function Skeleton({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-[var(--radius)] bg-[var(--bg-subtle)] ${className}`}
-    />
-  );
-}
+/** Khung chờ của một stat tile - cao đúng bằng tile thật để hàng không nhảy. */
+const TILE_SKELETON = "h-28 w-full";
 
 const USAGE_DAYS_OPTIONS = [7, 30, 90] as const;
+
+/**
+ * Tên nhà cung cấp viết hoa đúng chuẩn thương hiệu. KHÔNG phải chuỗi dịch: đây
+ * là danh từ riêng, "OpenAI" viết hoa như vậy ở mọi ngôn ngữ. Provider lạ thì
+ * lùi về viết hoa chữ đầu chứ không để trống.
+ */
+const PROVIDER_LABEL: Record<string, string> = {
+  claude: "Claude",
+  gemini: "Gemini",
+  openai: "OpenAI",
+};
+
+const providerLabel = (p: string) =>
+  PROVIDER_LABEL[p] ?? p.charAt(0).toUpperCase() + p.slice(1);
 
 // label là KEY dictionary - dịch bằng t() lúc render.
 const USAGE_SCOPE_OPTIONS: { value: UsageScope; label: string }[] = [
@@ -90,75 +104,6 @@ const USAGE_SCOPE_OPTIONS: { value: UsageScope; label: string }[] = [
   { value: "video", label: "dash.scope.video" },
   { value: "image", label: "dash.scope.image" },
 ];
-
-/** Nhóm nút pill chọn khoảng ngày - segmented control nhỏ trong header card. */
-function DaysPillGroup({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (days: number) => void;
-}) {
-  const { t, tf } = useT();
-  return (
-    <div
-      className="flex items-center rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] p-0.5"
-      role="group"
-      aria-label={t("dash.days-aria")}
-    >
-      {USAGE_DAYS_OPTIONS.map((d) => {
-        const active = value === d;
-        return (
-          <button
-            key={d}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(d)}
-            className={`rounded-full px-2 py-0.5 text-xs leading-4 transition-colors duration-150 ${
-              active
-                ? "bg-[var(--surface)] font-medium text-[var(--text)] shadow-[var(--shadow-card)]"
-                : "text-[var(--text-muted)] hover:text-[var(--text)]"
-            }`}
-          >
-            {tf("dash.days", { n: d })}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Stat tile hàng 1 - số to + label nhỏ + icon mờ góc phải. */
-function StatTile({
-  icon: Icon,
-  value,
-  label,
-  sub,
-}: {
-  icon: LucideIcon;
-  value: string | null;
-  label: string;
-  sub?: string;
-}) {
-  return (
-    <div className="card relative overflow-hidden">
-      <Icon
-        size={20}
-        strokeWidth={1.75}
-        className="absolute right-4 top-4 text-[var(--text-muted)] opacity-40"
-      />
-      {value === null ? (
-        <Skeleton className="h-7 w-16" />
-      ) : (
-        <div className="text-[24px] font-bold leading-tight">{value}</div>
-      )}
-      <div className="mt-1 text-xs text-[var(--text-muted)]">
-        {label}
-        {sub && <span className="opacity-80"> · {sub}</span>}
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const { t, tf } = useT();
@@ -172,6 +117,14 @@ export default function DashboardPage() {
   const [timeline, setTimeline] = useState<UsageTimelinePoint[] | null>(null);
   const [usageDays, setUsageDays] = useState<number>(30);
   const [usageScope, setUsageScope] = useState<UsageScope>("all");
+  // Bảng "Chi phí AI theo model" - DÙNG CHUNG usageDays với chart phía trên để
+  // hai khối luôn nói về cùng một khoảng thời gian (không có bộ lọc thứ hai).
+  // Nhưng KHÔNG dùng usageScope: API /usage/by-model chưa nhận bộ lọc loại
+  // project, nên bảng luôn là "mọi loại project". Chuyện đó được nói thẳng ra
+  // ở dòng phạm vi trong actions của card - im lặng thì người dùng đổi bộ lọc
+  // sang "Video" rồi đọc bảng ngay dưới như thể nó cũng đã lọc.
+  const [byModel, setByModel] = useState<UsageByModel[] | null>(null);
+  const [byModelError, setByModelError] = useState<string | null>(null);
   // Stat tile "Token 30 ngày" hàng trên - cố định 30 ngày, không theo filter
   const [timeline30, setTimeline30] = useState<UsageTimelinePoint[] | null>(
     null
@@ -231,6 +184,26 @@ export default function DashboardPage() {
       stale = true;
     };
   }, [usageDays, usageScope]);
+
+  // Bảng theo model - chỉ phụ thuộc số ngày (API không có bộ lọc loại project)
+  useEffect(() => {
+    let stale = false;
+    setByModel(null);
+    setByModelError(null);
+    getUsageByModel(usageDays)
+      .then((data) => {
+        if (!stale) setByModel(data);
+      })
+      .catch((e) => {
+        // Giữ byModel = null: card hiện banner lỗi thay cho bảng, không hiện ô
+        // "chưa có dữ liệu" - tải hỏng và thật sự chưa tiêu đồng nào là hai
+        // chuyện khác hẳn nhau.
+        if (!stale) setByModelError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      stale = true;
+    };
+  }, [usageDays]);
 
   // Realtime: cập nhật job đang chạy trực tiếp, refetch khi job đổi trạng thái.
   // Queue chạy tối đa 4 job song song → upsert vào runningJobs theo id,
@@ -360,6 +333,26 @@ export default function DashboardPage() {
     { tokens: 0, costUsd: 0 }
   );
 
+  // Số dòng KHÔNG có đơn giá. Phải đếm và nói ra: hàng tổng cộng "$ vào"/"$ ra"
+  // chỉ từ những dòng biết giá, trong khi "Tổng $" cộng đủ mọi dòng. Trên dữ
+  // liệu thật, một dòng Claude không rõ model đang chiếm hơn 180 triệu token -
+  // để im thì người đọc so hai con số và kết luận sai hoàn toàn về tỉ lệ tiền.
+  const unpricedRows = (byModel ?? []).filter((r) => r.price === null).length;
+
+  // Hàng TỔNG của bảng theo model. $ vào / $ ra chỉ cộng những dòng BIẾT đơn
+  // giá - dòng không có giá đóng góp 0 chứ không kéo cả tổng thành "không biết",
+  // còn cột Tổng $ luôn cộng đủ vì costUsd là tiền thật, dòng nào cũng có.
+  const byModelTotal = (byModel ?? []).reduce(
+    (acc, r) => ({
+      tokensIn: acc.tokensIn + r.tokensIn,
+      tokensOut: acc.tokensOut + r.tokensOut,
+      costUsd: acc.costUsd + r.costUsd,
+      costInUsd: acc.costInUsd + (r.costInUsd ?? 0),
+      costOutUsd: acc.costOutUsd + (r.costOutUsd ?? 0),
+    }),
+    { tokensIn: 0, tokensOut: 0, costUsd: 0, costInUsd: 0, costOutUsd: 0 }
+  );
+
   const doneProjects = (projects ?? []).filter((p) => p.status === "done").length;
   const exportedProjects = (projects ?? []).filter((p) => p.output).length;
 
@@ -368,7 +361,19 @@ export default function DashboardPage() {
     (j) => localDayKey(new Date(j.createdAt)) === todayKey
   );
   const todayDone = todayJobs.filter((j) => j.status === "done").length;
-  const todayFailed = todayJobs.filter((j) => j.status === "failed").length;
+  const todayFailed = todayJobs.filter((j) => j.status === "failed");
+
+  // Job lỗi hôm nay - trước đây chỉ là một con số lẫn trong dòng phụ của tile,
+  // tức là thứ đáng xử lý nhất trên trang lại khó thấy nhất.
+  const failedRecent = [...todayFailed]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 3);
+
+  const projectName = (id: string) =>
+    projects?.find((p) => p.id === id)?.name ?? id;
 
   const recentSessions = [...(sessions ?? [])]
     .sort(
@@ -385,7 +390,11 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t("nav.dashboard")} subtitle={t("dash.subtitle")} />
+      <PageHeader
+        title={t("nav.dashboard")}
+        hint={{ titleKey: "help.dashboard.title", bodyKey: "help.dashboard.body" }}
+        subtitle={t("dash.subtitle")}
+      />
 
       {error && (
         <ErrorBanner message={t("dash.load-error")} detail={error} />
@@ -397,79 +406,132 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Hàng 1 - 4 stat tile */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          icon={Clapperboard}
-          value={projects ? String(projects.length) : null}
-          label={t("dash.total-projects")}
-          sub={projects ? tf("dash.done-count", { n: doneProjects }) : undefined}
-        />
-        <StatTile
-          icon={Film}
-          value={projects ? String(exportedProjects) : null}
-          label={t("dash.exported")}
-          sub={t("dash.has-output")}
-        />
-        <StatTile
-          icon={BarChart3}
-          value={timeline30 ? formatTokens(usage30Total.tokens) : null}
-          label={t("dash.tokens-30d")}
-          sub={timeline30 ? formatUsd(usage30Total.costUsd) : undefined}
-        />
-        <StatTile
-          icon={Activity}
-          value={jobs ? String(todayJobs.length) : null}
-          label={t("dash.jobs-today")}
-          sub={
-            jobs
-              ? tf("dash.jobs-today-sub", { done: todayDone, failed: todayFailed })
-              : undefined
+      {/* Job lỗi gần đây - có tên project + loại job + lúc nào, và đường đi
+          thẳng sang hàng chờ để xem log. */}
+      {failedRecent.length > 0 && (
+        <Banner
+          tone="danger"
+          message={tf("dash.failed-today", { n: todayFailed.length })}
+          actions={
+            <Link href="/queue">
+              <Button variant="secondary" small>
+                <ListVideo size={14} strokeWidth={2} />
+                {t("dash.view-queue")}
+              </Button>
+            </Link>
           }
-        />
+        >
+          <ul className="mt-1 flex flex-col gap-1">
+            {failedRecent.map((j) => (
+              <li key={j.id} className="text-meta text-[var(--text-muted)]">
+                {projectName(j.projectId)} · {t(JOB_TYPE_LABEL[j.type])} ·{" "}
+                {formatRelative(j.createdAt)}
+              </li>
+            ))}
+          </ul>
+        </Banner>
+      )}
+
+      {/* Hàng 1 - 5 stat tile. Số liệu cùng loại thì cùng hình dạng: "hàng chờ"
+          trước đây là một card riêng ở hàng khác với cỡ chữ khác. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {projects === null ? (
+          <Skeleton className={TILE_SKELETON} />
+        ) : (
+          <StatTile
+            icon={Clapperboard}
+            value={String(projects.length)}
+            label={t("dash.total-projects")}
+            sub={tf("dash.done-count", { n: doneProjects })}
+            href="/projects"
+          />
+        )}
+        {projects === null ? (
+          <Skeleton className={TILE_SKELETON} />
+        ) : (
+          <StatTile
+            icon={Film}
+            value={String(exportedProjects)}
+            label={t("dash.exported")}
+            sub={t("dash.has-output")}
+            href="/projects"
+          />
+        )}
+        {timeline30 === null ? (
+          <Skeleton className={TILE_SKELETON} />
+        ) : (
+          <StatTile
+            icon={BarChart3}
+            value={formatTokens(usage30Total.tokens)}
+            label={t("dash.tokens-30d")}
+            sub={formatUsd(usage30Total.costUsd)}
+            // CỐ Ý không có href: chưa có trang xem chi tiết mức dùng token.
+            // /chat là stub redirect về "/" nên trỏ vào đó là bấm xong quay lại
+            // đúng trang đang đứng - tệ hơn hẳn một ô không bấm được.
+          />
+        )}
+        {jobs === null ? (
+          <Skeleton className={TILE_SKELETON} />
+        ) : (
+          <StatTile
+            icon={Activity}
+            value={String(todayJobs.length)}
+            label={t("dash.jobs-today")}
+            sub={tf("dash.jobs-today-sub", {
+              done: todayDone,
+              failed: todayFailed.length,
+            })}
+            href="/queue"
+          />
+        )}
+        {/* Tải hỏng thì không để ô này nhấp nháy mãi (banner đỏ ở trên đã nói
+            rồi) - nhưng cũng KHÔNG bỏ trống ô: `!error && <Skeleton/>` render ra
+            `false`, và lưới 5 cột mất hẳn ô thứ 5, thành một hàng thủng lỗ. Vẫn
+            dựng ô với giá trị "-" để hàng còn nguyên hình. */}
+        {overview === null ? (
+          error ? (
+            <StatTile
+              icon={ListVideo}
+              value="-"
+              label={t("dash.queue")}
+              sub={t("dash.jobs-waiting")}
+            />
+          ) : (
+            <Skeleton className={TILE_SKELETON} />
+          )
+        ) : (
+          <StatTile
+            icon={ListVideo}
+            value={String(overview.queuedCount)}
+            label={t("dash.queue")}
+            sub={t("dash.jobs-waiting")}
+            href="/queue"
+          />
+        )}
       </div>
 
-      {/* Hàng 2 - chart 2/3 + cột phải (AI / job đang chạy / hàng đợi) */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+      {/* Hàng 2 - chart 2/3 + cột phải (AI / job đang chạy).
+          KHÔNG items-start: cột phải phải cao bằng chart, nếu không thì mỗi khi
+          không có phiên AI (trường hợp thường gặp) đáy cột phải hụt một lỗ. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card
           title={t("dash.tokens-by-day")}
           className="lg:col-span-2"
           actions={
-            <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
-              {timeline && usageTotal.tokens > 0 && (
-                <span
-                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-normal leading-none text-[var(--text-muted)]"
-                  title={`${usageTotal.tokens.toLocaleString("vi-VN")} token`}
-                >
-                  <span>
-                    {tf("dash.total-days", {
-                      days: usageDays,
-                      tokens: formatTokens(usageTotal.tokens),
-                      cost: formatUsd(usageTotal.costUsd),
-                    })}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <ArrowDownToLine
-                      size={12}
-                      strokeWidth={2}
-                      className="shrink-0"
-                      aria-hidden
-                    />
-                    {formatTokens(usageTotal.tokensIn)} in
-                    <span aria-hidden>·</span>
-                    <ArrowUpFromLine
-                      size={12}
-                      strokeWidth={2}
-                      className="shrink-0"
-                      aria-hidden
-                    />
-                    {formatTokens(usageTotal.tokensOut)} out
-                  </span>
-                </span>
-              )}
-              <DaysPillGroup value={usageDays} onChange={setUsageDays} />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Segmented
+                // md: đứng cùng hàng với <select> cao 36px ngay bên cạnh
+                size="md"
+                label={t("dash.days-aria")}
+                value={String(usageDays)}
+                onChange={(v) => setUsageDays(Number(v))}
+                options={USAGE_DAYS_OPTIONS.map((d) => ({
+                  value: String(d),
+                  label: tf("dash.days", { n: d }),
+                }))}
+              />
               <select
-                className="input h-7 w-auto px-2 text-xs"
+                className="input w-auto"
                 aria-label={t("dash.scope-aria")}
                 value={usageScope}
                 onChange={(e) => setUsageScope(e.target.value as UsageScope)}
@@ -483,8 +545,43 @@ export default function DashboardPage() {
             </div>
           }
         >
+          {/* Câu tổng nằm DƯỚI tiêu đề chứ không nhét vào hàng nút: nhồi bốn
+              nhóm điều khiển cao thấp khác nhau lên một hàng là thứ làm header
+              card này rối nhất. */}
+          {timeline && usageTotal.tokens > 0 && (
+            <p
+              className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-[var(--text-muted)]"
+              title={`${usageTotal.tokens.toLocaleString("vi-VN")} token`}
+            >
+              <span>
+                {tf("dash.total-days", {
+                  days: usageDays,
+                  tokens: formatTokens(usageTotal.tokens),
+                  cost: formatUsd(usageTotal.costUsd),
+                })}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <ArrowDownToLine
+                  size={13}
+                  strokeWidth={2}
+                  className="shrink-0"
+                  aria-hidden
+                />
+                {formatTokens(usageTotal.tokensIn)} in
+                <span aria-hidden>·</span>
+                <ArrowUpFromLine
+                  size={13}
+                  strokeWidth={2}
+                  className="shrink-0"
+                  aria-hidden
+                />
+                {formatTokens(usageTotal.tokensOut)} out
+              </span>
+            </p>
+          )}
+
           {timeline === null ? (
-            <Skeleton className="h-[220px] w-full" />
+            <Skeleton className="w-full" height={220} />
           ) : usageTotal.tokens > 0 ? (
             <TokenTimelineChart data={timeline} days={usageDays} />
           ) : (
@@ -505,7 +602,7 @@ export default function DashboardPage() {
               }
               actions={<SessionStatusBadge status="running" />}
             >
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-3">
                 <div className="progress-indeterminate" />
                 {agentEntries.map(([sid, act]) => {
                   const pid = sessionProjectRef.current[sid] ?? null;
@@ -541,7 +638,10 @@ export default function DashboardPage() {
             </Card>
           )}
 
+          {/* flex-1: card cuối cột giãn hết chiều cao còn lại của hàng - không
+              còn khoảng trắng lửng lơ dưới cột phải. */}
           <Card
+            className="flex-1"
             title={
               runningList.length > 1
                 ? tf("dash.running-job-n", { n: runningList.length })
@@ -570,16 +670,16 @@ export default function DashboardPage() {
                               ? `/text-to-video/${job.projectId}`
                               : `/projects/${job.projectId}`
                         }
-                        className="truncate font-medium hover:text-[var(--primary)]"
+                        className="truncate text-sm font-medium hover:text-[var(--primary)]"
                       >
                         {/* Hiện TÊN project chứ không phải id: id là tên thư mục,
                             đổi tên project xong mà đây vẫn hiện "demo111" thì đổi
                             tên chẳng giải quyết được gì. Job của auto-cut và
                             text-to-video mang id PHIÊN nên không có trong danh
                             sách project - khi đó lùi về hiện id như cũ. */}
-                        {projects?.find((p) => p.id === job.projectId)?.name ?? job.projectId}
+                        {projectName(job.projectId)}
                       </Link>
-                      <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                      <span className="shrink-0 text-meta text-[var(--text-muted)]">
                         {t(JOB_TYPE_LABEL[job.type])}
                         {job.sceneId ? ` · ${job.sceneId}` : ""}
                       </span>
@@ -589,42 +689,136 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-                <Play size={14} strokeWidth={2} className="shrink-0 opacity-60" />
-                {t("dash.no-running-job")}
-              </p>
+              <EmptyState icon={Play} description={t("dash.no-running-job")} />
             )}
-          </Card>
-
-          <Card title={t("dash.queue")}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-col">
-                <span className="text-[24px] font-bold leading-tight">
-                  {overview ? overview.queuedCount : "-"}
-                </span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {t("dash.jobs-waiting")}
-                </span>
-              </div>
-              <Link href="/queue">
-                <Button variant="secondary" small>
-                  <ListVideo size={14} strokeWidth={2} />
-                  {t("dash.view-queue")}
-                </Button>
-              </Link>
-            </div>
           </Card>
         </div>
       </div>
 
+      {/* Chi phí AI theo model - nằm NGAY DƯỚI chart token vì cùng nói về một
+          thứ: tiền AI. Dùng chung bộ lọc số ngày với chart, không có bộ lọc
+          riêng - hai khối lệch khoảng thời gian thì người đọc sẽ cộng trừ hai
+          con số không so được với nhau.
+          Bộ lọc LOẠI PROJECT thì bảng này không theo được (API chưa nhận), nên
+          phạm vi được ghi thẳng ra: "N ngày · mọi loại project". */}
+      <Card
+        title={t("dash.cost-by-model")}
+        hint={{
+          titleKey: "help.cost-by-model.title",
+          bodyKey: "help.cost-by-model.body",
+        }}
+        actions={
+          <span className="text-meta text-[var(--text-muted)]">
+            {tf("dash.cost-by-model-scope", { n: usageDays })}
+          </span>
+        }
+      >
+        {byModelError ? (
+          <ErrorBanner
+            message={t("dash.cost-by-model-error")}
+            detail={byModelError}
+          />
+        ) : byModel === null ? (
+          <TableSkeleton rows={4} />
+        ) : byModel.length > 0 ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t("dash.col-ai")}</th>
+                <th>{t("dash.col-model")}</th>
+                <th className="text-right">{t("dash.col-tokens-in")}</th>
+                <th className="text-right">{t("dash.col-tokens-out")}</th>
+                <th className="text-right">{t("dash.col-cost-in")}</th>
+                <th className="text-right">{t("dash.col-cost-out")}</th>
+                <th className="text-right">{t("dash.col-cost-total")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byModel.map((r) => (
+                <tr key={`${r.provider}:${r.model ?? ""}`}>
+                  <td>
+                    {/* dot={false}: đây là nhãn PHÂN LOẠI, chấm tròn là quy ước
+                        của trạng thái - gắn vào đây đọc thành "đang chạy". */}
+                    <Badge
+                      tone="muted"
+                      dot={false}
+                      label={providerLabel(r.provider)}
+                    />
+                  </td>
+                  <td className="text-sm">
+                    {r.model ?? (
+                      <span className="text-[var(--text-muted)]">
+                        {t("dash.model-none")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {formatTokens(r.tokensIn)}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {formatTokens(r.tokensOut)}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {r.costInUsd === null ? (
+                      <span className="text-[var(--text-muted)]">-</span>
+                    ) : (
+                      formatUsd(r.costInUsd)
+                    )}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {r.costOutUsd === null ? (
+                      <span className="text-[var(--text-muted)]">-</span>
+                    ) : (
+                      formatUsd(r.costOutUsd)
+                    )}
+                  </td>
+                  <td className="text-right tabular-nums font-medium">
+                    {formatUsd(r.costUsd)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-t border-[var(--border)] font-semibold">
+                <td colSpan={2}>{t("dash.total-row")}</td>
+                <td className="text-right tabular-nums">
+                  {formatTokens(byModelTotal.tokensIn)}
+                </td>
+                <td className="text-right tabular-nums">
+                  {formatTokens(byModelTotal.tokensOut)}
+                </td>
+                <td className="text-right tabular-nums">
+                  {formatUsd(byModelTotal.costInUsd)}
+                </td>
+                <td className="text-right tabular-nums">
+                  {formatUsd(byModelTotal.costOutUsd)}
+                </td>
+                <td className="text-right tabular-nums">
+                  {formatUsd(byModelTotal.costUsd)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState icon={Coins} description={t("dash.no-usage-by-model")} />
+        )}
+
+        {/* Nói thẳng khi hàng tổng KHÔNG so sánh được: hai cột $ ước tính bỏ
+            qua các dòng chưa có giá, còn cột Tổng $ thì không. Thiếu câu này
+            thì bảng trông như "AI chỉ tốn 1/5 số tiền thật". */}
+        {byModel !== null && byModel.length > 0 && unpricedRows > 0 && (
+          <p className="mt-3 text-meta text-[var(--text-muted)]">
+            {tf("dash.unpriced-note", { n: unpricedRows })}
+          </p>
+        )}
+      </Card>
+
       {/* Hàng 3 - project gần đây (bảng) + phiên AI gần đây */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card
           title={t("dash.recent-projects")}
           actions={
             <Link
               href="/projects"
-              className="text-xs font-medium text-[var(--primary)] hover:underline"
+              className="text-sm font-medium text-[var(--primary)] hover:underline"
             >
               {t("dash.view-all")}
             </Link>
@@ -705,13 +899,13 @@ export default function DashboardPage() {
                     {s.title || t("dash.chat-session")}
                   </span>
                   <SessionStatusBadge status={s.status} />
-                  <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                  <span className="shrink-0 text-meta text-[var(--text-muted)]">
                     {formatRelative(s.updatedAt)}
                   </span>
                   {s.projectId && (
                     <Link
                       href={`/projects/${encodeURIComponent(s.projectId)}`}
-                      className="shrink-0 text-xs font-medium text-[var(--primary)] hover:underline"
+                      className="shrink-0 text-sm font-medium text-[var(--primary)] hover:underline"
                     >
                       {t("dash.open-project")}
                     </Link>

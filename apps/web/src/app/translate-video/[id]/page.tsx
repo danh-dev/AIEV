@@ -10,7 +10,11 @@
  *   để bấm một nút làm việc trên chính cái video đang xem ở đây.
  * - Cột `setup`: ngôn ngữ đích, chế độ, model dịch, danh sách câu thoại sửa tay
  *   được, cấu hình lồng tiếng và kiểu phụ đề kèm ô xem trước - toàn bộ phần
- *   "mình muốn ra cái gì".
+ *   "mình muốn ra cái gì". Hai cụm cấu hình ấy là KHỐI THẬT trong cột, không
+ *   phải popup: trang này từng là trang chi tiết duy nhất nhét biểu mẫu chính
+ *   vào modal, hệ quả là cột giữa gần như trống trong khi công việc thật nằm
+ *   sau một cái nút. Ba trang anh em (projects, text-to-video, auto cut) đều
+ *   để cấu hình ngay tại cột giữa.
  * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
  *   thì hiện thẳng video), rồi mới tới tiến trình dịch.
  *
@@ -27,7 +31,6 @@
 import {
   AlertTriangle,
   ArrowLeft,
-  Bot,
   Cloud,
   Cpu,
   FileVideo,
@@ -100,14 +103,18 @@ import {
 } from "@/lib/api";
 import { useEvents, useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { CheckboxField, Field } from "@/components/Field";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
-import { Modal } from "@/components/Modal";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
+import { Panel } from "@/components/Panel";
 import { PageHeader } from "@/components/PageHeader";
+import { Segmented } from "@/components/Segmented";
 import { StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
 import { ShellRightPanel } from "@/components/Shell";
@@ -150,7 +157,6 @@ const TV_BLOCKS = [
   "dub",
   "subtitle",
   "result",
-  "progress",
 ] as const;
 type BlockKey = (typeof TV_BLOCKS)[number];
 
@@ -229,47 +235,6 @@ function deriveTvStage(m: TranslateVideoMeta): {
 }
 
 /**
- * Một dòng "đang đặt gì" + nút mở popup cấu hình.
- *
- * Vì sao cần dòng này chứ không chỉ một cái nút: cấu hình nằm trong popup nghĩa
- * là đóng popup lại thì không còn thấy mình đã đặt gì. Một dòng tóm tắt giữ lại
- * đúng phần thông tin đó mà chỉ tốn một dòng - đúng thứ người dùng cần liếc qua
- * trước khi bấm render.
- */
-function ConfigRow({
-  icon: Icon,
-  label,
-  value,
-  openLabel,
-  onOpen,
-}: {
-  icon: typeof Mic;
-  label: string;
-  value: string;
-  openLabel: string;
-  onOpen: () => void;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5">
-      <Icon size={13} strokeWidth={2} aria-hidden="true" className="shrink-0 text-[var(--text-muted)]" />
-      <span className="shrink-0 text-xs font-medium">{label}</span>
-      {/* truncate: bản tóm tắt dài (nhiều người nói, nhiều thông số) không được
-          đẩy nút Cấu hình ra khỏi khung */}
-      <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
-        {value}
-      </span>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="shrink-0 rounded-[var(--radius)] px-2 py-0.5 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:bg-[var(--primary-soft)]"
-      >
-        {openLabel}
-      </button>
-    </div>
-  );
-}
-
-/**
  * Log của job - đúng nội dung trang Render Queue hiển thị: tiến trình + từng
  * dòng log chảy về qua SSE `joblog`.
  *
@@ -329,13 +294,15 @@ function JobLogBlock({ job, stepLabel }: { job: Job; stepLabel: string }) {
   return (
     // min-h-0 + flex-1 để <pre> CAO BẰNG panel rồi tự cuộn bên trong. Thiếu
     // min-h-0 thì flex item không co dưới nội dung, log dài sẽ đẩy dài cả panel.
-    <div className="card flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <span className="min-w-0 text-xs font-semibold">{stepLabel}</span>
-        <span className="shrink-0 text-xs text-[var(--text-muted)]">
+    <Panel
+      className="min-h-0 flex-1"
+      title={stepLabel}
+      actions={
+        <span className="shrink-0 text-meta text-[var(--text-muted)]">
           {job.status}
         </span>
-      </div>
+      }
+    >
       <ProgressBar progress={job.progress} step={job.step} />
       {error && <ErrorBanner message={t("tv.job-log-error")} detail={error} />}
       {/* break-anywhere BẮT BUỘC: traceback của Python có những chuỗi dài không
@@ -343,11 +310,11 @@ function JobLogBlock({ job, stepLabel }: { job: Job; stepLabel: string }) {
           trắng nên chúng đẩy toác cả cột. */}
       <pre
         ref={preRef}
-        className="min-h-32 min-w-0 flex-1 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap [overflow-wrap:anywhere]"
+        className="min-h-32 min-w-0 flex-1 overflow-auto rounded-[var(--radius)] bg-[var(--surface)] p-2 font-mono text-meta whitespace-pre-wrap [overflow-wrap:anywhere]"
       >
         {log || t("tv.job-no-log")}
       </pre>
-    </div>
+    </Panel>
   );
 }
 
@@ -371,10 +338,7 @@ function ColorField({
 }) {
   const hex = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000";
   return (
-    <div>
-      <label className="label" htmlFor={id}>
-        {label}
-      </label>
+    <Field label={label} htmlFor={id}>
       <div className="flex items-center gap-2">
         <input
           id={id}
@@ -382,7 +346,7 @@ function ColorField({
           value={hex}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 shrink-0 cursor-pointer rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-45"
+          className="h-9 w-10 shrink-0 cursor-pointer rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-50"
         />
         <input
           className="input"
@@ -392,7 +356,7 @@ function ColorField({
           onChange={(e) => onChange(e.target.value)}
         />
       </div>
-    </div>
+    </Field>
   );
 }
 
@@ -455,11 +419,8 @@ function OpacityField({
 }) {
   const pct = Math.round(alphaOf(value) * 100);
   return (
-    <div>
-      <label className="label" htmlFor={id}>
-        {label}
-      </label>
-      <div className="flex items-center gap-2">
+    <Field label={label} htmlFor={id}>
+      <div className="flex h-9 items-center gap-2">
         <input
           id={id}
           type="range"
@@ -468,15 +429,15 @@ function OpacityField({
           step={1}
           value={pct}
           disabled={disabled}
-          className="min-w-0 flex-1 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-45"
+          className="slider min-w-0"
           onChange={(e) => onChange(withAlpha(value, Number(e.target.value) / 100))}
         />
         {/* tabular-nums: số không nhảy ngang khi kéo qua 9 -> 10 -> 100 */}
-        <span className="w-10 shrink-0 text-right text-xs tabular-nums text-[var(--text-muted)]">
+        <span className="w-10 shrink-0 text-right text-meta tabular-nums text-[var(--text-muted)]">
           {pct}%
         </span>
       </div>
-    </div>
+    </Field>
   );
 }
 
@@ -674,125 +635,103 @@ function DubSettingsCard({
         <ErrorBanner message={t("tv.dub.voices-error")} detail={loadError} />
       )}
 
-      {/* 1. Engine đọc - quyết định kho giọng phía dưới nên đứng trên cùng */}
-      <div>
-        <span className="label">{t("tv.dub.engine")}</span>
+      {/* 1. Engine đọc - quyết định kho giọng phía dưới nên đứng trên cùng.
+          Lưới thẻ engine dùng auto-fit chứ KHÔNG `sm:grid-cols-2`: `sm:` đo bề
+          rộng CỬA SỔ, còn nhóm thẻ này nằm trong cột workspace rộng ~340-390px
+          nên ở mọi màn desktop nó đều bị chia đôi trong cột hẹp và chữ vỡ. Bề
+          rộng thật do container query của workspace quyết định - lưới phải co
+          theo chỗ thật. */}
+      <Field label={t("tv.dub.engine")}>
         {engines === null ? (
-          <p className="flex items-center gap-1.5 py-2 text-xs text-[var(--text-muted)]">
+          <p className="flex items-center gap-2 py-2 text-meta text-[var(--text-muted)]">
             <Loader2 size={13} strokeWidth={2} className="animate-spin" />
             {t("ttv.voice.engine.checking")}
           </p>
         ) : (
-          <div
-            role="radiogroup"
-            aria-label={t("tv.dub.engine")}
-            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+          <OptionCardGroup
+            label={t("tv.dub.engine")}
+            className="grid-cols-[repeat(auto-fit,minmax(180px,1fr))]"
           >
             {TTS_ENGINES.map((e) => {
               const st = engines.find((s) => s.engine === e) ?? null;
               const ok = st?.available === true;
-              const active = engine === e;
-              const Icon = DUB_ENGINE_ICON[e];
               return (
-                <button
+                <OptionCard
                   key={e}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
+                  icon={DUB_ENGINE_ICON[e]}
+                  selected={engine === e}
                   // Engine máy chưa chạy được thì KHÓA: /render kiểm lại và trả
                   // 503 ngay, cho bấm chỉ để nhận lỗi là bẫy người dùng
                   disabled={disabled || !ok}
-                  onClick={() => onChange({ engine: e, voices: {} })}
-                  className={`flex min-w-0 flex-col gap-1 rounded-[var(--radius)] border p-2.5 text-left transition-colors duration-150 disabled:cursor-not-allowed ${
-                    active
-                      ? "border-[var(--primary)] bg-[var(--primary-soft)]"
-                      : "border-[var(--border)] bg-[var(--surface)]"
-                  } ${ok ? "" : "opacity-70"}`}
-                >
-                  <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-                    <Icon
-                      size={14}
-                      strokeWidth={2}
-                      aria-hidden="true"
-                      className={`shrink-0 ${
-                        active ? "text-[var(--primary)]" : "text-[var(--text-muted)]"
-                      }`}
-                    />
-                    <span
-                      className={`min-w-0 text-[13px] leading-snug font-semibold ${
-                        active ? "text-[var(--primary)]" : "text-[var(--text)]"
-                      }`}
-                    >
-                      {t(DUB_ENGINE_LABEL_KEY[e])}
-                    </span>
-                    <span
-                      className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  onSelect={() => onChange({ engine: e, voices: {} })}
+                  title={t(DUB_ENGINE_LABEL_KEY[e])}
+                  description={t(`ttv.voice.engine.${e}-desc`)}
+                  badge={
+                    <Badge
+                      dot={false}
+                      tone={ok ? "success" : "danger"}
+                      label={
                         ok
-                          ? "bg-[var(--success-bg)] text-[var(--success)]"
-                          : "bg-[var(--danger-bg)] text-[var(--danger)]"
-                      }`}
-                    >
-                      {ok
-                        ? t("ttv.voice.engine.ready")
-                        : t("ttv.voice.engine.unavailable")}
-                    </span>
-                  </span>
-                  {/* Chi tiết kỹ thuật của server (đường dẫn Python, thiếu key)
-                      - KHÔNG dịch, hiện nguyên văn để còn sửa được */}
-                  {!ok && st?.detail && (
-                    <span className="min-w-0 break-all font-mono text-[10px] leading-snug text-[var(--text-muted)]">
-                      {st.detail}
-                    </span>
-                  )}
-                </button>
+                          ? t("ttv.voice.engine.ready")
+                          : t("ttv.voice.engine.unavailable")
+                      }
+                    />
+                  }
+                />
               );
             })}
-          </div>
+          </OptionCardGroup>
         )}
-        {noEngine && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--danger)]">
-            <AlertTriangle
-              size={13}
-              strokeWidth={2}
-              aria-hidden="true"
-              className="mt-0.5 shrink-0"
-            />
-            {t("ttv.voice.engine.none")}
-          </p>
-        )}
-      </div>
+      </Field>
+
+      {/* Chi tiết kỹ thuật của server (đường dẫn Python, thiếu key) - KHÔNG
+          dịch, hiện nguyên văn để còn sửa được. Nằm NGOÀI thẻ chọn: nhét một
+          đường dẫn dài vào trong nút là nút cao gấp đôi và chữ nhỏ tới mức
+          không đọc nổi - mà đây đúng là dòng cần đọc để sửa được lỗi. */}
+      {(engines ?? [])
+        .filter((st) => !st.available && st.detail)
+        .map((st) => (
+          <Banner
+            key={st.engine}
+            tone="danger"
+            message={`${t(DUB_ENGINE_LABEL_KEY[st.engine])} · ${t(
+              "ttv.voice.engine.unavailable"
+            )}`}
+            detail={st.detail}
+          />
+        ))}
+
+      {noEngine && (
+        <Banner tone="danger" message={t("ttv.voice.engine.none")} />
+      )}
 
       {/* 2. Giọng cho từng người nói. Transcript không phân vai thì nói THẲNG
           ra là chỉ có một giọng cho cả video, đừng để người dùng tự đoán vì sao
           chỉ thấy một dòng */}
-      <div>
-        <span className="label">
-          {t("tv.dub.voices")}
-          <InfoHint
-            className="ml-1.5 align-middle"
-            titleKey="help.tv-dub-voices.title"
-            bodyKey="help.tv-dub-voices.body"
-          />
-        </span>
-        {!diarized && (
-          <p className="mb-2 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-            <AlertTriangle
-              size={13}
-              strokeWidth={2}
-              aria-hidden="true"
-              className="mt-0.5 shrink-0"
+      <Panel
+        title={
+          <span className="inline-flex items-center gap-1">
+            {t("tv.dub.voices")}
+            <InfoHint
+              titleKey="help.tv-dub-voices.title"
+              bodyKey="help.tv-dub-voices.body"
             />
+          </span>
+        }
+      >
+        {!diarized && (
+          <p className="text-meta text-[var(--text-muted)]">
             {t("tv.dub.not-diarized")}
           </p>
         )}
 
         {previewError && (
-          <div className="mb-2">
-            <ErrorBanner message={t("tv.dub.preview-failed")} detail={previewError} />
-          </div>
+          <ErrorBanner message={t("tv.dub.preview-failed")} detail={previewError} />
         )}
 
-        <ul className="flex flex-col gap-2">
+        {/* <li> KHÔNG có viền riêng: cha đã là Panel, thêm một khung nữa là ba
+            lớp viền lồng nhau. Các hàng tách nhau bằng một đường kẻ mảnh. */}
+        <ul className="flex flex-col">
           {rows.map((speaker) => {
             const chosen = dub.voices[speaker] ?? "";
             const missing =
@@ -804,10 +743,10 @@ function DubSettingsCard({
             return (
               <li
                 key={speaker || "__all__"}
-                className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5"
+                className="flex flex-col gap-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
               >
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-xs font-semibold">
+                  <span className="text-sm font-medium">
                     {speaker
                       ? tf("tv.dub.speaker", { name: speaker })
                       : t("tv.dub.all-speakers")}
@@ -876,7 +815,7 @@ function DubSettingsCard({
                 {/* Số đo của ĐÚNG câu vừa nghe: co bao nhiêu, có tràn không.
                     Đây là thứ cho biết bản dịch dài quá TRƯỚC KHI render cả bài */}
                 {res && (
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-meta text-[var(--text-muted)]">
                     <span className="chip">
                       {tf("tv.dub.tempo", { tempo: res.tempo.toFixed(2) })}
                     </span>
@@ -905,34 +844,33 @@ function DubSettingsCard({
             );
           })}
         </ul>
-        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+        <p className="text-meta text-[var(--text-muted)]">
           {t("tv.dub.preview-hint")}
         </p>
-      </div>
+      </Panel>
 
       {/* 3. Tiếng gốc chạy nhỏ bên dưới - mặc định TẮT: lồng tiếng là để THAY
           tiếng gốc, bật sẵn thì video nào cũng nghe lùng bùng hai lớp tiếng */}
-      <div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={dub.keepOriginal}
-            disabled={disabled}
-            onChange={(e) => onChange({ keepOriginal: e.target.checked })}
-          />
-          {t("tv.dub.keep-original")}
-        </label>
+      <div className="flex flex-col gap-3">
+        <CheckboxField
+          id="tv-dub-keep-original"
+          label={t("tv.dub.keep-original")}
+          checked={dub.keepOriginal}
+          disabled={disabled}
+          onChange={(next) => onChange({ keepOriginal: next })}
+        />
         {dub.keepOriginal && (
-          <div className="mt-2">
-            <label className="label" htmlFor="tv-dub-original-volume">
-              {tf("tv.dub.original-volume", {
-                percent: Math.round(dub.originalVolume * 100),
-              })}
-            </label>
+          <Field
+            label={tf("tv.dub.original-volume", {
+              percent: Math.round(dub.originalVolume * 100),
+            })}
+            htmlFor="tv-dub-original-volume"
+            hint={t("tv.dub.original-volume-hint")}
+          >
             <input
               id="tv-dub-original-volume"
               type="range"
-              className="w-full"
+              className="slider"
               min={0}
               max={DUB_ORIGINAL_VOLUME_MAX}
               step={0.01}
@@ -942,10 +880,7 @@ function DubSettingsCard({
                 onChange({ originalVolume: Number(e.target.value) }, false)
               }
             />
-            <p className="text-xs text-[var(--text-muted)]">
-              {t("tv.dub.original-volume-hint")}
-            </p>
-          </div>
+          </Field>
         )}
       </div>
     </div>
@@ -956,9 +891,8 @@ function DubSettingsCard({
 function DubReport({ info }: { info: DubInfo }) {
   const { t, tf } = useT();
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5">
-      <span className="text-xs font-semibold">{t("tv.dub.report")}</span>
-      <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+    <Panel title={t("tv.dub.report")}>
+      <div className="flex flex-wrap items-center gap-2 text-meta text-[var(--text-muted)]">
         <span className="chip">{tf("tv.cue-count", { n: info.cues })}</span>
         <span className="chip">{tf("tv.dub.stretched", { n: info.stretched })}</span>
         <span className="chip">
@@ -976,10 +910,10 @@ function DubReport({ info }: { info: DubInfo }) {
       </div>
       {/* Câu tràn là lỗi NỘI DUNG (bản dịch dài quá), không phải lỗi máy - nói rõ
           cách sửa chứ đừng chỉ ném ra một con số */}
-      <p className="text-xs text-[var(--text-muted)]">
+      <p className="text-meta text-[var(--text-muted)]">
         {info.overflowed > 0 ? t("tv.dub.report-overflow") : t("tv.dub.report-ok")}
       </p>
-    </div>
+    </Panel>
   );
 }
 
@@ -1007,8 +941,6 @@ export default function TranslateVideoDetailPage() {
   const [mode, setMode] = useState<TranslateMode>("subtitle");
   /** null = đọc đúng ngôn ngữ phụ đề (xem dubLang bên server) */
   const [dubLang, setDubLang] = useState<string | null>(null);
-  const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
-  const [dubModalOpen, setDubModalOpen] = useState(false);
   const [sttProvider, setSttProvider] = useState<SttProvider>("local");
   const [cues, setCues] = useState<TranslatedCue[]>([]);
   const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle | null>(null);
@@ -1204,14 +1136,18 @@ export default function TranslateVideoDetailPage() {
   }
 
   /**
-   * Chọn chế độ VÀ mở luôn popup cấu hình của nó. Chọn "cả hai" thì mở popup
-   * phụ đề - chữ trên hình là thứ nhìn thấy trước, còn giọng đọc thì mở sau
-   * bằng hàng tóm tắt ngay bên dưới.
+   * Chọn chế độ VÀ mở luôn khối cấu hình của nó ngay bên dưới. Chọn "cả hai"
+   * thì mở khối phụ đề - chữ trên hình là thứ nhìn thấy trước, còn giọng đọc
+   * nằm ngay khối kế tiếp, bấm một cái là mở.
+   *
+   * Trước đây hai cụm cấu hình này nằm trong popup: đóng popup lại là không còn
+   * thấy mình đã đặt gì, mà cột giữa thì trống trơn. Giờ chúng là khối thật
+   * trong cột, gấp/mở như mọi khối khác và có dòng tóm tắt lúc gấp.
    */
   function chooseMode(v: TranslateMode) {
     patchMode(v);
-    if (v === "dub") setDubModalOpen(true);
-    else setSubtitleModalOpen(true);
+    if (v === "dub") group.set("dub", false);
+    else group.set("subtitle", false);
   }
 
   function patchSttProvider(v: SttProvider) {
@@ -1500,7 +1436,7 @@ export default function TranslateVideoDetailPage() {
             : undefined
         }
         center={
-          <div className="flex items-start gap-1.5">
+          <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
               <StepperBar
                 steps={STAGE_LABELS}
@@ -1517,29 +1453,36 @@ export default function TranslateVideoDetailPage() {
           </div>
         }
         actions={
+          /* Nút xóa đứng CUỐI, ngoài cụm nút thường, ngăn bằng vạch dọc - quy
+             ước chung của 7 trang chi tiết, lý do viết đầy đủ ở
+             `src/app/images/[id]/page.tsx`. */
           <>
-            <Button variant="secondary" onClick={() => router.push("/translate-video")}>
-              <ArrowLeft size={15} strokeWidth={2} />
-              {t("tv.back")}
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={running}
-              onClick={() => {
-                setDeleteError(null);
-                setDeleteOpen(true);
-              }}
-            >
-              <Trash2 size={15} strokeWidth={2} />
-              {t("common.delete")}
-            </Button>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/translate-video")}>
+                <ArrowLeft size={15} strokeWidth={2} />
+                {t("tv.back")}
+              </Button>
+            </span>
+            <span className="flex items-center border-l border-[var(--border)] pl-2">
+              <Button
+                variant="destructive"
+                disabled={running}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 size={15} strokeWidth={2} />
+                {t("common.delete")}
+              </Button>
+            </span>
           </>
         }
       />
 
       {/* Tóm tắt phiên - nhìn một dòng biết phiên này đang ra sao */}
       <Card>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+        <div className="flex flex-wrap items-center gap-2 text-meta text-[var(--text-muted)]">
           <Badge
             tone={TRANSLATE_VIDEO_STATUS_TONE[session.status] ?? "muted"}
             label={statusLabel}
@@ -1584,16 +1527,11 @@ export default function TranslateVideoDetailPage() {
             collapsed={group.isCollapsed("source")}
             onToggle={() => group.toggle("source")}
             summary={sourceSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-source")}
-                <InfoHint
-                  titleKey="help.tv-source.title"
-                  bodyKey="help.tv-source.body"
-                  size={14}
-                />
-              </span>
-            }
+            title={t("tv.card-source")}
+            hint={{
+              titleKey: "help.tv-source.title",
+              bodyKey: "help.tv-source.body",
+            }}
             actions={
               <Button
                 variant="secondary"
@@ -1644,12 +1582,12 @@ export default function TranslateVideoDetailPage() {
                 }`}
               >
                 {uploading ? (
-                  <p className="flex items-center justify-center gap-2 text-xs text-[var(--text-muted)]">
-                    <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                  <p className="flex items-center justify-center gap-2 text-sm text-[var(--text-muted)]">
+                    <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                     {t("tv.uploading")}
                   </p>
                 ) : (
-                  <p className="text-xs text-[var(--text-muted)]">{t("tv.drop-hint")}</p>
+                  <p className="text-sm text-[var(--text-muted)]">{t("tv.drop-hint")}</p>
                 )}
               </div>
 
@@ -1660,7 +1598,7 @@ export default function TranslateVideoDetailPage() {
                     src={sourceUrl}
                     className="max-h-[360px] w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
                   />
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     {src.width && src.height && (
                       <span className="chip">
                         {src.width}x{src.height}
@@ -1670,7 +1608,7 @@ export default function TranslateVideoDetailPage() {
                       <span className="chip">{clock(src.durationSec)}</span>
                     )}
                     {src.fps !== null && <span className="chip">{src.fps} fps</span>}
-                    <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
+                    <span className="min-w-0 truncate text-meta text-[var(--text-muted)]">
                       {src.relPath}
                     </span>
                   </div>
@@ -1679,15 +1617,14 @@ export default function TranslateVideoDetailPage() {
                 <EmptyState icon={FileVideo} description={t("tv.no-source-yet")} />
               )}
 
-              <div>
-                <label className="label" htmlFor="tv-source-lang">
-                  {t("tv.source-lang")}
-                  <InfoHint
-                    className="ml-1.5 align-middle"
-                    titleKey="help.tv-lang.title"
-                    bodyKey="help.tv-lang.body"
-                  />
-                </label>
+              <Field
+                label={t("tv.source-lang")}
+                htmlFor="tv-source-lang"
+                hintKeys={{
+                  titleKey: "help.tv-lang.title",
+                  bodyKey: "help.tv-lang.body",
+                }}
+              >
                 <select
                   id="tv-source-lang"
                   className="input"
@@ -1704,7 +1641,7 @@ export default function TranslateVideoDetailPage() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </Field>
             </div>
           </WorkspaceBlock>
 
@@ -1718,16 +1655,11 @@ export default function TranslateVideoDetailPage() {
             collapsed={group.isCollapsed("transcript")}
             onToggle={() => group.toggle("transcript")}
             summary={transcriptSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-transcript")}
-                <InfoHint
-                  titleKey="help.tv-transcript.title"
-                  bodyKey="help.tv-transcript.body"
-                  size={14}
-                />
-              </span>
-            }
+            title={t("tv.card-transcript")}
+            hint={{
+              titleKey: "help.tv-transcript.title",
+              bodyKey: "help.tv-transcript.body",
+            }}
             actions={
               <Button
                 small
@@ -1747,15 +1679,24 @@ export default function TranslateVideoDetailPage() {
               {/* AI nào bóc lời: chỉ Gemini và Soniox gắn được nhãn người nói,
                   mà không có nhãn thì lồng tiếng chỉ đọc được một giọng cho cả
                   video - nên lựa chọn này phải nằm ngay tại đây, không giấu đi */}
-              <div>
-                <label className="label" htmlFor="tv-stt-provider">
-                  {t("tv.stt-provider")}
-                  <InfoHint
-                    className="ml-1.5 align-middle"
-                    titleKey="help.tv-stt.title"
-                    bodyKey="help.tv-stt.body"
-                  />
-                </label>
+              <Field
+                label={t("tv.stt-provider")}
+                htmlFor="tv-stt-provider"
+                hintKeys={{
+                  titleKey: "help.tv-stt.title",
+                  bodyKey: "help.tv-stt.body",
+                }}
+                // Lý do "chưa dùng được" ĐẨY dòng gợi ý đi chứ không nằm dưới
+                // nó: xếp chồng hai câu xám/đỏ thì đọc thành một câu lẫn lộn.
+                error={
+                  sttCap && !sttCap.available && sttCap.why ? sttCap.why : null
+                }
+                hint={
+                  sttCap?.diarization
+                    ? t("tv.stt.diarization-hint")
+                    : t("tv.stt.no-diarization-hint")
+                }
+              >
                 <select
                   id="tv-stt-provider"
                   className="input"
@@ -1776,27 +1717,11 @@ export default function TranslateVideoDetailPage() {
                     </option>
                   ))}
                 </select>
-                {sttCap && !sttCap.available && sttCap.why && (
-                  <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--danger)]">
-                    <AlertTriangle
-                      size={13}
-                      strokeWidth={2}
-                      aria-hidden="true"
-                      className="mt-0.5 shrink-0"
-                    />
-                    {sttCap.why}
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {sttCap?.diarization
-                    ? t("tv.stt.diarization-hint")
-                    : t("tv.stt.no-diarization-hint")}
-                </p>
-              </div>
+              </Field>
 
               {session.status === "transcribing" && (
-                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                   {t("tv.transcribing-hint")}
                 </p>
               )}
@@ -1813,7 +1738,7 @@ export default function TranslateVideoDetailPage() {
               {/* Transcript ĐANG CÓ là của ai, tiếng gì, có nhãn người nói
                   không - khác hẳn ô chọn phía trên (đó là cho lần chạy SAU) */}
               {session.transcriptInfo && (
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="chip">
                     {sttName(session.transcriptInfo.provider)}
                   </span>
@@ -1847,16 +1772,11 @@ export default function TranslateVideoDetailPage() {
             collapsed={group.isCollapsed("translation")}
             onToggle={() => group.toggle("translation")}
             summary={translationSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-translation")}
-                <InfoHint
-                  titleKey="help.tv-translation.title"
-                  bodyKey="help.tv-translation.body"
-                  size={14}
-                />
-              </span>
-            }
+            title={t("tv.card-translation")}
+            hint={{
+              titleKey: "help.tv-translation.title",
+              bodyKey: "help.tv-translation.body",
+            }}
             actions={
               <Button
                 small
@@ -1873,87 +1793,60 @@ export default function TranslateVideoDetailPage() {
             }
           >
             <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <span className="label">
-                    {t("tv.mode")}
-                    <InfoHint
-                      className="ml-1.5 align-middle"
-                      titleKey="help.tv-mode.title"
-                      bodyKey="help.tv-mode.body"
-                    />
-                  </span>
-                  {/* Chọn chế độ là MỞ LUÔN popup cấu hình của chế độ đó: chọn
-                      xong mà không thấy gì xảy ra thì người dùng phải tự đi tìm
-                      chỗ chỉnh. Chọn "cả hai" thì mở popup phụ đề trước - đó là
-                      thứ nhìn thấy ngay trên hình. */}
-                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("tv.mode")}>
-                    {(
+              <Panel>
+                {/* Chọn chế độ là MỞ LUÔN khối cấu hình của chế độ đó ngay bên
+                    dưới: chọn xong mà không thấy gì xảy ra thì người dùng phải
+                    tự đi tìm chỗ chỉnh. Chọn "cả hai" thì mở khối phụ đề trước
+                    - đó là thứ nhìn thấy ngay trên hình. */}
+                <Field
+                  label={t("tv.mode")}
+                  hintKeys={{
+                    titleKey: "help.tv-mode.title",
+                    bodyKey: "help.tv-mode.body",
+                  }}
+                >
+                  <Segmented
+                    label={t("tv.mode")}
+                    value={mode}
+                    disabled={locked}
+                    onChange={chooseMode}
+                    options={(
                       [
                         ["subtitle", Subtitles],
                         ["dub", Mic],
                         ["both", Layers],
                       ] as const
-                    ).map(([m, Icon]) => (
-                      <button
-                        key={m}
-                        type="button"
-                        role="radio"
-                        aria-checked={mode === m}
-                        disabled={locked}
-                        onClick={() => chooseMode(m as TranslateMode)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors duration-150 ${
-                          mode === m
-                            ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-                            : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                        } disabled:cursor-not-allowed disabled:opacity-45`}
-                      >
-                        <Icon size={13} strokeWidth={2} />
-                        {t(TRANSLATE_MODE_LABEL[m as TranslateMode])}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Một dòng tóm tắt + nút mở lại popup. Đây là chỗ DUY NHẤT
-                      trong cột nhắc tới cấu hình phụ đề/lồng tiếng, nên nó phải
-                      nói được "đang đặt gì" chứ không chỉ là một cái nút. */}
-                  <div className="mt-2 flex flex-col gap-1.5">
-                    {wantsSubtitleMode && (
-                      <ConfigRow
-                        icon={Type}
-                        label={t("tv.card-subtitle")}
-                        value={`${langLabel(targetLang)} · ${subtitleSummary}`}
-                        onOpen={() => setSubtitleModalOpen(true)}
-                        openLabel={t("tv.configure")}
-                      />
-                    )}
-                    {wantsDubMode && (
-                      <ConfigRow
-                        icon={Mic}
-                        label={t("tv.card-dub")}
-                        value={`${langLabel(effectiveDubLang)} · ${dubSummary}`}
-                        onOpen={() => setDubModalOpen(true)}
-                        openLabel={t("tv.configure")}
-                      />
-                    )}
-                  </div>
-                </div>
+                    ).map(([m, Icon]) => ({
+                      value: m as TranslateMode,
+                      label: (
+                        <>
+                          <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                          {t(TRANSLATE_MODE_LABEL[m as TranslateMode])}
+                        </>
+                      ),
+                    }))}
+                  />
+                </Field>
 
                 {/* AI nào dịch và model gì - câu hỏi đầu tiên khi đọc phải một
                     câu dịch lạ, nên nó phải nằm ngay cạnh nút Dịch chứ không
                     nằm trong tài liệu. Danh sách model là gương của
-                    apps/server/src/translate.ts (xem TRANSLATE_MODELS). */}
-                {/* Tràn hết bề ngang khối: ô này đứng một mình ở hàng cuối, để
-                    nửa khung thì nửa còn lại trống trơ mà tên model lại bị cắt. */}
-                <div className="sm:col-span-2">
-                  <label className="label" htmlFor="tv-model">
-                    {t("tv.model")}
-                    <InfoHint
-                      className="ml-1.5 align-middle"
-                      titleKey="help.tv-model.title"
-                      bodyKey="help.tv-model.body"
-                    />
-                  </label>
+                    apps/server/src/translate.ts (xem TRANSLATE_MODELS).
+                    Dòng "đang dùng gì" là GỢI Ý của chính ô này, không phải một
+                    câu rời phía dưới - trước đây nó lặp lại y hệt giá trị vừa
+                    chọn ở cách đó hai dòng. */}
+                <Field
+                  label={t("tv.model")}
+                  htmlFor="tv-model"
+                  hintKeys={{
+                    titleKey: "help.tv-model.title",
+                    bodyKey: "help.tv-model.body",
+                  }}
+                  hint={tf("tv.model-current", {
+                    provider: TRANSLATE_PROVIDER,
+                    model: translateModel,
+                  })}
+                >
                   <select
                     id="tv-model"
                     className="input"
@@ -1970,20 +1863,12 @@ export default function TranslateVideoDetailPage() {
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-                <Bot size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
-                {tf("tv.model-current", {
-                  provider: TRANSLATE_PROVIDER,
-                  model: translateModel,
-                })}
-              </p>
+                </Field>
+              </Panel>
 
               {session.status === "translating" ? (
-                <p className="flex items-center gap-2 py-4 text-xs text-[var(--text-muted)]">
-                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                <p className="flex items-center gap-2 py-4 text-sm text-[var(--text-muted)]">
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                   {t("tv.translating-hint")}
                 </p>
               ) : cues.length === 0 ? (
@@ -1993,75 +1878,103 @@ export default function TranslateVideoDetailPage() {
                   {/* Nói TRƯỚC khi bấm render: server sẽ chặn (400) chứ không
                       đọc liều bản phụ đề bằng sai ngôn ngữ */}
                   {dubTranslationMissing && (
-                    <p className="flex items-start gap-1.5 rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
-                      <AlertTriangle
-                        size={13}
-                        strokeWidth={2}
-                        aria-hidden="true"
-                        className="mt-0.5 shrink-0"
-                      />
-                      {tf("tv.dub-needs-retranslate", {
+                    <Banner
+                      tone="danger"
+                      message={tf("tv.dub-needs-retranslate", {
                         lang: langLabel(effectiveDubLang),
                       })}
-                    </p>
+                    />
                   )}
-                  <ul className="flex flex-col gap-1.5">
-                    {cues.map((c, i) => (
-                      <li
-                        key={i}
-                        className="flex flex-col gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-                      >
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
-                          <span className="font-mono">
-                            {clock(c.start)} - {clock(c.end)}
-                          </span>
-                          {c.speaker && <span className="chip">{c.speaker}</span>}
-                        </div>
-                        {c.original && (
-                          <p className="text-xs text-[var(--text-muted)] italic">
-                            {c.original}
-                          </p>
-                        )}
-                        {/* Hai ngôn ngữ thì phải THẤY cả hai. Trước đây chỗ này
-                            chỉ hiện chữ phụ đề, nên chọn lồng tiếng bằng tiếng
-                            khác xong vẫn nhìn thấy toàn tiếng của phụ đề và
-                            tưởng bản đọc không đổi theo ngôn ngữ đã chọn. */}
-                        {twoLangs && (
-                          <span className="text-[11px] font-medium text-[var(--text-muted)]">
-                            {tf("tv.cue-subtitle-of", { lang: langLabel(targetLang) })}
-                          </span>
-                        )}
-                        <textarea
-                          className="input text-[13px]"
-                          rows={2}
-                          value={c.text}
-                          disabled={locked}
-                          aria-label={tf("tv.cue-aria", { n: i + 1 })}
-                          onChange={(e) => patchCueText(i, e.target.value)}
-                          onBlur={() => flush()}
-                        />
-                        {twoLangs && (
-                          <>
-                            <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)]">
-                              <Mic size={11} strokeWidth={2} aria-hidden="true" />
-                              {tf("tv.cue-dub-of", { lang: langLabel(effectiveDubLang) })}
-                            </span>
-                            <textarea
-                              className="input text-[13px]"
-                              rows={2}
-                              value={c.dubText ?? ""}
-                              disabled={locked}
-                              placeholder={t("tv.cue-dub-missing")}
-                              aria-label={tf("tv.cue-dub-aria", { n: i + 1 })}
-                              onChange={(e) => patchCueDubText(i, e.target.value)}
-                              onBlur={() => flush()}
-                            />
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-xs text-[var(--text-muted)]">
+                  {/* Cả danh sách nằm trong MỘT Panel, từng câu chỉ cách nhau
+                      bằng một đường kẻ mảnh. Trước đây mỗi câu là một thẻ có
+                      viền riêng bên trong một khối có viền - 200 câu thành 200
+                      cái khung lồng trong khung, không đọc ra được cái nào
+                      chứa cái nào. */}
+                  <Panel>
+                    <ul className="flex flex-col">
+                      {cues.map((c, i) => {
+                        // Ô phụ đề dựng một lần: hai ngôn ngữ thì nó có nhãn,
+                        // một ngôn ngữ thì nhãn ấy chỉ là chữ thừa
+                        const subtitleBox = (
+                          <textarea
+                            id={`tv-cue-${i}`}
+                            className="input"
+                            rows={2}
+                            value={c.text}
+                            disabled={locked}
+                            aria-label={tf("tv.cue-aria", { n: i + 1 })}
+                            onChange={(e) => patchCueText(i, e.target.value)}
+                            onBlur={() => flush()}
+                          />
+                        );
+                        return (
+                          <li
+                            key={i}
+                            className="flex flex-col gap-2 border-t border-[var(--border)] py-3 first:border-t-0 first:pt-0 last:pb-0"
+                          >
+                            {/* Mốc thời gian + người nói gộp một dòng phụ chú:
+                                đây là thứ để ĐỊNH VỊ câu, không phải để đọc */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-[var(--text-muted)]">
+                              <span className="font-mono">
+                                {clock(c.start)} - {clock(c.end)}
+                              </span>
+                              {c.speaker && <span className="chip">{c.speaker}</span>}
+                            </div>
+                            {/* Câu gốc là thứ PHẢI đọc để đối chiếu bản dịch -
+                                đủ 14px như mọi nội dung khác */}
+                            {c.original && (
+                              <p className="text-sm text-[var(--text-muted)] italic">
+                                {c.original}
+                              </p>
+                            )}
+                            {/* Hai ngôn ngữ thì phải THẤY cả hai. Trước đây chỗ
+                                này chỉ hiện chữ phụ đề, nên chọn lồng tiếng bằng
+                                tiếng khác xong vẫn nhìn thấy toàn tiếng của phụ
+                                đề và tưởng bản đọc không đổi theo ngôn ngữ đã
+                                chọn. */}
+                            {twoLangs ? (
+                              <Field
+                                label={tf("tv.cue-subtitle-of", {
+                                  lang: langLabel(targetLang),
+                                })}
+                                htmlFor={`tv-cue-${i}`}
+                              >
+                                {subtitleBox}
+                              </Field>
+                            ) : (
+                              subtitleBox
+                            )}
+                            {twoLangs && (
+                              <Field
+                                label={
+                                  <span className="inline-flex items-center gap-1">
+                                    <Mic size={13} strokeWidth={2} aria-hidden="true" />
+                                    {tf("tv.cue-dub-of", {
+                                      lang: langLabel(effectiveDubLang),
+                                    })}
+                                  </span>
+                                }
+                                htmlFor={`tv-cue-dub-${i}`}
+                              >
+                                <textarea
+                                  id={`tv-cue-dub-${i}`}
+                                  className="input"
+                                  rows={2}
+                                  value={c.dubText ?? ""}
+                                  disabled={locked}
+                                  placeholder={t("tv.cue-dub-missing")}
+                                  aria-label={tf("tv.cue-dub-aria", { n: i + 1 })}
+                                  onChange={(e) => patchCueDubText(i, e.target.value)}
+                                  onBlur={() => flush()}
+                                />
+                              </Field>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Panel>
+                  <p className="text-meta text-[var(--text-muted)]">
                     {tf("tv.translated-count", { n: translatedCount })} /{" "}
                     {tf("tv.cue-count", { n: cues.length })} · {t("tv.cue-hint")}
                   </p>
@@ -2070,372 +1983,340 @@ export default function TranslateVideoDetailPage() {
             </div>
           </WorkspaceBlock>
 
-          {/* Cấu hình phụ đề và lồng tiếng KHÔNG còn chiếm chỗ trong cột nữa -
-              chúng nằm trong popup, mở từ ô chế độ ở khối Bản dịch. Bày cả bảng
-              kiểu chữ lẫn bảng gán giọng ra cột giữa là bắt người dùng cuộn qua
-              hai màn hình cấu hình mỗi lần chỉ muốn nhìn bản dịch. */}
-
-          {/* ---- Popup: cấu hình PHỤ ĐỀ ---- */}
-          <Modal
-            wide
-            title={t("tv.card-subtitle")}
-            open={subtitleModalOpen}
-            onClose={() => setSubtitleModalOpen(false)}
-            footer={
-              <Button onClick={() => setSubtitleModalOpen(false)}>
-                {t("common.done")}
-              </Button>
-            }
-          >
-            {/* Ngôn ngữ của CHỮ TRÊN MÀN HÌNH - đặt trong chính popup phụ đề để
-                không phải nhớ nó nằm ở đâu khác */}
-            <div>
-              <label className="label" htmlFor="tv-subtitle-lang">
-                {t("tv.subtitle-lang")}
-              </label>
-              <select
-                id="tv-subtitle-lang"
-                className="input"
-                value={targetLang}
-                disabled={locked}
-                onChange={(e) => patchTargetLang(e.target.value)}
-              >
-                {!TRANSLATE_TARGET_LANGS.includes(
-                  targetLang as (typeof TRANSLATE_TARGET_LANGS)[number]
-                ) && <option value={targetLang}>{targetLang}</option>}
-                {TRANSLATE_TARGET_LANGS.map((code) => (
-                  <option key={code} value={code}>
-                    {langLabel(code)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {/* Lồng tiếng KHÔNG đốt chữ lên hình - nói thẳng thay vì để người
-                  dùng chỉnh cả bảng kiểu chữ rồi không thấy chữ đâu trong video */}
-              {isDub && (
-                <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-                  <AlertTriangle
-                    size={13}
-                    strokeWidth={2}
-                    aria-hidden="true"
-                    className="mt-0.5 shrink-0"
-                  />
-                  {t("tv.subtitle-unused-in-dub")}
-                </p>
-              )}
-
-              {/* Xem trước NGAY: đổi cỡ chữ hay màu nền mà phải render mới biết
-                  đẹp xấu thì mỗi lần thử mất hàng chục phút. */}
-              <div>
-                <span className="label">{t("tv.preview")}</span>
-                {/* Khung giả lập video: nền tối cố định (không phải token) vì
-                    đây là MÔ PHỎNG khung hình, không phải giao diện dashboard -
-                    đổi theo theme sáng/tối là xem trước sai. */}
-                <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[var(--radius)] bg-[#1c1c20]">
-                  {/*
-                    PHÍA SAU CHỮ PHẢI CÓ HÌNH THẬT.
-
-                    Lỗi đã sửa: `backdrop-filter: blur()` chỉ làm mờ NHỮNG GÌ NẰM
-                    PHÍA SAU nó. Trước đây ô xem trước là một khối màu phẳng, mà
-                    làm mờ một màu phẳng thì ra đúng màu phẳng đó - kéo "Độ mờ"
-                    từ 0 lên 40 không đổi lấy một pixel, người dùng tưởng tính
-                    năng hỏng.
-                    Nên: một khung hình của CHÍNH video người dùng vừa tải lên
-                    (mốc PREVIEW_FRAME_SEC, tránh giây đầu thường là màn đen),
-                    chưa có nguồn thì dùng nền kẻ sọc tương phản - cả hai đều có
-                    chi tiết để làm mờ, nên 0 / 20 / 40 nhìn ra ngay là ba mức.
-                    Video ở đây câm và không có controls: nó là HÌNH NỀN, người
-                    dùng đã có trình phát thật ở khối Video nguồn.
-                  */}
-                  {sourceUrl ? (
-                    <video
-                      key={sourceUrl}
-                      src={`${sourceUrl}#t=${PREVIEW_FRAME_SEC}`}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0"
-                      // Sọc chéo hai tông xám: đủ chi tiết để thấy độ mờ, và cố
-                      // ý KHÔNG dùng token màu (xem ghi chú khung giả lập trên).
-                      style={{
-                        background:
-                          "repeating-linear-gradient(135deg, #3a3f4b 0 14px, #191c22 14px 28px)",
-                      }}
-                    />
-                  )}
-                  <div
-                    className="relative max-w-[86%] rounded-[6px] px-3 py-1.5 text-center leading-snug"
-                    style={{
-                      marginBottom: `${Math.min(
-                        // bottomPx tính trên khung hình thật (vd 1080px cao), ô
-                        // xem trước chỉ cao 160px → thu tỉ lệ cho khỏi đẩy chữ ra ngoài
-                        Math.round(subtitleStyle.bottomPx / 8),
-                        96
-                      )}px`,
-                      fontFamily:
-                        FONT_STACK[subtitleStyle.fontFamily as SubtitleFontId] ??
-                        FONT_STACK.sans,
-                      fontSize: `${Math.max(
-                        11,
-                        Math.round(subtitleStyle.fontSizePx / 3)
-                      )}px`,
-                      color: subtitleStyle.color,
-                      background:
-                        subtitleStyle.backdrop === "none"
-                          ? "transparent"
-                          : subtitleStyle.backdropColor,
-                      // Bán kính mờ thu theo ĐÚNG tỉ lệ của cỡ chữ (÷3): ô xem
-                      // trước nhỏ hơn khung hình thật chừng ấy lần, để nguyên
-                      // 40px là cả ô nhòe thành một mảng - lại nói dối kiểu khác.
-                      backdropFilter:
-                        subtitleStyle.backdrop === "blur"
-                          ? `blur(${(subtitleStyle.blurPx / 3).toFixed(1)}px)`
-                          : undefined,
-                      opacity: subtitleStyle.backdrop === "blur" ? 0.92 : 1,
-                    }}
-                  >
-                    {t("tv.preview-text")}
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {sourceUrl ? t("tv.preview-hint") : t("tv.preview-hint-no-source")}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor="tv-font">
-                    {t("tv.font")}
-                    <InfoHint
-                      className="ml-1.5 align-middle"
-                      titleKey="help.tv-font.title"
-                      bodyKey="help.tv-font.body"
-                    />
-                  </label>
+          {/* ---- Cấu hình PHỤ ĐỀ ----
+              Đây là KHỐI THẬT trong cột, không còn là popup. Trước đây cả biểu
+              mẫu này nằm trong modal nên cột giữa gần như trống, còn công việc
+              thật thì phải mở popup mới thấy - ba trang chi tiết anh em
+              (projects, text-to-video, auto cut) đều để cấu hình ngay tại cột
+              giữa. Chỉ hiện khi chế độ có đốt chữ lên hình: chọn thuần lồng
+              tiếng mà vẫn bày cả bảng kiểu chữ là bày một khối không dùng tới. */}
+          {wantsSubtitleMode && (
+            <WorkspaceBlock
+              id="tv-block-subtitle"
+              icon={Type}
+              collapsed={group.isCollapsed("subtitle")}
+              onToggle={() => group.toggle("subtitle")}
+              summary={`${langLabel(targetLang)} · ${subtitleSummary}`}
+              title={t("tv.card-subtitle")}
+            >
+              <div className="flex flex-col gap-4">
+                {/* Ngôn ngữ của CHỮ TRÊN MÀN HÌNH - đặt ngay trong khối phụ đề để
+                    không phải nhớ nó nằm ở đâu khác */}
+                <Field label={t("tv.subtitle-lang")} htmlFor="tv-subtitle-lang">
                   <select
-                    id="tv-font"
+                    id="tv-subtitle-lang"
                     className="input"
-                    value={subtitleStyle.fontFamily}
+                    value={targetLang}
                     disabled={locked}
-                    onChange={(e) => patchStyle({ fontFamily: e.target.value }, true)}
+                    onChange={(e) => patchTargetLang(e.target.value)}
                   >
-                    {/* Font ngoài allowlist (server cũ/mới lệch nhau) vẫn hiện để
-                        không âm thầm đổi lựa chọn đã lưu của người dùng */}
-                    {!SUBTITLE_FONTS.includes(
-                      subtitleStyle.fontFamily as SubtitleFontId
-                    ) && (
-                      <option value={subtitleStyle.fontFamily}>
-                        {subtitleStyle.fontFamily}
-                      </option>
-                    )}
-                    {SUBTITLE_FONTS.map((f) => (
-                      <option key={f} value={f}>
-                        {t(`tv.font.${f}`)}
+                    {!TRANSLATE_TARGET_LANGS.includes(
+                      targetLang as (typeof TRANSLATE_TARGET_LANGS)[number]
+                    ) && <option value={targetLang}>{targetLang}</option>}
+                    {TRANSLATE_TARGET_LANGS.map((code) => (
+                      <option key={code} value={code}>
+                        {langLabel(code)}
                       </option>
                     ))}
                   </select>
-                </div>
+                </Field>
 
-                <div>
-                  <label className="label" htmlFor="tv-font-size">
-                    {t("tv.font-size")}
-                  </label>
-                  <input
-                    id="tv-font-size"
-                    className="input"
-                    type="number"
-                    min={SUBTITLE_FONT_SIZE_MIN}
-                    max={SUBTITLE_FONT_SIZE_MAX}
-                    value={subtitleStyle.fontSizePx}
-                    disabled={locked}
-                    onChange={(e) =>
-                      patchStyle({ fontSizePx: Number(e.target.value) }, true)
-                    }
-                  />
-                </div>
+                {/* Lồng tiếng KHÔNG đốt chữ lên hình - nói thẳng thay vì để người
+                    dùng chỉnh cả bảng kiểu chữ rồi không thấy chữ đâu trong video */}
+                {isDub && (
+                  <Banner tone="muted" message={t("tv.subtitle-unused-in-dub")} />
+                )}
 
-                <ColorField
-                  id="tv-color"
-                  label={t("tv.color")}
-                  value={subtitleStyle.color}
-                  disabled={locked}
-                  onChange={(v) => patchStyle({ color: v }, true)}
-                />
-
-                <div>
-                  <label className="label" htmlFor="tv-bottom">
-                    {t("tv.bottom")}
-                  </label>
-                  <input
-                    id="tv-bottom"
-                    className="input"
-                    type="number"
-                    min={0}
-                    max={SUBTITLE_BOTTOM_MAX}
-                    value={subtitleStyle.bottomPx}
-                    disabled={locked}
-                    onChange={(e) =>
-                      patchStyle({ bottomPx: Number(e.target.value) }, true)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <span className="label">{t("tv.backdrop")}</span>
-                <div
-                  className="flex flex-wrap gap-1.5"
-                  role="radiogroup"
-                  aria-label={t("tv.backdrop")}
+                {/* Xem trước NGAY: đổi cỡ chữ hay màu nền mà phải render mới biết
+                    đẹp xấu thì mỗi lần thử mất hàng chục phút. */}
+                <Field
+                  label={t("tv.preview")}
+                  hint={sourceUrl ? t("tv.preview-hint") : t("tv.preview-hint-no-source")}
                 >
-                  {(["blur", "solid", "none"] as const).map((b) => (
-                    <button
-                      key={b}
-                      type="button"
-                      role="radio"
-                      aria-checked={subtitleStyle.backdrop === b}
-                      disabled={locked}
-                      onClick={() => patchStyle({ backdrop: b as SubtitleBackdrop }, true)}
-                      className={`rounded-full border px-3 py-1 text-xs transition-colors duration-150 ${
-                        subtitleStyle.backdrop === b
-                          ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-                          : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                      } disabled:cursor-not-allowed disabled:opacity-45`}
-                    >
-                      {t(`tv.backdrop.${b}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* NGOẠI LỆ DUY NHẤT của bảng token trong file này: khung dưới
+                      đây MÔ PHỎNG khung hình video, không phải một bề mặt của
+                      dashboard. Nền phải tối và CỐ ĐỊNH tối - lấy --bg-subtle thì
+                      ở theme sáng nó thành trắng, và xem trước phụ đề chữ trắng
+                      trên nền trắng là xem trước nói dối. Hai giá trị hex ở đây
+                      (#1c1c20 cho nền, cặp #3a3f4b/#191c22 cho sọc chéo) cố ý
+                      không có token tương ứng vì chúng không bao giờ đổi theo
+                      theme. */}
+                  <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[var(--radius)] bg-[#1c1c20]">
+                    {/*
+                      PHÍA SAU CHỮ PHẢI CÓ HÌNH THẬT.
 
-              {subtitleStyle.backdrop !== "none" && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <ColorField
-                    id="tv-backdrop-color"
-                    label={t("tv.backdrop-color")}
-                    value={subtitleStyle.backdropColor}
-                    disabled={locked}
-                    // Giữ nguyên độ đặc đang đặt khi đổi MÀU: ô chọn màu trả về
-                    // #rrggbb (không mang alpha), nhận thẳng là mỗi lần đổi màu
-                    // lại đá nền về đặc 100%
-                    onChange={(v) =>
-                      patchStyle(
-                        {
-                          backdropColor: withAlpha(
-                            v,
-                            alphaOf(subtitleStyle.backdropColor)
-                          ),
-                        },
-                        true
-                      )
-                    }
-                  />
-                  <OpacityField
-                    id="tv-backdrop-opacity"
-                    label={t("tv.backdrop-opacity")}
-                    value={subtitleStyle.backdropColor}
-                    disabled={locked}
-                    onChange={(v) => patchStyle({ backdropColor: v }, true)}
-                  />
-                  {subtitleStyle.backdrop === "blur" && (
-                    <div>
-                      <label className="label" htmlFor="tv-blur">
-                        {t("tv.blur")}
-                      </label>
-                      <input
-                        id="tv-blur"
-                        className="input"
-                        type="number"
-                        min={0}
-                        max={SUBTITLE_BLUR_MAX}
-                        value={subtitleStyle.blurPx}
-                        disabled={locked}
-                        onChange={(e) =>
-                          patchStyle({ blurPx: Number(e.target.value) }, true)
-                        }
+                      Lỗi đã sửa: `backdrop-filter: blur()` chỉ làm mờ NHỮNG GÌ NẰM
+                      PHÍA SAU nó. Trước đây ô xem trước là một khối màu phẳng, mà
+                      làm mờ một màu phẳng thì ra đúng màu phẳng đó - kéo "Độ mờ"
+                      từ 0 lên 40 không đổi lấy một pixel, người dùng tưởng tính
+                      năng hỏng.
+                      Nên: một khung hình của CHÍNH video người dùng vừa tải lên
+                      (mốc PREVIEW_FRAME_SEC, tránh giây đầu thường là màn đen),
+                      chưa có nguồn thì dùng nền kẻ sọc tương phản - cả hai đều có
+                      chi tiết để làm mờ, nên 0 / 20 / 40 nhìn ra ngay là ba mức.
+                      Video ở đây câm và không có controls: nó là HÌNH NỀN, người
+                      dùng đã có trình phát thật ở khối Video nguồn.
+                    */}
+                    {sourceUrl ? (
+                      <video
+                        key={sourceUrl}
+                        src={`${sourceUrl}#t=${PREVIEW_FRAME_SEC}`}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
                       />
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0"
+                        // Sọc chéo hai tông xám: đủ chi tiết để thấy độ mờ, và cố
+                        // ý KHÔNG dùng token màu (xem ghi chú khung giả lập trên).
+                        style={{
+                          background:
+                            "repeating-linear-gradient(135deg, #3a3f4b 0 14px, #191c22 14px 28px)",
+                        }}
+                      />
+                    )}
+                    <div
+                      className="relative max-w-[86%] rounded-[var(--radius)] px-3 py-1 text-center leading-snug"
+                      style={{
+                        marginBottom: `${Math.min(
+                          // bottomPx tính trên khung hình thật (vd 1080px cao), ô
+                          // xem trước chỉ cao 160px → thu tỉ lệ cho khỏi đẩy chữ ra ngoài
+                          Math.round(subtitleStyle.bottomPx / 8),
+                          96
+                        )}px`,
+                        fontFamily:
+                          FONT_STACK[subtitleStyle.fontFamily as SubtitleFontId] ??
+                          FONT_STACK.sans,
+                        fontSize: `${Math.max(
+                          11,
+                          Math.round(subtitleStyle.fontSizePx / 3)
+                        )}px`,
+                        color: subtitleStyle.color,
+                        background:
+                          subtitleStyle.backdrop === "none"
+                            ? "transparent"
+                            : subtitleStyle.backdropColor,
+                        // Bán kính mờ thu theo ĐÚNG tỉ lệ của cỡ chữ (÷3): ô xem
+                        // trước nhỏ hơn khung hình thật chừng ấy lần, để nguyên
+                        // 40px là cả ô nhòe thành một mảng - lại nói dối kiểu khác.
+                        backdropFilter:
+                          subtitleStyle.backdrop === "blur"
+                            ? `blur(${(subtitleStyle.blurPx / 3).toFixed(1)}px)`
+                            : undefined,
+                        opacity: subtitleStyle.backdrop === "blur" ? 0.92 : 1,
+                      }}
+                    >
+                      {t("tv.preview-text")}
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                </Field>
 
-              <p className="text-xs text-[var(--text-muted)]">
-                {locked ? t("tv.style-locked") : t("tv.style-autosave")}
-              </p>
-            </div>
-          </Modal>
+                {/* auto-fit, không `sm:grid-cols-2` - xem lý do ở nhóm engine
+                    đọc trong DubbingPicker */}
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+                  <Field
+                    label={t("tv.font")}
+                    htmlFor="tv-font"
+                    hintKeys={{
+                      titleKey: "help.tv-font.title",
+                      bodyKey: "help.tv-font.body",
+                    }}
+                  >
+                    <select
+                      id="tv-font"
+                      className="input"
+                      value={subtitleStyle.fontFamily}
+                      disabled={locked}
+                      onChange={(e) => patchStyle({ fontFamily: e.target.value }, true)}
+                    >
+                      {/* Font ngoài allowlist (server cũ/mới lệch nhau) vẫn hiện để
+                          không âm thầm đổi lựa chọn đã lưu của người dùng */}
+                      {!SUBTITLE_FONTS.includes(
+                        subtitleStyle.fontFamily as SubtitleFontId
+                      ) && (
+                        <option value={subtitleStyle.fontFamily}>
+                          {subtitleStyle.fontFamily}
+                        </option>
+                      )}
+                      {SUBTITLE_FONTS.map((f) => (
+                        <option key={f} value={f}>
+                          {t(`tv.font.${f}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
 
-          {/* ---- Popup: cấu hình LỒNG TIẾNG ---- */}
-          <Modal
-            wide
-            title={t("tv.card-dub")}
-            open={dubModalOpen}
-            onClose={() => setDubModalOpen(false)}
-            footer={
-              <Button onClick={() => setDubModalOpen(false)}>
-                {t("common.done")}
-              </Button>
-            }
-          >
-            {/* Ngôn ngữ ĐỌC LÊN - chọn riêng với ngôn ngữ phụ đề. "Giống phụ đề"
-                là một lựa chọn thật trong danh sách chứ không phải ô để trống:
-                đó là điều đa số người dùng muốn, phải nhìn thấy được. */}
-            <div>
-              <label className="label" htmlFor="tv-dub-lang">
-                {t("tv.dub-lang")}
-              </label>
-              <select
-                id="tv-dub-lang"
-                className="input"
-                value={dubLang ?? ""}
-                disabled={locked}
-                onChange={(e) => patchDubLang(e.target.value || null)}
-              >
-                <option value="">
-                  {tf("tv.dub-lang-same", { lang: langLabel(targetLang) })}
-                </option>
-                {TRANSLATE_TARGET_LANGS.map((code) => (
-                  <option key={code} value={code}>
-                    {langLabel(code)}
-                  </option>
-                ))}
-              </select>
-              {dubLang && dubLang !== targetLang && (
-                <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-                  <AlertTriangle
-                    size={13}
-                    strokeWidth={2}
-                    aria-hidden="true"
-                    className="mt-0.5 shrink-0"
+                  <Field label={t("tv.font-size")} htmlFor="tv-font-size">
+                    <input
+                      id="tv-font-size"
+                      className="input"
+                      type="number"
+                      min={SUBTITLE_FONT_SIZE_MIN}
+                      max={SUBTITLE_FONT_SIZE_MAX}
+                      value={subtitleStyle.fontSizePx}
+                      disabled={locked}
+                      onChange={(e) =>
+                        patchStyle({ fontSizePx: Number(e.target.value) }, true)
+                      }
+                    />
+                  </Field>
+
+                  <ColorField
+                    id="tv-color"
+                    label={t("tv.color")}
+                    value={subtitleStyle.color}
+                    disabled={locked}
+                    onChange={(v) => patchStyle({ color: v }, true)}
                   />
-                  {t("tv.dub-lang-cost")}
-                </p>
-              )}
-            </div>
 
-            {cues.length === 0 ? (
-              <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
-            ) : (
-              <DubSettingsCard
-                sessionId={sessionId}
-                dub={dub}
-                speakers={speakers}
-                diarized={session.transcriptInfo?.diarized === true}
-                cueIndexOf={cueIndexOf}
-                speakerF0={session.dubInfo?.speakerF0 ?? {}}
-                disabled={locked}
-                onChange={patchDub}
-              />
-            )}
-          </Modal>
+                  <Field label={t("tv.bottom")} htmlFor="tv-bottom">
+                    <input
+                      id="tv-bottom"
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={SUBTITLE_BOTTOM_MAX}
+                      value={subtitleStyle.bottomPx}
+                      disabled={locked}
+                      onChange={(e) =>
+                        patchStyle({ bottomPx: Number(e.target.value) }, true)
+                      }
+                    />
+                  </Field>
+                </div>
+
+                <Field label={t("tv.backdrop")}>
+                  <Segmented
+                    label={t("tv.backdrop")}
+                    value={subtitleStyle.backdrop as SubtitleBackdrop}
+                    disabled={locked}
+                    onChange={(b) => patchStyle({ backdrop: b }, true)}
+                    options={(["blur", "solid", "none"] as const).map((b) => ({
+                      value: b,
+                      label: t(`tv.backdrop.${b}`),
+                    }))}
+                  />
+                </Field>
+
+                {subtitleStyle.backdrop !== "none" && (
+                  /* auto-fit, không `sm:grid-cols-2` - xem lý do ở nhóm engine
+                     đọc trong DubbingPicker */
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+                    <ColorField
+                      id="tv-backdrop-color"
+                      label={t("tv.backdrop-color")}
+                      value={subtitleStyle.backdropColor}
+                      disabled={locked}
+                      // Giữ nguyên độ đặc đang đặt khi đổi MÀU: ô chọn màu trả về
+                      // #rrggbb (không mang alpha), nhận thẳng là mỗi lần đổi màu
+                      // lại đá nền về đặc 100%
+                      onChange={(v) =>
+                        patchStyle(
+                          {
+                            backdropColor: withAlpha(
+                              v,
+                              alphaOf(subtitleStyle.backdropColor)
+                            ),
+                          },
+                          true
+                        )
+                      }
+                    />
+                    <OpacityField
+                      id="tv-backdrop-opacity"
+                      label={t("tv.backdrop-opacity")}
+                      value={subtitleStyle.backdropColor}
+                      disabled={locked}
+                      onChange={(v) => patchStyle({ backdropColor: v }, true)}
+                    />
+                    {subtitleStyle.backdrop === "blur" && (
+                      <Field label={t("tv.blur")} htmlFor="tv-blur">
+                        <input
+                          id="tv-blur"
+                          className="input"
+                          type="number"
+                          min={0}
+                          max={SUBTITLE_BLUR_MAX}
+                          value={subtitleStyle.blurPx}
+                          disabled={locked}
+                          onChange={(e) =>
+                            patchStyle({ blurPx: Number(e.target.value) }, true)
+                          }
+                        />
+                      </Field>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-meta text-[var(--text-muted)]">
+                  {locked ? t("tv.style-locked") : t("tv.style-autosave")}
+                </p>
+              </div>
+            </WorkspaceBlock>
+          )}
+
+          {/* ---- Cấu hình LỒNG TIẾNG ---- cũng là khối thật trong cột. Chỉ hiện
+              khi chế độ có đọc tiếng: bảng gán giọng cho từng người nói là thứ
+              nặng nhất trang này, bày ra khi không dùng tới là phí cả màn hình. */}
+          {wantsDubMode && (
+            <WorkspaceBlock
+              id="tv-block-dub"
+              icon={Mic}
+              collapsed={group.isCollapsed("dub")}
+              onToggle={() => group.toggle("dub")}
+              summary={`${langLabel(effectiveDubLang)} · ${dubSummary}`}
+              title={t("tv.card-dub")}
+            >
+              <div className="flex flex-col gap-4">
+                {/* Ngôn ngữ ĐỌC LÊN - chọn riêng với ngôn ngữ phụ đề. "Giống phụ đề"
+                    là một lựa chọn thật trong danh sách chứ không phải ô để trống:
+                    đó là điều đa số người dùng muốn, phải nhìn thấy được. */}
+                <Field
+                  label={t("tv.dub-lang")}
+                  htmlFor="tv-dub-lang"
+                  hint={
+                    dubLang && dubLang !== targetLang ? t("tv.dub-lang-cost") : undefined
+                  }
+                >
+                  <select
+                    id="tv-dub-lang"
+                    className="input"
+                    value={dubLang ?? ""}
+                    disabled={locked}
+                    onChange={(e) => patchDubLang(e.target.value || null)}
+                  >
+                    <option value="">
+                      {tf("tv.dub-lang-same", { lang: langLabel(targetLang) })}
+                    </option>
+                    {TRANSLATE_TARGET_LANGS.map((code) => (
+                      <option key={code} value={code}>
+                        {langLabel(code)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                {cues.length === 0 ? (
+                  <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
+                ) : (
+                  <DubSettingsCard
+                    sessionId={sessionId}
+                    dub={dub}
+                    speakers={speakers}
+                    diarized={session.transcriptInfo?.diarized === true}
+                    cueIndexOf={cueIndexOf}
+                    speakerF0={session.dubInfo?.speakerF0 ?? {}}
+                    disabled={locked}
+                    onChange={patchDub}
+                  />
+                )}
+              </div>
+            </WorkspaceBlock>
+          )}
         </WorkspaceColumn>
 
         {/* ============ Cột 3: tiến trình & kết quả ============ */}
@@ -2453,16 +2334,11 @@ export default function TranslateVideoDetailPage() {
             collapsed={group.isCollapsed("result")}
             onToggle={() => group.toggle("result")}
             summary={resultSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-result")}
-                <InfoHint
-                  titleKey="help.tv-result.title"
-                  bodyKey="help.tv-result.body"
-                  size={14}
-                />
-              </span>
-            }
+            title={t("tv.card-result")}
+            hint={{
+              titleKey: "help.tv-result.title",
+              bodyKey: "help.tv-result.body",
+            }}
             actions={
               <Button
                 disabled={!canRender || busy !== null}
@@ -2486,8 +2362,8 @@ export default function TranslateVideoDetailPage() {
             }
           >
             {session.status === "rendering" && (
-              <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+              <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                 {isDub ? t("tv.dub-rendering-hint") : t("tv.rendering-hint")}
               </p>
             )}
@@ -2500,11 +2376,11 @@ export default function TranslateVideoDetailPage() {
             {session.dubInfo && <DubReport info={session.dubInfo} />}
 
             {outputUrl ? (
-              <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
+              <span className="min-w-0 truncate text-meta text-[var(--text-muted)]">
                 {session.outputFile}
               </span>
             ) : (
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-sm text-[var(--text-muted)]">
                 {canRender
                   ? isDub
                     ? t("tv.dub-render-hint")
@@ -2516,39 +2392,11 @@ export default function TranslateVideoDetailPage() {
             )}
           </OutputBlock>
 
-          {/* Dịch tới đâu rồi - đếm trên chính danh sách câu đang sửa ở cột 2 */}
-          <WorkspaceBlock
-            id="tv-block-progress"
-            icon={Wand2}
-            collapsed={group.isCollapsed("progress")}
-            onToggle={() => group.toggle("progress")}
-            summary={translationSummary}
-            title={t("tv.card-translation-status")}
-          >
-            <div className="flex flex-col gap-2">
-              {session.status === "translating" ? (
-                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                  {t("tv.translating-hint")}
-                </p>
-              ) : cues.length === 0 ? (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {t("tv.no-transcript")}
-                </p>
-              ) : (
-                <>
-                  <ProgressBar
-                    progress={(translatedCount / cues.length) * 100}
-                  />
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {langLabel(sourceLang)} → {langLabel(targetLang)} ·{" "}
-                    {tf("tv.translated-count", { n: translatedCount })} /{" "}
-                    {tf("tv.cue-count", { n: cues.length })}
-                  </p>
-                </>
-              )}
-            </div>
-          </WorkspaceBlock>
+          {/* KHÔNG còn khối "Tiến độ dịch" ở đây: nó chỉ nói lại đúng thứ cột 2
+              đã nói. Tóm tắt của nó là `translationSummary` - cùng chuỗi khối
+              "Bản dịch" đang dùng - còn dòng đếm câu-đã-dịch/tổng-số thì nằm
+              ngay dưới danh sách câu, tức là cạnh chính chỗ người dùng sửa. Đếm
+              một việc ở hai nơi thì đến lúc lệch nhau không ai biết tin chỗ nào. */}
         </WorkspaceColumn>
       </Workspace>
 
@@ -2569,9 +2417,9 @@ export default function TranslateVideoDetailPage() {
             }
           />
         ) : (
-          <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
+          <Panel className="min-h-0 flex-1 items-center justify-center">
             <EmptyState icon={ScrollText} description={t("tv.ai-panel-empty")} />
-          </div>
+          </Panel>
         )}
       </ShellRightPanel>
 

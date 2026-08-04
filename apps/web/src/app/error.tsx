@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/Button";
 
 /**
  * Error boundary toàn app. Nguyên nhân phổ biến nhất: tab đang mở bản build cũ
@@ -93,25 +94,25 @@ export default function GlobalError({
 
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-3 px-6 text-center">
-      <p className="text-base font-semibold">{t.title}</p>
+      {/* Bậc tiêu đề TRANG: đây là dòng duy nhất nói cho người dùng biết chuyện
+          gì vừa xảy ra, không phải một nhãn phụ. */}
+      <h1 className="text-xl font-semibold">{t.title}</h1>
       <p className="max-w-md text-sm text-[var(--text-muted)]">
         {stale ? t.stale : error.message || t.unknown}
       </p>
       <div className="flex gap-2">
-        <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
-          {t.reload}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={reset}>
+        <Button onClick={() => window.location.reload()}>{t.reload}</Button>
+        <Button variant="secondary" onClick={reset}>
           {t.retry}
-        </button>
+        </Button>
       </div>
       {/* Vẫn giữ nguyên văn lỗi cho người đi báo bug - chỉ là không đập vào mặt */}
       {stale && error.message && (
         <details className="max-w-md">
-          <summary className="cursor-pointer text-xs text-[var(--text-muted)]">
+          <summary className="cursor-pointer text-meta text-[var(--text-muted)]">
             {t.detail}
           </summary>
-          <p className="mt-1 break-all font-mono text-xs text-[var(--text-muted)]">
+          <p className="mt-1 break-all font-mono text-meta text-[var(--text-muted)]">
             {error.message}
           </p>
         </details>

@@ -10,15 +10,7 @@
  * - compact: kích thước gọn để nhúng trong panel hẹp.
  */
 
-import {
-  AlertCircle,
-  CheckCircle2,
-  MessageSquare,
-  PauseCircle,
-  Send,
-  Square,
-  Wrench,
-} from "lucide-react";
+import { MessageSquare, Send, Square, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getChatMessages,
@@ -36,6 +28,7 @@ import {
   DEFAULT_EFFORT,
   DEFAULT_MODEL,
 } from "@/components/ModelPicker";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -125,9 +118,11 @@ function Bubble({ msg, compact }: { msg: UiMessage; compact: boolean }) {
   const isUser = msg.role === "user";
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      {/* compact chỉ bóp KHOẢNG ĐỆM, không bóp chữ: nội dung hội thoại là thứ
+          người dùng đọc kỹ nhất trong panel, thu nhỏ nó là sai chỗ nhất. */}
       <div
-        className={`max-w-[80%] whitespace-pre-wrap rounded-[var(--radius-lg)] ${
-          compact ? "px-3 py-2 text-[13px]" : "px-4 py-2.5 text-sm"
+        className={`max-w-[80%] whitespace-pre-wrap rounded-[var(--radius-lg)] text-sm ${
+          compact ? "px-3 py-2" : "px-4 py-2.5"
         } ${
           isUser
             ? "bg-[var(--primary-soft)]"
@@ -140,64 +135,39 @@ function Bubble({ msg, compact }: { msg: UiMessage; compact: boolean }) {
   );
 }
 
-/** Khối kết thúc phiên - hiển thị rõ kết cục thay vì chỉ tắt progress bar. */
+/**
+ * Khối kết thúc phiên - hiển thị rõ kết cục thay vì chỉ tắt progress bar.
+ * Ba tông của <Banner> thay ba hộp tự chế trước đây (mỗi hộp một nền, một icon,
+ * một padding riêng).
+ */
 function SessionEndBlock({
   status,
   finalText,
-  compact,
 }: {
   status: ChatSessionStatus;
   finalText: string | null;
-  compact: boolean;
 }) {
   const { t } = useT();
+  const text = finalText ? (
+    <p className="mt-1.5 whitespace-pre-wrap text-sm">{finalText}</p>
+  ) : null;
+
   if (status === "done") {
     return (
-      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--success-bg)] px-3 py-2.5">
-        <p className="flex items-center gap-2 text-sm font-medium text-[var(--success)]">
-          <CheckCircle2 size={15} strokeWidth={2} className="shrink-0" />
-          {t("chat.done")}
-        </p>
-        {finalText && (
-          <p
-            className={`mt-1.5 whitespace-pre-wrap text-[var(--text)] ${
-              compact ? "text-[13px]" : "text-sm"
-            }`}
-          >
-            {finalText}
-          </p>
-        )}
-      </div>
+      <Banner tone="success" message={t("chat.done")}>
+        {text}
+      </Banner>
     );
   }
   if (status === "error") {
     return (
-      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--danger-bg)] px-3 py-2.5">
-        <p className="flex items-center gap-2 text-sm font-medium text-[var(--danger)]">
-          <AlertCircle size={15} strokeWidth={2} className="shrink-0" />
-          {t("chat.ended-error")}
-        </p>
-        {finalText && (
-          <p
-            className={`mt-1.5 whitespace-pre-wrap text-[var(--text)] ${
-              compact ? "text-[13px]" : "text-sm"
-            }`}
-          >
-            {finalText}
-          </p>
-        )}
-      </div>
+      <Banner tone="danger" message={t("chat.ended-error")}>
+        {text}
+      </Banner>
     );
   }
   if (status === "interrupted") {
-    return (
-      <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5">
-        <p className="flex items-center gap-2 text-sm font-medium text-[var(--text-muted)]">
-          <PauseCircle size={15} strokeWidth={2} className="shrink-0" />
-          {t("chat.interrupted")}
-        </p>
-      </div>
-    );
+    return <Banner tone="muted" message={t("chat.interrupted")} />;
   }
   return null;
 }
@@ -574,24 +544,25 @@ export function ChatThread({
     <div className="card flex min-h-0 flex-1 flex-col overflow-hidden p-0">
       {/* Header trạng thái phiên đang xem */}
       {sessionId && status && (
+        // Tiêu đề ĐÚNG hình dạng tiêu đề của <Card> (14px/600): khung này là một
+        // card tự dựng (cần vùng cuộn riêng), nên header của nó không được là
+        // một kiểu chữ khác với mọi card còn lại của app.
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
-          <span className="text-xs font-medium text-[var(--text-muted)]">
-            {t("chat.session")}
-          </span>
+          <h2 className="text-sm font-semibold">{t("chat.session")}</h2>
           <div className="flex min-w-0 items-center gap-3">
             {runDurationLabel && (
-              <span className="truncate text-xs text-[var(--text-muted)]">
+              <span className="truncate text-meta text-[var(--text-muted)]">
                 {runDurationLabel}
               </span>
             )}
             {sessionInfo && (
               <span
-                className="flex shrink-0 items-center gap-1.5"
+                className="flex shrink-0 items-center gap-2"
                 title={t("chat.auto-resume-title")}
               >
                 <button
                   type="button"
-                  className="cursor-pointer text-xs text-[var(--text-muted)]"
+                  className="cursor-pointer text-meta text-[var(--text-muted)]"
                   onClick={onToggleAutoResume}
                 >
                   {t("chat.auto-resume")}
@@ -601,7 +572,7 @@ export function ChatThread({
                   role="switch"
                   aria-checked={sessionInfo.autoResume}
                   aria-label={t("chat.auto-resume-aria")}
-                  className="switch scale-[0.85]"
+                  className="switch"
                   onClick={onToggleAutoResume}
                 />
               </span>
@@ -636,7 +607,7 @@ export function ChatThread({
           />
         )}
         {running && !streamText && (
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-sm text-[var(--text-muted)]">
             {t("chat.claude-working")}
           </p>
         )}
@@ -644,23 +615,19 @@ export function ChatThread({
           <ErrorBanner message={t("chat.agent-error")} detail={agentError} />
         )}
         {showEndBlock && status && (
-          <SessionEndBlock
-            status={status}
-            finalText={finalText}
-            compact={compact}
-          />
+          <SessionEndBlock status={status} finalText={finalText} />
         )}
         {willAutoResume && (
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-sm text-[var(--text-muted)]">
             {t("chat.will-resume")}
           </p>
         )}
       </div>
 
       {running && (
-        <div className="flex flex-col gap-1.5 border-t border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
+        <div className="flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
           <div className="progress-indeterminate" aria-label={t("dash.ai-working")} />
-          <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+          <div className="flex items-center justify-between text-meta text-[var(--text-muted)]">
             <span className="truncate">{currentAction}</span>
             <span className="shrink-0 pl-3">
               {steps > 0 && <>{tf("chat.step-n", { n: steps })} · </>}
@@ -692,7 +659,9 @@ export function ChatThread({
         }`}
       >
         <textarea
-          className={`input min-h-9 flex-1 ${compact ? "text-[13px]" : ""}`}
+          // `.input` chuẩn kể cả ở chế độ compact - đây là chỗ người dùng GÕ,
+          // thu nhỏ chữ ở đây là thứ sai nhất trong cả bố cục hẹp.
+          className="input flex-1"
           rows={1}
           placeholder={
             compact ? t("chat.placeholder-compact") : t("chat.placeholder")

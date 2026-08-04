@@ -7,12 +7,13 @@
  * - Cột `source`: bài viết/văn bản nguồn - thứ mình BẮT ĐẦU TỪ ĐÓ.
  * - Cột `setup`: kịch bản đọc, giọng đọc, cấu hình video - "mình muốn ra cái gì".
  * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
- *   thì hiện thẳng video), rồi nhật ký job dựng và tiến trình của project con.
+ *   thì hiện thẳng video), rồi tiến trình của project con.
  *
  * Panel AI là SLOT CỦA SHELL: trang chỉ khai báo <ShellRightPanel> và shell lo bề
  * rộng, chỗ chừa, nút gấp, chế độ drawer. Trước đây trang tự dựng một <aside>
  * `fixed` rồi chừa chỗ bằng `xl:pr-[452px]` - con số đó sai ngay khi người dùng
- * gấp panel lại, và mỗi trang lại phải nhớ tự chừa.
+ * gấp panel lại, và mỗi trang lại phải nhớ tự chừa. Nhật ký job dựng nằm TRONG
+ * panel đó, không nhân bản thêm một khối nữa ở cột kết quả.
  *
  * Thanh bước dùng chung StepperBar với Videos Project - không tự vẽ thanh thứ hai.
  *
@@ -33,7 +34,6 @@ import {
   Mic,
   Plus,
   RefreshCw,
-  ScrollText,
   Settings2,
   Sparkles,
   Trash2,
@@ -83,16 +83,20 @@ import {
   useJobEvents,
   useJobLogEvents,
 } from "@/lib/useEvents";
-import { Badge } from "@/components/Badge";
+import { Badge, JobBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ChatThread } from "@/components/ChatThread";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { useClaudeModels, useProviders } from "@/components/ModelPicker";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
 import { PageHeader } from "@/components/PageHeader";
+import { Panel } from "@/components/Panel";
+import { Segmented } from "@/components/Segmented";
 import { deriveStage, PipelineTimeline, StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
@@ -157,7 +161,6 @@ const TTV_BLOCKS = [
   "voice",
   "config",
   "build",
-  "log",
   "child",
 ] as const;
 type BlockKey = (typeof TTV_BLOCKS)[number];
@@ -361,15 +364,14 @@ function ScriptModelSelect({
   const missing = value !== "" && !models.some((m) => m.id === value);
 
   return (
-    <div>
-      <label className="label" htmlFor="ttv-script-model">
-        {t("ttv.script-model")}
-        <InfoHint
-          className="ml-1.5 align-middle"
-          titleKey="help.ttv-script-model.title"
-          bodyKey="help.ttv-script-model.body"
-        />
-      </label>
+    <Field
+      label={t("ttv.script-model")}
+      htmlFor="ttv-script-model"
+      hintKeys={{
+        titleKey: "help.ttv-script-model.title",
+        bodyKey: "help.ttv-script-model.body",
+      }}
+    >
       <select
         id="ttv-script-model"
         className="input"
@@ -386,7 +388,7 @@ function ScriptModelSelect({
           </option>
         ))}
       </select>
-    </div>
+    </Field>
   );
 }
 
@@ -397,20 +399,17 @@ function ClaudeAuthLine() {
   const claude = providers?.find((p) => p.id === "claude");
   if (!claude) return null;
   return (
-    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--text-muted)]">
-      {claude.connected ? (
-        <span className="badge badge-success">
-          <span className="badge-dot" />
-          {claude.source === "api-key"
-            ? t("model.connected-api-key")
-            : t("model.connected-subscription")}
-        </span>
-      ) : (
-        <span className="badge badge-danger">
-          <span className="badge-dot" />
-          {t("model.not-connected")}
-        </span>
-      )}
+    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-[var(--text-muted)]">
+      <Badge
+        tone={claude.connected ? "success" : "danger"}
+        label={
+          claude.connected
+            ? claude.source === "api-key"
+              ? t("model.connected-api-key")
+              : t("model.connected-subscription")
+            : t("model.not-connected")
+        }
+      />
       <span className="min-w-0">
         {claude.connected ? t("ttv.script-model-hint") : t("model.claude-warning")}
       </span>
@@ -470,20 +469,22 @@ function JobLogBlock({ job }: { job: Job }) {
   }, [log]);
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold">{t("ttv.panel-job")}</span>
-        <span className="text-xs text-[var(--text-muted)]">{job.status}</span>
-      </div>
+    <Panel
+      className="shrink-0"
+      title={t("ttv.panel-job")}
+      actions={<JobBadge status={job.status} />}
+    >
       <ProgressBar progress={job.progress} step={job.step} />
       {error && <ErrorBanner message={t("ttv.panel-log-error")} detail={error} />}
+      {/* Nền --surface chứ không --bg-subtle: Panel đã là --bg-subtle rồi, cùng
+          màu thì khối log tan vào hộp chứa nó. */}
       <pre
         ref={preRef}
-        className="max-h-48 min-h-16 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap"
+        className="max-h-48 min-h-16 overflow-auto rounded-[var(--radius)] bg-[var(--surface)] p-2 font-mono text-meta whitespace-pre-wrap"
       >
         {log || t("ttv.panel-no-log")}
       </pre>
-    </div>
+    </Panel>
   );
 }
 
@@ -903,711 +904,651 @@ export default function TextToVideoDetailPage() {
           con số tay kiểu đó sai ngay khi người dùng gấp panel lại. */}
       <PageHeader
         title={session.name}
+        hint={{ titleKey: "help.ttv.title", bodyKey: "help.ttv.body" }}
         subtitle={`${output.width}x${output.height} · ${output.fps}fps`}
         center={
-          <div className="flex items-start gap-1.5">
-            <div className="min-w-0 flex-1">
-              <StepperBar
-                steps={STAGE_LABELS}
-                stage={stage.stage}
-                active={stage.active}
-                done={stage.complete}
-                ariaLabel={tf("ttv.stage-aria", {
-                  stage: stage.stage,
-                  label: t(STAGE_LABELS[stage.stage - 1]),
-                })}
-              />
-            </div>
-            <InfoHint
-              titleKey="help.ttv.title"
-              bodyKey="help.ttv.body"
-              className="mt-px"
-            />
-          </div>
+          <StepperBar
+            steps={STAGE_LABELS}
+            stage={stage.stage}
+            active={stage.active}
+            done={stage.complete}
+            ariaLabel={tf("ttv.stage-aria", {
+              stage: stage.stage,
+              label: t(STAGE_LABELS[stage.stage - 1]),
+            })}
+          />
         }
         actions={
+          /* Nút xóa đứng CUỐI, ngoài cụm nút thường, ngăn bằng vạch dọc - quy
+             ước chung của 7 trang chi tiết, lý do viết đầy đủ ở
+             `src/app/images/[id]/page.tsx`. */
           <>
-            <Button variant="secondary" onClick={() => router.push("/text-to-video")}>
-              <ArrowLeft size={15} strokeWidth={2} />
-              {t("ttv.back")}
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={running}
-              onClick={() => {
-                setDeleteError(null);
-                setDeleteOpen(true);
-              }}
-            >
-              <Trash2 size={15} strokeWidth={2} />
-              {t("common.delete")}
-            </Button>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={() => router.push("/text-to-video")}>
+                <ArrowLeft size={15} strokeWidth={2} />
+                {t("ttv.back")}
+              </Button>
+            </span>
+            <span className="flex items-center border-l border-[var(--border)] pl-2">
+              <Button
+                variant="destructive"
+                disabled={running}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 size={15} strokeWidth={2} />
+                {t("common.delete")}
+              </Button>
+            </span>
           </>
         }
       />
 
       {/* Tóm tắt phiên - nhìn một dòng biết phiên này đang ra sao */}
-      <div className="flex flex-col gap-4">
-        <Card>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-            <Badge
-              tone={TEXT_TO_VIDEO_STATUS_TONE[session.status] ?? "muted"}
-              label={statusLabel}
-            />
+      <Card>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+          <Badge
+            tone={TEXT_TO_VIDEO_STATUS_TONE[session.status] ?? "muted"}
+            label={statusLabel}
+          />
+          <span className="chip">
+            {source.kind === "url" ? t("ttv.source.url") : t("ttv.source.text")}
+          </span>
+          {script.length > 0 && (
+            <span className="chip">{tf("ttv.chunk-count", { n: script.length })}</span>
+          )}
+          {voice.name && <span className="chip">{voice.name}</span>}
+          {session.voiceDurationSec !== null && (
             <span className="chip">
-              {source.kind === "url" ? t("ttv.source.url") : t("ttv.source.text")}
+              {tf("ttv.real-duration", { time: clock(session.voiceDurationSec) })}
             </span>
-            {script.length > 0 && (
-              <span className="chip">{tf("ttv.chunk-count", { n: script.length })}</span>
-            )}
-            {voice.name && <span className="chip">{voice.name}</span>}
-            {session.voiceDurationSec !== null && (
-              <span className="chip">
-                {tf("ttv.real-duration", { time: clock(session.voiceDurationSec) })}
-              </span>
-            )}
-            {done && group.anyCollapsed && (
-              <span className="min-w-0">{t("ttv.section.done-collapsed")}</span>
-            )}
-            <span className="ml-auto">
-              {t("common.updated")}: {formatDateTime(session.updatedAt)}
-            </span>
-          </div>
-        </Card>
+          )}
+          {done && group.anyCollapsed && (
+            <span className="min-w-0">{t("ttv.section.done-collapsed")}</span>
+          )}
+          <span className="ml-auto text-meta">
+            {t("common.updated")}: {formatDateTime(session.updatedAt)}
+          </span>
+        </div>
+      </Card>
 
-        {loadError && <ErrorBanner message={t("ttv.load-error")} detail={loadError} />}
-        {actionError && (
-          <ErrorBanner message={t("ttv.action-error")} detail={actionError} />
-        )}
-        {saveError && <ErrorBanner message={t("ttv.save-error")} detail={saveError} />}
+      {loadError && <ErrorBanner message={t("ttv.load-error")} detail={loadError} />}
+      {actionError && (
+        <ErrorBanner message={t("ttv.action-error")} detail={actionError} />
+      )}
+      {saveError && <ErrorBanner message={t("ttv.save-error")} detail={saveError} />}
 
-        {session.status === "failed" && (
-          <ErrorBanner message={t("ttv.failed")} detail={session.error ?? undefined} />
-        )}
+      {session.status === "failed" && (
+        <ErrorBanner message={t("ttv.failed")} detail={session.error ?? undefined} />
+      )}
 
-        {/* Ba cột theo nhịp làm việc: nguồn → yêu cầu & thiết lập → tiến trình &
-            kết quả. Số cột do container query trong globals.css lo, trang không
-            tự tính pixel. */}
-        <Workspace>
-          {/* ================= Cột 1: nguồn ================= */}
-          <WorkspaceColumn role="source" title={t("workspace.col.source")}>
-            <WorkspaceBlock
-              id="ttv-block-source"
-              icon={FileText}
-              collapsed={group.isCollapsed("source")}
-              onToggle={() => group.toggle("source")}
-              summary={sourceSummary}
-              title={
-                <span className="inline-flex items-center gap-1.5">
-                  {t("ttv.card-source")}
-                  <InfoHint
-                    titleKey="help.ttv-source.title"
-                    bodyKey="help.ttv-source.body"
-                    size={14}
-                  />
-                </span>
-              }
-              actions={
-                // Chỉ hiện với nguồn LINK: dán thẳng văn bản thì không có gì để
-                // bóc, mà server trả 400 NO_URL. Nút bấm được rồi báo lỗi còn
-                // khó hiểu hơn là không có nút.
-                source.kind === "url" ? (
-                  <Button
-                    variant="secondary"
-                    small
-                    disabled={locked || busy !== null || !source.url.trim()}
-                    onClick={() => run("extract")}
-                  >
-                    {busy === "extract" ? (
-                      <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                    ) : (
-                      <RefreshCw size={14} strokeWidth={2} />
-                    )}
-                    {article ? t("ttv.re-extract") : t("ttv.extract")}
-                  </Button>
-                ) : undefined
-              }
-            >
-              <div className="flex flex-col gap-3">
-                <div
-                  className="flex flex-wrap gap-1.5"
-                  role="radiogroup"
-                  aria-label={t("ttv.source")}
-                >
-                  {(
-                    [
-                      ["url", "ttv.source.url", Link2],
-                      ["text", "ttv.source.text", Type],
-                    ] as const
-                  ).map(([k, label, Icon]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      role="radio"
-                      aria-checked={source.kind === k}
-                      disabled={locked}
-                      onClick={() => patchSource({ kind: k as TextSourceKind }, true)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors duration-150 ${
-                        source.kind === k
-                          ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-                          : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                      } disabled:cursor-not-allowed disabled:opacity-45`}
-                    >
-                      <Icon size={13} strokeWidth={2} />
-                      {t(label)}
-                    </button>
-                  ))}
-                </div>
-
-                {source.kind === "url" && (
-                  <div>
-                    <label className="label" htmlFor="ttv-detail-url">
-                      {t("ttv.url")}
-                    </label>
-                    <input
-                      id="ttv-detail-url"
-                      className="input"
-                      value={source.url}
-                      disabled={locked}
-                      placeholder={t("ttv.url-placeholder")}
-                      onChange={(e) => patchSource({ url: e.target.value })}
-                      onBlur={() => flush()}
-                    />
-                  </div>
-                )}
-
-                {session.status === "extracting" && (
-                  <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                    {t("ttv.extracting-hint")}
-                  </p>
-                )}
-
-                {article && (
-                  <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-                    <p className="text-[13px] font-semibold">{article.title}</p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {article.siteName && <span className="chip">{article.siteName}</span>}
-                      {article.byline && <span className="chip">{article.byline}</span>}
-                      {article.publishedTime && (
-                        <span className="chip">{formatDateTime(article.publishedTime)}</span>
-                      )}
-                      {article.lang && <span className="chip">{article.lang}</span>}
-                      <span className="chip">
-                        {tf("ttv.block-count", { n: article.blocks.length })}
-                      </span>
-                      <span className="chip">
-                        {tf("ttv.char-count", { n: article.chars })}
-                      </span>
-                    </div>
-                    {article.canonicalUrl && (
-                      <a
-                        href={article.canonicalUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="mt-2 inline-flex max-w-full items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-                      >
-                        <ExternalLink size={12} strokeWidth={2} className="shrink-0" />
-                        <span className="truncate">{article.canonicalUrl}</span>
-                      </a>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <label className="label" htmlFor="ttv-detail-text">
-                    {t("ttv.content")}
-                  </label>
-                  <textarea
-                    id="ttv-detail-text"
-                    className="input text-[13px]"
-                    rows={10}
-                    value={source.text}
-                    disabled={locked}
-                    placeholder={
-                      source.kind === "url"
-                        ? t("ttv.content-placeholder-url")
-                        : t("ttv.text-placeholder")
-                    }
-                    onChange={(e) => patchSource({ text: e.target.value })}
-                    onBlur={() => flush()}
-                  />
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {t("ttv.content-hint")} ·{" "}
-                    {tf("ttv.char-count", { n: source.text.trim().length })}
-                  </p>
-                </div>
-              </div>
-            </WorkspaceBlock>
-          </WorkspaceColumn>
-
-          {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
-          <WorkspaceColumn role="setup" title={t("workspace.col.setup")}>
-            {/* Kịch bản đọc đứng đầu cột: nó sinh ra TỪ nguồn ở cột bên trái, để
-                cạnh nhau thì đối chiếu được mà không phải cuộn qua lại */}
-            <WorkspaceBlock
-              id="ttv-block-script"
-              icon={Sparkles}
-              collapsed={group.isCollapsed("script")}
-              onToggle={() => group.toggle("script")}
-              summary={scriptSummary}
-              title={
-                <span className="inline-flex items-center gap-1.5">
-                  {t("ttv.card-script")}
-                  <InfoHint
-                    titleKey="help.ttv-script.title"
-                    bodyKey="help.ttv-script.body"
-                    size={14}
-                  />
-                </span>
-              }
-              actions={
+      {/* Ba cột theo nhịp làm việc: nguồn → yêu cầu & thiết lập → tiến trình &
+          kết quả. Số cột do container query trong globals.css lo, trang không
+          tự tính pixel. */}
+      <Workspace>
+        {/* ================= Cột 1: nguồn ================= */}
+        <WorkspaceColumn role="source" title={t("workspace.col.source")}>
+          <WorkspaceBlock
+            id="ttv-block-source"
+            icon={FileText}
+            collapsed={group.isCollapsed("source")}
+            onToggle={() => group.toggle("source")}
+            summary={sourceSummary}
+            title={t("ttv.card-source")}
+            hint={{
+              titleKey: "help.ttv-source.title",
+              bodyKey: "help.ttv-source.body",
+            }}
+            actions={
+              // Chỉ hiện với nguồn LINK: dán thẳng văn bản thì không có gì để
+              // bóc, mà server trả 400 NO_URL. Nút bấm được rồi báo lỗi còn
+              // khó hiểu hơn là không có nút.
+              source.kind === "url" ? (
                 <Button
+                  variant="secondary"
                   small
-                  disabled={!canScript || busy !== null}
-                  onClick={() => run("script")}
+                  disabled={locked || busy !== null || !source.url.trim()}
+                  onClick={() => run("extract")}
                 >
-                  {busy === "script" ? (
+                  {busy === "extract" ? (
                     <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                   ) : (
-                    <Wand2 size={14} strokeWidth={2} />
+                    <RefreshCw size={14} strokeWidth={2} />
                   )}
-                  {script.length > 0 ? t("ttv.rewrite-script") : t("ttv.write-script")}
+                  {article ? t("ttv.re-extract") : t("ttv.extract")}
                 </Button>
-              }
-            >
-              <div className="flex flex-col gap-3">
-                {/* Ai viết + viết dài bao nhiêu - hai tham số của nút bên trên */}
-                <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <ScriptModelSelect
-                      value={scriptModel}
-                      disabled={locked}
-                      onChange={patchScriptModel}
-                    />
-                    <div>
-                      <label className="label" htmlFor="ttv-target-seconds">
-                        {t("ttv.target-seconds")}
-                      </label>
-                      <input
-                        id="ttv-target-seconds"
-                        className="input"
-                        type="number"
-                        min={TARGET_SECONDS_MIN}
-                        max={TARGET_SECONDS_MAX}
-                        value={targetSeconds}
-                        disabled={locked}
-                        placeholder={t("ttv.target-auto")}
-                        onChange={(e) => setTargetSeconds(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <ClaudeAuthLine />
-                </div>
+              ) : undefined
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <Segmented
+                label={t("ttv.source")}
+                value={source.kind}
+                disabled={locked}
+                onChange={(kind: TextSourceKind) => patchSource({ kind }, true)}
+                options={[
+                  {
+                    value: "url",
+                    label: (
+                      <>
+                        <Link2 size={13} strokeWidth={2} aria-hidden="true" />
+                        {t("ttv.source.url")}
+                      </>
+                    ),
+                  },
+                  {
+                    value: "text",
+                    label: (
+                      <>
+                        <Type size={13} strokeWidth={2} aria-hidden="true" />
+                        {t("ttv.source.text")}
+                      </>
+                    ),
+                  },
+                ]}
+              />
 
-                {session.status === "scripting" ? (
-                  <p className="flex items-center gap-2 py-4 text-xs text-[var(--text-muted)]">
-                    <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                    {t("ttv.scripting-hint")}
-                  </p>
-                ) : script.length === 0 ? (
-                  <EmptyState
-                    icon={Sparkles}
-                    description={hasSourceText ? t("ttv.no-script") : t("ttv.no-source-yet")}
+              {source.kind === "url" && (
+                <Field label={t("ttv.url")} htmlFor="ttv-detail-url">
+                  <input
+                    id="ttv-detail-url"
+                    className="input"
+                    value={source.url}
+                    disabled={locked}
+                    placeholder={t("ttv.url-placeholder")}
+                    onChange={(e) => patchSource({ url: e.target.value })}
+                    onBlur={() => flush()}
                   />
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <ul className="flex flex-col gap-1.5">
-                      {script.map((c, i) => (
-                        <li
-                          key={i}
-                          className="flex items-start gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-                        >
-                          <span className="mt-1.5 w-5 shrink-0 text-center font-mono text-xs text-[var(--text-muted)]">
-                            {i + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <textarea
-                              className="input text-[13px]"
-                              rows={2}
-                              value={c.text}
-                              disabled={locked}
-                              aria-label={tf("ttv.chunk-aria", { n: i + 1 })}
-                              onChange={(e) => setChunkText(i, e.target.value)}
-                              onBlur={() => flush()}
-                            />
-                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
-                              <span>{tf("ttv.char-count", { n: c.text.trim().length })}</span>
-                              <span>
-                                {c.durationSec !== null
-                                  ? tf("ttv.chunk-real", { time: clock(c.durationSec) })
-                                  : tf("ttv.chunk-est", {
-                                      time: clock(estimateChunkSeconds(c)),
-                                    })}
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            disabled={locked}
-                            title={t("ttv.remove-chunk")}
-                            aria-label={tf("ttv.remove-chunk-aria", { n: i + 1 })}
-                            onClick={() =>
-                              setChunks(
-                                script.filter((_, idx) => idx !== i),
-                                true
-                              )
-                            }
-                            className="mt-1 shrink-0 rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            <X size={14} strokeWidth={2} />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                </Field>
+              )}
 
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Button
-                        variant="secondary"
-                        small
-                        disabled={locked}
-                        onClick={() =>
-                          setChunks([...script, { text: "", durationSec: null }], true)
-                        }
-                      >
-                        <Plus size={14} strokeWidth={2} />
-                        {t("ttv.add-chunk")}
-                      </Button>
-                      <span className="text-xs text-[var(--text-muted)]">
-                        {tf("ttv.chunk-count", { n: script.length })} ·{" "}
-                        {tf("ttv.char-count", { n: chars })} ·{" "}
-                        {tf("ttv.est-duration", { time: clock(estSeconds) })}
-                        {session.voiceDurationSec !== null
-                          ? ` · ${tf("ttv.real-duration", { time: clock(session.voiceDurationSec) })}`
-                          : ""}
-                      </span>
-                    </div>
+              {session.status === "extracting" && (
+                <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                  {t("ttv.extracting-hint")}
+                </p>
+              )}
 
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {t("ttv.estimate-warning")}
-                    </p>
+              {article && (
+                <Panel title={article.title}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {article.siteName && <span className="chip">{article.siteName}</span>}
+                    {article.byline && <span className="chip">{article.byline}</span>}
+                    {article.publishedTime && (
+                      <span className="chip">{formatDateTime(article.publishedTime)}</span>
+                    )}
+                    {article.lang && <span className="chip">{article.lang}</span>}
+                    <span className="chip">
+                      {tf("ttv.block-count", { n: article.blocks.length })}
+                    </span>
+                    <span className="chip">
+                      {tf("ttv.char-count", { n: article.chars })}
+                    </span>
                   </div>
+                  {article.canonicalUrl && (
+                    <a
+                      href={article.canonicalUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex max-w-full items-center gap-1 text-meta font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                    >
+                      <ExternalLink size={13} strokeWidth={2} className="shrink-0" />
+                      <span className="truncate">{article.canonicalUrl}</span>
+                    </a>
+                  )}
+                </Panel>
+              )}
+
+              {/* Ô người dùng GÕ VÀO - `.input` chuẩn 14px, không thu nhỏ chữ */}
+              <Field
+                label={t("ttv.content")}
+                htmlFor="ttv-detail-text"
+                hint={`${t("ttv.content-hint")} · ${tf("ttv.char-count", {
+                  n: source.text.trim().length,
+                })}`}
+              >
+                <textarea
+                  id="ttv-detail-text"
+                  className="input"
+                  rows={10}
+                  value={source.text}
+                  disabled={locked}
+                  placeholder={
+                    source.kind === "url"
+                      ? t("ttv.content-placeholder-url")
+                      : t("ttv.text-placeholder")
+                  }
+                  onChange={(e) => patchSource({ text: e.target.value })}
+                  onBlur={() => flush()}
+                />
+              </Field>
+            </div>
+          </WorkspaceBlock>
+        </WorkspaceColumn>
+
+        {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
+        <WorkspaceColumn role="setup" title={t("workspace.col.setup")}>
+          {/* Kịch bản đọc đứng đầu cột: nó sinh ra TỪ nguồn ở cột bên trái, để
+              cạnh nhau thì đối chiếu được mà không phải cuộn qua lại */}
+          <WorkspaceBlock
+            id="ttv-block-script"
+            icon={Sparkles}
+            collapsed={group.isCollapsed("script")}
+            onToggle={() => group.toggle("script")}
+            summary={scriptSummary}
+            title={t("ttv.card-script")}
+            hint={{
+              titleKey: "help.ttv-script.title",
+              bodyKey: "help.ttv-script.body",
+            }}
+            actions={
+              <Button
+                small
+                disabled={!canScript || busy !== null}
+                onClick={() => run("script")}
+              >
+                {busy === "script" ? (
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Wand2 size={14} strokeWidth={2} />
+                )}
+                {script.length > 0 ? t("ttv.rewrite-script") : t("ttv.write-script")}
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {/* Ai viết + viết dài bao nhiêu - hai tham số của nút bên trên */}
+              <Panel>
+                {/* auto-fit chứ KHÔNG `sm:grid-cols-2`: `sm:` đo bề rộng CỬA SỔ,
+                    còn cặp ô này nằm trong cột workspace rộng ~340-390px, nên ở
+                    mọi màn desktop nó đều bị chia đôi trong cột hẹp và chữ vỡ.
+                    Bề rộng thật do container query của workspace quyết định -
+                    lưới phải co theo chỗ thật, không theo bề rộng cửa sổ. */}
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+                  <ScriptModelSelect
+                    value={scriptModel}
+                    disabled={locked}
+                    onChange={patchScriptModel}
+                  />
+                  <Field label={t("ttv.target-seconds")} htmlFor="ttv-target-seconds">
+                    <input
+                      id="ttv-target-seconds"
+                      className="input"
+                      type="number"
+                      min={TARGET_SECONDS_MIN}
+                      max={TARGET_SECONDS_MAX}
+                      value={targetSeconds}
+                      disabled={locked}
+                      placeholder={t("ttv.target-auto")}
+                      onChange={(e) => setTargetSeconds(e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <ClaudeAuthLine />
+              </Panel>
+
+              {session.status === "scripting" ? (
+                <p className="flex items-center gap-2 py-4 text-sm text-[var(--text-muted)]">
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                  {t("ttv.scripting-hint")}
+                </p>
+              ) : script.length === 0 ? (
+                <EmptyState
+                  icon={Sparkles}
+                  description={hasSourceText ? t("ttv.no-script") : t("ttv.no-source-yet")}
+                />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {/* Mỗi đoạn KHÔNG có viền riêng: chính `.input` của textarea đã
+                      là một cái viền rồi, bọc thêm một viền nữa (trong card) là ba
+                      lớp lồng nhau mà chẳng nói thêm được gì. */}
+                  <ul className="flex flex-col gap-2">
+                    {script.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="mt-2 w-5 shrink-0 text-center font-mono text-meta text-[var(--text-muted)]">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={c.text}
+                            disabled={locked}
+                            aria-label={tf("ttv.chunk-aria", { n: i + 1 })}
+                            onChange={(e) => setChunkText(i, e.target.value)}
+                            onBlur={() => flush()}
+                          />
+                          <p className="mt-1 text-meta text-[var(--text-muted)]">
+                            {tf("ttv.char-count", { n: c.text.trim().length })} ·{" "}
+                            {c.durationSec !== null
+                              ? tf("ttv.chunk-real", { time: clock(c.durationSec) })
+                              : tf("ttv.chunk-est", {
+                                  time: clock(estimateChunkSeconds(c)),
+                                })}
+                          </p>
+                        </div>
+                        <IconButton
+                          size="sm"
+                          tone="danger"
+                          className="mt-2"
+                          label={tf("ttv.remove-chunk-aria", { n: i + 1 })}
+                          disabled={locked}
+                          onClick={() =>
+                            setChunks(
+                              script.filter((_, idx) => idx !== i),
+                              true
+                            )
+                          }
+                        >
+                          <X size={14} strokeWidth={2} />
+                        </IconButton>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Button
+                      variant="secondary"
+                      small
+                      disabled={locked}
+                      onClick={() =>
+                        setChunks([...script, { text: "", durationSec: null }], true)
+                      }
+                    >
+                      <Plus size={14} strokeWidth={2} />
+                      {t("ttv.add-chunk")}
+                    </Button>
+                    <span className="text-meta text-[var(--text-muted)]">
+                      {tf("ttv.chunk-count", { n: script.length })} ·{" "}
+                      {tf("ttv.char-count", { n: chars })} ·{" "}
+                      {tf("ttv.est-duration", { time: clock(estSeconds) })}
+                      {session.voiceDurationSec !== null
+                        ? ` · ${tf("ttv.real-duration", { time: clock(session.voiceDurationSec) })}`
+                        : ""}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {t("ttv.estimate-warning")}
+                  </p>
+                </div>
+              )}
+            </div>
+          </WorkspaceBlock>
+
+          {/* ---- Giọng đọc ---- */}
+          <WorkspaceBlock
+            id="ttv-block-voice"
+            icon={Mic}
+            collapsed={group.isCollapsed("voice")}
+            onToggle={() => group.toggle("voice")}
+            summary={voiceSummary}
+            hint={{
+              titleKey: "help.ttv-voice.title",
+              bodyKey: "help.ttv-voice.body",
+            }}
+            title={
+              <span className="inline-flex min-w-0 flex-wrap items-center gap-2">
+                {t("ttv.card-voice")}
+                {/* Nhãn PHÂN LOẠI (đang chọn giọng nào), không phải trạng thái
+                    chạy - nên bỏ chấm tròn */}
+                <Badge
+                  tone={voice.name ? "running" : "muted"}
+                  dot={false}
+                  label={voice.name || t("ttv.voice-not-chosen")}
+                  // truncate chứ không chỉ min-w-0: .badge là inline-flex +
+                  // white-space:nowrap và KHÔNG có overflow:hidden, nên min-w-0
+                  // cho pill co lại còn chữ thì vẽ đè ra ngoài nền. Tên giọng
+                  // nhân bản do người dùng tự đặt nên dài bao nhiêu cũng có.
+                  className="min-w-0 [&>span]:truncate truncate"
+                />
+              </span>
+            }
+          >
+            <VoicePicker value={voice} onChange={patchVoice} disabled={locked} />
+          </WorkspaceBlock>
+
+          {/* ---- Cấu hình video ---- */}
+          <WorkspaceBlock
+            id="ttv-block-config"
+            icon={Settings2}
+            collapsed={group.isCollapsed("config")}
+            onToggle={() => group.toggle("config")}
+            summary={configSummary}
+            title={t("ttv.card-config")}
+            hint={{
+              titleKey: "help.ttv-config.title",
+              bodyKey: "help.ttv-config.body",
+            }}
+          >
+            <div className="flex flex-col gap-4">
+              <Field
+                label={t("ttv.aspect")}
+                hint={
+                  currentAspect === null
+                    ? tf("ttv.custom-size", {
+                        size: `${output.width}x${output.height}`,
+                      })
+                    : undefined
+                }
+              >
+                <OptionCardGroup
+                  label={t("ttv.aspect")}
+                  className="grid-cols-[repeat(auto-fit,minmax(120px,1fr))]"
+                >
+                  {ASPECTS.map((a) => {
+                    const size = TEXT_TO_VIDEO_SIZES[a];
+                    return (
+                      <OptionCard
+                        key={a}
+                        selected={currentAspect === a}
+                        disabled={locked}
+                        onSelect={() =>
+                          patchOutput({ width: size.width, height: size.height })
+                        }
+                        title={a}
+                        description={`${size.width}x${size.height}`}
+                      />
+                    );
+                  })}
+                </OptionCardGroup>
+              </Field>
+
+              {/* auto-fit, không `sm:grid-cols-2` - xem lý do ở lưới trong khối
+                  Kịch bản đọc phía trên */}
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+                <Field label={t("ttv.fps")} htmlFor="ttv-fps">
+                  <select
+                    id="ttv-fps"
+                    className="input"
+                    value={output.fps}
+                    disabled={locked}
+                    onChange={(e) => patchOutput({ fps: Number(e.target.value) })}
+                  >
+                    {!TEXT_TO_VIDEO_FPS.includes(
+                      output.fps as (typeof TEXT_TO_VIDEO_FPS)[number]
+                    ) && <option value={output.fps}>{output.fps}</option>}
+                    {TEXT_TO_VIDEO_FPS.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Style Design" htmlFor="ttv-style">
+                  <StyleSelect
+                    id="ttv-style"
+                    value={output.styleId}
+                    disabled={locked}
+                    onChange={(styleId) => patchOutput({ styleId })}
+                  />
+                </Field>
+              </div>
+
+              <div className="border-t border-[var(--border)] pt-4">
+                <div className="mb-3 flex flex-col gap-1 text-sm text-[var(--text-muted)]">
+                  <p>{locked ? t("ttv.brief-locked") : t("ttv.brief-hint")}</p>
+                  {!locked && <p>{t("ttv.brief-autosave")}</p>}
+                </div>
+                <BriefFields
+                  value={brief}
+                  onChange={patchBrief}
+                  // Style Design đã có ô riêng phía trên; không có video gốc để mô tả
+                  show={{ styleId: false, sourceDescription: false }}
+                  disabled={locked}
+                />
+              </div>
+            </div>
+          </WorkspaceBlock>
+        </WorkspaceColumn>
+
+        {/* ============ Cột 3: tiến trình & kết quả ============ */}
+        <WorkspaceColumn role="output" title={t("workspace.col.output")}>
+          {/* Khối ĐẦU TIÊN của cột: đang dựng thì nhấp nháy chờ, xong thì hiện
+              thẳng video. Liếc một chỗ là biết phiên đang ở đâu. */}
+          <OutputBlock
+            id="ttv-block-build"
+            status={outputStatus}
+            videoUrl={child.url}
+            progress={activeJob ? activeJob.progress : null}
+            step={activeJob?.step}
+            aspect={aspect}
+            error={shortError(session.error)}
+            collapsed={group.isCollapsed("build")}
+            onToggle={() => group.toggle("build")}
+            summary={buildSummary}
+            title={t("ttv.card-build")}
+            hint={{
+              titleKey: "help.ttv-build.title",
+              bodyKey: "help.ttv-build.body",
+            }}
+            actions={
+              !session.projectId && (
+                <Button disabled={!canBuild || busy !== null} onClick={() => run("build")}>
+                  {busy === "build" ? (
+                    <Loader2 size={15} strokeWidth={2} className="animate-spin" />
+                  ) : (
+                    <FileText size={15} strokeWidth={2} />
+                  )}
+                  {t("ttv.build")}
+                </Button>
+              )
+            }
+          >
+            {child.error && <ErrorBanner message={child.error} />}
+
+            {running ? (
+              <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                {session.status === "voicing"
+                  ? t("ttv.voicing-hint")
+                  : t("ttv.building-hint")}
+              </p>
+            ) : session.projectId ? (
+              !child.url && (
+                <p className="text-sm text-[var(--text-muted)]">
+                  {t("ttv.result-waiting")}
+                </p>
+              )
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">
+                {canBuild
+                  ? t("ttv.build-hint")
+                  : script.length === 0
+                    ? t("ttv.build-need-script")
+                    : t("ttv.build-need-voice")}
+              </p>
+            )}
+
+            {child.output && (
+              <span className="min-w-0 truncate text-meta text-[var(--text-muted)]">
+                {child.output}
+              </span>
+            )}
+
+            {(session.voiceFile || session.transcriptFile) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {session.voiceFile && (
+                  <span className="chip">
+                    {t("ttv.voice-file")}: {session.voiceFile}
+                  </span>
+                )}
+                {session.transcriptFile && (
+                  <span className="chip">
+                    {t("ttv.transcript-file")}: {session.transcriptFile}
+                  </span>
                 )}
               </div>
-            </WorkspaceBlock>
+            )}
 
-            {/* ---- Giọng đọc ---- */}
-            <WorkspaceBlock
-              id="ttv-block-voice"
-              icon={Mic}
-              collapsed={group.isCollapsed("voice")}
-              onToggle={() => group.toggle("voice")}
-              summary={voiceSummary}
-              title={
-                <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
-                  {t("ttv.card-voice")}
-                  <InfoHint
-                    titleKey="help.ttv-voice.title"
-                    bodyKey="help.ttv-voice.body"
-                    size={14}
-                  />
-                  {voice.name ? (
-                    <span className="min-w-0 truncate rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--primary)]">
-                      {voice.name}
-                    </span>
-                  ) : (
-                    <span className="min-w-0 truncate rounded-full bg-[var(--bg-subtle)] px-2 py-0.5 text-xs font-normal text-[var(--text-muted)]">
-                      {t("ttv.voice-not-chosen")}
-                    </span>
-                  )}
-                </span>
-              }
-            >
-              <VoicePicker
-                value={voice}
-                onChange={patchVoice}
-                disabled={locked}
-              />
-            </WorkspaceBlock>
+            {/* Link sang project con cho các thao tác nâng cao (render lại, QC,
+                cắt short) - vẫn là đường phụ, không phải chỗ xem thành phẩm */}
+            {session.projectId && (
+              <Link
+                href={`/projects/${session.projectId}`}
+                className="inline-flex w-fit items-center gap-2 text-sm font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--primary)]"
+              >
+                <ExternalLink size={14} strokeWidth={2} />
+                {t("ttv.open-project-advanced")}
+              </Link>
+            )}
+          </OutputBlock>
 
-            {/* ---- Cấu hình video ---- */}
-            <WorkspaceBlock
-              id="ttv-block-config"
-              icon={Settings2}
-              collapsed={group.isCollapsed("config")}
-              onToggle={() => group.toggle("config")}
-              summary={configSummary}
-              title={
-                <span className="inline-flex items-center gap-1.5">
-                  {t("ttv.card-config")}
-                  <InfoHint
-                    titleKey="help.ttv-config.title"
-                    bodyKey="help.ttv-config.body"
-                    size={14}
-                  />
-                </span>
-              }
-            >
-              <div className="flex flex-col gap-5">
-                <div>
-                  <span className="label">{t("ttv.aspect")}</span>
-                  <div className="flex flex-wrap gap-2">
-                    {ASPECTS.map((a) => {
-                      const size = TEXT_TO_VIDEO_SIZES[a];
-                      const active = currentAspect === a;
-                      return (
-                        <button
-                          key={a}
-                          type="button"
-                          disabled={locked}
-                          aria-pressed={active}
-                          onClick={() =>
-                            patchOutput({ width: size.width, height: size.height })
-                          }
-                          className={`flex min-w-[92px] flex-1 flex-col items-center gap-0.5 rounded-[var(--radius)] border px-3 py-2 transition-colors duration-150 ${
-                            active
-                              ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                              : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-                          } disabled:cursor-not-allowed disabled:opacity-45`}
-                        >
-                          <span className="text-[13px] font-semibold">{a}</span>
-                          <span className="text-[11px] text-[var(--text-muted)]">
-                            {size.width}x{size.height}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {currentAspect === null && (
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {tf("ttv.custom-size", {
-                        size: `${output.width}x${output.height}`,
-                      })}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="label" htmlFor="ttv-fps">
-                      {t("ttv.fps")}
-                    </label>
-                    <select
-                      id="ttv-fps"
-                      className="input"
-                      value={output.fps}
-                      disabled={locked}
-                      onChange={(e) => patchOutput({ fps: Number(e.target.value) })}
-                    >
-                      {!TEXT_TO_VIDEO_FPS.includes(
-                        output.fps as (typeof TEXT_TO_VIDEO_FPS)[number]
-                      ) && <option value={output.fps}>{output.fps}</option>}
-                      {TEXT_TO_VIDEO_FPS.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="ttv-style">
-                      Style Design
-                    </label>
-                    <StyleSelect
-                      id="ttv-style"
-                      value={output.styleId}
-                      disabled={locked}
-                      onChange={(styleId) => patchOutput({ styleId })}
+          {/* Tiến trình THẬT của project con - thứ mà trước đây không nhìn thấy được.
+              Nhật ký job dựng KHÔNG nằm ở đây nữa: nó chỉ có một chỗ, trong panel
+              AI bên phải, chứ không hiện hai bản cạnh nhau. */}
+          <WorkspaceBlock
+            id="ttv-block-child"
+            icon={ListVideo}
+            collapsed={group.isCollapsed("child")}
+            onToggle={() => group.toggle("child")}
+            summary={session.projectId ?? t("ttv.build.no-project")}
+            title={t("ttv.build.child-title")}
+          >
+            {!session.projectId ? (
+              <p className="text-sm text-[var(--text-muted)]">
+                {t("ttv.build.no-project")}
+              </p>
+            ) : child.pipelineInput && deriveStage(child.pipelineInput) !== null ? (
+              <div className="flex flex-col gap-2">
+                <PipelineTimeline {...child.pipelineInput} />
+                {child.runningJob ? (
+                  <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                    <Loader2
+                      size={14}
+                      strokeWidth={2}
+                      className="animate-spin shrink-0"
                     />
-                  </div>
-                </div>
-
-                <div className="border-t border-[var(--border)] pt-4">
-                  <div className="mb-3 flex flex-col gap-1 text-xs text-[var(--text-muted)]">
-                    <p>{locked ? t("ttv.brief-locked") : t("ttv.brief-hint")}</p>
-                    {!locked && <p>{t("ttv.brief-autosave")}</p>}
-                  </div>
-                  <BriefFields
-                    value={brief}
-                    onChange={patchBrief}
-                    // Style Design đã có ô riêng phía trên; không có video gốc để mô tả
-                    show={{ styleId: false, sourceDescription: false }}
-                    disabled={locked}
-                  />
-                </div>
-              </div>
-            </WorkspaceBlock>
-          </WorkspaceColumn>
-
-          {/* ============ Cột 3: tiến trình & kết quả ============ */}
-          <WorkspaceColumn role="output" title={t("workspace.col.output")}>
-            {/* Khối ĐẦU TIÊN của cột: đang dựng thì nhấp nháy chờ, xong thì hiện
-                thẳng video. Liếc một chỗ là biết phiên đang ở đâu. */}
-            <OutputBlock
-              id="ttv-block-build"
-              status={outputStatus}
-              videoUrl={child.url}
-              progress={activeJob ? activeJob.progress : null}
-              step={activeJob?.step}
-              aspect={aspect}
-              error={shortError(session.error)}
-              collapsed={group.isCollapsed("build")}
-              onToggle={() => group.toggle("build")}
-              summary={buildSummary}
-              title={
-                <span className="inline-flex items-center gap-1.5">
-                  {t("ttv.card-build")}
-                  <InfoHint
-                    titleKey="help.ttv-build.title"
-                    bodyKey="help.ttv-build.body"
-                    size={14}
-                  />
-                </span>
-              }
-              actions={
-                !session.projectId && (
-                  <Button disabled={!canBuild || busy !== null} onClick={() => run("build")}>
-                    {busy === "build" ? (
-                      <Loader2 size={15} strokeWidth={2} className="animate-spin" />
-                    ) : (
-                      <FileText size={15} strokeWidth={2} />
-                    )}
-                    {t("ttv.build")}
-                  </Button>
-                )
-              }
-            >
-              {child.error && (
-                <p className="text-xs text-[var(--danger)]">{child.error}</p>
-              )}
-
-              {running ? (
-                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                  {session.status === "voicing"
-                    ? t("ttv.voicing-hint")
-                    : t("ttv.building-hint")}
-                </p>
-              ) : session.projectId ? (
-                !child.url && (
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {t("ttv.result-waiting")}
+                    {tf("ttv.build.running-job", { label: child.runningJob.type })}
+                    {child.runningJob.progress > 0
+                      ? ` · ${child.runningJob.progress}%`
+                      : ""}
                   </p>
-                )
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {canBuild
-                    ? t("ttv.build-hint")
-                    : script.length === 0
-                      ? t("ttv.build-need-script")
-                      : t("ttv.build-need-voice")}
-                </p>
-              )}
-
-              {child.output && (
-                <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
-                  {child.output}
-                </span>
-              )}
-
-              {(session.voiceFile || session.transcriptFile) && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {session.voiceFile && (
-                    <span className="chip">
-                      {t("ttv.voice-file")}: {session.voiceFile}
-                    </span>
-                  )}
-                  {session.transcriptFile && (
-                    <span className="chip">
-                      {t("ttv.transcript-file")}: {session.transcriptFile}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Link sang project con cho các thao tác nâng cao (render lại, QC,
-                  cắt short) - vẫn là đường phụ, không phải chỗ xem thành phẩm */}
-              {session.projectId && (
+                ) : (
+                  !child.url && (
+                    <p className="text-sm text-[var(--text-muted)]">
+                      {t("ttv.build.long-warning")}
+                    </p>
+                  )
+                )}
                 <Link
                   href={`/projects/${session.projectId}`}
-                  className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--primary)]"
+                  className="inline-flex w-fit items-center gap-1 text-sm font-medium text-[var(--primary)] hover:underline"
                 >
-                  <ExternalLink size={13} strokeWidth={2} />
-                  {t("ttv.open-project-advanced")}
+                  <ExternalLink size={14} strokeWidth={2} />
+                  {t("ttv.build.open-project")}
                 </Link>
-              )}
-            </OutputBlock>
-
-            {/* Job dựng: tiến trình + log từng dòng, đúng thứ trang Render Queue hiện */}
-            <WorkspaceBlock
-              id="ttv-block-log"
-              icon={ScrollText}
-              collapsed={group.isCollapsed("log")}
-              onToggle={() => group.toggle("log")}
-              summary={job ? `${job.type} · ${job.status}` : t("ttv.panel-no-log")}
-              title={t("ttv.card-job")}
-            >
-              {job ? (
-                <JobLogBlock job={job} />
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {t("ttv.panel-no-log")}
-                </p>
-              )}
-            </WorkspaceBlock>
-
-            {/* Tiến trình THẬT của project con - thứ mà trước đây không nhìn thấy được */}
-            <WorkspaceBlock
-              id="ttv-block-child"
-              icon={ListVideo}
-              collapsed={group.isCollapsed("child")}
-              onToggle={() => group.toggle("child")}
-              summary={session.projectId ?? t("ttv.build.no-project")}
-              title={t("ttv.build.child-title")}
-            >
-              {!session.projectId ? (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {t("ttv.build.no-project")}
-                </p>
-              ) : child.pipelineInput && deriveStage(child.pipelineInput) !== null ? (
-                <div className="flex flex-col gap-2">
-                  <PipelineTimeline {...child.pipelineInput} />
-                  {child.runningJob ? (
-                    <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                      <Loader2
-                        size={12}
-                        strokeWidth={2}
-                        className="animate-spin shrink-0"
-                      />
-                      {tf("ttv.build.running-job", { label: child.runningJob.type })}
-                      {child.runningJob.progress > 0
-                        ? ` · ${child.runningJob.progress}%`
-                        : ""}
-                    </p>
-                  ) : (
-                    !child.url && (
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {t("ttv.build.long-warning")}
-                      </p>
-                    )
-                  )}
-                  <Link
-                    href={`/projects/${session.projectId}`}
-                    className="inline-flex w-fit items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
-                  >
-                    <ExternalLink size={12} strokeWidth={2} />
-                    {t("ttv.build.open-project")}
-                  </Link>
-                </div>
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {t("ttv.build.waiting")}
-                </p>
-              )}
-            </WorkspaceBlock>
-          </WorkspaceColumn>
-        </Workspace>
-      </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">
+                {t("ttv.build.waiting")}
+              </p>
+            )}
+          </WorkspaceBlock>
+        </WorkspaceColumn>
+      </Workspace>
 
       {/* Panel AI: chỉ KHAI BÁO nội dung, shell lo bề rộng/gấp/drawer. Cây React
           vẫn nằm ở trang này nên state và SSE của ChatThread giữ nguyên. */}
@@ -1617,6 +1558,10 @@ export default function TextToVideoDetailPage() {
             <SessionStatusBadge status={activeSession.status} />
           </div>
         )}
+
+        {/* Nhật ký job dựng - ĐÚNG MỘT CHỖ trên trang. Trước đây nó vừa nằm đây
+            vừa có một khối riêng ở cột kết quả, hai bản cùng chảy log một lúc. */}
+        {job && <JobLogBlock job={job} />}
 
         {session.projectId ? (
           activeSessionId || (chatSessions !== null && chatSessions.length > 0) ? (
@@ -1644,8 +1589,8 @@ export default function TextToVideoDetailPage() {
             </div>
           )
         ) : (
-          // Nhật ký job đã chuyển sang cột kết quả, nên panel lúc chưa dựng chỉ
-          // còn một lời giải thích - không để trống trơn.
+          // Chưa dựng thì chưa có phiên AI nào - chỉ còn một lời giải thích để
+          // panel không trống trơn.
           <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
             <EmptyState icon={MessageSquare} description={t("ttv.panel-empty")} />
           </div>

@@ -1,21 +1,67 @@
 ---
 name: webui-design
-description: Design system for the AI Edit Video web dashboard (noti.vn) - light/dark color tokens, Inter font, SVG icons, Shopify Admin style layout. MUST read before writing or modifying any UI in apps/web.
+description: Design system for the AI Edit Video web dashboard (noti.vn) - the three-step type scale, light/dark color tokens, the component primitives every page must use, Inter font, SVG icons, Shopify Admin style layout. MUST read before writing or modifying any UI in apps/web.
 ---
 
 # Web UI Design System - AI Edit Video by noti.vn
 
 The web UI is a **monitoring and management dashboard**, not a video editor. Aesthetic standard: Shopify Admin - minimal, high information density but still airy, every element has a reason to exist.
 
-## 1. General principles
+**Enforcement:** `cd apps/web && node scripts/check-design-system.mjs`. It flags off-scale type sizes, off-rhythm spacing, raw colors, and hand-rolled copies of existing primitives. Run it before you claim a UI change is done.
 
-1. **Tokens first, hex never**: every color goes through CSS custom properties declared in `:root` and `[data-theme="dark"]`. Components never contain hex codes.
-2. **Light is the default**, dark is opt-in. The toggle persists to `localStorage` and is applied via the `data-theme` attribute on `<html>`.
-3. **Icons are 100% inline SVG** - Lucide set, stroke 1.5-2px, `currentColor` so they inherit text color. No icon fonts, no PNGs, no emoji as functional icons.
-4. **Inter font** via the `@fontsource/inter` package, imported in `apps/web/src/app/layout.tsx` (weights 400/500/600/700). The package bundles the woff2 files at build time, so the font is self-hosted - never load fonts from a CDN at runtime.
-5. Fixed metadata: title `AI Edit Video by: noti.vn`, description `Edit video tự động bằng AI`, favicon from `public/brand/favicon.png`.
+## 1. The type scale - three steps, no fourth
 
-## 2. Design tokens
+This is the single rule that decides whether the dashboard reads clean or noisy, so it comes first.
+
+| Class | Size | Role |
+|---|---|---|
+| `text-sm` | 14px | **Content.** The default. Descriptions, values, field labels, item names in a list, messages. When in doubt, this one. |
+| `text-meta` | 13px | **Metadata.** Timestamps, ids, counts, the hint under a field, file paths. |
+| `text-xs` | 12px | **Chrome detail.** Only inside badges/chips, table `<th>`, and `.t-eyebrow`. Never for a sentence. |
+
+Plus exactly two headings - `text-xl font-semibold` (20px) for the page title, `text-sm font-semibold` (14px) for a card title - and `text-[28px] font-bold` for the big figure inside `<StatTile>`. Never more than 2 heading levels on one page.
+
+**Banned:** `text-[10px]`, `text-[11px]`, `text-[13px]`, `text-[15px]`, `text-base`, `text-lg`, and every other arbitrary size. Need 13px? That is what `text-meta` is for - a hand-typed arbitrary size is exactly how a fourth step sneaks back in. Below 12px there is no step at all: either the text matters enough to be readable, or it should not be on screen.
+
+`text-meta` is defined in `globals.css` via `@theme { --text-meta }`, so it is a real Tailwind utility, not a convention.
+
+**Why this is written down so forcefully:** before the August 2026 overhaul the codebase had **416 uses of `text-xs` against 136 of `text-sm`**. 12px had silently become the body size, with a long tail of 10/11/13/15px underneath. Everything looked the same, so nothing read as more important than anything else. The spec said 14px body the whole time - what was missing was a name for 13px and something that counted.
+
+## 2. Spacing rhythm
+
+Gaps and padding come from one scale: `gap-1` (4px), `gap-2` (8px), `gap-3` (12px), `gap-4` (16px), `gap-6` (24px); `p-2`, `p-3`, `p-4`. **Banned:** `gap-0.5`, `gap-2.5`, `gap-5`, `p-0.5`, `p-1.5`, `p-2.5`. Icon buttons do not need their own padding - use `<IconButton>`.
+
+Page shell: content gutter 20px (`Shell.tsx`), cards 16px inside, 16px between cards. `<PageHeader>` deliberately carries **no bottom margin** - the page's own `gap-4` provides it. Adding `mb-4` back doubles it to 32px and detaches the title from its page.
+
+## 3. Primitives - use them, never re-derive them
+
+Every one of these exists because the same thing had been hand-written many times over. Reaching past a primitive to raw Tailwind is the failure mode this system is built to prevent.
+
+| Need | Use | Replaced |
+|---|---|---|
+| Button | `<Button variant="primary\|secondary\|destructive" small>` | raw `className="btn btn-primary"` |
+| Icon-only button | `<IconButton label size="sm\|md" tone="default\|danger">` | 10+ copies at 4 sizes, 3 hover colors |
+| Card | `<Card title hint actions>` | `<div className="card p-0">` variants |
+| Box nested inside a card | `<Panel title actions>` | 8 verbatim copies of the same class string |
+| Label + input + hint + error | `<Field>`, `<SwitchField>`, `<CheckboxField>` | 7 variants at 3 different label sizes |
+| Pick one of a few short options | `<Segmented>` | 6 variants, 3 radii, 3 paddings |
+| Pick one option needing a description | `<OptionCard>` in `<OptionCardGroup>` | 5 variants, 2 missing `role="radio"` |
+| Status / category label | `<Badge tone label dot>` | 13 hand-rolled pills at 10px and 11px |
+| Page or card level message | `<Banner tone="danger\|success\|info\|muted">` | 4 error styles + 4 invented success boxes |
+| Loading | `<Skeleton>`, `<TableSkeleton>`, `<CardGridSkeleton>` | 3 loading patterns incl. a primitive defined inside a page |
+| Dashboard figure | `<StatTile label value sub icon href>` | defined inside `app/page.tsx`, plus a copy |
+| Copy to clipboard | `<CopyButton>` | 2 unrelated-looking implementations |
+| List toolbar: search / filter / bulk | `<Toolbar>` + `<FilterChip>` | in-card, outside-card, and absent |
+| Empty list | `<EmptyState icon title description action>` | bare `<p>` in several places |
+| Progress | `<ProgressBar>` / `.progress-indeterminate` | 4 implementations at 2 heights |
+
+**Nesting depth is capped at Card → Panel.** Three nested borders and the eye can no longer tell what contains what - this happened for real on the translate-video page (Card → bordered box → bordered `<li>`).
+
+**Errors:** a single field's error goes in `<Field error>`, right under the offending input. A card- or page-level error goes in `<Banner tone="danger">`. Never a bare `<p className="text-[var(--danger)]">`, and never swallow the raw log - pass it to `detail`.
+
+## 4. Color tokens
+
+Every color goes through a CSS custom property declared in `:root` and `[data-theme="dark"]`. **Components never contain hex codes**, and never Tailwind's palette (`bg-gray-100`, `text-white`) - map those to tokens. Do not apply alpha modifiers to tokens (`bg-[var(--primary-soft)]/40`) - that produces a color outside the table.
 
 ```css
 :root {
@@ -40,6 +86,10 @@ The web UI is a **monitoring and management dashboard**, not a video editor. Aes
   --success-bg: #e7f6ec;
   --danger: #e8590c;
   --danger-bg: #fbeee5;
+
+  /* Chart series - multi-series dataviz only, validated against the dataviz checker */
+  --chart-2: #2f6fed;
+  --chart-3: #0d9488;
 
   /* Shape & motion */
   --radius: 8px;
@@ -67,13 +117,25 @@ The web UI is a **monitoring and management dashboard**, not a video editor. Aes
   --danger: #f0742e;
   --danger-bg: #33231a;
 
+  --chart-2: #5b8def;
+  --chart-3: #27ab92;
+
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 ```
 
 Dark mode rule: only change token **values**, NEVER add dark-only tokens. Write the component once, it runs in both themes.
 
-## 3. Brand assets
+The handful of legitimate exceptions (a QR code needing a real white background, an overlay on top of arbitrary video) are listed with their reasons in the `ALLOW` map of `scripts/check-design-system.mjs`. Adding an entry there requires a reason written next to it.
+
+## 5. General principles
+
+1. **Light is the default**, dark is opt-in. The toggle persists to `localStorage` and is applied via the `data-theme` attribute on `<html>`.
+2. **Icons are 100% inline SVG** - Lucide set, stroke 1.5-2px, `currentColor` so they inherit text color. No icon fonts, no PNGs, no emoji as functional icons (this includes emoji inside `<option>` labels).
+3. **Inter font** via the `@fontsource/inter` package, imported in `apps/web/src/app/layout.tsx` (weights 400/500/600/700). Bundled at build time, so self-hosted - never load fonts from a CDN at runtime.
+4. Fixed metadata: title `AI Edit Video by: noti.vn`, description `Edit video tự động bằng AI`, favicon from `public/brand/favicon.png`.
+
+## 6. Brand assets
 
 | File in `apps/web/public/brand/` | Download source | Used when |
 |---|---|---|
@@ -83,58 +145,72 @@ Dark mode rule: only change token **values**, NEVER add dark-only tokens. Write 
 
 The logo swaps with the theme at the same moment as the tokens (same `data-theme` listener).
 
-## 4. Frame layout (Shopify Admin style)
+## 7. Frame layout
 
 ```
-┌────────────────────────────────────────────────┐
-│ Topbar 56px: logo · page name · theme toggle · │
-│ backend status (green/red dot)                 │
-├─────────┬──────────────────────────────────────┤
-│ Sidebar │  Content: FULL WIDTH, padding 20px,  │
-│ 220px   │  cards spaced 12-16px apart          │
-│ bg-     │  NO max-width - use all the space;   │
-│ subtle  │  multi-column pages use a grid       │
-└─────────┴──────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ Topbar 56px: logo · page name · hardware · backend ·   │
+│ language · theme                                       │
+├─────────┬────────────────────────────────┬─────────────┤
+│ Rail    │  Content: FULL WIDTH, 20px     │ AI panel    │
+│ 220px ↔ │  gutter, cards 16px apart      │ 440px ↔ 40px│
+│ 56px    │  NO max-width                  │ (a slot of  │
+│         │                                │  the shell) │
+└─────────┴────────────────────────────────┴─────────────┘
 ```
 
-**Space rule (important):** never leave dead whitespace. The main working page (project detail)
-is a multi-column workspace filling the full width; lists and tables stretch with the screen. Only
-standalone forms (create project, edit skill) may cap their width for readability (~640px).
+Rail and panel widths are decided by **CSS custom properties driven by `data-nav`/`data-panel` on `<html>`**, never by React state - read the long comment block at the top of `globals.css` before changing anything there. Pages declare their right panel with `<ShellRightPanel title="…">`; they never compute padding for it themselves.
 
-Sidebar (SVG icon + label, the active item gets `--primary-soft` background + `--primary` text) - 14 items (source of truth: `NAV` in `apps/web/src/components/Shell.tsx`):
-- **Dashboard** (`/`) - overview: running jobs, recent projects, new errors
-- **Videos Project** (`/projects`) - list of video projects + status + output preview
-- **Images Project** (`/images`) - image generation projects (Gemini)
-- **Auto cut** (`/auto-cut`) - cut a long video into short segments, each becoming a project
-- **Text to video** (`/text-to-video`) - article/text → script → TTS → video sessions
-- **Voices** (`/voices`) - cloned voice library (VieNeu), placed right under Text to video
-- **Style Design** (`/styles`) - manage styles (color, font, effects) applied to videos/images
-- **Render Queue** (`/queue`) - job queue, progress bar, log, cancel button
-- **Assets** (`/assets`) - imports, footage, images, transcripts
-- **Sound Effects** (`/sfx`) - library, inline preview playback
-- **Prompts** (`/prompts`) - library of prompt templates
-- **Skills** (`/skills`) - CRUD for skill markdown
-- **Cấu hình** (`/config`) - render settings, concurrency
-- **Kết nối** (`/connections`) - API keys for each provider (Claude, Gemini...)
+**Space rule:** never leave dead whitespace. Lists and tables stretch with the screen. Only standalone forms (create project, edit skill) may cap their width for readability (~640px).
 
-## 5. Standard components
+Sidebar - **16 items**, source of truth is `NAV` in `apps/web/src/components/Shell.tsx` (do not re-list them here; this doc has drifted from that array before):
+Dashboard, Videos Project, Images Project, Auto cut, Text to video, Dịch video, Voices, Style Design, Phong cách dựng, Render Queue, Assets, Sound Effects, Prompts, Skills, Cấu hình, Kết nối.
 
-- **Primary button**: `--primary` background, white text, radius `--radius`, hover `--primary-hover`, height 36px, horizontal padding 16px. Secondary: `--surface` background, `--border` outline, `--text` label. Destructive: `--danger` text, `--danger-bg` background on hover.
-- **Card**: `--surface` background, 1px `--border`, radius `--radius-lg`, shadow `--shadow-card`, padding 20px. Card title 14px/600 - do not use large headings.
-- **Status badge** (job/project): `--success-bg` background with `--success` text (completed), `--primary-soft`/`--primary` (running), `--danger-bg`/`--danger` (error), `--bg-subtle`/`--text-muted` (queued). Full radius, 12px font, with a 6px dot.
-- **Table**: header in `--text-muted` 12px uppercase, row hover `--bg-subtle`, horizontal `--border` rules, no vertical borders.
-- **Progress bar** (render job): track `--bg-subtle`, fill `--primary`, height 6px, full radius; percentage and current step name on the right in `--text-muted`.
-- **Typography**: body 14px/1.5; page title 20px/600; large figures 28px/700. Never use more than 2 heading levels on one page.
+`/accelerate` and `/chat` are legacy `redirect()` stubs and correctly absent from NAV. `/m/[id]` is the phone-upload page and bypasses the shell entirely.
 
-## 6. Realtime & state
+## 8. Page skeletons - same job, same shape
+
+**List page** (projects, images, queue, assets, sfx, prompts, skills, styles, video-styles, voices):
+
+```tsx
+<div className="flex flex-col gap-4">
+  <PageHeader title={…} hint={{titleKey, bodyKey}} actions={<Button>…</Button>} />
+  {error && <ErrorBanner message={…} detail={…} />}
+  <Card>
+    <Toolbar search={…} selectedCount={…} bulkActions={…} onClearSelection={…}>
+      <FilterChip … />
+    </Toolbar>
+    {loading ? <TableSkeleton /> : rows.length ? <table className="table">…</table> : <EmptyState … />}
+  </Card>
+</div>
+```
+
+**Detail page** (projects/[id], text-to-video/[id], translate-video/[id], auto-cut/[id], images/[id], styles/[id]): the 3-column `<Workspace>` from `components/Workspace.tsx`, in work-rhythm order **source → setup → output**, with `<OutputBlock>` first in column 3. Column widths come from a **container query**, not a media query, because the real width depends on whether the rail and panel are collapsed. Hand-rolling `xl:grid-cols-5` here is a bug, not a style choice - it ignores the rail/panel state.
+
+Destructive and save actions live in `<PageHeader actions>` on every detail page. Not at the bottom of the page, not inside a card, not as a bare text button.
+
+## 9. Standard components (CSS contracts in `globals.css`)
+
+- **Button**: 36px tall, 16px horizontal padding, radius `--radius`. `.btn-sm` is 30px/13px. There is no third size - do not override `<Button>` with `h-6`/`h-12`. **One exception:** `/m/[id]`, the phone upload page, uses 64px/48px primary buttons. That page is thumb-driven on a real phone rather than mouse-driven on a desktop, and 36px is below the touch-target minimum. It is the only route outside the dashboard shell, and the exception does not travel.
+- **Segmented**: 32px by default; pass `size="md"` for 36px when it sits on the same row as an `.input` or a `<Button>`. A 4px height difference between adjacent controls is immediately visible even to someone who can't name it.
+- **Card**: `--surface`, 1px `--border`, radius `--radius-lg`, `--shadow-card`, **padding 16px**. Title 14px/600.
+- **Panel**: `--bg-subtle`, 1px `--border`, radius `--radius`, padding 12px. Title 13px/600 - deliberately smaller than a card title so nesting reads correctly.
+- **Badge**: 12px, full radius, 6px dot. `dot={false}` for *category* labels - the dot is the convention for *status*, and putting it on a category reads as "running/done".
+- **Table**: header 12px uppercase muted, row hover `--bg-subtle`, horizontal rules only, no vertical borders.
+- **Progress bar**: 6px, track `--bg-subtle`, fill `--primary`. `.progress-indeterminate` is the same 6px so swapping between them doesn't nudge the layout.
+- **Input**: 36px/14px. Never shrink the surface the user types into - `input h-8 text-[13px]` was the single most common violation before the overhaul.
+
+## 10. Realtime & state
 
 - Job/agent state streams over SSE - the UI updates live, and never polls more than once per 5s for static data.
-- Every list needs a decent empty state: muted SVG icon + one descriptive sentence + the primary action button.
-- Errors render as a `--danger-bg` banner with a 3px `--danger` left border, including the raw log content (collapsible). NEVER swallow errors.
+- Every list needs a real empty state: muted SVG icon + one sentence + the primary action.
+- Loading is a `<Skeleton>` holding the space the content will occupy, never a centered "Đang tải…" that vanishes and shoves everything upward.
+- NEVER swallow errors - the raw log goes in `<Banner detail={…}>`, collapsed.
 
-## 7. What NOT to do
+## 11. What NOT to do
 
-- No flashy gradients, no glassmorphism, no decorative animation - the only motion allowed is the 150ms transition and the progress bar.
-- Never use a color outside the token table (including Tailwind grays - map them to tokens).
-- Never write hex CSS values in JSX/TSX.
+- No flashy gradients, no glassmorphism, no decorative animation - the only motion allowed is the 150ms transition, the progress bar, and the skeleton pulse.
+- Never a color outside the token table (including Tailwind grays and alpha-modified tokens).
+- Never a hex value in JSX/TSX.
+- Never re-implement something in the primitive table above. If a primitive nearly fits, extend the primitive - do not fork it locally.
 - Never add video editor features to the web UI - all video processing lives in the backend/engine.

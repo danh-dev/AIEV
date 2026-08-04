@@ -13,12 +13,15 @@
  *
  * Cả trang dùng CHUNG một bộ phát: nghe mẫu gốc và đọc thử phải cắt tiếng nhau,
  * không bao giờ chồng lên nhau.
+ *
+ * Lỗi chỉ có HAI chỗ: lỗi của một ô nhập nằm trong `<Field error>` ngay dưới ô
+ * sai, lỗi cấp thẻ/trang nằm trong `<Banner tone="danger">`. Trước đợt đại tu
+ * trang này có ba kiểu chữ đỏ khác nhau cho cùng một việc.
  */
 
 import {
   AlertTriangle,
   Check,
-  Copy,
   Loader2,
   Mic,
   Pencil,
@@ -47,15 +50,22 @@ import {
   type TtsGender,
 } from "@/lib/api";
 import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
+import { CopyButton } from "@/components/CopyButton";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
+import { Panel } from "@/components/Panel";
+import { Segmented } from "@/components/Segmented";
+import { CardGridSkeleton } from "@/components/Skeleton";
 import { formatDurationMs, formatRelative } from "@/lib/format";
-import { useT, type Lang } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 /** Engine giọng offline - trang này chỉ nói về nó, Gemini là dịch vụ đám mây. */
 const OFFLINE_ENGINE = "vieneu";
@@ -64,9 +74,6 @@ const OFFLINE_ENGINE = "vieneu";
 const CMD_ENGINE = "pip install vieneu";
 const CMD_TORCH = "pip install torch torchaudio";
 
-/** Giữ chữ "Đã chép" đủ lâu để đọc rồi trả nút về trạng thái cũ. */
-const COPIED_MS = 1600;
-
 const GENDERS: TtsGender[] = ["nam", "nu", "trung-tinh"];
 
 const GENDER_LABEL_KEY: Record<TtsGender, string> = {
@@ -74,6 +81,12 @@ const GENDER_LABEL_KEY: Record<TtsGender, string> = {
   nu: "ttv.voice.gender.female",
   "trung-tinh": "ttv.voice.gender.neutral",
 };
+
+/** Lưới thẻ giọng - ĐÚNG chuỗi ngưỡng của bốn trang lưới thẻ anh em (Prompts,
+    Skills, Style Design, Phong cách dựng). Trang này từng xuống hàng ở những
+    ngưỡng riêng, nên cùng một màn hình lại ra số cột khác các trang kia. */
+const VOICE_GRID =
+  "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
 /** Trạng thái rút gọn của engine - quyết định toàn bộ những gì trang cho làm. */
 type EngineState = "checking" | "ready" | "speech-only" | "missing";
@@ -193,31 +206,12 @@ function extForMime(mime: string): string {
 
 function CommandRow({ command }: { command: string }) {
   const { t } = useT();
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPIED_MS);
-    } catch {
-      // Trình duyệt chặn clipboard (không phải https) - lệnh vẫn hiện để chép tay
-    }
-  }
-
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-      <code className="min-w-0 flex-1 break-all rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 font-mono text-xs text-[var(--text)]">
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <code className="min-w-0 flex-1 break-all rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 font-mono text-meta text-[var(--text)]">
         {command}
       </code>
-      <Button variant="secondary" small onClick={copy}>
-        {copied ? (
-          <Check size={13} strokeWidth={2} />
-        ) : (
-          <Copy size={13} strokeWidth={2} />
-        )}
-        {copied ? t("voices.copied") : t("voices.copy")}
-      </Button>
+      <CopyButton value={command} label={t("voices.copy")} size="sm" />
     </div>
   );
 }
@@ -237,7 +231,7 @@ function InstallStep({
   return (
     <li className="flex min-w-0 items-start gap-2">
       <span
-        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
           done
             ? "bg-[var(--success-bg)] text-[var(--success)]"
             : "bg-[var(--primary-soft)] text-[var(--primary)]"
@@ -326,7 +320,7 @@ function EngineCard({
           <p className="text-sm">{stateText}</p>
 
           {state !== "ready" && why && (
-            <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+            <p className="flex items-start gap-2 text-meta text-[var(--text-muted)]">
               <AlertTriangle
                 size={13}
                 strokeWidth={2}
@@ -338,11 +332,8 @@ function EngineCard({
 
           {/* Thiếu gì thì ngay cạnh nó phải có đường sửa - lệnh chép một phát */}
           {state !== "ready" && (
-            <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-              <p className="mb-2 text-sm font-medium">
-                {t("voices.install-title")}
-              </p>
-              <ol className="flex flex-col gap-2.5">
+            <Panel title={t("voices.install-title")}>
+              <ol className="flex flex-col gap-2">
                 <InstallStep
                   index={1}
                   done={state === "speech-only"}
@@ -361,17 +352,17 @@ function EngineCard({
                 />
                 <InstallStep index={4} text={t("voices.install-step4")} />
               </ol>
-            </div>
+            </Panel>
           )}
 
           {/* Vết kỹ thuật (đường dẫn Python, traceback) - gấp lại, không dội
               vào mặt người dùng nhưng vẫn lấy ra được khi cần báo lỗi */}
           {status?.detail && (
             <details className="min-w-0">
-              <summary className="cursor-pointer text-xs font-medium text-[var(--text-muted)]">
+              <summary className="cursor-pointer text-meta font-medium text-[var(--text-muted)]">
                 {t("voices.detail")}
               </summary>
-              <pre className="mt-2 max-h-48 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-xs whitespace-pre-wrap">
+              <pre className="mt-2 max-h-48 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-meta whitespace-pre-wrap">
                 {status.detail}
               </pre>
             </details>
@@ -383,6 +374,9 @@ function EngineCard({
 }
 
 // ============ Form nhân bản ============
+
+/** Lỗi biểu mẫu gắn với ĐÚNG ô nhập gây ra nó - hiện qua `<Field error>`. */
+type FormError = { field: "name" | "file"; message: string };
 
 function CloneVoiceModal({
   open,
@@ -405,7 +399,7 @@ function CloneVoiceModal({
   const [duration, setDuration] = useState<number | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<FormError | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Ghi âm trực tiếp
@@ -459,6 +453,10 @@ function CloneVoiceModal({
     setElapsed(0);
     setFormError(null);
     setApiError(null);
+    // micBlocked phải reset cùng chỗ này: thiếu nó thì một lần từ chối quyền
+    // micro là từ đó trở đi mọi file tải lên đều bị báo đỏ oan, kể cả sau khi
+    // đóng modal mở lại - mà tải file lên thì chẳng liên quan gì tới micro.
+    setMicBlocked(false);
   }, [open]);
 
   async function acceptClip(clip: File, fallbackSec?: number) {
@@ -546,11 +544,11 @@ function CloneVoiceModal({
   async function onSubmit() {
     if (submitting) return;
     if (!name.trim()) {
-      setFormError(t("voices.form.need-name"));
+      setFormError({ field: "name", message: t("voices.form.need-name") });
       return;
     }
     if (!file) {
-      setFormError(t("voices.form.need-file"));
+      setFormError({ field: "file", message: t("voices.form.need-file") });
       return;
     }
     if (tooShort) return;
@@ -573,6 +571,22 @@ function CloneVoiceModal({
       setSubmitting(false);
     }
   }
+
+  /**
+   * Lỗi của ô "File mẫu" - gộp cả ba nguồn về một chỗ theo thứ tự ưu tiên:
+   * chưa chọn file → clip ngắn quá → máy không cho dùng micro.
+   */
+  const fileError =
+    formError?.field === "file"
+      ? formError.message
+      : tooShort
+        ? tf("voices.form.file-too-short", {
+            sec: Math.floor(duration ?? 0),
+            min: CLONE_REF_MIN_SEC,
+          })
+        : micBlocked
+          ? t("voices.form.no-mic")
+          : null;
 
   return (
     <Modal
@@ -608,10 +622,13 @@ function CloneVoiceModal({
         <ErrorBanner message={t("voices.form.failed")} detail={apiError} />
       )}
 
-      <div>
-        <label className="label" htmlFor="voice-name">
-          {t("voices.form.name")}
-        </label>
+      <Field
+        label={t("voices.form.name")}
+        htmlFor="voice-name"
+        hint={t("voices.form.name-hint")}
+        error={formError?.field === "name" ? formError.message : null}
+        required
+      >
         <input
           id="voice-name"
           className="input"
@@ -621,34 +638,22 @@ function CloneVoiceModal({
           placeholder={t("voices.form.name-placeholder")}
           onChange={(e) => setName(e.target.value)}
         />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("voices.form.name-hint")}
-        </p>
-      </div>
+      </Field>
 
-      <div>
-        <label className="label" htmlFor="voice-gender">
-          {t("voices.form.gender")}
-        </label>
-        <select
-          id="voice-gender"
-          className="input"
+      <Field label={t("voices.form.gender")}>
+        <Segmented
+          label={t("voices.form.gender")}
           value={gender}
           disabled={submitting}
-          onChange={(e) => setGender(e.target.value as TtsGender)}
-        >
-          {GENDERS.map((g) => (
-            <option key={g} value={g}>
-              {t(GENDER_LABEL_KEY[g])}
-            </option>
-          ))}
-        </select>
-      </div>
+          onChange={setGender}
+          options={GENDERS.map((g) => ({
+            value: g,
+            label: t(GENDER_LABEL_KEY[g]),
+          }))}
+        />
+      </Field>
 
-      <div>
-        <label className="label" htmlFor="voice-note">
-          {t("voices.form.note")}
-        </label>
+      <Field label={t("voices.form.note")} htmlFor="voice-note">
         <input
           id="voice-note"
           className="input"
@@ -657,126 +662,120 @@ function CloneVoiceModal({
           placeholder={t("voices.form.note-placeholder")}
           onChange={(e) => setNote(e.target.value)}
         />
-      </div>
+      </Field>
 
       {/* Mẫu tham chiếu: file có sẵn HOẶC ghi âm ngay - hai đường vào cùng một chỗ */}
-      <div>
-        <span className="label">{t("voices.form.file")}</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*,video/*"
-            className="hidden"
-            onChange={(e) => {
-              const picked = e.target.files?.[0];
-              if (picked) void acceptClip(picked);
-              // Cho chọn lại đúng file vừa bỏ - input file không tự bắn change
-              e.target.value = "";
-            }}
-          />
-          <Button
-            variant="secondary"
-            small
-            disabled={submitting || recording}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload size={13} strokeWidth={2} />
-            {file ? t("voices.form.file-change") : t("voices.form.file-pick")}
-          </Button>
-          {recording ? (
-            <Button variant="destructive" small onClick={stopRecording}>
-              <Square size={13} strokeWidth={2} />
-              {t("voices.form.record-stop")}
-            </Button>
-          ) : (
+      <Field
+        label={t("voices.form.file")}
+        error={fileError}
+        required
+        hint={
+          <>
+            {tf("voices.form.file-hint", {
+              min: CLONE_REF_MIN_SEC,
+              ideal: CLONE_REF_IDEAL_MAX_SEC,
+            })}
+            {!recording && !file && (
+              <span className="mt-1 block">{t("voices.form.record-hint")}</span>
+            )}
+          </>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,video/*"
+              className="hidden"
+              onChange={(e) => {
+                const picked = e.target.files?.[0];
+                if (picked) void acceptClip(picked);
+                // Cho chọn lại đúng file vừa bỏ - input file không tự bắn change
+                e.target.value = "";
+              }}
+            />
             <Button
               variant="secondary"
               small
-              disabled={submitting}
-              onClick={startRecording}
+              disabled={submitting || recording}
+              onClick={() => fileInputRef.current?.click()}
             >
-              <Mic size={13} strokeWidth={2} />
-              {t("voices.form.record")}
+              <Upload size={13} strokeWidth={2} />
+              {file ? t("voices.form.file-change") : t("voices.form.file-pick")}
             </Button>
+            {recording ? (
+              <Button variant="destructive" small onClick={stopRecording}>
+                <Square size={13} strokeWidth={2} />
+                {t("voices.form.record-stop")}
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                small
+                disabled={submitting}
+                onClick={startRecording}
+              >
+                <Mic size={13} strokeWidth={2} />
+                {t("voices.form.record")}
+              </Button>
+            )}
+            {recording && (
+              <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary)] tabular-nums">
+                <span className="badge-dot badge-dot-pulse" />
+                {tf("voices.form.recording", { sec: Math.floor(elapsed) })}
+              </span>
+            )}
+          </div>
+
+          {/* Nghe lại clip TRƯỚC khi gửi - mẫu sai thì nhân bản ra giọng sai */}
+          {file && !recording && (
+            <Panel>
+              <div className="flex flex-wrap items-center gap-2">
+                <IconButton
+                  label={
+                    clipPlaying
+                      ? t("voices.card.stop")
+                      : t("voices.card.ref-play")
+                  }
+                  onClick={toggleClip}
+                >
+                  {clipPlaying ? (
+                    <Square size={13} strokeWidth={2} />
+                  ) : (
+                    <Play size={13} strokeWidth={2} />
+                  )}
+                </IconButton>
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {file.name}
+                </span>
+                <span className="shrink-0 text-meta text-[var(--text-muted)] tabular-nums">
+                  {measuring
+                    ? t("common.loading")
+                    : duration !== null
+                      ? formatDurationMs(duration * 1000)
+                      : "-"}
+                </span>
+              </div>
+            </Panel>
           )}
-          {recording && (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--primary)] tabular-nums">
-              <span className="badge-dot badge-dot-pulse" />
-              {tf("voices.form.recording", { sec: Math.floor(elapsed) })}
-            </span>
+
+          {/* Dài quá chỉ là CẢNH BÁO: server tự cắt, chặn lại chỉ tổ phiền */}
+          {tooLong && (
+            <p className="flex items-start gap-2 text-meta text-[var(--text-muted)]">
+              <AlertTriangle
+                size={13}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0"
+              />
+              {tf("voices.form.file-too-long", {
+                sec: Math.round(duration ?? 0),
+                ideal: CLONE_REF_IDEAL_MAX_SEC,
+              })}
+            </p>
           )}
         </div>
-
-        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-          {tf("voices.form.file-hint", {
-            min: CLONE_REF_MIN_SEC,
-            ideal: CLONE_REF_IDEAL_MAX_SEC,
-          })}
-        </p>
-        {!recording && !file && (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("voices.form.record-hint")}
-          </p>
-        )}
-
-        {micBlocked && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--danger)]">
-            <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
-            {t("voices.form.no-mic")}
-          </p>
-        )}
-
-        {/* Nghe lại clip TRƯỚC khi gửi - mẫu sai thì nhân bản ra giọng sai */}
-        {file && !recording && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
-            <button
-              type="button"
-              onClick={toggleClip}
-              aria-label={clipPlaying ? t("voices.card.stop") : t("voices.card.ref-play")}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)] transition-colors duration-150 hover:bg-[var(--primary)] hover:text-[var(--primary-soft)]"
-            >
-              {clipPlaying ? (
-                <Square size={13} strokeWidth={2} />
-              ) : (
-                <Play size={13} strokeWidth={2} />
-              )}
-            </button>
-            <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
-            <span className="shrink-0 text-xs text-[var(--text-muted)] tabular-nums">
-              {measuring
-                ? t("common.loading")
-                : duration !== null
-                  ? formatDurationMs(duration * 1000)
-                  : "-"}
-            </span>
-          </div>
-        )}
-
-        {tooShort && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--danger)]">
-            <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
-            {tf("voices.form.file-too-short", {
-              sec: Math.floor(duration ?? 0),
-              min: CLONE_REF_MIN_SEC,
-            })}
-          </p>
-        )}
-        {/* Dài quá chỉ là CẢNH BÁO: server tự cắt, chặn lại chỉ tổ phiền */}
-        {tooLong && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-            <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
-            {tf("voices.form.file-too-long", {
-              sec: Math.round(duration ?? 0),
-              ideal: CLONE_REF_IDEAL_MAX_SEC,
-            })}
-          </p>
-        )}
-      </div>
-
-      {formError && (
-        <p className="text-sm text-[var(--danger)]">{formError}</p>
-      )}
+      </Field>
     </Modal>
   );
 }
@@ -881,128 +880,137 @@ function VoiceCard({
     }
   }
 
+  // Ghi chú + ngày tạo gộp MỘT dòng phụ chú: trước đây là hai dòng riêng, cộng
+  // với tên, chip, hai nút, hai dòng lỗi và chân thẻ là tám dòng trong một thẻ.
+  const meta = [
+    voice.note,
+    tf("voices.card.created", { when: formatRelative(voice.createdAt) }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-      {/* Hàng tên - tên dài phải cắt, không được đẩy nút ra khỏi thẻ */}
-      {renaming ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="input min-w-0 flex-1"
-            autoFocus
-            value={draftName}
-            disabled={saving}
-            aria-label={t("voices.card.rename")}
-            onChange={(e) => setDraftName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void saveName();
-              if (e.key === "Escape") {
-                setRenaming(false);
-                setDraftName(voice.name);
-              }
-            }}
-          />
-          <Button small disabled={saving} onClick={saveName}>
-            {saving ? t("common.saving") : t("voices.card.save")}
-          </Button>
-          <Button
-            variant="secondary"
-            small
-            disabled={saving}
-            onClick={() => {
-              setRenaming(false);
-              setDraftName(voice.name);
-            }}
-          >
-            {t("common.cancel")}
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-start gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-semibold" title={voice.name}>
+    <Card
+      className="flex h-full flex-col"
+      title={
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate" title={voice.name}>
             {voice.name}
-          </p>
-          <span className="chip shrink-0">{t(GENDER_LABEL_KEY[voice.gender])}</span>
-          <button
-            type="button"
+          </span>
+          <span className="chip shrink-0">
+            {t(GENDER_LABEL_KEY[voice.gender])}
+          </span>
+        </span>
+      }
+      actions={
+        <span className="flex shrink-0 items-center gap-1">
+          <IconButton
+            label={t("voices.card.rename")}
             onClick={() => {
               setDraftName(voice.name);
               setRenaming(true);
             }}
-            aria-label={t("voices.card.rename")}
-            title={t("voices.card.rename")}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius)] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)]"
           >
-            <Pencil size={13} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
+            <Pencil size={14} strokeWidth={2} />
+          </IconButton>
+          <IconButton
+            label={t("voices.card.delete")}
+            tone="danger"
             onClick={() => setDeleteOpen(true)}
-            aria-label={t("voices.card.delete")}
-            title={t("voices.card.delete")}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius)] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
           >
-            <Trash2 size={13} strokeWidth={2} />
-          </button>
-        </div>
-      )}
-
-      {voice.note && (
-        <p className="text-xs break-words text-[var(--text-muted)]">{voice.note}</p>
-      )}
-
-      <p className="text-xs text-[var(--text-muted)]">
-        {tf("voices.card.created", { when: formatRelative(voice.createdAt) })}
-      </p>
-
-      {testError && (
-        <p className="text-xs break-words text-[var(--danger)]">
-          {t("voices.card.test-failed")} {testError}
-        </p>
-      )}
-      {actionError && (
-        <p className="text-xs break-words text-[var(--danger)]">{actionError}</p>
-      )}
-
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-        {/* Mẫu gốc - phát thẳng file đã lưu, không tốn một lần tổng hợp nào */}
-        <button
-          type="button"
-          onClick={toggleRef}
-          aria-label={refPlaying ? t("voices.card.stop") : t("voices.card.ref-play")}
-          title={t("voices.card.ref")}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150 ${
-            refPlaying
-              ? "bg-[var(--primary)] text-[var(--primary-soft)]"
-              : "bg-[var(--primary-soft)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-soft)]"
-          }`}
-        >
-          {refPlaying ? (
-            <Square size={13} strokeWidth={2} />
-          ) : (
-            <Play size={13} strokeWidth={2} />
-          )}
-        </button>
-        <span className="shrink-0 text-xs text-[var(--text-muted)] tabular-nums">
-          {t("voices.card.ref")} · {formatDurationMs(voice.refDurationSec * 1000)}
+            <Trash2 size={14} strokeWidth={2} />
+          </IconButton>
         </span>
-        <span className="grow" />
-        <Button
-          variant="secondary"
-          small
-          disabled={!canTest || testing}
-          title={canTest ? undefined : blockedHint}
-          aria-label={tf("voices.card.test-aria", { name: voice.name })}
-          onClick={toggleTest}
-        >
-          {testing ? (
-            <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-          ) : testPlaying ? (
-            <Square size={13} strokeWidth={2} />
-          ) : (
-            <Volume2 size={13} strokeWidth={2} />
-          )}
-          {testPlaying ? t("voices.card.stop") : t("voices.card.test")}
-        </Button>
+      }
+    >
+      <div className="flex flex-1 flex-col gap-3">
+        {renaming && (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              className="input min-w-0 flex-1"
+              autoFocus
+              value={draftName}
+              disabled={saving}
+              aria-label={t("voices.card.rename")}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void saveName();
+                if (e.key === "Escape") {
+                  setRenaming(false);
+                  setDraftName(voice.name);
+                }
+              }}
+            />
+            <Button small disabled={saving} onClick={saveName}>
+              {saving ? t("common.saving") : t("voices.card.save")}
+            </Button>
+            <Button
+              variant="secondary"
+              small
+              disabled={saving}
+              onClick={() => {
+                setRenaming(false);
+                setDraftName(voice.name);
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+          </div>
+        )}
+
+        <p className="text-meta break-words text-[var(--text-muted)]">{meta}</p>
+
+        {/* MỘT chỗ báo lỗi cho cả thẻ - đọc thử và đổi tên/xóa không còn hai
+            kiểu chữ đỏ khác nhau nữa */}
+        {/* Hai nguồn lỗi ĐỘC LẬP nhau (đổi tên/xóa vs đọc thử) nên mỗi cái
+            một banner. Ghép chung một banner thì lúc cả hai cùng xảy ra, lỗi đọc
+            thử bị nuốt mất và không quay lại cho tới lần bấm đọc thử sau. */}
+        {actionError && <Banner tone="danger" message={actionError} />}
+        {testError && (
+          <Banner
+            tone="danger"
+            message={t("voices.card.test-failed")}
+            detail={testError}
+          />
+        )}
+
+        <div className="mt-auto flex flex-wrap items-center gap-2">
+          {/* Mẫu gốc - phát thẳng file đã lưu, không tốn một lần tổng hợp nào */}
+          <IconButton
+            label={
+              refPlaying ? t("voices.card.stop") : t("voices.card.ref-play")
+            }
+            onClick={toggleRef}
+          >
+            {refPlaying ? (
+              <Square size={13} strokeWidth={2} />
+            ) : (
+              <Play size={13} strokeWidth={2} />
+            )}
+          </IconButton>
+          <span className="shrink-0 text-meta text-[var(--text-muted)] tabular-nums">
+            {t("voices.card.ref")} ·{" "}
+            {formatDurationMs(voice.refDurationSec * 1000)}
+          </span>
+          <span className="grow" />
+          <Button
+            variant="secondary"
+            small
+            disabled={!canTest || testing}
+            title={canTest ? undefined : blockedHint}
+            aria-label={tf("voices.card.test-aria", { name: voice.name })}
+            onClick={toggleTest}
+          >
+            {testing ? (
+              <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+            ) : testPlaying ? (
+              <Square size={13} strokeWidth={2} />
+            ) : (
+              <Volume2 size={13} strokeWidth={2} />
+            )}
+            {testPlaying ? t("voices.card.stop") : t("voices.card.test")}
+          </Button>
+        </div>
       </div>
 
       <ConfirmDeleteModal
@@ -1013,7 +1021,7 @@ function VoiceCard({
         onClose={() => setDeleteOpen(false)}
         onConfirm={onDelete}
       />
-    </div>
+    </Card>
   );
 }
 
@@ -1087,11 +1095,14 @@ export default function VoicesPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={t("voices.title")}
+        hint={{ titleKey: "help.voices.title", bodyKey: "help.voices.body" }}
         subtitle={t("voices.subtitle")}
         actions={newButton}
       />
 
-      {error && <ErrorBanner message={error} />}
+      {/* Tiêu đề banner là CÂU NÓI CHO NGƯỜI DÙNG, nguyên văn exception xuống
+          `detail` (gấp lại) - giống 9 trang danh sách còn lại. */}
+      {error && <ErrorBanner message={t("voices.load-error")} detail={error} />}
 
       {/* 1. Engine trước tiên: chưa cài thì mọi thứ dưới đây đều vô nghĩa */}
       <EngineCard
@@ -1101,24 +1112,25 @@ export default function VoicesPage() {
         onRecheck={() => void loadEngines()}
       />
 
-      {/* 2. Kho giọng đã nhân bản */}
+      {/* 2. Kho giọng đã nhân bản. Thẻ giọng TỰ NÓ là một <Card> nên đứng thẳng
+          trong lưới - bọc thêm một Card bao ngoài là card lồng card. */}
       {voices === null ? (
-        <Card>
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
-        </Card>
+        <div className={VOICE_GRID}>
+          <CardGridSkeleton count={3} />
+        </div>
       ) : voices.length === 0 ? (
-        <Card title={t("voices.empty-title")}>
+        <Card>
           <EmptyState
             icon={Mic}
+            title={t("voices.empty-title")}
             description={t("voices.empty-body")}
             action={newButton}
           />
         </Card>
       ) : (
-        <Card title={tf("voices.count", { n: voices.length })}>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+        <>
+          <h2 className="t-eyebrow">{tf("voices.count", { n: voices.length })}</h2>
+          <div className={VOICE_GRID}>
             {voices.map((v) => (
               <VoiceCard
                 key={v.id}
@@ -1138,11 +1150,11 @@ export default function VoicesPage() {
             ))}
           </div>
           {/* Nói trước cái chậm của lần đọc đầu - không thì người dùng tưởng treo */}
-          <p className="mt-3 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+          <p className="flex items-start gap-2 text-meta text-[var(--text-muted)]">
             <Volume2 size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
             {t("voices.first-run-slow")}
           </p>
-        </Card>
+        </>
       )}
 
       <CloneVoiceModal

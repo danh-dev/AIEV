@@ -135,6 +135,16 @@ Quy tắc bắt buộc:
 
 Web UI là **dashboard giám sát**, không phải video editor. Tối giản kiểu Shopify Admin: đầy đủ tính năng, gọn gàng, không màu mè.
 
+**Thang chữ - ba bậc, không có bậc thứ tư** (luật quan trọng nhất, cưỡng chế bằng `node apps/web/scripts/check-design-system.mjs`):
+
+| Class | Cỡ | Dùng cho |
+|---|---|---|
+| `text-sm` | 14px | **Nội dung** - mặc định. Mô tả, giá trị, nhãn ô nhập, tên mục, câu thông báo. |
+| `text-meta` | 13px | **Phụ chú** - mốc thời gian, id, số đếm, gợi ý dưới ô nhập, đường dẫn. |
+| `text-xs` | 12px | **Chi tiết khung** - chỉ trong badge/chip, `<th>`, nhãn cột in hoa. |
+
+Cấm `text-[10px]`, `text-[11px]`, `text-[13px]`, `text-[15px]`, `text-base`, `text-lg`. Cần 13px thì dùng `text-meta`. Mọi thành phần lặp lại (nút icon, hộp lồng, nhãn+ô nhập, badge, banner, trạng thái chờ, toolbar danh sách) đều đã có primitive trong `apps/web/src/components/` - **không được dựng lại bằng Tailwind thô**, danh sách đầy đủ ở skill `webui-design`.
+
 - Font: **Inter** qua gói `@fontsource/inter` (import trong `layout.tsx`, đóng gói lúc build nên vẫn self-host, tuyệt đối không gọi CDN lúc chạy).
 - Icon: **100% SVG inline** (khuyến nghị bộ Lucide, stroke 1.5–2px). Tuyệt đối không icon font, không PNG icon, không emoji làm icon.
 - Sáng/tối chuyển được, **mặc định sáng**. Mọi màu khai báo bằng CSS custom properties — không hardcode hex trong component.

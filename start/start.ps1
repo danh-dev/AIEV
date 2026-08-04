@@ -49,7 +49,31 @@ node (Join-Path $root "start\doctor.mjs") --fix
 $env:Path = ([Environment]::GetEnvironmentVariable("Path", "Machine"),
              [Environment]::GetEnvironmentVariable("Path", "User")) -join ";"
 
-# 2. Kiểm tra trạng thái hiện tại: web (6868) VÀ backend (6869 qua proxy /api/health)
+# 2. Đang chạy sẵn hay không - và nếu có thì có ĐÚNG là bản dựng từ code hiện
+#    tại không.
+#
+#    KHÔNG được kết luận chỉ vì cổng 6868 có người trả lời. Người dùng lỡ chạy
+#    `npm run dev` trước đó thì dev server cũng trả lời 200, và script cũ sẽ mở
+#    trình duyệt vào đúng cái bản CŨ đang nằm trong bộ nhớ của tiến trình đó -
+#    sửa code xong bấm start.bat mà không thấy gì đổi, không hiểu tại sao.
+#
+#    Bằng chứng đáng tin là `.aiev/run.json`: chỉ chính script này ghi ra, và
+#    trong đó có dấu vân tay mã nguồn lúc khởi động. Khớp với mã nguồn hiện tại
+#    thì mới thật sự là "đang chạy sẵn, đúng bản".
+$stateDir = Join-Path $root ".aiev"
+$runFile  = Join-Path $stateDir "run.json"
+$srcStamp = (node (Join-Path $root "start\build-stamp.mjs") --print)
+
+function Stop-AievPorts {
+    foreach ($port in 6868, 6869) {
+        Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique |
+            ForEach-Object { taskkill /pid $_ /t /f 2>$null | Out-Null }
+    }
+    Remove-Item $runFile -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
 $webUp = $false; $apiUp = $false
 try {
     $probe = Invoke-WebRequest -UseBasicParsing -Uri $ProbeUrl -TimeoutSec 2
@@ -60,37 +84,26 @@ try {
     if ($probeApi.StatusCode -eq 200) { $apiUp = $true }
 } catch { }
 
-if ($webUp -and $apiUp) {
-    # Đang chạy NHƯNG code mới hơn bản build (vừa git pull) → phải build + khởi động lại
-    $stale = $false
-    $srvSrc = Get-ChildItem (Join-Path $root "apps\server\src") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    $srvDist = Get-ChildItem (Join-Path $root "apps\server\dist") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($srvSrc -and (-not $srvDist -or $srvSrc.LastWriteTime -gt $srvDist.LastWriteTime)) { $stale = $true }
-    $webSrc = Get-ChildItem (Join-Path $root "apps\web\src") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    $webNext = Get-ChildItem (Join-Path $root "apps\web\.next") -Recurse -File -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($webSrc -and (-not $webNext -or $webSrc.LastWriteTime -gt $webNext.LastWriteTime)) { $stale = $true }
-    if (-not $stale) {
-        Write-Ok "Hệ thống đang chạy sẵn - mở trình duyệt."
+if ($webUp -or $apiUp) {
+    $runStamp = $null
+    try { $runStamp = (Get-Content $runFile -Raw | ConvertFrom-Json).stamp } catch { }
+
+    if ($webUp -and $apiUp -and $runStamp -eq $srcStamp) {
+        Write-Ok "Hệ thống đang chạy sẵn (đúng bản mới nhất) - mở trình duyệt."
         Start-Process $WebUrl
         exit 0
     }
-    Write-Step "Có code mới chưa build - dừng hệ thống để build lại..."
-    foreach ($port in 6868, 6869) {
-        Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty OwningProcess -Unique |
-            ForEach-Object { taskkill /pid $_ /t /f 2>$null | Out-Null }
+    if ($null -eq $runStamp) {
+        # Nháy đơn, KHÔNG backtick: trong chuỗi nháy kép của PowerShell backtick
+        # là ký tự thoát, nên "`npm run dev`" biến `n thành ký tự xuống dòng và
+        # câu thông báo bị cắt cụt ngay giữa chừng.
+        Write-Step "Cổng 6868/6869 đang bị tiến trình khác chiếm (vd 'npm run dev') - dừng để chạy lại cho đúng..."
+    } elseif ($runStamp -ne $srcStamp) {
+        Write-Step "Code đã đổi so với bản đang chạy - dừng để build lại..."
+    } else {
+        Write-Step "Hệ thống chạy dở dang - khởi động lại cho sạch..."
     }
-    Start-Sleep -Seconds 1
-}
-if ($webUp -or $apiUp) {
-    # Trạng thái nửa vời (vd web sống nhưng backend chết) → dọn sạch rồi khởi động lại
-    Write-Step "Phát hiện hệ thống chạy dở dang - khởi động lại cho sạch..."
-    foreach ($port in 6868, 6869) {
-        Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty OwningProcess -Unique |
-            ForEach-Object { taskkill /pid $_ /t /f 2>$null | Out-Null }
-    }
-    Start-Sleep -Seconds 1
+    Stop-AievPorts
 }
 
 # 3. Cài dependencies lần đầu
@@ -101,28 +114,31 @@ if (-not (Test-Path (Join-Path $root "node_modules"))) {
     Write-Ok "Đã cài dependencies."
 }
 
-# 4. Build server + web nếu chưa build HOẶC source mới hơn bản build (sau khi cập nhật code)
-function Get-NewestWrite($dir) {
-    if (-not (Test-Path $dir)) { return [datetime]::MinValue }
-    $newest = Get-ChildItem $dir -Recurse -File -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($null -eq $newest) { return [datetime]::MinValue } else { return $newest.LastWriteTime }
-}
-
+# 4. Build lại khi mã nguồn đã đổi so với lần build gần nhất.
+#
+#    So bằng DẤU VÂN TAY mã nguồn (start/build-stamp.mjs), không so thời gian
+#    sửa file giữa `src` và `.next`/`dist` như bản cũ. Lý do: `next start` ghi
+#    cache vào chính `.next` trong lúc chạy, nên `.next` luôn trông mới hơn
+#    `src` và thay đổi thật thì bị bỏ sót - sửa code xong build không chạy lại.
 $serverDist = Join-Path $root "apps\server\dist"
-if (-not (Test-Path $serverDist) -or
-    (Get-NewestWrite (Join-Path $root "apps\server\src")) -gt (Get-NewestWrite $serverDist)) {
+$webNext    = Join-Path $root "apps\web\.next"
+
+node (Join-Path $root "start\build-stamp.mjs") --check
+$stampOk = ($LASTEXITCODE -eq 0)
+
+if (-not $stampOk -or -not (Test-Path $serverDist)) {
     Write-Step "Build backend..."
     npm run build -w apps/server
     if ($LASTEXITCODE -ne 0) { Write-Err "Build server thất bại."; exit 1 }
 }
-$webNext = Join-Path $root "apps\web\.next"
-if (-not (Test-Path $webNext) -or
-    (Get-NewestWrite (Join-Path $root "apps\web\src")) -gt (Get-NewestWrite $webNext)) {
+if (-not $stampOk -or -not (Test-Path $webNext)) {
     Write-Step "Build web UI (vài phút)..."
     npm run build -w apps/web
     if ($LASTEXITCODE -ne 0) { Write-Err "Build web thất bại."; exit 1 }
 }
+# Ghi dấu vân tay SAU KHI build xong: build hỏng giữa chừng thì lần chạy sau
+# vẫn phải build lại, không được coi là đã xong.
+node (Join-Path $root "start\build-stamp.mjs") --save | Out-Null
 
 # (cloudflared, ffmpeg, Chrome... đã do doctor.mjs ở bước 1b lo)
 
@@ -167,6 +183,18 @@ for ($i = 0; $i -lt 60; $i++) {
 }
 
 if ($ready) {
+    # Ghi lại "lần chạy này dựng từ mã nguồn nào". Lần bấm start.bat kế tiếp đọc
+    # đúng file này để phân biệt ba trường hợp: đang chạy đúng bản (chỉ mở trình
+    # duyệt), code đã đổi (build lại), hay cổng đang bị tiến trình lạ chiếm.
+    New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+    # WriteAllText chứ không Set-Content -Encoding UTF8: Windows PowerShell 5.1
+    # thêm BOM vào đầu file, mà JSON.parse của Node (start.sh đọc bằng cách đó)
+    # coi BOM là ký tự lạ và ném lỗi. Ghi không BOM thì cả hai bên đọc được.
+    [IO.File]::WriteAllText(
+        $runFile,
+        (@{ stamp = $srcStamp; at = (Get-Date).ToString("o") } | ConvertTo-Json)
+    )
+
     Write-Ok "Hệ thống đã sẵn sàng!"
     Start-Process $WebUrl
     Write-Host ""

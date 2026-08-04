@@ -7,7 +7,7 @@
 
 import { Scissors, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteAutoCut,
   getAutoCutSessions,
@@ -20,8 +20,10 @@ import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { IconButton } from "@/components/IconButton";
 import { PageHeader } from "@/components/PageHeader";
+import { TableSkeleton } from "@/components/Skeleton";
+import { Toolbar } from "@/components/Toolbar";
 import { AutoCutCreateModal } from "@/components/AutoCutCreateModal";
 import {
   AutoCutStatusBadge,
@@ -40,6 +42,7 @@ export default function AutoCutPage() {
   const [sessions, setSessions] = useState<AutoCutMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Phiên đang chờ xác nhận xóa
   const [target, setTarget] = useState<AutoCutMeta | null>(null);
@@ -65,6 +68,17 @@ export default function AutoCutPage() {
     if (["done", "failed", "canceled"].includes(job.status)) load();
   });
 
+  // Lọc tại chỗ theo tên + đường dẫn nguồn - danh sách phiên nằm sẵn trong bộ nhớ
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !sessions) return sessions;
+    return sessions.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.source.relPath.toLowerCase().includes(q)
+    );
+  }, [sessions, query]);
+
   async function onDelete() {
     if (!target || deleting) return;
     setDeleting(true);
@@ -83,49 +97,55 @@ export default function AutoCutPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.auto-cut")}
-            <InfoHint
-              titleKey="help.autocut.title"
-              bodyKey="help.autocut.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("nav.auto-cut")}
+        hint={{ titleKey: "help.autocut.title", bodyKey: "help.autocut.body" }}
         subtitle={t("autocut.subtitle")}
         actions={
-          <>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Scissors size={16} strokeWidth={2} />
-              {t("autocut.new")}
-            </Button>
-          </>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Scissors size={16} strokeWidth={2} />
+            {t("autocut.new")}
+          </Button>
         }
       />
 
       {error && <ErrorBanner message={t("autocut.load-error")} detail={error} />}
 
       <Card>
-        {sessions && sessions.length > 0 ? (
+        <Toolbar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: t("autocut.search"),
+          }}
+        />
+        {shown && shown.length > 0 ? (
           // Bảng nhiều cột - màn hẹp thì cuộn ngang thay vì vỡ layout
           <div className="overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>
+                  {/* Cột phụ ẩn dưới xl - giống Text to video và Dịch video:
+                      để đủ 7 cột trên màn hẹp là CẢ TRANG trượt ngang, kéo theo
+                      cả rail trái, chứ không phải chỉ bảng cuộn trong khung. */}
                   <th>{t("common.name")}</th>
                   <th>{t("common.status")}</th>
-                  <th>{t("autocut.col-mode")}</th>
-                  <th>{t("autocut.col-aspect")}</th>
+                  <th className="hidden xl:table-cell">
+                    {t("autocut.col-mode")}
+                  </th>
+                  <th className="hidden xl:table-cell">
+                    {t("autocut.col-aspect")}
+                  </th>
                   <th>{t("autocut.col-segments")}</th>
-                  <th>{t("common.updated")}</th>
+                  <th className="hidden xl:table-cell">
+                    {t("common.updated")}
+                  </th>
                   <th className="w-10">
                     <span className="sr-only">{t("common.delete")}</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => {
+                {shown.map((s) => {
                   const created = s.segments.filter((x) => x.projectId).length;
                   return (
                     <tr
@@ -135,38 +155,39 @@ export default function AutoCutPage() {
                     >
                       <td>
                         <span className="font-medium">{s.name}</span>
-                        <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
+                        {/* Đường dẫn dài phải cắt bớt, không thì một file nằm
+                            sâu 6 cấp thư mục là toác nguyên cột. */}
+                        <span className="mt-1 block max-w-[360px] truncate text-meta text-[var(--text-muted)]">
                           {s.source.relPath}
                         </span>
                       </td>
                       <td>
                         <AutoCutStatusBadge status={s.status} />
                       </td>
-                      <td className="text-[var(--text-muted)]">
+                      <td className="hidden text-[var(--text-muted)] xl:table-cell">
                         {t(MODE_LABEL[s.mode] ?? "autocut.mode.time")}
                       </td>
-                      <td className="text-[var(--text-muted)]">
+                      <td className="hidden text-[var(--text-muted)] xl:table-cell">
                         {aspectLabel(s.output.aspect, t)}
                       </td>
                       <td className="text-[var(--text-muted)]">
                         {s.segments.length} / {created}
                       </td>
-                      <td className="text-[var(--text-muted)]">
+                      <td className="hidden text-[var(--text-muted)] xl:table-cell">
                         {formatDateTime(s.updatedAt)}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          title={t("common.delete")}
-                          aria-label={tf("autocut.delete-aria", { name: s.name })}
+                        <IconButton
+                          size="sm"
+                          tone="danger"
+                          label={tf("autocut.delete-aria", { name: s.name })}
                           onClick={() => {
                             setDeleteError(null);
                             setTarget(s);
                           }}
-                          className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                         >
                           <Trash2 size={15} strokeWidth={2} />
-                        </button>
+                        </IconButton>
                       </td>
                     </tr>
                   );
@@ -174,21 +195,28 @@ export default function AutoCutPage() {
               </tbody>
             </table>
           </div>
-        ) : sessions ? (
-          <EmptyState
-            icon={Scissors}
-            description={t("autocut.empty")}
-            action={
-              <Button onClick={() => setCreateOpen(true)}>
-                <Scissors size={16} strokeWidth={2} />
-                {t("autocut.new")}
-              </Button>
-            }
-          />
+        ) : shown ? (
+          // Lọc không ra gì KHÁC với chưa có phiên nào: gợi ý "tạo phiên mới"
+          // lúc người dùng chỉ gõ nhầm từ khóa là trả lời sai câu hỏi.
+          query.trim() ? (
+            <EmptyState icon={Scissors} description={t("common.no-match")} />
+          ) : (
+            <EmptyState
+              icon={Scissors}
+              description={t("autocut.empty")}
+              action={
+                <Button onClick={() => setCreateOpen(true)}>
+                  <Scissors size={16} strokeWidth={2} />
+                  {t("autocut.new")}
+                </Button>
+              }
+            />
+          )
         ) : (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
+          // Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+          // ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải
+          // lỗi" cùng lúc, mà cho danh sách về rỗng thì lại nói dối "chưa có gì".
+          !error && <TableSkeleton />
         )}
       </Card>
 

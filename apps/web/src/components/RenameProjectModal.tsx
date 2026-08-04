@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
 import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
 
@@ -72,16 +73,19 @@ export function RenameProjectModal({
     }
   }
 
+  // Dấu X và nút Hủy đi CHUNG một đường - đang lưu thì cả hai cùng bị chặn
+  function close() {
+    if (!saving) onClose();
+  }
+
   return (
     <Modal
       title={t("projects.rename-title")}
       open={target !== null}
-      onClose={() => {
-        if (!saving) onClose();
-      }}
+      onClose={close}
       footer={
         <>
-          <Button variant="secondary" disabled={saving} onClick={onClose}>
+          <Button variant="secondary" disabled={saving} onClick={close}>
             {t("common.cancel")}
           </Button>
           <Button disabled={saving} onClick={onSave}>
@@ -91,10 +95,11 @@ export function RenameProjectModal({
       }
     >
       {error && <ErrorBanner message={error} />}
-      <div>
-        <label className="label" htmlFor="rename-project-name">
-          {t("common.name")}
-        </label>
+      <Field
+        label={t("common.name")}
+        htmlFor="rename-project-name"
+        hint={tf(hintKey, { id: target?.id ?? "" })}
+      >
         <input
           id="rename-project-name"
           className="input"
@@ -110,10 +115,7 @@ export function RenameProjectModal({
           }}
           placeholder={t("projects.name-placeholder")}
         />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {tf(hintKey, { id: target?.id ?? "" })}
-        </p>
-      </div>
+      </Field>
     </Modal>
   );
 }

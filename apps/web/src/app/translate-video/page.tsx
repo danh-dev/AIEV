@@ -8,7 +8,7 @@
 
 import { Languages, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createTranslateVideo,
   deleteTranslateVideo,
@@ -17,6 +17,7 @@ import {
   TRANSLATE_MODE_LABEL,
   TRANSLATE_VIDEO_STATUS_LABEL,
   TRANSLATE_VIDEO_STATUS_TONE,
+  type TranslateStatus,
   type TranslateVideoMeta,
 } from "@/lib/api";
 import { useEvents, useJobEvents } from "@/lib/useEvents";
@@ -26,13 +27,31 @@ import { Card } from "@/components/Card";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
+import { TableSkeleton } from "@/components/Skeleton";
+import { Toolbar } from "@/components/Toolbar";
 // clock() (giây → mm:ss) đã có sẵn ở đây, lib/format.ts chưa có helper tương đương
 import { clock } from "@/components/AutoCutCommon";
 import { formatDateTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+
+/**
+ * Badge trạng thái phiên - một component riêng, y như <AutoCutStatusBadge>.
+ *
+ * VÌ SAO KHÔNG VIẾT THẲNG TRONG BẢNG: bản cũ nội tuyến
+ * `label={LABEL[s.status] ? t(…) : String(s.status)}`, nên server thêm một
+ * trạng thái mà web chưa có nhãn là chữ máy (`transcribing`) rơi thẳng vào giữa
+ * giao diện tiếng Việt. Nhãn mặc định phải là một câu DỊCH ĐƯỢC.
+ */
+function TranslateStatusBadge({ status }: { status: TranslateStatus }) {
+  const { t } = useT();
+  const tone = TRANSLATE_VIDEO_STATUS_TONE[status] ?? "muted";
+  const key = TRANSLATE_VIDEO_STATUS_LABEL[status];
+  return <Badge tone={tone} label={key ? t(key) : t("common.status-unknown")} />;
+}
 
 /** Một dòng mô tả nguồn của phiên: tên file video, hoặc lời nhắc chưa có nguồn. */
 function sourceLine(s: TranslateVideoMeta, fallback: string): string {
@@ -98,10 +117,7 @@ function CreateModal({
     >
       {error && <ErrorBanner message={t("tv.create-error")} detail={error} />}
 
-      <div>
-        <label className="label" htmlFor="tv-name">
-          {t("tv.name")}
-        </label>
+      <Field label={t("tv.name")} htmlFor="tv-name" hint={t("tv.create-hint")}>
         <input
           id="tv-name"
           className="input"
@@ -110,8 +126,7 @@ function CreateModal({
           placeholder={t("tv.name-placeholder")}
           onChange={(e) => setName(e.target.value)}
         />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{t("tv.create-hint")}</p>
-      </div>
+      </Field>
     </Modal>
   );
 }
@@ -125,6 +140,7 @@ export default function TranslateVideoPage() {
   const [sessions, setSessions] = useState<TranslateVideoMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Phiên đang chờ xác nhận xóa
   const [target, setTarget] = useState<TranslateVideoMeta | null>(null);
@@ -149,6 +165,17 @@ export default function TranslateVideoPage() {
     if (!isTranslateVideoJob(job)) return;
     if (["done", "failed", "canceled"].includes(job.status)) load();
   });
+
+  // Lọc tại chỗ theo tên + tên file nguồn
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !sessions) return sessions;
+    return sessions.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.source.relPath ?? "").toLowerCase().includes(q)
+    );
+  }, [sessions, query]);
 
   async function onDelete() {
     if (!target || deleting) return;
@@ -175,12 +202,8 @@ export default function TranslateVideoPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.translate-video")}
-            <InfoHint titleKey="help.tv.title" bodyKey="help.tv.body" size={14} />
-          </span>
-        }
+        title={t("nav.translate-video")}
+        hint={{ titleKey: "help.tv.title", bodyKey: "help.tv.body" }}
         subtitle={t("tv.subtitle")}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -193,7 +216,14 @@ export default function TranslateVideoPage() {
       {error && <ErrorBanner message={t("tv.load-error")} detail={error} />}
 
       <Card>
-        {sessions && sessions.length > 0 ? (
+        <Toolbar
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: t("tv.search"),
+          }}
+        />
+        {shown && shown.length > 0 ? (
           // Bảng nhiều cột - màn hẹp thì cuộn ngang thay vì vỡ layout
           <div className="overflow-x-auto">
             <table className="table">
@@ -210,7 +240,7 @@ export default function TranslateVideoPage() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => (
+                {shown.map((s) => (
                   <tr
                     key={s.id}
                     className="row-click"
@@ -218,19 +248,12 @@ export default function TranslateVideoPage() {
                   >
                     <td>
                       <span className="font-medium">{s.name}</span>
-                      <span className="mt-0.5 block max-w-[360px] truncate text-xs text-[var(--text-muted)]">
+                      <span className="mt-1 block max-w-[360px] truncate text-meta text-[var(--text-muted)]">
                         {sourceLine(s, t("tv.no-source-yet"))}
                       </span>
                     </td>
                     <td>
-                      <Badge
-                        tone={TRANSLATE_VIDEO_STATUS_TONE[s.status] ?? "muted"}
-                        label={
-                          TRANSLATE_VIDEO_STATUS_LABEL[s.status]
-                            ? t(TRANSLATE_VIDEO_STATUS_LABEL[s.status])
-                            : String(s.status)
-                        }
-                      />
+                      <TranslateStatusBadge status={s.status} />
                     </td>
                     <td className="text-[var(--text-muted)]">
                       {`${langLabel(s.sourceLang)} → ${langLabel(s.targetLang)}`}
@@ -244,39 +267,43 @@ export default function TranslateVideoPage() {
                       {formatDateTime(s.updatedAt)}
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        title={t("common.delete")}
-                        aria-label={tf("tv.delete-aria", { name: s.name })}
+                      <IconButton
+                        size="sm"
+                        tone="danger"
+                        label={tf("tv.delete-aria", { name: s.name })}
                         onClick={() => {
                           setDeleteError(null);
                           setTarget(s);
                         }}
-                        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                       >
                         <Trash2 size={15} strokeWidth={2} />
-                      </button>
+                      </IconButton>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : sessions ? (
-          <EmptyState
-            icon={Languages}
-            description={t("tv.empty")}
-            action={
-              <Button onClick={() => setCreateOpen(true)}>
-                <Languages size={16} strokeWidth={2} />
-                {t("tv.new")}
-              </Button>
-            }
-          />
+        ) : shown ? (
+          query.trim() ? (
+            <EmptyState icon={Languages} description={t("common.no-match")} />
+          ) : (
+            <EmptyState
+              icon={Languages}
+              description={t("tv.empty")}
+              action={
+                <Button onClick={() => setCreateOpen(true)}>
+                  <Languages size={16} strokeWidth={2} />
+                  {t("tv.new")}
+                </Button>
+              }
+            />
+          )
         ) : (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
+          // Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+          // ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải
+          // lỗi" cùng lúc, mà cho danh sách về rỗng thì lại nói dối "chưa có gì".
+          !error && <TableSkeleton />
         )}
       </Card>
 

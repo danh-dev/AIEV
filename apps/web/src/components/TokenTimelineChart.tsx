@@ -168,7 +168,7 @@ export function TokenTimelineChart({
               const v = hovered.byProvider[p.id] ?? 0;
               if (v <= 0) return null;
               return (
-                <div key={p.id} className="flex items-center gap-1.5">
+                <div key={p.id} className="flex items-center gap-2">
                   <span
                     aria-hidden
                     className="h-2 w-2 shrink-0 rounded-full"
@@ -320,7 +320,7 @@ export function TokenTimelineChart({
           {activeProviders.map((p) => (
             <span
               key={p.id}
-              className="inline-flex items-center gap-1 text-[11px] leading-none text-[var(--text-muted)]"
+              className="inline-flex items-center gap-1 text-xs leading-none text-[var(--text-muted)]"
             >
               <span
                 aria-hidden
@@ -330,7 +330,7 @@ export function TokenTimelineChart({
               {p.label}
             </span>
           ))}
-          <span className="inline-flex items-center gap-1 text-[11px] leading-none text-[var(--text-muted)]">
+          <span className="inline-flex items-center gap-1 text-xs leading-none text-[var(--text-muted)]">
             <span
               aria-hidden
               className="h-1.5 w-1.5 shrink-0 rounded-[2px]"

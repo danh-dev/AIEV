@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { IconButton } from "@/components/IconButton";
 import { useT } from "@/lib/i18n";
 
 type Theme = "light" | "dark";
@@ -38,18 +39,17 @@ export function ThemeToggle() {
   }
 
   return (
-    <button
-      type="button"
+    // <IconButton> chứ không dựng tay: nút này đứng ngay cạnh nút đổi ngôn ngữ
+    // trên header, hai cái phải cùng một hình dạng.
+    <IconButton
+      label={theme === "dark" ? t("theme.to-light") : t("theme.to-dark")}
       onClick={toggle}
-      aria-label={theme === "dark" ? t("theme.to-light") : t("theme.to-dark")}
-      title={theme === "dark" ? t("theme.light") : t("theme.dark")}
-      className="flex h-9 w-9 items-center justify-center rounded-[var(--radius)] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
     >
       {theme === "dark" ? (
         <Sun size={18} strokeWidth={1.75} />
       ) : (
         <Moon size={18} strokeWidth={1.75} />
       )}
-    </button>
+    </IconButton>
   );
 }

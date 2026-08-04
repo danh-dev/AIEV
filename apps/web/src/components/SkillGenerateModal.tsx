@@ -21,8 +21,11 @@ import {
   type SkillMeta,
 } from "@/lib/api";
 import { Button } from "@/components/Button";
+import { CheckboxField, Field } from "@/components/Field";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
+import { Panel } from "@/components/Panel";
+import { Segmented } from "@/components/Segmented";
 import { formatTokens, KEBAB_RE } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -37,7 +40,12 @@ const PLATFORM_OPTIONS = [
 const ASPECT_OPTIONS = ["9:16", "16:9", "1:1", "4:5"] as const;
 type AspectOption = (typeof ASPECT_OPTIONS)[number];
 
-const FPS_OPTIONS = [30, 60] as const;
+/** Options cho <Segmented> - value luôn là chuỗi, fps đổi lại thành số lúc set. */
+const ASPECT_SEGMENTS = ASPECT_OPTIONS.map((a) => ({ value: a, label: a }));
+const FPS_SEGMENTS = [
+  { value: "30", label: "30" },
+  { value: "60", label: "60" },
+] as const;
 
 // label là KEY dictionary - dịch bằng t() lúc render.
 const CAPTION_OPTIONS: {
@@ -104,49 +112,6 @@ function toInput(f: FormState): SkillGenerateInput {
     ...(f.baseSkill ? { baseSkill: f.baseSkill } : {}),
     ...(f.notes.trim() ? { notes: f.notes.trim() } : {}),
   };
-}
-
-/** Nhóm nút segmented nhỏ (khung / fps) - active nền primary-soft. */
-function Segmented<T extends string | number>({
-  options,
-  value,
-  onChange,
-  disabled,
-  ariaLabel,
-}: {
-  options: readonly T[];
-  value: T;
-  onChange: (v: T) => void;
-  disabled?: boolean;
-  ariaLabel: string;
-}) {
-  return (
-    <div
-      className="flex items-center gap-1.5"
-      role="group"
-      aria-label={ariaLabel}
-    >
-      {options.map((o) => {
-        const active = value === o;
-        return (
-          <button
-            key={String(o)}
-            type="button"
-            disabled={disabled}
-            aria-pressed={active}
-            onClick={() => onChange(o)}
-            className={`rounded-[var(--radius)] border px-2.5 py-1.5 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-              active
-                ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-            }`}
-          >
-            {String(o)}
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 export function SkillGenerateModal({
@@ -254,11 +219,17 @@ export function SkillGenerateModal({
   const busy = generating || saving;
 
   return (
+    // KHÔNG `wide`: đây là biểu mẫu một cột (cặp ô nhập xếp đôi ở màn rộng chứ
+    // không phải nội dung nhiều cột thật). Form đơn lẻ hẹp thì mắt đọc theo một
+    // trục, không phải quét ngang.
     <Modal
-      wide
       title={step === 1 ? t("skills.create-ai") : t("skillGen.review-title")}
       open={open}
       onClose={close}
+      // Bước 1 là biểu mẫu một cột - hẹp cho dễ đọc. Bước 2 là trình soạn
+      // markdown cao 420px, ở 640px thì mỗi dòng gãy làm đôi và không soát
+      // được bố cục file skill; đây đúng là lúc `wide` có lý do.
+      wide={step === 2}
       footer={
         step === 1 ? (
           <>
@@ -304,10 +275,7 @@ export function SkillGenerateModal({
             <ErrorBanner message={t("skillGen.gen-error")} detail={genError} />
           )}
 
-          <div>
-            <label className="label" htmlFor="sg-goal">
-              {t("skillGen.goal-label")}
-            </label>
+          <Field label={t("skillGen.goal-label")} htmlFor="sg-goal">
             <textarea
               id="sg-goal"
               className="input min-h-[64px]"
@@ -317,13 +285,10 @@ export function SkillGenerateModal({
               onChange={(e) => patch({ goal: e.target.value })}
               placeholder={t("skillGen.goal-placeholder")}
             />
-          </div>
+          </Field>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="sg-platform">
-                {t("skillGen.platform")}
-              </label>
+            <Field label={t("skillGen.platform")} htmlFor="sg-platform">
               <select
                 id="sg-platform"
                 className="input"
@@ -339,11 +304,8 @@ export function SkillGenerateModal({
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="sg-duration">
-                {t("skillGen.duration")}
-              </label>
+            </Field>
+            <Field label={t("skillGen.duration")} htmlFor="sg-duration">
               <input
                 id="sg-duration"
                 className="input"
@@ -352,31 +314,26 @@ export function SkillGenerateModal({
                 onChange={(e) => patch({ duration: e.target.value })}
                 placeholder="30–60s"
               />
-            </div>
-            <div>
-              <span className="label">{t("skillGen.aspect")}</span>
+            </Field>
+            <Field label={t("skillGen.aspect")}>
               <Segmented
-                options={ASPECT_OPTIONS}
+                label={t("skillGen.aspect")}
+                options={ASPECT_SEGMENTS}
                 value={form.aspect}
                 disabled={generating}
-                ariaLabel={t("skillGen.aspect")}
                 onChange={(aspect) => patch({ aspect })}
               />
-            </div>
-            <div>
-              <span className="label">FPS</span>
+            </Field>
+            <Field label="FPS">
               <Segmented
-                options={FPS_OPTIONS}
-                value={form.fps}
+                label="FPS"
+                options={FPS_SEGMENTS}
+                value={String(form.fps)}
                 disabled={generating}
-                ariaLabel="FPS"
-                onChange={(fps) => patch({ fps })}
+                onChange={(fps) => patch({ fps: Number(fps) as 30 | 60 })}
               />
-            </div>
-            <div>
-              <label className="label" htmlFor="sg-style">
-                {t("skillGen.style")}
-              </label>
+            </Field>
+            <Field label={t("skillGen.style")} htmlFor="sg-style">
               <input
                 id="sg-style"
                 className="input"
@@ -385,11 +342,8 @@ export function SkillGenerateModal({
                 onChange={(e) => patch({ style: e.target.value })}
                 placeholder={t("skillGen.style-placeholder")}
               />
-            </div>
-            <div>
-              <label className="label" htmlFor="sg-captions">
-                {t("brief.subtitles")}
-              </label>
+            </Field>
+            <Field label={t("brief.subtitles")} htmlFor="sg-captions">
               <select
                 id="sg-captions"
                 className="input"
@@ -405,11 +359,8 @@ export function SkillGenerateModal({
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="sg-base">
-                {t("skillGen.base")}
-              </label>
+            </Field>
+            <Field label={t("skillGen.base")} htmlFor="sg-base">
               <select
                 id="sg-base"
                 className="input"
@@ -424,11 +375,13 @@ export function SkillGenerateModal({
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="sg-name">
-                {t("skillGen.name-label")}
-              </label>
+            </Field>
+            <Field
+              label={t("skillGen.name-label")}
+              htmlFor="sg-name"
+              hint={t("skillGen.name-hint")}
+              error={nameHintInvalid ? t("skills.kebab-error") : null}
+            >
               <input
                 id="sg-name"
                 className="input"
@@ -437,46 +390,26 @@ export function SkillGenerateModal({
                 onChange={(e) => patch({ name: e.target.value })}
                 placeholder="vd: tiktok-review-congnghe"
               />
-              {nameHintInvalid ? (
-                <p className="mt-1 text-xs text-[var(--danger)]">
-                  {t("skills.kebab-error")}
-                </p>
-              ) : (
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {t("skillGen.name-hint")}
-                </p>
-              )}
-            </div>
+            </Field>
             <div className="flex flex-col justify-end gap-2">
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <input
-                  type="checkbox"
-                  className="checkbox"
-                  disabled={generating}
-                  checked={form.highlights}
-                  onChange={(e) => patch({ highlights: e.target.checked })}
-                />
-                <span className="text-sm">Keyword highlight</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <input
-                  type="checkbox"
-                  className="checkbox"
-                  disabled={generating}
-                  checked={form.sfx}
-                  onChange={(e) => patch({ sfx: e.target.checked })}
-                />
-                <span className="text-sm">
-                  {t("skillGen.sfx-sync")}
-                </span>
-              </label>
+              <CheckboxField
+                id="sg-highlights"
+                label="Keyword highlight"
+                checked={form.highlights}
+                disabled={generating}
+                onChange={(highlights) => patch({ highlights })}
+              />
+              <CheckboxField
+                id="sg-sfx"
+                label={t("skillGen.sfx-sync")}
+                checked={form.sfx}
+                disabled={generating}
+                onChange={(sfx) => patch({ sfx })}
+              />
             </div>
           </div>
 
-          <div>
-            <label className="label" htmlFor="sg-notes">
-              {t("skillGen.notes")}
-            </label>
+          <Field label={t("skillGen.notes")} htmlFor="sg-notes">
             <textarea
               id="sg-notes"
               className="input min-h-[48px]"
@@ -486,33 +419,43 @@ export function SkillGenerateModal({
               onChange={(e) => patch({ notes: e.target.value })}
               placeholder={t("skillGen.notes-placeholder")}
             />
-          </div>
+          </Field>
 
           {generating && (
-            <div className="flex flex-col gap-1.5 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2.5">
+            <Panel>
               <div
                 className="progress-indeterminate"
                 aria-label={t("skillGen.generating-aria")}
               />
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-sm text-[var(--text-muted)]">
                 {t("skillGen.generating")}
               </p>
-            </div>
+            </Panel>
           )}
         </>
       ) : (
         <>
-          {fromRaw && (
-            <ErrorBanner message={t("skillGen.bad-format")} />
-          )}
+          {/* Mọi lỗi của bước này gom ở ĐẦU thân modal - kể cả lỗi tạo lại,
+              trước đây nó nằm dưới đáy nên phải cuộn qua ô soạn thảo 420px */}
+          {fromRaw && <ErrorBanner message={t("skillGen.bad-format")} />}
           {saveError && (
             <ErrorBanner message={t("skillGen.save-error")} detail={saveError} />
           )}
+          {genError && (
+            <ErrorBanner message={t("skillGen.regen-error")} detail={genError} />
+          )}
 
-          <div>
-            <label className="label" htmlFor="sg-draft-name">
-              {t("skillGen.draft-name")}
-            </label>
+          <Field
+            label={t("skillGen.draft-name")}
+            htmlFor="sg-draft-name"
+            error={
+              nameConflict
+                ? t("skillGen.name-conflict")
+                : draftName && !draftNameValid
+                  ? t("skills.kebab-error")
+                  : null
+            }
+          >
             <input
               id="sg-draft-name"
               className="input"
@@ -524,53 +467,35 @@ export function SkillGenerateModal({
               }}
               placeholder="ten-skill-kebab-case"
             />
-            {nameConflict ? (
-              <p className="mt-1 text-xs text-[var(--danger)]">
-                {t("skillGen.name-conflict")}
-              </p>
-            ) : (
-              draftName &&
-              !draftNameValid && (
-                <p className="mt-1 text-xs text-[var(--danger)]">
-                  {t("skills.kebab-error")}
-                </p>
-              )
-            )}
-          </div>
+          </Field>
 
-          <div>
-            <label className="label" htmlFor="sg-draft-content">
-              {t("skillGen.content-label")}
-            </label>
+          <Field label={t("skillGen.content-label")} htmlFor="sg-draft-content">
             <textarea
               id="sg-draft-content"
-              className="input max-h-[max(420px,calc(90vh-320px))] min-h-[420px] font-mono text-xs leading-relaxed"
+              className="input max-h-[max(420px,calc(90vh-320px))] min-h-[420px] font-mono text-meta leading-relaxed"
               disabled={busy}
               value={draftContent}
               onChange={(e) => setDraftContent(e.target.value)}
               spellCheck={false}
             />
-          </div>
+          </Field>
 
           {draftTokens !== null && (
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-meta text-[var(--text-muted)]">
               {tf("skillGen.tokens-used", { n: formatTokens(draftTokens) })}
             </p>
           )}
 
           {generating && (
-            <div className="flex flex-col gap-1.5 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2.5">
+            <Panel>
               <div
                 className="progress-indeterminate"
                 aria-label={t("skillGen.regenerating-aria")}
               />
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-sm text-[var(--text-muted)]">
                 {t("skillGen.regenerating-note")}
               </p>
-            </div>
-          )}
-          {genError && (
-            <ErrorBanner message={t("skillGen.regen-error")} detail={genError} />
+            </Panel>
           )}
         </>
       )}

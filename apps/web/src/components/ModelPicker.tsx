@@ -12,6 +12,9 @@
 
 import { AlertTriangle, Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/Badge";
+import { Field } from "@/components/Field";
+import { Panel } from "@/components/Panel";
 import {
   getClaudeModels,
   getProviders,
@@ -143,85 +146,83 @@ export function AiModelBlock({
   const modelMissing = model !== "" && !models.some((m) => m.id === model);
 
   return (
-    <div>
-      <span className="label">{t("model.performer")}</span>
-      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm font-medium">Claude</span>
-          {claude &&
-            (claude.connected ? (
-              <span className="badge badge-success">
-                <span className="badge-dot" />
-                {claude.source === "api-key"
-                  ? t("model.connected-api-key")
-                  : t("model.connected-subscription")}
-              </span>
+    <Panel
+      title={t("model.performer")}
+      actions={
+        // "Claude" phải đứng ngay trước huy hiệu: một mình chữ "Đã kết nối"
+        // cạnh tiêu đề nhóm "AI thực hiện" thì không nói được là CÁI GÌ đang
+        // kết nối. Bản cũ có chữ này, chuyển sang Panel thì rơi mất.
+        claude && (
+          <span className="flex items-center gap-2">
+            <span className="text-meta font-medium">Claude</span>
+            {claude.connected ? (
+              <Badge
+                tone="success"
+                label={
+                  claude.source === "api-key"
+                    ? t("model.connected-api-key")
+                    : t("model.connected-subscription")
+                }
+              />
             ) : (
-              <span className="badge badge-danger">
-                <span className="badge-dot" />
-                {t("model.not-connected")}
-              </span>
-            ))}
-        </div>
-        {claude && !claude.connected && (
-          <p className="flex items-start gap-1.5 text-xs font-medium text-[var(--danger)]">
-            <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
-            {t("model.claude-warning")}
-          </p>
-        )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="ai-model">
-              {t("model.model")}
-            </label>
-            <select
-              id="ai-model"
-              className="input"
-              value={model}
-              disabled={disabled}
-              onFocus={loadClaudeModels}
-              onChange={(e) => onModelChange(e.target.value)}
-            >
-              {modelMissing && <option value={model}>{model}</option>}
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="ai-effort">
-              {t("model.effort")}
-            </label>
-            <select
-              id="ai-effort"
-              className="input"
-              value={effort}
-              disabled={disabled}
-              onChange={(e) => onEffortChange(e.target.value as AgentEffort)}
-            >
-              {EFFORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {t(o.label)} - {t(o.hint)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        {gemini && (
-          <p
-            className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]"
-            title={t(GEMINI_TOOLTIP)}
+              <Badge tone="danger" label={t("model.not-connected")} />
+            )}
+          </span>
+        )
+      }
+    >
+      {claude && !claude.connected && (
+        <p className="flex items-start gap-2 text-sm font-medium text-[var(--danger)]">
+          <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
+          {t("model.claude-warning")}
+        </p>
+      )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label={t("model.model")} htmlFor="ai-model">
+          <select
+            id="ai-model"
+            className="input"
+            value={model}
+            disabled={disabled}
+            onFocus={loadClaudeModels}
+            onChange={(e) => onModelChange(e.target.value)}
           >
-            <Info size={13} strokeWidth={2} className="shrink-0" />
-            {gemini.connected
-              ? t("model.gemini-connected")
-              : t("model.gemini-not-connected")}
-          </p>
-        )}
+            {modelMissing && <option value={model}>{model}</option>}
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("model.effort")} htmlFor="ai-effort">
+          <select
+            id="ai-effort"
+            className="input"
+            value={effort}
+            disabled={disabled}
+            onChange={(e) => onEffortChange(e.target.value as AgentEffort)}
+          >
+            {EFFORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.label)} - {t(o.hint)}
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
-    </div>
+      {gemini && (
+        <p
+          className="flex items-center gap-2 text-meta text-[var(--text-muted)]"
+          title={t(GEMINI_TOOLTIP)}
+        >
+          <Info size={14} strokeWidth={2} className="shrink-0" />
+          {gemini.connected
+            ? t("model.gemini-connected")
+            : t("model.gemini-not-connected")}
+        </p>
+      )}
+    </Panel>
   );
 }
 
@@ -245,8 +246,10 @@ export function AiModelInlineRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* `.input` chuẩn, chỉ ghi đè BỀ RỘNG (w-auto) để hai select nằm gọn trên
+          một hàng - chiều cao và cỡ chữ giữ nguyên như mọi ô nhập khác. */}
       <select
-        className="input h-7 w-auto px-2 text-xs"
+        className="input w-auto"
         aria-label={t("model.aria-model")}
         value={model}
         disabled={disabled}
@@ -261,7 +264,7 @@ export function AiModelInlineRow({
         ))}
       </select>
       <select
-        className="input h-7 w-auto px-2 text-xs"
+        className="input w-auto"
         aria-label={t("model.aria-effort")}
         value={effort}
         disabled={disabled}
@@ -275,19 +278,19 @@ export function AiModelInlineRow({
       </select>
       {claude && !claude.connected && (
         <span
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--danger)]"
+          className="inline-flex items-center gap-1 text-meta font-medium text-[var(--danger)]"
           title={t("model.claude-warning-short")}
         >
-          <AlertTriangle size={12} strokeWidth={2} className="shrink-0" />
+          <AlertTriangle size={13} strokeWidth={2} className="shrink-0" />
           {t("model.claude-not-connected")}
         </span>
       )}
       {gemini && (
         <span
-          className="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]"
+          className="inline-flex items-center gap-1 text-meta text-[var(--text-muted)]"
           title={t(GEMINI_TOOLTIP)}
         >
-          <Info size={12} strokeWidth={2} className="shrink-0" />
+          <Info size={13} strokeWidth={2} className="shrink-0" />
           {t("model.gemini-images-only")}
         </span>
       )}

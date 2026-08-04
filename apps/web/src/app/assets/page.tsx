@@ -6,9 +6,10 @@ import {
   FolderOpen,
   Image as ImageIcon,
   Music,
+  SearchX,
   Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getAssets,
   mediaUrl,
@@ -19,9 +20,11 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
 import { MediaPreviewModal } from "@/components/MediaPreviewModal";
 import { PageHeader } from "@/components/PageHeader";
+import { Segmented } from "@/components/Segmented";
+import { TableSkeleton } from "@/components/Skeleton";
+import { Toolbar } from "@/components/Toolbar";
 import { formatBytes, formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -50,6 +53,9 @@ export default function AssetsPage() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<FileInfo | null>(null);
+  // Tìm theo tên file - thư mục imports/ của một người dùng thật dài hàng trăm
+  // dòng, cuộn tay tìm một file là việc máy nên làm hộ.
+  const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (s: Scope) => {
@@ -66,6 +72,12 @@ export default function AssetsPage() {
     setPreview(null);
     load(scope);
   }, [scope, load]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !files) return files;
+    return files.filter((f) => f.name.toLowerCase().includes(q));
+  }, [files, query]);
 
   async function doUpload(fileList: FileList | File[]) {
     // Server luôn từ chối upload vào scope "outputs" (400 INVALID_SCOPE)
@@ -95,16 +107,8 @@ export default function AssetsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.assets")}
-            <InfoHint
-              titleKey="help.assets.title"
-              bodyKey="help.assets.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("nav.assets")}
+        hint={{ titleKey: "help.assets.title", bodyKey: "help.assets.body" }}
         subtitle={t("assetsPage.subtitle")}
         actions={
           // Outputs không nhận upload - ẩn nút, giống EmptyState phía dưới
@@ -129,23 +133,6 @@ export default function AssetsPage() {
           e.target.value = "";
         }}
       />
-
-      <div className="flex gap-1 border-b border-[var(--border)]">
-        {(["imports", "outputs"] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setScope(s)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
-              scope === s
-                ? "border-[var(--primary)] text-[var(--primary)]"
-                : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
-            }`}
-          >
-            {s === "imports" ? "Imports" : "Outputs"}
-          </button>
-        ))}
-      </div>
 
       {error && (
         <ErrorBanner message={t("assetsPage.load-error")} detail={error} />
@@ -173,7 +160,33 @@ export default function AssetsPage() {
         }`}
       >
         <Card>
-          {files && files.length > 0 ? (
+          {/* Hai bộ sưu tập vẫn là "tab", nhưng dựng bằng <Segmented> đặt trong
+              <Toolbar> - cùng chỗ, cùng hình dạng với bộ lọc của mọi trang danh
+              sách khác, thay vì một hàng tab gạch chân chỉ trang này mới có. */}
+          <Toolbar
+            search={{
+              value: query,
+              onChange: setQuery,
+              placeholder: t("assetsPage.search"),
+            }}
+          >
+            <Segmented
+              label={t("assetsPage.scope-aria")}
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: "imports", label: "Imports" },
+                { value: "outputs", label: "Outputs" },
+              ]}
+            />
+          </Toolbar>
+
+        {/* Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+            ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải lỗi"
+            cùng lúc, mà cho danh sách về rỗng thì lại nói dối là "chưa có gì". */}
+          {!files ? (
+            !error && <TableSkeleton />
+          ) : shown && shown.length > 0 ? (
             <table className="table">
               <thead>
                 <tr>
@@ -183,7 +196,7 @@ export default function AssetsPage() {
                 </tr>
               </thead>
               <tbody>
-                {files.map((f) => (
+                {shown.map((f) => (
                   <tr
                     key={f.relPath}
                     className="row-click"
@@ -200,7 +213,7 @@ export default function AssetsPage() {
                           <img
                             src={`${mediaUrl(f.relPath)}?v=${encodeURIComponent(f.mtime)}`}
                             alt=""
-                            className="h-7 w-7 shrink-0 rounded-[3px] border border-[var(--border)] bg-[var(--bg-subtle)] object-cover"
+                            className="h-10 w-10 shrink-0 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] object-cover"
                           />
                         ) : (
                           <KindIcon kind={f.kind} />
@@ -218,7 +231,11 @@ export default function AssetsPage() {
                 ))}
               </tbody>
             </table>
-          ) : files ? (
+          ) : files.length > 0 ? (
+            // Lọc không ra gì KHÁC với thư mục rỗng: mời upload lúc người dùng
+            // chỉ gõ nhầm từ khóa là trả lời sai câu hỏi.
+            <EmptyState icon={SearchX} description={t("common.no-match")} />
+          ) : (
             <EmptyState
               icon={FolderOpen}
               description={
@@ -235,10 +252,6 @@ export default function AssetsPage() {
                 ) : undefined
               }
             />
-          ) : (
-            <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-              {t("common.loading")}
-            </p>
           )}
         </Card>
       </div>

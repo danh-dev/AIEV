@@ -113,6 +113,24 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Giây → "m:ss" (hoặc "h:mm:ss" khi qua một giờ) - mốc thời gian trong video.
+ *
+ * Trước đợt đại tu hàm này được định nghĩa BA lần: AutoCutCommon, ProjectClipsCard
+ * và ProjectReviewCard, mỗi bản một kiểu làm tròn. Đây là chỗ đúng của nó.
+ */
+export function clock(sec: number): string {
+  const total = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const p = (n: number) => String(n).padStart(2, "0");
+  // Phút LUÔN đủ hai chữ số kể cả dưới 10 phút ("00:45", không phải "0:45"):
+  // đó là cách cả hai bản cũ đều làm, và cột timecode trong bảng chỉ thẳng hàng
+  // khi mọi ô rộng bằng nhau.
+  return h > 0 ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+}
+
 /** File "mới" - sửa đổi trong vòng 3 phút (badge "mới" trong danh sách asset/render). */
 export function isRecentFile(mtime: string, windowMs = 3 * 60_000): boolean {
   const t = new Date(mtime).getTime();

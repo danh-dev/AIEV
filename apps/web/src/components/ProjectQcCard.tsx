@@ -19,11 +19,11 @@ import {
   type QcStatus,
 } from "@/lib/api";
 import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
 import { MediaPreviewModal, imageFileInfo } from "@/components/MediaPreviewModal";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -143,12 +143,8 @@ export function ProjectQcCard({
 
   return (
     <Card
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          {t("qc.title")}
-          <InfoHint titleKey="help.qc.title" bodyKey="help.qc.body" size={14} />
-        </span>
-      }
+      title={t("qc.title")}
+      hint={{ titleKey: "help.qc.title", bodyKey: "help.qc.body" }}
       // Không shrink-0: ở cột hẹp (bố cục 4 cột) badge + nút không đủ chỗ trên
       // một hàng, cho wrap để nút xuống dòng thay vì tràn khỏi card.
       actions={
@@ -167,7 +163,7 @@ export function ProjectQcCard({
 
       {/* Lượt đo dài - nói rõ đang chạy ffmpeg để người dùng chờ được */}
       {running && (
-        <p className="mb-3 text-xs text-[var(--text-muted)]">
+        <p className="mb-3 text-meta text-[var(--text-muted)]">
           {t("qc.slow-note")}
         </p>
       )}
@@ -182,13 +178,9 @@ export function ProjectQcCard({
         )
       ) : (
         <div className="flex flex-col gap-3">
-          {stale && (
-            <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
-              {t("qc.stale")}
-            </p>
-          )}
+          {stale && <Banner tone="danger" message={t("qc.stale")} />}
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-[var(--text-muted)]">
             <span>{tf("qc.checked-at", { time: formatRelative(report.checkedAt) })}</span>
             {fileName && (
               <span
@@ -206,7 +198,7 @@ export function ProjectQcCard({
           {/* Danh sách xếp chồng thay vì bảng: card này nằm ở cột hẹp, mà
               `detail` là câu văn dài (có cả khuyến nghị chỉnh bao nhiêu dB) -
               để dạng bảng thì chữ bị cắt và phải cuộn ngang mới đọc được. */}
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-2">
             {report.checks.map((c) => {
               const Icon = CHECK_ICON[c.status] ?? AlertTriangle;
               // pass = xanh; warn/fail đều dùng --danger, phân biệt bằng
@@ -228,8 +220,11 @@ export function ProjectQcCard({
                     aria-label={t(STATUS_LABEL[c.status] ?? "qc.status-warn")}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium">{c.label}</p>
-                    <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                    {/* Nhãn là NỘI DUNG (14px), câu chi tiết là phụ chú (13px):
+                        để cả hai cùng 12px thì danh sách đọc thành một khối xám,
+                        không thấy được mục nào đang nói về cái gì. */}
+                    <p className="text-sm font-medium">{c.label}</p>
+                    <p className="text-meta leading-relaxed text-[var(--text-muted)]">
                       {c.detail}
                     </p>
                   </div>
@@ -242,7 +237,7 @@ export function ProjectQcCard({
               cảnh quay nên phải để người dùng tự soi (xem docs/API.md mục QC) */}
           {evidence.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-meta text-[var(--text-muted)]">
                 {t("qc.safe-area-hint")}
               </p>
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -275,9 +270,7 @@ export function ProjectQcCard({
 
           {/* Hành vi thật của backend: job assemble-final bị chặn khi QC fail */}
           {report.status === "fail" && (
-            <p className="text-xs font-medium text-[var(--danger)]">
-              {t("qc.fail-blocks-final")}
-            </p>
+            <Banner tone="danger" message={t("qc.fail-blocks-final")} />
           )}
         </div>
       )}

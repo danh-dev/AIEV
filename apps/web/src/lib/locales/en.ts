@@ -21,6 +21,11 @@ export const en: Record<string, string> = {
   "common.actions": "Actions",
   "common.name": "Name",
   "common.tags": "Tags",
+  "common.copy": "Copy",
+  "common.copied": "Copied",
+  "common.clear": "Clear",
+  "common.selected": "selected",
+  "common.search": "Search",
 
   // ===== Navigation (Shell) =====
   "nav.dashboard": "Dashboard",
@@ -307,7 +312,7 @@ export const en: Record<string, string> = {
   // ===== Videos Project (list) =====
   "projects.subtitle": "Each project is one video in video-projects/",
   "projects.create": "Create project",
-  "projects.create-title": "Create new project",
+  "projects.create-title": "Create project",
   "projects.empty": "No projects yet. Create your first project to start building videos.",
   "projects.load-error": "Could not load the project list.",
   "projects.preset.tiktok": "TikTok/Reels vertical",
@@ -686,7 +691,7 @@ export const en: Record<string, string> = {
 
   // ===== Images Project (list) =====
   "imagesPage.subtitle": "Gemini draws the background · Remotion sets text synced to the Style Design",
-  "imagesPage.create": "New image",
+  "imagesPage.create": "Create image",
   "imagesPage.create-short": "Create image",
   "imagesPage.load-error": "Could not load the image project list.",
   "imagesPage.junk-confirm": "Delete {items} junk items across {projects} image projects, freeing {size}?\nBackgrounds, final images and project meta are kept.",
@@ -926,7 +931,7 @@ export const en: Record<string, string> = {
 
   // ===== Skills =====
   "skills.subtitle": "Claude's production know-how - markdown files in .claude/skills/",
-  "skills.create": "New skill",
+  "skills.create": "Create skill",
   "skills.create-short": "Create skill",
   "skills.create-ai": "Create skill with AI",
   "skills.next-session-note": "Claude picks up new skills in its next working session.",
@@ -1037,6 +1042,8 @@ export const en: Record<string, string> = {
   "conn.delete-desc-1": "Delete the API key for",
   "conn.delete-desc-2": "The provider loses its connection if no other auth source remains.",
   "conn.load-error": "Could not load the connection list.",
+  "conn.save-key-error": "Could not save the API key.",
+  "conn.delete-key-error": "Could not delete the API key.",
   "conn.empty": "The server has no providers configured - check the backend.",
 
   // ===== Cloudflare Tunnel (Connections page) =====
@@ -1067,6 +1074,9 @@ export const en: Record<string, string> = {
   "tunnel.warn-public":
     "The dashboard has no login yet - when going public, wrap it with Cloudflare Access.",
   "tunnel.load-error": "Could not load the tunnel status.",
+  "tunnel.domain-error": "Could not save the tunnel domain.",
+  "tunnel.start-error": "Could not start the tunnel.",
+  "tunnel.stop-error": "Could not stop the tunnel.",
 
   // ===== QC tự động + Gói xuất bản =====
   "qc.safe-area-hint": "Frames with the platform UI zones outlined in red - click to enlarge and check whether any text or key band falls inside the red zone (the machine cannot tell text from footage).",
@@ -1214,7 +1224,7 @@ export const en: Record<string, string> = {
 
   "autocut.subtitle":
     "Cut one long video into several short ones - every segment becomes a ready-made Videos Project.",
-  "autocut.new": "New cut",
+  "autocut.new": "Create cutting session",
   "autocut.empty":
     "No cutting session yet. Drop in a long video, pick how to cut it, and the system slices it into short videos with a Videos Project ready for each one.",
   "autocut.load-error": "Could not load the cutting sessions.",
@@ -1263,7 +1273,7 @@ export const en: Record<string, string> = {
   "autocut.aspect.keep": "Keep source",
   "autocut.aspect.keep-size": "Source frame",
 
-  "autocut.create-title": "New cut",
+  "autocut.create-title": "Create cutting session",
   "autocut.source": "Source video",
   "autocut.source-pick": "Pick a video from imports/",
   "autocut.source-none": "No video in imports/ yet",
@@ -1308,7 +1318,7 @@ export const en: Record<string, string> = {
     "The session is running - you can edit this once the current step finishes.",
   "autocut.brief-applies-next":
     "This setup only applies to segments cut FROM NOW ON. For projects already created, edit the brief inside that project.",
-  "autocut.create": "Create session & analyze",
+  "autocut.create": "Create cutting session & analyze",
   "autocut.creating": "Creating…",
   "autocut.create-error": "Could not create the cutting session.",
   "autocut.plan-error-created":
@@ -1439,6 +1449,10 @@ export const en: Record<string, string> = {
   "help.autocut-brief.body":
     "Set once how EVERY video cut out of this session gets built: captions on or off, key layout, sound effects, background music.\nIt saves you opening ten child projects and changing the same thing ten times.\nIt only applies to segments cut AFTER the change - projects already created must be edited inside the project itself.",
 
+  "help.dashboard.title": "What is the Dashboard for?",
+  "help.dashboard.body":
+    "The whole-system view: how many projects exist, how many videos are exported, how many jobs ran today and how many are still queued - click a tile to land on that list.\nThe chart and the table under it are about AI money: tokens spent per day and the cost of each model, so you can see where it goes.\nThe Dashboard only WATCHES, it never builds video. When something breaks the red banners at the top say so first (ffmpeg missing, Claude not signed in, jobs failed today) and you go to the matching page to fix it.",
+
   "help.projects.title": "What is Videos Project for?",
   "help.projects.body":
     "Home for every video in progress: each project is one video with its own size, fps, edit brief and renders.\nClick a row to open a project and start building; tick the box on the left to run a bulk action across several projects at once.\nThe token column shows how much AI spend each project has racked up.",
@@ -1560,7 +1574,7 @@ export const en: Record<string, string> = {
 
   "ttv.subtitle":
     "Turn an article into a video - AI writes the script, TTS reads it out, you get a Videos Project.",
-  "ttv.new": "New article",
+  "ttv.new": "Create session",
   "ttv.empty":
     "No sessions yet. Paste a news link or the article text itself; the system writes the narration script, synthesises the voice and creates a Videos Project to build on.",
   "ttv.load-error": "Could not load the session list.",
@@ -1582,7 +1596,7 @@ export const en: Record<string, string> = {
   "ttv.status.done": "Done",
   "ttv.status.failed": "Failed",
 
-  "ttv.create-title": "New article",
+  "ttv.create-title": "Create session",
   "ttv.create": "Create session",
   "ttv.creating": "Creating…",
   "ttv.create-error": "Could not create the session.",
@@ -1962,8 +1976,8 @@ export const en: Record<string, string> = {
   // ===== Edit styles admin page (/video-styles) =====
   "vstyle.page.subtitle":
     "Add, edit and delete edit styles. A style decides what the video is made of and how it moves; you pick one per video in the Brief.",
-  "vstyle.page.create": "New style",
-  "vstyle.page.create-short": "Create",
+  "vstyle.page.create": "Create edit style",
+  "vstyle.page.create-short": "Create edit style",
   "vstyle.page.load-error": "Could not load the edit styles.",
   "vstyle.page.create-error": "Could not create the style.",
   "vstyle.page.empty": "No edit styles yet - create one or restore a built-in.",
@@ -2020,7 +2034,7 @@ export const en: Record<string, string> = {
   "vstyle.detail.palette-loose-desc":
     "The style carries a signature palette of its own (black ink wash, Dong Ho folk print, real photography) - forcing brand colours onto it kills the look. Brand colours then appear only as ACCENTS in the images, while text and graphics drawn by HyperFrames/Remotion still follow Style Design exactly.",
   "vstyle.detail.required":
-    "All four fields are required - leaving one empty truncates the prompt sent to the AI.",
+    "Fields marked * are required - leaving one empty truncates the prompt sent to the AI.",
   "vstyle.detail.usage-title": "Projects using this style",
   "vstyle.detail.usage-empty": "No project uses this style yet.",
   "vstyle.detail.usage-hint":
@@ -2139,7 +2153,7 @@ export const en: Record<string, string> = {
 
   "tv.subtitle":
     "Drop a video in: the system pulls the dialogue, the AI translates it, then the translated subtitles are burned onto the video.",
-  "tv.new": "New video",
+  "tv.new": "Create session",
   "tv.empty":
     "No sessions yet. Upload a video - the system pulls the dialogue, translates it into the language you pick, then burns the translated subtitles onto that same video.",
   "tv.load-error": "Could not load the session list.",
@@ -2159,7 +2173,7 @@ export const en: Record<string, string> = {
   "tv.status.done": "Done",
   "tv.status.failed": "Failed",
 
-  "tv.create-title": "New video",
+  "tv.create-title": "Create session",
   "tv.create": "Create session",
   "tv.creating": "Creating…",
   "tv.create-error": "Could not create the session.",
@@ -2427,4 +2441,71 @@ export const en: Record<string, string> = {
   "workspace.output.failed": "The build failed",
   "workspace.output.no-video": "Finished, but there is no video file.",
   "workspace.output.download": "Download video",
+
+  // ===== Aug 2026 UI overhaul: search, filters, empty states, hints =====
+  "dash.failed-today": "{n} failed jobs today",
+  "autocut.search": "Search by name or source file…",
+  "ttv.search": "Search by name or source…",
+  "tv.search": "Search by name or video file…",
+  "styleDetail.font-files": "Font files on disk",
+  "vstyle.detail.card-identity": "Identity",
+  "vstyle.detail.card-art": "Art direction",
+  "vstyle.detail.card-motion": "Staging & motion",
+  "help.voices.title": "What is the Voices page for?",
+  "help.voices.body": "Clone your own voice so Text to video can narrate with it. Everything runs on your machine through VieNeu-TTS - no audio leaves the computer and there is no per-use cost.\nIt needs Python, the vieneu package and PyTorch; the block at the top says exactly what is missing and hands you the install command to copy.\nA reference clip of 5-15 seconds of clear speech is enough - longer is NOT better, the model only uses the beginning.",
+  "common.no-match": "Nothing matches the current search or filters.",
+  "projects.search-placeholder": "Search projects by name or ID…",
+  "imagesPage.search-placeholder": "Search image projects by name or ID…",
+  "queue.filter-by-status": "Filter by status",
+  "assetsPage.scope-aria": "Choose file collection",
+  "stylesPage.count": "{n} styles",
+  "stylesPage.search": "Search styles by name or tag…",
+  "stylesPage.no-match": "No style matches your search.",
+  "help.video-styles.title": "What is a video style?",
+  "help.video-styles.body": "A video style is the visual language of one video: MATERIAL (folded paper, ink wash, pixel art…) and MOTION. It layers on top of a Style Design instead of replacing it - the Style Design still owns brand colors, fonts and logo. Edit styles here, then pick one per video in the edit brief; leave it empty to let the AI decide.",
+  "vstyle.page.delete-selected-title": "Delete selected styles",
+  "vstyle.page.delete-desc": "Delete these {n} video styles? This cannot be undone.",
+  "vstyle.page.delete-in-use": "{n} of them are still used by projects - those projects fall back to \"AI decides\".",
+  "vstyle.page.delete-n": "Delete {n} styles",
+  "vstyle.page.delete-errors": "Could not delete {n} video styles.",
+
+  // ===== Aug 2026 UI overhaul: search, filters, empty states, hints =====
+  "imageDetail.ai-panel": "AI log",
+  "imageDetail.ai-panel-empty": "No image job has run yet. Hit \"Generate\" to start - the log will stream here.",
+  "imageDetail.no-log": "No log lines yet.",
+  "dash.cost-by-model": "AI cost by model",
+  // Spells out the SCOPE: this table follows the chart's day filter but NOT the
+  // project-type filter - unsaid, readers assume both blocks cover the same set.
+  "dash.cost-by-model-scope": "{n} days · all project types",
+  "dash.cost-by-model-error": "Could not load cost by model",
+  "dash.no-usage-by-model": "No model has run up any cost in this period yet.",
+  "dash.col-ai": "AI",
+  "dash.col-model": "Model",
+  "dash.col-tokens-in": "Tokens in",
+  "dash.col-tokens-out": "Tokens out",
+  "dash.col-cost-in": "$ in",
+  "dash.col-cost-out": "$ out",
+  "dash.col-cost-total": "Total $",
+  "dash.model-none": "(model not recorded)",
+  "dash.total-row": "Total",
+  "help.cost-by-model.title": "How do these two money columns differ?",
+  "help.cost-by-model.body": "The \"$ in\" and \"$ out\" columns are ESTIMATES: token counts multiplied by each model's list price, so you can see which side costs more - the data going in or what the AI writes out.\nThe \"Total $\" column is the REAL amount the provider charged, the same figure that lands on the invoice.\nThe two not matching is normal, not a bug: text the AI already read is kept in a prompt cache, and reading it again costs only about 10% of the input price - so the real amount is usually LOWER than the estimate.\nA model that is not in the price table leaves both $ cells as \"-\": the system never guesses a price.",
+  "dash.unpriced-note": "{n} rows are not in the price table, so the \"$ in\" and \"$ out\" columns exclude them. The \"Total $\" column still covers every row.",
+
+  // ===== Aug 2026 UI overhaul: search, filters, empty states, hints =====
+  "common.status-unknown": "Other status",
+  "prompts.count": "{n} prompt templates",
+  "prompts.search": "Search by name or prompt content…",
+  "skills.count": "{n} skills",
+  "skills.search": "Search by skill name or description…",
+  "queue.search": "Search by project, scene or job id…",
+  "assetsPage.search": "Search by file name…",
+  "music.search": "Search by file name, mood, description…",
+  "voices.load-error": "Could not load the voice engine or the cloned voice library.",
+  "autocut.stage.source": "Source video",
+  "autocut.stage.plan": "Analyze",
+  "autocut.stage.review": "Review plan",
+  "autocut.stage.cut": "Cut & create projects",
+  "autocut.stage.done": "Done",
+  "autocut.stage-aria": "Step {stage}/5: {label}",
 };

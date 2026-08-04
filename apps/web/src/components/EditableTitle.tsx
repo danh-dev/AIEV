@@ -2,6 +2,7 @@
 
 import { Check, Loader2, Pencil, X } from "lucide-react";
 import { useState } from "react";
+import { IconButton } from "@/components/IconButton";
 
 /**
  * Tiêu đề trang sửa được tại chỗ - dùng cho tên project (video và ảnh).
@@ -79,27 +80,26 @@ export function EditableTitle({
 
   if (draft === null) {
     return (
-      <span className="inline-flex max-w-full items-center gap-1.5">
+      <span className="inline-flex max-w-full items-center gap-2">
         {value ?? fallback}
-        <button
-          type="button"
-          title={editLabel}
-          aria-label={editLabel}
+        <IconButton
+          label={editLabel}
           disabled={value === null}
           onClick={start}
-          className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Pencil size={15} strokeWidth={2} />
-        </button>
+        </IconButton>
       </span>
     );
   }
 
-  // Đang sửa tên: Enter/nút check lưu, Escape/nút X bỏ - id không đổi
+  // Đang sửa tên: Enter/nút check lưu, Escape/nút X bỏ - id không đổi.
+  // Bề rộng do khung ngoài quyết định (`.input` luôn 100%) chứ không phải một
+  // `w-72` gõ tay - trên tiêu đề hẹp thì ô nhập co lại theo, không tràn.
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5">
+    <span className="flex w-full max-w-md items-center gap-2">
       <input
-        className="input w-72 max-w-full"
+        className="input"
         autoFocus
         value={draft}
         disabled={saving}
@@ -114,30 +114,16 @@ export function EditableTitle({
           }
         }}
       />
-      <button
-        type="button"
-        title={saveLabel}
-        aria-label={saveLabel}
-        disabled={saving}
-        onClick={save}
-        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <IconButton label={saveLabel} disabled={saving} onClick={save}>
         {saving ? (
           <Loader2 size={15} strokeWidth={2} className="animate-spin" />
         ) : (
           <Check size={15} strokeWidth={2} />
         )}
-      </button>
-      <button
-        type="button"
-        title={cancelLabel}
-        aria-label={cancelLabel}
-        disabled={saving}
-        onClick={cancel}
-        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      </IconButton>
+      <IconButton label={cancelLabel} disabled={saving} onClick={cancel}>
         <X size={15} strokeWidth={2} />
-      </button>
+      </IconButton>
     </span>
   );
 }

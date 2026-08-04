@@ -27,14 +27,16 @@ function Meter({
 }) {
   const hot = percent >= HOT_PERCENT;
   return (
-    <span className="flex items-center gap-1.5" title={title}>
-      <span className="text-[11px] font-medium text-[var(--text-muted)]">
+    <span className="flex items-center gap-2" title={title}>
+      <span className="text-xs font-medium text-[var(--text-muted)]">
         {label}
       </span>
-      {/* Thanh mức - nền luôn hiện để biết đâu là 100% */}
+      {/* Thanh mức - nền luôn hiện để biết đâu là 100%.
+          Phần fill bo TRÒN y như track: trước đây fill để rounded-sm nằm trong
+          ống rounded-full, nên mép trái vuông thò ra trong cái ống bo tròn. */}
       <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[var(--border)]">
         <span
-          className="block h-full rounded-sm transition-[width] duration-500"
+          className="block h-full rounded-full transition-[width] duration-500"
           style={{
             width: `${Math.max(2, Math.min(100, percent))}%`,
             background: hot ? "var(--danger)" : "var(--primary)",
@@ -42,7 +44,7 @@ function Meter({
         />
       </span>
       <span
-        className="w-8 text-right font-mono text-[11px] tabular-nums"
+        className="w-8 text-right font-mono text-xs tabular-nums"
         style={hot ? { color: "var(--danger)" } : undefined}
       >
         {percent}%

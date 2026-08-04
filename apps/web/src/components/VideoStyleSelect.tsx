@@ -13,10 +13,15 @@
  * project cũ khi chúng được dựng lại.
  */
 
-import { Check, Palette, Search, Sparkles } from "lucide-react";
+import { Palette, Search, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getVideoStyles, type VideoStyle } from "@/lib/api";
+import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
+import { Panel } from "@/components/Panel";
+import { Skeleton } from "@/components/Skeleton";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -96,32 +101,34 @@ export function VideoStyleSelect({
 
       {/* Dòng tóm tắt: danh sách cuộn trong khung riêng nên chọn xong kéo đi chỗ
           khác là quên mất mình đã chọn gì */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
-        <span className="shrink-0 text-xs text-[var(--text-muted)]">
-          {t("vstyle.selected")}
-        </span>
-        {selected ? (
-          <>
-            <span className="min-w-0 text-sm font-semibold text-[var(--primary)]">
-              {nameOf(selected)}
-            </span>
-            {selected.palette === "loose" && (
-              <span className="shrink-0 rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--danger)]">
-                {t("vstyle.loose-badge")}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-[var(--text-muted)]">
-            <Sparkles size={13} strokeWidth={2} className="shrink-0" />
-            {t("vstyle.auto")}
+      <Panel>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="shrink-0 text-meta text-[var(--text-muted)]">
+            {t("vstyle.selected")}
           </span>
-        )}
-      </div>
+          {selected ? (
+            <>
+              <span className="min-w-0 text-sm font-semibold text-[var(--primary)]">
+                {nameOf(selected)}
+              </span>
+              {selected.palette === "loose" && (
+                <Badge
+                  tone="danger"
+                  dot={false}
+                  label={t("vstyle.loose-badge")}
+                />
+              )}
+            </>
+          ) : (
+            <span className="inline-flex min-w-0 items-center gap-2 text-sm text-[var(--text-muted)]">
+              <Sparkles size={14} strokeWidth={2} className="shrink-0" />
+              {t("vstyle.auto")}
+            </span>
+          )}
+        </div>
+      </Panel>
 
-      {missing && (
-        <p className="text-xs text-[var(--danger)]">{t("vstyle.missing")}</p>
-      )}
+      {missing && <Banner tone="danger" message={t("vstyle.missing")} />}
 
       {list.length > 8 && (
         <div className="relative">
@@ -143,127 +150,60 @@ export function VideoStyleSelect({
       )}
 
       {styles === null ? (
-        <p className="py-4 text-center text-sm text-[var(--text-muted)]">
-          {t("common.loading")}
-        </p>
+        <Skeleton className="w-full" height={220} />
       ) : (
-        <div
-          role="radiogroup"
-          aria-label={t("vstyle.label")}
-          className="max-h-[300px] overflow-y-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-        >
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+        <Panel className="max-h-[300px] overflow-y-auto">
+          {/* Mô tả hiện ĐỦ, không cắt và không thu nhỏ: đúng phần giúp người
+              dùng phân biệt hai phong cách lại là phần dễ bị hy sinh nhất.
+              Ô lưới tự kéo bằng nhau nên thẻ vẫn thẳng hàng. */}
+          {/* Tối đa HAI cột: tiêu đề thẻ cắt bằng "…" nên cột càng hẹp càng dễ
+              nuốt mất tên phong cách, mà tên chính là thứ để phân biệt. */}
+          <OptionCardGroup
+            label={t("vstyle.label")}
+            className="grid-cols-1 sm:grid-cols-2"
+          >
             {/* "AI tự quyết" là một lựa chọn THẬT trong lưới, không phải nút xóa
                 nấp đâu đó - nó là mặc định nên phải nhìn thấy được */}
-            <StyleCard
-              active={value === null}
+            <OptionCard
+              selected={value === null}
               disabled={disabled}
               title={t("vstyle.auto")}
-              desc={t("vstyle.auto-desc")}
-              loose={false}
-              auto
+              description={t("vstyle.auto-desc")}
+              icon={Sparkles}
               onSelect={() => onChange(null)}
             />
             {filtered.map((s) => (
-              <StyleCard
+              <OptionCard
                 key={s.id}
-                active={value === s.id}
+                selected={value === s.id}
                 disabled={disabled}
                 title={nameOf(s)}
-                desc={descOf(s, t)}
-                loose={s.palette === "loose"}
-                looseLabel={t("vstyle.loose-badge")}
+                description={descOf(s, t)}
+                badge={
+                  s.palette === "loose" ? (
+                    <Badge
+                      tone="danger"
+                      dot={false}
+                      label={t("vstyle.loose-badge")}
+                    />
+                  ) : undefined
+                }
                 onSelect={() => onChange(s.id)}
               />
             ))}
-          </div>
+          </OptionCardGroup>
           {filtered.length === 0 && q && (
             <p className="py-4 text-center text-sm text-[var(--text-muted)]">
               {t("vstyle.no-match")}
             </p>
           )}
-        </div>
+        </Panel>
       )}
 
-      <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-        <Palette size={13} strokeWidth={2} className="mt-0.5 shrink-0" />
+      <p className="flex items-start gap-2 text-meta text-[var(--text-muted)]">
+        <Palette size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
         {t("vstyle.vs-style-design")}
       </p>
     </div>
-  );
-}
-
-function StyleCard({
-  active,
-  disabled,
-  title,
-  desc,
-  loose,
-  looseLabel,
-  auto = false,
-  onSelect,
-}: {
-  active: boolean;
-  disabled: boolean;
-  title: string;
-  desc: string;
-  loose: boolean;
-  looseLabel?: string;
-  auto?: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      disabled={disabled}
-      onClick={onSelect}
-      title={desc}
-      className={`flex min-w-0 flex-col gap-1 rounded-[var(--radius)] border p-2 text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-        active
-          ? "border-[var(--primary)] bg-[var(--primary-soft)]"
-          : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--text-muted)]"
-      }`}
-    >
-      <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-        {auto && (
-          <Sparkles
-            size={12}
-            strokeWidth={2}
-            aria-hidden="true"
-            className={`shrink-0 ${
-              active ? "text-[var(--primary)]" : "text-[var(--text-muted)]"
-            }`}
-          />
-        )}
-        <span
-          className={`min-w-0 text-[13px] leading-snug font-semibold ${
-            active ? "text-[var(--primary)]" : "text-[var(--text)]"
-          }`}
-        >
-          {title}
-        </span>
-        {loose && looseLabel && (
-          <span className="shrink-0 rounded-full bg-[var(--danger-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--danger)]">
-            {looseLabel}
-          </span>
-        )}
-        {active && (
-          <Check
-            size={13}
-            strokeWidth={2.5}
-            aria-hidden="true"
-            className="ml-auto shrink-0 text-[var(--primary)]"
-          />
-        )}
-      </span>
-      {/* Cho XUỐNG DÒNG chứ không cắt: mô tả bị cắt còn nửa câu thì đúng phần
-          giúp người dùng phân biệt hai phong cách lại là phần mất đi. Giới hạn
-          3 dòng để thẻ không cao lệch nhau quá nhiều. */}
-      <span className="line-clamp-3 text-[11px] leading-snug text-[var(--text-muted)]">
-        {desc}
-      </span>
-    </button>
   );
 }

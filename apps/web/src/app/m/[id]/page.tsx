@@ -15,10 +15,20 @@
  *   (proxyTimeout 10 phút, đủ cho file lớn).
  */
 
-import { Camera, Check, Loader2, Smartphone, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  Camera,
+  Check,
+  Loader2,
+  Smartphone,
+  Upload,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getProject, uploadOrigin } from "@/lib/api";
+import { Banner } from "@/components/Banner";
+import { Button } from "@/components/Button";
+import { ProgressBar } from "@/components/ProgressBar";
 import { formatBytes } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -183,19 +193,15 @@ export default function MobileUploadPage() {
           className="shrink-0 text-[var(--primary)]"
         />
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.04em] text-[var(--text-muted)]">
-            {t("m.title")}
-          </p>
-          <h1 className="truncate text-base font-semibold">
+          <p className="t-eyebrow">{t("m.title")}</p>
+          <h1 className="truncate text-xl font-semibold">
             {notFound ? projectId : (projectName ?? t("common.loading"))}
           </h1>
         </div>
       </header>
 
       {notFound ? (
-        <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">
-          {t("m.not-found")}
-        </p>
+        <Banner tone="danger" message={t("m.not-found")} />
       ) : (
         <>
           {/* Nút to chọn file từ thư viện ảnh/video */}
@@ -223,29 +229,31 @@ export default function MobileUploadPage() {
             }}
           />
 
-          <button
-            type="button"
+          {/* Ngón tay chứ không phải con trỏ chuột: hai nút này cố ý cao hơn
+              `.btn` chuẩn (64px / 48px), phần còn lại vẫn là <Button> để màu,
+              bo góc và trạng thái bấm khớp với cả dashboard. */}
+          <Button
             onClick={() => pickRef.current?.click()}
-            className="flex h-16 w-full items-center justify-center gap-2.5 rounded-[var(--radius-lg)] bg-[var(--primary)] text-base font-semibold text-white transition-colors duration-150 active:bg-[var(--primary-hover)]"
+            className="h-16 w-full gap-3 rounded-[var(--radius-lg)] font-semibold"
           >
             <Upload size={20} strokeWidth={2} />
             {t("m.choose")}
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => captureRef.current?.click()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] text-sm font-medium transition-colors duration-150 active:bg-[var(--bg-subtle)]"
+            className="h-12 w-full rounded-[var(--radius-lg)]"
           >
             <Camera size={17} strokeWidth={2} />
             {t("m.capture")}
-          </button>
+          </Button>
 
-          <p className="text-center text-xs text-[var(--text-muted)]">
+          <p className="text-center text-meta text-[var(--text-muted)]">
             {t("m.hint")}
           </p>
 
-          <p className="text-center text-xs font-medium text-[var(--danger)]">
+          <p className="text-center text-meta font-medium text-[var(--danger)]">
             {t("m.keep-awake")}
           </p>
 
@@ -257,7 +265,7 @@ export default function MobileUploadPage() {
           ) : (
             <div className="flex flex-col divide-y divide-[var(--border)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] px-3">
               {items.map((it) => (
-                <div key={it.key} className="flex flex-col gap-1 py-2.5">
+                <div key={it.key} className="flex flex-col gap-1 py-3">
                   <div className="flex items-center gap-2">
                     {it.status === "done" ? (
                       <Check
@@ -272,27 +280,24 @@ export default function MobileUploadPage() {
                         className="shrink-0 animate-spin text-[var(--primary)]"
                       />
                     ) : (
-                      <span className="shrink-0 text-xs font-semibold text-[var(--danger)]">
-                        !
-                      </span>
+                      <AlertCircle
+                        size={16}
+                        strokeWidth={2}
+                        className="shrink-0 text-[var(--danger)]"
+                      />
                     )}
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {it.name}
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+                    <span className="shrink-0 text-meta tabular-nums text-[var(--text-muted)]">
                       {formatBytes(it.size)}
                     </span>
                   </div>
                   {it.status === "uploading" && (
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-subtle)]">
-                      <div
-                        className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-200"
-                        style={{ width: `${it.progress}%` }}
-                      />
-                    </div>
+                    <ProgressBar progress={it.progress} />
                   )}
                   {it.status === "error" && (
-                    <p className="text-xs text-[var(--danger)]">
+                    <p className="text-meta text-[var(--danger)]">
                       {t("m.error")}: {it.error}
                     </p>
                   )}
@@ -302,7 +307,7 @@ export default function MobileUploadPage() {
           )}
 
           {uploadingCount > 0 && (
-            <p className="text-center text-xs text-[var(--text-muted)]">
+            <p className="text-center text-meta text-[var(--text-muted)]">
               {t("m.uploading")}
             </p>
           )}

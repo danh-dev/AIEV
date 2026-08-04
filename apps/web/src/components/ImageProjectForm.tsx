@@ -18,7 +18,12 @@ import {
   type ImageTextPosition,
   type ProviderModel,
 } from "@/lib/api";
+import { Badge, type BadgeTone } from "@/components/Badge";
+import { Field, SwitchField } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { useProviders } from "@/components/ModelPicker";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
+import { Panel } from "@/components/Panel";
 import { StyleSelect } from "@/components/StyleSelect";
 import { useT } from "@/lib/i18n";
 
@@ -86,22 +91,33 @@ export const STATUS_LABEL: Record<ImageProjectStatus, string> = {
   error: "imageForm.status.error",
 };
 
-const STATUS_TONE: Record<ImageProjectStatus, string> = {
-  draft: "badge-muted",
-  generating: "badge-running",
-  done: "badge-success",
-  error: "badge-danger",
+const STATUS_TONE: Record<ImageProjectStatus, BadgeTone> = {
+  draft: "muted",
+  generating: "running",
+  done: "success",
+  error: "danger",
 };
 
 export function ImageStatusBadge({ status }: { status: ImageProjectStatus }) {
   const { t } = useT();
   return (
-    <span className={`badge ${STATUS_TONE[status] ?? "badge-muted"}`}>
-      <span
-        className={`badge-dot ${status === "generating" ? "badge-dot-pulse" : ""}`}
-      />
-      {STATUS_LABEL[status] ? t(STATUS_LABEL[status]) : String(status)}
-    </span>
+    <Badge
+      tone={STATUS_TONE[status] ?? "muted"}
+      // Chấm tự dựng thay cho chấm mặc định để gắn thêm nhịp nhấp nháy khi ĐANG
+      // tạo - trạng thái tĩnh mà nhấp nháy thì mắt cứ bị kéo về chỗ không có gì
+      // đang xảy ra.
+      dot={false}
+      label={
+        <>
+          <span
+            className={`badge-dot ${
+              status === "generating" ? "badge-dot-pulse" : ""
+            }`}
+          />
+          {STATUS_LABEL[status] ? t(STATUS_LABEL[status]) : String(status)}
+        </>
+      }
+    />
   );
 }
 
@@ -227,19 +243,20 @@ export function TextPositionPicker({
           }),
         )}
       </div>
-      <button
-        type="button"
-        disabled={disabled}
-        aria-pressed={value === "auto"}
-        onClick={() => onChange("auto")}
-        className={`rounded-[var(--radius)] border px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-          value === "auto"
-            ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-            : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-        }`}
-      >
-        {t("imageForm.pos-auto")}
-      </button>
+      {/* Hình dạng của <Segmented> (class .seg) nhưng chỉ MỘT mục: đây là công
+          tắc "để máy tự quyết" chứ không phải nhóm radio, nên dùng aria-pressed.
+          Mượn class để nó không thành cái pill thứ bảy trong app. */}
+      <span className="seg">
+        <button
+          type="button"
+          disabled={disabled}
+          aria-pressed={value === "auto"}
+          onClick={() => onChange("auto")}
+          className="seg-item"
+        >
+          {t("imageForm.pos-auto")}
+        </button>
+      </span>
     </div>
   );
 }
@@ -265,12 +282,16 @@ export const DEFAULT_IMAGE_DRAFT: ImageDraft = {
   styleId: null,
 };
 
-/** Heading section 12px uppercase + divider mảnh - dùng ở chế độ sectioned. */
+/**
+ * Heading section + divider mảnh - dùng ở chế độ sectioned. Chữ lấy nguyên
+ * công thức `.t-eyebrow` (12px in hoa muted) để giống hệt tiêu đề cột của
+ * workspace và `<th>` của bảng - trước đây nó tự chế một biến thể riêng.
+ * Đây là KIỂU TIÊU ĐỀ MỤC DUY NHẤT của file này; hộp có khung thì dùng
+ * <Panel title>, không thêm kiểu thứ ba.
+ */
 export function FormSectionHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="border-t border-[var(--border)] pt-3 text-xs font-semibold tracking-wide text-[var(--text-muted)] uppercase">
-      {children}
-    </p>
+    <p className="t-eyebrow border-t border-[var(--border)] pt-3">{children}</p>
   );
 }
 
@@ -323,25 +344,20 @@ export function ImageProjectFields({
 
   return (
     <>
-      <div>
-        <label className="label" htmlFor={`${idPrefix}-style`}>
-          Style Design
-        </label>
+      <Field
+        label="Style Design"
+        htmlFor={`${idPrefix}-style`}
+        hint={t("imageForm.style-hint")}
+      >
         <StyleSelect
           id={`${idPrefix}-style`}
           value={styleId}
           disabled={disabled}
           onChange={(v) => onChange({ styleId: v })}
         />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("imageForm.style-hint")}
-        </p>
-      </div>
+      </Field>
 
-      <div>
-        <label className="label" htmlFor={`${idPrefix}-prompt`}>
-          {t("imageForm.prompt-label")}
-        </label>
+      <Field label={t("imageForm.prompt-label")} htmlFor={`${idPrefix}-prompt`}>
         <textarea
           id={`${idPrefix}-prompt`}
           className="input"
@@ -351,12 +367,9 @@ export function ImageProjectFields({
           onChange={(e) => onChange({ prompt: e.target.value })}
           placeholder={t("imageForm.prompt-placeholder")}
         />
-      </div>
+      </Field>
 
-      <div>
-        <label className="label" htmlFor={`${idPrefix}-kind`}>
-          {t("imageForm.kind-label")}
-        </label>
+      <Field label={t("imageForm.kind-label")} htmlFor={`${idPrefix}-kind`}>
         <select
           id={`${idPrefix}-kind`}
           className="input"
@@ -370,13 +383,23 @@ export function ImageProjectFields({
             </option>
           ))}
         </select>
-      </div>
+      </Field>
 
       {showModel && (
-        <div>
-          <label className="label" htmlFor={`${idPrefix}-model`}>
-            {t("imageForm.model-label")}
-          </label>
+        <Field
+          label={t("imageForm.model-label")}
+          htmlFor={`${idPrefix}-model`}
+          hint={
+            modelsLoading ? (
+              <span className="flex items-center gap-1">
+                <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                {t("images.loading-models")}
+              </span>
+            ) : (
+              t("imageForm.model-hint")
+            )
+          }
+        >
           <select
             id={`${idPrefix}-model`}
             className="input"
@@ -393,76 +416,39 @@ export function ImageProjectFields({
               </option>
             ))}
           </select>
-          {modelsLoading ? (
-            <p className="mt-1 flex items-center gap-1 text-xs text-[var(--text-muted)]">
-              <Loader2 size={12} strokeWidth={2} className="animate-spin" />
-              {t("images.loading-models")}
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("imageForm.model-hint")}
-            </p>
-          )}
-        </div>
+        </Field>
       )}
 
       {sectioned && <FormSectionHeading>{t("imageForm.format")}</FormSectionHeading>}
-      <div>
-        <span className="label">{t("imageForm.aspect-label")}</span>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {ASPECT_OPTIONS.map((o) => {
-            const active = aspect === o.value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange({ aspect: o.value })}
-                className={`flex flex-col items-center gap-1 rounded-[var(--radius)] border text-center transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  sectioned ? "p-2" : "p-3"
-                } ${
-                  active
-                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                    : "border-[var(--border)] text-[var(--text)] hover:bg-[var(--bg-subtle)]"
-                }`}
-              >
-                <AspectIcon
-                  width={o.width}
-                  height={o.height}
-                  size={sectioned ? 20 : 22}
-                />
-                <span className="text-[13px] leading-tight font-medium">
-                  {o.value}
+      <Field label={t("imageForm.aspect-label")}>
+        <OptionCardGroup
+          label={t("imageForm.aspect-label")}
+          className="grid-cols-2 sm:grid-cols-4"
+        >
+          {ASPECT_OPTIONS.map((o) => (
+            <OptionCard
+              key={o.value}
+              selected={aspect === o.value}
+              disabled={disabled}
+              onSelect={() => onChange({ aspect: o.value })}
+              title={o.value}
+              description={`${o.width}×${o.height} · ${t(o.note)}`}
+              // Hình khung tỉ lệ đứng ở chỗ badge: nó là thứ đọc được bằng mắt
+              // nhanh hơn cả con số, bỏ đi thì bốn thẻ chỉ khác nhau ở chữ.
+              badge={
+                <span className="shrink-0 text-[var(--text-muted)]">
+                  <AspectIcon width={o.width} height={o.height} size={18} />
                 </span>
-                <span
-                  className={`text-[11px] ${
-                    active ? "opacity-80" : "text-[var(--text-muted)]"
-                  }`}
-                >
-                  {o.width}×{o.height} · {t(o.note)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+              }
+            />
+          ))}
+        </OptionCardGroup>
+      </Field>
 
-      {sectioned && (
-        <FormSectionHeading>{t("imageForm.overlay-heading")}</FormSectionHeading>
-      )}
-      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-        {!sectioned && (
-          <p className="text-[13px] font-medium">
-            {t("imageForm.overlay-title")}{" "}
-            <span className="font-normal text-[var(--text-muted)]">
-              {t("imageForm.overlay-sub")}
-            </span>
-          </p>
-        )}
-        <div>
-          <label className="label" htmlFor={`${idPrefix}-ov-title`}>
-            {t("imageForm.title-label")}
-          </label>
+      {/* Tiêu đề nằm luôn trên <Panel> - cả hai chế độ dùng chung một tiêu đề,
+          không còn bản uppercase riêng cho sectioned và bản 13px cho modal. */}
+      <Panel title={t("imageForm.overlay-heading")} className="gap-3">
+        <Field label={t("imageForm.title-label")} htmlFor={`${idPrefix}-ov-title`}>
           <input
             id={`${idPrefix}-ov-title`}
             className="input"
@@ -471,11 +457,11 @@ export function ImageProjectFields({
             onChange={(e) => patchOverlay({ title: e.target.value })}
             placeholder={t("imageForm.title-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${idPrefix}-ov-subtitle`}>
-            {t("imageForm.subtitle-label")}
-          </label>
+        </Field>
+        <Field
+          label={t("imageForm.subtitle-label")}
+          htmlFor={`${idPrefix}-ov-subtitle`}
+        >
           <input
             id={`${idPrefix}-ov-subtitle`}
             className="input"
@@ -484,29 +470,29 @@ export function ImageProjectFields({
             onChange={(e) => patchOverlay({ subtitle: e.target.value })}
             placeholder={t("imageForm.subtitle-placeholder")}
           />
-        </div>
+        </Field>
         {/* Vị trí khối chữ - đặt ngay dưới tiêu đề/mô tả vì nó quyết định bố
             cục của toàn bộ phần chữ phía dưới (stats, CTA đều đi theo) */}
-        <div>
-          <span className="label">{t("imageForm.position-label")}</span>
+        <Field
+          label={t("imageForm.position-label")}
+          hint={
+            overlay.position === "auto"
+              ? t("imageForm.position-auto-hint")
+              : t("imageForm.position-hint")
+          }
+        >
           <TextPositionPicker
             value={overlay.position}
             disabled={disabled}
             onChange={(position) => patchOverlay({ position })}
           />
-          <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-            {overlay.position === "auto"
-              ? t("imageForm.position-auto-hint")
-              : t("imageForm.position-hint")}
-          </p>
-        </div>
-        <div>
-          <span className="label">{t("imageForm.stats-label")}</span>
+        </Field>
+        <Field label={t("imageForm.stats-label")}>
           <div className="flex flex-col gap-2">
             {overlay.stats.map((s, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
-                  className="input h-8 flex-1 text-[13px]"
+                  className="input flex-1"
                   aria-label={tf("imageForm.stat-label-aria", { n: i + 1 })}
                   value={s.label}
                   disabled={disabled}
@@ -514,47 +500,43 @@ export function ImageProjectFields({
                   placeholder={t("imageForm.stat-label-placeholder")}
                 />
                 <input
-                  className="input h-8 w-28 text-[13px]"
+                  className="input w-28"
                   aria-label={tf("imageForm.stat-value-aria", { n: i + 1 })}
                   value={s.value}
                   disabled={disabled}
                   onChange={(e) => setStat(i, { value: e.target.value })}
                   placeholder={t("imageForm.stat-value-placeholder")}
                 />
-                <button
-                  type="button"
-                  aria-label={tf("imageForm.stat-remove-aria", { n: i + 1 })}
+                <IconButton
+                  label={tf("imageForm.stat-remove-aria", { n: i + 1 })}
+                  tone="danger"
                   disabled={disabled}
-                  className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg)] hover:text-[var(--danger)]"
                   onClick={() =>
                     patchOverlay({
                       stats: overlay.stats.filter((_, j) => j !== i),
                     })
                   }
                 >
-                  <X size={14} strokeWidth={2} />
-                </button>
+                  <X size={15} strokeWidth={2} />
+                </IconButton>
               </div>
             ))}
             <button
               type="button"
               disabled={disabled}
-              className="inline-flex w-fit items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)] disabled:opacity-50"
+              className="inline-flex w-fit items-center gap-1 text-sm font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
               onClick={() =>
                 patchOverlay({
                   stats: [...overlay.stats, { label: "", value: "" }],
                 })
               }
             >
-              <Plus size={13} strokeWidth={2} />
+              <Plus size={14} strokeWidth={2} />
               {t("imageForm.add-stat")}
             </button>
           </div>
-        </div>
-        <div>
-          <label className="label" htmlFor={`${idPrefix}-ov-cta`}>
-            CTA
-          </label>
+        </Field>
+        <Field label="CTA" htmlFor={`${idPrefix}-ov-cta`}>
           <input
             id={`${idPrefix}-ov-cta`}
             className="input"
@@ -563,28 +545,17 @@ export function ImageProjectFields({
             onChange={(e) => patchOverlay({ cta: e.target.value })}
             placeholder={t("imageForm.cta-placeholder")}
           />
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <label
-            htmlFor={`${idPrefix}-ov-logo`}
-            className="cursor-pointer text-sm font-medium"
-          >
-            {t("imageForm.show-logo")}
-          </label>
-          <button
-            id={`${idPrefix}-ov-logo`}
-            type="button"
-            role="switch"
-            aria-checked={overlay.showLogo}
-            aria-label={t("imageForm.show-logo")}
-            disabled={disabled}
-            className="switch"
-            onClick={() => patchOverlay({ showLogo: !overlay.showLogo })}
-          />
-        </div>
-      </div>
+        </Field>
+        <SwitchField
+          id={`${idPrefix}-ov-logo`}
+          label={t("imageForm.show-logo")}
+          checked={overlay.showLogo}
+          disabled={disabled}
+          onChange={(next) => patchOverlay({ showLogo: next })}
+        />
+      </Panel>
 
-      <p className="text-xs text-[var(--text-muted)]">
+      <p className="text-meta text-[var(--text-muted)]">
         {t("imageForm.no-text-note")}
       </p>
     </>

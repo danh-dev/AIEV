@@ -47,20 +47,27 @@ import {
 import { useUploadEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { IconButton } from "@/components/IconButton";
 import {
   MediaPreviewModal,
   RevealButton,
   canPreview,
 } from "@/components/MediaPreviewModal";
 import { Modal } from "@/components/Modal";
+import { Panel } from "@/components/Panel";
 import { PhoneConnectModal } from "@/components/PhoneConnectModal";
 import { formatBytes, isRecentFile } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+
+/** Badge "mới" cho file vừa xuất hiện - nhãn PHÂN LOẠI nên không có chấm. */
+function NewBadge({ label }: { label: string }) {
+  return <Badge tone="running" dot={false} label={label} className="shrink-0" />;
+}
 
 /** Placeholder mô tả cụ thể theo loại file - gợi ý người dùng viết gì. */
 // Giá trị là KEY dictionary - dịch bằng t() lúc render.
@@ -152,7 +159,7 @@ function AssetPreview({
       );
     case "audio":
       return (
-        <span className={`${base} flex-col gap-0.5`}>
+        <span className={`${base} flex-col gap-1`}>
           <button
             type="button"
             onClick={onTogglePlay}
@@ -200,21 +207,15 @@ export function ProjectAssetsCard({
   showUpload?: boolean;
 }) {
   const { t, tf } = useT();
-  const cardTitleText = title ?? t("assets.title");
+  const cardTitle = title ?? t("assets.title");
   // (i) chỉ gắn ở khối nguồn chính. Khối "Sound effect"/"Khác" chỉ liệt kê lại
   // file AI tự sinh, không có dropzone lẫn nút QR nên chú thích đó sẽ sai chỗ.
-  const cardTitle = showUpload ? (
-    <span className="inline-flex items-center gap-1.5">
-      {cardTitleText}
-      <InfoHint
-        titleKey="help.project-assets.title"
-        bodyKey="help.project-assets.body"
-        size={14}
-      />
-    </span>
-  ) : (
-    cardTitleText
-  );
+  const cardHint = showUpload
+    ? {
+        titleKey: "help.project-assets.title",
+        bodyKey: "help.project-assets.body",
+      }
+    : undefined;
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -412,21 +413,14 @@ export function ProjectAssetsCard({
       <div className="mb-3 flex flex-col gap-2">
         {incomingEntries.map(([id, u]) => {
           if (u.error) {
-            return (
-              <p key={id} className="text-xs text-[var(--danger)]">
-                {t("upload.error")}
-              </p>
-            );
+            return <Banner key={id} tone="danger" message={t("upload.error")} />;
           }
           const percent =
             u.total > 0
               ? Math.min(100, Math.round((u.received / u.total) * 100))
               : null;
           return (
-            <div
-              key={id}
-              className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5"
-            >
+            <Panel key={id}>
               {percent === null ? (
                 <div
                   className="progress-indeterminate"
@@ -446,12 +440,12 @@ export function ProjectAssetsCard({
                   />
                 </div>
               )}
-              <span className="text-xs text-[var(--text-muted)]">
+              <span className="text-meta text-[var(--text-muted)]">
                 {percent === null
                   ? t("upload.receiving-unknown")
                   : tf("upload.receiving", { percent })}
               </span>
-            </div>
+            </Panel>
           );
         })}
       </div>
@@ -544,7 +538,7 @@ export function ProjectAssetsCard({
           if (group.length === 0) return null;
           return (
             <div key={kind}>
-              <p className="mb-1 text-xs font-medium uppercase tracking-[0.04em] text-[var(--text-muted)]">
+              <p className="t-eyebrow mb-1">
                 {t(label)} · {group.length}
               </p>
               <div className="flex flex-col divide-y divide-[var(--border)]">
@@ -583,6 +577,7 @@ export function ProjectAssetsCard({
       >
         <Card
           title={cardTitle}
+          hint={cardHint}
           actions={
             showUpload ? (
               <span className="flex flex-wrap items-center justify-end gap-2">
@@ -604,9 +599,9 @@ export function ProjectAssetsCard({
           {uploadBanner}
           {showUpload && fileInput}
           {dragOver && (
-            <p className="mb-2 rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-medium text-[var(--primary)]">
-              {t("assets.drop-here")}
-            </p>
+            <div className="mb-2">
+              <Banner tone="info" message={t("assets.drop-here")} />
+            </div>
           )}
           {assetList}
         </Card>
@@ -619,7 +614,7 @@ export function ProjectAssetsCard({
   }
 
   return (
-    <Card title={cardTitle} actions={phoneButton ?? undefined}>
+    <Card title={cardTitle} hint={cardHint} actions={phoneButton ?? undefined}>
       {error && <ErrorBanner message={error} />}
       {uploadBanner}
 
@@ -674,15 +669,17 @@ export function ProjectAssetsCard({
       drafts[f.name] !== (f.description ?? "");
     return (
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex h-6 items-center justify-between gap-2">
+        {/* min-h-8 = chiều cao nút .btn-sm: chỗ này lúc có nút lúc không, chốt
+            chiều cao tối thiểu để hàng không giật lên xuống mỗi lần gõ */}
+        <div className="mb-1 flex min-h-8 items-center justify-between gap-2">
           <label
-            className="text-xs font-medium text-[var(--text-muted)]"
+            className="text-meta font-medium text-[var(--text-muted)]"
             htmlFor={`asset-desc-${f.relPath}`}
           >
             {t("assets.desc-label")}
           </label>
           {savedFile === f.name && !dirty ? (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--success)]">
+            <span className="inline-flex items-center gap-1 text-meta font-medium text-[var(--success)]">
               <Check size={13} strokeWidth={2.5} />
               {t("assets.saved")}
             </span>
@@ -690,19 +687,18 @@ export function ProjectAssetsCard({
             <Button
               variant="secondary"
               small
-              className="h-6 px-2 text-xs"
               disabled={savingFile === f.name}
               onClick={() => saveDescription(f)}
               aria-label={tf("assets.save-desc-aria", { name: f.name })}
             >
-              <Save size={12} strokeWidth={2} />
+              <Save size={13} strokeWidth={2} />
               {savingFile === f.name ? t("common.saving") : t("common.save")}
             </Button>
           ) : null}
         </div>
         <textarea
           id={`asset-desc-${f.relPath}`}
-          className="input min-h-[62px] w-full resize-none overflow-hidden text-[13px] leading-relaxed"
+          className="input min-h-[62px] w-full resize-none overflow-hidden leading-relaxed"
           rows={2}
           value={value}
           placeholder={t(DESCRIPTION_PLACEHOLDER[f.kind])}
@@ -719,16 +715,23 @@ export function ProjectAssetsCard({
     );
   }
 
-  /** Chip nhỏ hiện preset màu đã lưu - đặt cạnh badge "mới"/"Chưa mô tả". */
+  /** Badge preset màu đã lưu - đặt cạnh badge "mới"/"Chưa mô tả". */
   function renderGradeChip(f: FileInfo) {
     if (f.kind !== "video") return null;
     const label = gradeLabelOf(f);
     if (!label) return null;
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-        <Palette size={10} strokeWidth={2} />
-        {label}
-      </span>
+      <Badge
+        tone="running"
+        dot={false}
+        className="shrink-0"
+        label={
+          <>
+            <Palette size={11} strokeWidth={2} className="shrink-0" />
+            {label}
+          </>
+        }
+      />
     );
   }
 
@@ -740,11 +743,10 @@ export function ProjectAssetsCard({
       <Button
         variant="secondary"
         small
-        className="h-6 px-2 text-xs"
         onClick={() => setGradeFile(f)}
         aria-label={tf("grade.aria", { name: f.name })}
       >
-        <Palette size={12} strokeWidth={2} />
+        <Palette size={13} strokeWidth={2} />
         {label ? (
           <>
             <span
@@ -767,18 +769,19 @@ export function ProjectAssetsCard({
       <div className="flex flex-wrap items-center gap-2">
         <RevealButton relPath={f.relPath} onError={setError} />
         {renderGradeButton(f)}
+        {/* variant destructive thay cho .btn-secondary bị nhuộm đỏ bằng class
+            rời: cùng một hành động phá hủy thì phải cùng một hình dạng */}
         <Button
-          variant="secondary"
+          variant="destructive"
           small
-          className="h-6 px-2 text-xs text-[var(--danger)]"
           disabled={deleting}
           onClick={() => setDeleteTarget(f)}
           aria-label={tf("assets.delete-aria", { name: f.name })}
         >
           {deleting ? (
-            <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+            <Loader2 size={13} strokeWidth={2} className="animate-spin" />
           ) : (
-            <Trash2 size={12} strokeWidth={2} />
+            <Trash2 size={13} strokeWidth={2} />
           )}
           {deleting ? t("common.deleting") : t("common.delete")}
         </Button>
@@ -812,12 +815,8 @@ export function ProjectAssetsCard({
             ) : (
               <span className="truncate text-sm font-medium">{f.name}</span>
             )}
-            {isRecentFile(f.mtime) && (
-              <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-                {t("common.new")}
-              </span>
-            )}
-            <span className="text-xs text-[var(--text-muted)]">
+            {isRecentFile(f.mtime) && <NewBadge label={t("common.new")} />}
+            <span className="text-meta text-[var(--text-muted)]">
               {formatBytes(f.size)}
             </span>
             {renderGradeChip(f)}
@@ -848,17 +847,13 @@ export function ProjectAssetsCard({
           className="flex w-full items-center gap-2 rounded-[var(--radius)] px-1 py-1 text-left transition-colors duration-150 hover:bg-[var(--bg-subtle)]"
         >
           <KindIcon kind={f.kind} />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {f.name}
           </span>
-          <span className="shrink-0 text-xs text-[var(--text-muted)]">
+          <span className="shrink-0 text-meta text-[var(--text-muted)]">
             {formatBytes(f.size)}
           </span>
-          {isRecentFile(f.mtime) && (
-            <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-              {t("common.new")}
-            </span>
-          )}
+          {isRecentFile(f.mtime) && <NewBadge label={t("common.new")} />}
           {renderGradeChip(f)}
           {missing && (
             <span className="shrink-0">
@@ -1121,7 +1116,7 @@ function GradeModal({
       onClose={onClose}
       footer={
         <>
-          <p className="mr-auto min-w-0 self-center text-xs text-[var(--text-muted)]">
+          <p className="mr-auto min-w-0 self-center text-meta text-[var(--text-muted)]">
             {t("grade.footer-note")}
           </p>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
@@ -1158,15 +1153,35 @@ function GradeModal({
                   className="max-h-[62vh] w-full object-contain"
                 />
               )}
+              {/* Hai nhãn đè lên ảnh: vẫn là <Badge> của hệ thống, chỉ thêm
+                  đổ bóng để tách khỏi ảnh bên dưới */}
               {comparing && (
-                <span className="absolute left-2 top-2 rounded-full bg-[var(--surface)] px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow-[var(--shadow-card)]">
-                  {t("grade.original")}
+                <span className="absolute left-2 top-2">
+                  <Badge
+                    tone="muted"
+                    dot={false}
+                    className="shadow-[var(--shadow-card)]"
+                    label={t("grade.original")}
+                  />
                 </span>
               )}
               {frameLoading && !comparing && (
-                <span className="absolute right-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--surface)] px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow-[var(--shadow-card)]">
-                  <Loader2 size={12} strokeWidth={2} className="animate-spin" />
-                  {t("grade.rendering")}
+                <span className="absolute right-2 top-2">
+                  <Badge
+                    tone="muted"
+                    dot={false}
+                    className="shadow-[var(--shadow-card)]"
+                    label={
+                      <>
+                        <Loader2
+                          size={12}
+                          strokeWidth={2}
+                          className="animate-spin"
+                        />
+                        {t("grade.rendering")}
+                      </>
+                    }
+                  />
                 </span>
               )}
             </div>
@@ -1198,16 +1213,12 @@ function GradeModal({
           {/* ===== Khung PHẢI: template màu + điều chỉnh ===== */}
           <div className="flex min-w-0 flex-col gap-4 lg:max-h-[66vh] lg:w-[45%] lg:overflow-y-auto lg:pr-1">
             {result.info.needsTonemap && (
-              <p className="rounded-[var(--radius)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--primary)]">
-                {t("grade.hdr-note")}
-              </p>
+              <Banner tone="info" message={t("grade.hdr-note")} />
             )}
 
             {/* Template màu */}
             <section className="flex flex-col gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.04em] text-[var(--text-muted)]">
-                {t("grade.templates")}
-              </p>
+              <p className="t-eyebrow">{t("grade.templates")}</p>
               <div className="grid grid-cols-3 gap-2">
                 {previews.map((p) => {
                   const isSelected = selected === p.preset;
@@ -1231,7 +1242,7 @@ function GradeModal({
                       />
                       <span className="flex items-center justify-between gap-1 px-1.5 py-1">
                         <span
-                          className={`truncate text-[11px] font-medium ${
+                          className={`truncate text-xs font-medium ${
                             isSelected ? "text-[var(--primary)]" : ""
                           }`}
                         >
@@ -1258,7 +1269,7 @@ function GradeModal({
                   type="button"
                   onClick={() => setAdjustOpen((v) => !v)}
                   aria-expanded={adjustOpen}
-                  className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.04em] text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
+                  className="t-eyebrow inline-flex items-center gap-1 transition-colors duration-150 hover:text-[var(--text)]"
                 >
                   {t("grade.adjust")}
                   <ChevronDown
@@ -1273,32 +1284,34 @@ function GradeModal({
                   <button
                     type="button"
                     onClick={() => setAdjust({ ...DEFAULT_ADJUST })}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
+                    className="inline-flex items-center gap-1 text-meta font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
                   >
-                    <RotateCcw size={11} strokeWidth={2} />
+                    <RotateCcw size={13} strokeWidth={2} />
                     {t("grade.reset-all")}
                   </button>
                 )}
               </div>
 
               {adjustOpen && (
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3">
                   {ADJUST_SLIDERS.map((s) => {
                     const v = adjust[s.key];
                     const dirty = v !== DEFAULT_ADJUST[s.key];
                     const id = `grade-adjust-${s.key}`;
                     return (
-                      <div key={s.key} className="flex flex-col gap-0.5">
-                        <div className="flex h-5 items-center justify-between gap-2">
+                      <div key={s.key} className="flex flex-col gap-1">
+                        <div className="flex min-h-6 items-center justify-between gap-2">
                           <label
                             htmlFor={id}
-                            className="text-xs font-medium text-[var(--text-muted)]"
+                            className="text-meta font-medium text-[var(--text-muted)]"
                           >
                             {t(s.label)}
                           </label>
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-2">
+                            {/* Con số LÀ nội dung (14px): nhãn chỉ đường được
+                                phép nhỏ hơn, giá trị đang chỉnh thì không */}
                             <span
-                              className={`text-xs tabular-nums ${
+                              className={`text-sm tabular-nums ${
                                 dirty
                                   ? "font-medium text-[var(--text)]"
                                   : "text-[var(--text-muted)]"
@@ -1307,19 +1320,20 @@ function GradeModal({
                               {s.fmt(v)}
                             </span>
                             {dirty && (
-                              <button
-                                type="button"
-                                aria-label={tf("grade.reset-aria", { label: t(s.label) })}
+                              <IconButton
+                                label={tf("grade.reset-aria", {
+                                  label: t(s.label),
+                                })}
+                                size="sm"
                                 onClick={() =>
                                   setAdjust((a) => ({
                                     ...a,
                                     [s.key]: DEFAULT_ADJUST[s.key],
                                   }))
                                 }
-                                className="rounded-[var(--radius)] p-0.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
                               >
-                                <RotateCcw size={11} strokeWidth={2} />
-                              </button>
+                                <RotateCcw size={13} strokeWidth={2} />
+                              </IconButton>
                             )}
                           </span>
                         </div>
@@ -1339,7 +1353,7 @@ function GradeModal({
                       </div>
                     );
                   })}
-                  <p className="text-[11px] text-[var(--text-muted)]">
+                  <p className="text-meta text-[var(--text-muted)]">
                     {t("grade.preview-note")}
                   </p>
                 </div>

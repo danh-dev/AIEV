@@ -17,17 +17,22 @@
 import { useEffect, useState } from "react";
 import { getAutoTrimReport, type AutoTrimReport } from "@/lib/api";
 import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Card } from "@/components/Card";
 import { AUTO_CUT_LEVEL_LABEL } from "@/components/BriefFields";
 import { formatDurationMs, formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
-/** Một dòng số liệu: nhãn mờ bên trái, giá trị bên phải. */
+/**
+ * Một dòng số liệu: nhãn chỉ đường bên trái (phụ chú 13px), CON SỐ bên phải
+ * (nội dung 14px). Trước đây cả hàng cùng 12px và chỉ khác nhau ở màu chữ, nên
+ * mắt không bám được vào con số - thứ duy nhất trong card này đáng đọc.
+ */
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-xs">
-      <span className="shrink-0 text-[var(--text-muted)]">{label}</span>
-      <span className="min-w-0 text-right font-medium">{value}</span>
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="shrink-0 text-meta text-[var(--text-muted)]">{label}</span>
+      <span className="min-w-0 text-right text-sm font-medium">{value}</span>
     </div>
   );
 }
@@ -76,8 +81,8 @@ export function ProjectAutoTrimCard({
         />
       }
     >
-      <div className="flex flex-col gap-1.5">
-        <p className="text-xs text-[var(--text-muted)]">
+      <div className="flex flex-col gap-2">
+        <p className="text-meta text-[var(--text-muted)]">
           {tf("autotrim.trimmed-at", { time: formatRelative(report.createdAt) })}
         </p>
 
@@ -120,10 +125,15 @@ export function ProjectAutoTrimCard({
         />
 
         {!pass && (
-          <p className="mt-1 rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+          <div className="mt-1">
             {/* reason do server soạn sẵn bằng tiếng Việt - hiện nguyên văn */}
-            {report.verification.reason ?? t("autotrim.fail-no-reason")}
-          </p>
+            <Banner
+              tone="danger"
+              message={
+                report.verification.reason ?? t("autotrim.fail-no-reason")
+              }
+            />
+          </div>
         )}
       </div>
     </Card>

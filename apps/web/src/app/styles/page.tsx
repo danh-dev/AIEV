@@ -1,6 +1,6 @@
 "use client";
 
-import { Palette, Plus, Trash2 } from "lucide-react";
+import { Palette, SearchX, Trash2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -12,14 +12,18 @@ import {
   type StyleDesign,
 } from "@/lib/api";
 import { Card } from "@/components/Card";
+import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
 import { Modal } from "@/components/Modal";
-import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
+import { Panel } from "@/components/Panel";
+import { CardGridSkeleton } from "@/components/Skeleton";
 import { TagInput } from "@/components/TagInput";
+import { Toolbar } from "@/components/Toolbar";
 import { refreshStyles } from "@/components/StyleSelect";
 import { formatRelative } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -33,10 +37,19 @@ const SWATCH_KEYS: (keyof StyleColors)[] = [
   "accent",
 ];
 
+/** Cùng lưới với Prompts / Skills / Phong cách dựng - bốn trang lưới thẻ của
+    dashboard phải xuống hàng ở đúng những ngưỡng giống nhau.
+
+    Lưới nằm TRONG chính <Card> chứa <Toolbar>: trước đây nó là anh em ruột nằm
+    ngoài card, nên ô tìm kiếm ở một bề mặt còn kết quả của nó không thuộc bề mặt
+    nào. Vì Card → Panel là hết mức lồng cho phép, thẻ con là <Panel> chứ không
+    phải <Card> lồng <Card>. */
+const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+
 /** Dải 5 ô màu của style - màu style là DATA của user, render bằng inline style. */
 function SwatchStrip({ colors }: { colors: StyleColors }) {
   return (
-    <div className="flex h-10 overflow-hidden rounded-t-[var(--radius-lg)]">
+    <div className="flex h-10 overflow-hidden rounded-[var(--radius)]">
       {SWATCH_KEYS.map((k) => (
         <span
           key={k}
@@ -55,6 +68,7 @@ export default function StylesPage() {
   const [defaultId, setDefaultId] = useState<string | null>(null);
   const [list, setList] = useState<StyleDesign[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   // Modal "Tạo style"
   const [createOpen, setCreateOpen] = useState(false);
@@ -146,28 +160,41 @@ export default function StylesPage() {
     }
   }
 
+  const q = search.trim().toLowerCase();
+  const filtered = (list ?? []).filter((s) =>
+    q
+      ? `${s.name} ${s.id} ${s.tags.join(" ")}`.toLowerCase().includes(q)
+      : true
+  );
+
+  // Đổi từ khóa tìm kiếm thì BỬe những mục đã tick mà giờ không còn hiện.
+  // Không dọn thì: lọc "a" → chọn 5 → đổi sang "b" → thanh công cụ vẫn báo
+  // "5 đã chọn" trong khi màn hình toàn hàng khác, và "Xóa đã chọn" xóa luôn
+  // 5 mục người dùng không nhìn thấy.
+  useEffect(() => {
+    const visible = new Set(filtered.map((s) => s.id));
+    setSelected((cur) => {
+      const next = new Set([...cur].filter((id) => visible.has(id)));
+      return next.size === cur.size ? cur : next;
+    });
+    // filtered là mảng mới mỗi lượt render nên phụ thuộc vào `q` và `list`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, list]);
+
+  const createButton = (
+    <Button onClick={openCreate}>
+      <Plus size={16} strokeWidth={2} />
+      {t("stylesPage.create")}
+    </Button>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.styles")}
-            <InfoHint
-              titleKey="help.styles.title"
-              bodyKey="help.styles.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("nav.styles")}
+        hint={{ titleKey: "help.styles.title", bodyKey: "help.styles.body" }}
         subtitle={t("stylesPage.subtitle")}
-        actions={
-          <>
-            <Button onClick={openCreate}>
-              <Plus size={16} strokeWidth={2} />
-              {t("stylesPage.create")}
-            </Button>
-          </>
-        }
+        actions={createButton}
       />
 
       {error && (
@@ -180,116 +207,120 @@ export default function StylesPage() {
         />
       )}
 
-      {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
-          <span className="text-sm font-medium">
-            {tf("stylesPage.selected", { n: selected.size })}
-          </span>
-          <span className="flex-1" />
-          <Button
-            variant="secondary"
-            small
-            disabled={bulkDeleting}
-            onClick={() => setSelected(new Set())}
-          >
-            {t("common.deselect")}
-          </Button>
-          <Button
-            variant="destructive"
-            small
-            disabled={bulkDeleting}
-            onClick={() => setBulkDeleteOpen(true)}
-          >
-            <Trash2 size={14} strokeWidth={2} />
-            {bulkDeleting ? t("common.deleting") : t("common.delete-selected")}
-          </Button>
-        </div>
-      )}
-
-      {list && list.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 2xl:grid-cols-4">
-          {list.map((s) => (
-            <div
-              key={s.id}
-              role="link"
-              tabIndex={0}
-              onClick={() => router.push(`/styles/${s.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") router.push(`/styles/${s.id}`);
-              }}
-              className="card relative cursor-pointer overflow-hidden p-0 text-left transition-colors duration-150 hover:border-[var(--primary)]"
+      {/* Thanh công cụ + số lượng nằm TRONG card, ngay trên lưới: trước đây
+          thanh "đã chọn N style" lơ lửng trên nền trang, không thuộc về cái gì */}
+      <Card title={tf("stylesPage.count", { n: list?.length ?? 0 })}>
+        <Toolbar
+          search={{
+            value: search,
+            onChange: setSearch,
+            placeholder: t("stylesPage.search"),
+          }}
+          selectedCount={selected.size}
+          onClearSelection={() => setSelected(new Set())}
+          bulkActions={
+            <Button
+              variant="destructive"
+              small
+              disabled={bulkDeleting}
+              onClick={() => setBulkDeleteOpen(true)}
             >
-              <span
-                className="absolute left-2 top-2 flex items-center justify-center rounded-[var(--radius)] bg-[var(--surface)] p-1 shadow-[var(--shadow-card)]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  className="checkbox block"
-                  aria-label={tf("common.select-aria", { name: s.name })}
-                  checked={selected.has(s.id)}
-                  disabled={bulkDeleting}
-                  onChange={() => toggleSelect(s.id)}
-                />
-              </span>
-              <SwatchStrip colors={s.colors} />
-              <div className="flex flex-col gap-2 p-3">
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {s.name}
-                  </p>
-                  {s.id === defaultId && (
-                    <span className="shrink-0 rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--primary)]">
-                      {t("styles.default")}
-                    </span>
-                  )}
-                </div>
-                {s.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {s.tags.map((t) => (
-                      <span key={t} className="chip">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  {s.logoPath && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={mediaUrl(s.logoPath)}
-                      alt={tf("stylesPage.logo-alt", { name: s.name })}
-                      className="h-6 w-auto max-w-[96px] rounded-[3px] border border-[var(--border)] bg-[var(--bg-subtle)] object-contain p-0.5"
-                    />
-                  )}
-                  <span className="ml-auto text-xs text-[var(--text-muted)]">
-                    {formatRelative(s.updatedAt)}
-                  </span>
-                </div>
-              </div>
+              <Trash2 size={14} strokeWidth={2} />
+              {bulkDeleting ? t("common.deleting") : t("common.delete-selected")}
+            </Button>
+          }
+        />
+        {/* Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+            ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải lỗi"
+            cùng lúc, mà cho danh sách về rỗng thì lại nói dối là "chưa có gì". */}
+        {list === null ? (
+          !error && (
+            <div className={GRID}>
+              <CardGridSkeleton count={8} />
             </div>
-          ))}
-        </div>
-      ) : list ? (
-        <Card>
+          )
+        ) : filtered.length > 0 ? (
+          <div className={GRID}>
+            {filtered.map((s) => (
+              // Vỏ ngoài chỉ để bắt click/Enter - nhờ đi qua onClick của vỏ mà
+              // stopPropagation của ô tick vẫn chặn được điều hướng (khác hẳn
+              // khi bọc bằng <Link>).
+              <div
+                key={s.id}
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/styles/${s.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") router.push(`/styles/${s.id}`);
+                }}
+                className="cursor-pointer"
+              >
+                <Panel className="h-full transition-colors duration-150 hover:border-[var(--primary)]">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex items-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        className="checkbox block"
+                        aria-label={tf("common.select-aria", { name: s.name })}
+                        checked={selected.has(s.id)}
+                        disabled={bulkDeleting}
+                        onChange={() => toggleSelect(s.id)}
+                      />
+                    </span>
+                    <p className="min-w-0 flex-1 truncate text-sm font-semibold">
+                      {s.name}
+                    </p>
+                    {s.id === defaultId && (
+                      <Badge
+                        tone="running"
+                        dot={false}
+                        label={t("styles.default")}
+                      />
+                    )}
+                  </div>
+
+                  <SwatchStrip colors={s.colors} />
+
+                  {s.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {s.tags.map((tag) => (
+                        <span key={tag} className="chip">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-auto flex items-center gap-2">
+                    {s.logoPath && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={mediaUrl(s.logoPath)}
+                        alt={tf("stylesPage.logo-alt", { name: s.name })}
+                        className="h-6 w-auto max-w-[96px] rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] object-contain p-1"
+                      />
+                    )}
+                    <span className="ml-auto text-meta text-[var(--text-muted)]">
+                      {formatRelative(s.updatedAt)}
+                    </span>
+                  </div>
+                </Panel>
+              </div>
+            ))}
+          </div>
+        ) : list.length === 0 ? (
           <EmptyState
             icon={Palette}
             description={t("stylesPage.empty")}
-            action={
-              <Button onClick={openCreate}>
-                <Plus size={16} strokeWidth={2} />
-                {t("stylesPage.create")}
-              </Button>
-            }
+            action={createButton}
           />
-        </Card>
-      ) : (
-        <Card>
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
-        </Card>
-      )}
+        ) : (
+          <EmptyState icon={SearchX} description={t("stylesPage.no-match")} />
+        )}
+      </Card>
 
       {/* Modal xác nhận xóa nhiều style - bắt gõ DELETE */}
       <ConfirmDeleteModal
@@ -333,10 +364,7 @@ export default function StylesPage() {
         {createError && (
           <ErrorBanner message={t("stylesPage.create-error")} detail={createError} />
         )}
-        <div>
-          <label className="label" htmlFor="style-new-name">
-            {t("stylesPage.name-label")}
-          </label>
+        <Field label={t("stylesPage.name-label")} htmlFor="style-new-name">
           <input
             id="style-new-name"
             className="input"
@@ -346,17 +374,15 @@ export default function StylesPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder={t("stylesPage.name-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="style-new-tags">
-            {t("common.tags")}
-          </label>
+        </Field>
+        <Field label={t("common.tags")} htmlFor="style-new-tags">
           <TagInput id="style-new-tags" tags={tags} onChange={setTags} />
-        </div>
-        <div>
-          <label className="label" htmlFor="style-new-clone">
-            {t("stylesPage.clone-from")}
-          </label>
+        </Field>
+        <Field
+          label={t("stylesPage.clone-from")}
+          htmlFor="style-new-clone"
+          hint={t("stylesPage.clone-hint")}
+        >
           <select
             id="style-new-clone"
             className="input"
@@ -371,10 +397,7 @@ export default function StylesPage() {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("stylesPage.clone-hint")}
-          </p>
-        </div>
+        </Field>
       </Modal>
     </div>
   );

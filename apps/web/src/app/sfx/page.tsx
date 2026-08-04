@@ -6,7 +6,6 @@ import {
   Pencil,
   Pause,
   Play,
-  Search,
   SearchX,
   Star,
   Trash2,
@@ -31,9 +30,12 @@ import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
 import { Modal } from "@/components/Modal";
-import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
+import { TableSkeleton } from "@/components/Skeleton";
+import { Toolbar } from "@/components/Toolbar";
 import { formatDurationMs } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
@@ -45,13 +47,163 @@ const musicFileUrl = (file: string) => mediaUrl("assets/music/" + file);
 
 const isRecommended = (e: SfxEntry) => e.tags.includes(RECOMMENDED_TAG);
 
-function matches(e: SfxEntry, q: string): boolean {
+/** Lọc theo tên file + tag + mô tả - dùng cho CẢ sound effect LẪN nhạc nền. */
+function matches(e: AudioRow, q: string): boolean {
   if (!q) return true;
   const hay = `${e.file} ${e.tags.join(" ")} ${e.description}`.toLowerCase();
   return q
     .toLowerCase()
     .split(/\s+/)
     .every((term) => hay.includes(term));
+}
+
+/** Sound effect và nhạc nền có ĐÚNG một hình dạng dữ liệu - nên cũng đúng một bảng. */
+interface AudioRow {
+  file: string;
+  tags: string[];
+  durationMs: number | null;
+  description: string;
+}
+
+/**
+ * Bảng file audio - dùng chung cho CẢ Sound effects LẪN Nhạc nền.
+ *
+ * Trước đợt đại tu đây là hai bản chép tay của cùng một bảng, và chúng đã trôi
+ * ra khỏi nhau: cột thao tác w-28 ở bên này, w-20 ở bên kia; cụm nút thì ba
+ * chiều cao khác nhau (Star 32px, Pencil 32px, nút xóa 30px) đứng cạnh nhau
+ * trong đúng một ô. Gộp lại thì lệch kiểu đó không tái diễn được nữa.
+ */
+function AudioTable<T extends AudioRow>({
+  rows,
+  tagsLabel,
+  playing,
+  onPlay,
+  onEdit,
+  onDelete,
+  deletingFile,
+  recommend,
+  highlight = false,
+}: {
+  rows: T[];
+  /** Nhãn cột tag - sound effect gọi là "Tags", nhạc nền gọi là "Mood" */
+  tagsLabel: string;
+  playing: string | null;
+  onPlay: (file: string) => void;
+  onEdit: (row: T) => void;
+  onDelete: (row: T) => void;
+  deletingFile: string | null;
+  /** Cột ngôi sao "đề xuất" - chỉ sound effect có, nhạc nền thì bỏ hẳn */
+  recommend?: {
+    tag: string;
+    isOn: (row: T) => boolean;
+    toggle: (row: T) => void;
+  };
+  /** Hàng nằm trong khu đề xuất - tô nền nhạt màu thương hiệu */
+  highlight?: boolean;
+}) {
+  const { t, tf } = useT();
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th className="w-12"></th>
+          <th>{t("sfx.col-file")}</th>
+          <th>{tagsLabel}</th>
+          <th>{t("sfx.col-duration")}</th>
+          <th>{t("sfx.col-desc")}</th>
+          <th className="w-28"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => {
+          const rec = recommend?.isOn(row) ?? false;
+          const isPlaying = playing === row.file;
+          return (
+            <tr
+              key={row.file}
+              className={highlight ? "bg-[var(--primary-soft)]" : ""}
+            >
+              <td>
+                <button
+                  type="button"
+                  onClick={() => onPlay(row.file)}
+                  aria-label={isPlaying ? t("sfx.stop") : t("sfx.play")}
+                  title={isPlaying ? t("sfx.stop") : t("sfx.play")}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 ${
+                    isPlaying
+                      ? "bg-[var(--primary)]"
+                      : "bg-[var(--primary-soft)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-soft)]"
+                  }`}
+                >
+                  {isPlaying ? (
+                    <Pause
+                      size={14}
+                      strokeWidth={2}
+                      className="text-[var(--primary-soft)]"
+                    />
+                  ) : (
+                    <Play size={14} strokeWidth={2} />
+                  )}
+                </button>
+              </td>
+              <td className="font-medium">{row.file}</td>
+              <td>
+                <span className="flex flex-wrap gap-1">
+                  {row.tags
+                    .filter((tag) => tag !== recommend?.tag)
+                    .map((tag) => (
+                      <span key={tag} className="chip">
+                        {tag}
+                      </span>
+                    ))}
+                </span>
+              </td>
+              <td className="text-[var(--text-muted)]">
+                {formatDurationMs(row.durationMs)}
+              </td>
+              <td className="max-w-xs truncate text-[var(--text-muted)]">
+                {row.description || "-"}
+              </td>
+              <td>
+                <span className="flex items-center justify-end gap-1">
+                  {recommend && (
+                    <IconButton
+                      size="sm"
+                      label={rec ? t("sfx.unrecommend") : t("sfx.recommend")}
+                      onClick={() => recommend.toggle(row)}
+                      className={rec ? "text-[var(--primary)]" : ""}
+                    >
+                      <Star
+                        size={14}
+                        strokeWidth={2}
+                        fill={rec ? "currentColor" : "none"}
+                      />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    size="sm"
+                    label={tf("sfx.edit-aria", { name: row.file })}
+                    onClick={() => onEdit(row)}
+                  >
+                    <Pencil size={13} strokeWidth={2} />
+                  </IconButton>
+                  <IconButton
+                    size="sm"
+                    tone="danger"
+                    label={tf("assets.delete-aria", { name: row.file })}
+                    disabled={deletingFile === row.file}
+                    onClick={() => onDelete(row)}
+                  >
+                    <Trash2 size={13} strokeWidth={2} />
+                  </IconButton>
+                </span>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
 }
 
 export default function SfxPage() {
@@ -84,6 +236,11 @@ export default function SfxPage() {
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   // File đang chờ xác nhận xóa (modal gõ DELETE)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // Modal "Thêm nhạc nền" của <MusicSection> mở từ PageHeader - nút thêm của
+  // NỬA NHẠC NỀN phải là một <Button> cỡ thường đứng cạnh nút thêm sound effect,
+  // không phải nút `small` nhét trong header của card.
+  const [musicAddOpen, setMusicAddOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -220,230 +377,134 @@ export default function SfxPage() {
     }
   }
 
-  function renderTable(list: SfxEntry[], recommendedSection: boolean) {
-    return (
-      <table className="table">
-        <thead>
-          <tr>
-            <th className="w-12"></th>
-            <th>{t("sfx.col-file")}</th>
-            <th>{t("common.tags")}</th>
-            <th>{t("sfx.col-duration")}</th>
-            <th>{t("sfx.col-desc")}</th>
-            <th className="w-28"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((e) => {
-            const rec = isRecommended(e);
-            return (
-              <tr
-                key={e.file}
-                className={recommendedSection ? "bg-[var(--primary-soft)]/40" : ""}
-              >
-                <td>
-                  <button
-                    type="button"
-                    onClick={() => togglePlay(e.file)}
-                    aria-label={playing === e.file ? t("sfx.stop") : t("sfx.play")}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 ${
-                      playing === e.file
-                        ? "bg-[var(--primary)]"
-                        : "bg-[var(--primary-soft)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-soft)]"
-                    }`}
-                  >
-                    {playing === e.file ? (
-                      <Pause
-                        size={14}
-                        strokeWidth={2}
-                        className="text-[var(--primary-soft)]"
-                      />
-                    ) : (
-                      <Play size={14} strokeWidth={2} />
-                    )}
-                  </button>
-                </td>
-                <td className="font-medium">{e.file}</td>
-                <td>
-                  <span className="flex flex-wrap gap-1">
-                    {e.tags
-                      .filter((t) => t !== RECOMMENDED_TAG)
-                      .map((t) => (
-                        <span key={t} className="chip">
-                          {t}
-                        </span>
-                      ))}
-                  </span>
-                </td>
-                <td className="text-[var(--text-muted)]">
-                  {formatDurationMs(e.durationMs)}
-                </td>
-                <td className="max-w-xs truncate text-[var(--text-muted)]">
-                  {e.description || "-"}
-                </td>
-                <td>
-                  <span className="flex items-center justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => toggleRecommended(e)}
-                      aria-label={rec ? t("sfx.unrecommend") : t("sfx.recommend")}
-                      title={rec ? t("sfx.unrecommend") : t("sfx.recommend")}
-                      className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] ${
-                        rec ? "text-[var(--primary)]" : "text-[var(--text-muted)]"
-                      }`}
-                    >
-                      <Star
-                        size={15}
-                        strokeWidth={2}
-                        fill={rec ? "currentColor" : "none"}
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(e)}
-                      aria-label={tf("sfx.edit-aria", { name: e.file })}
-                      title={t("sfx.edit-title")}
-                      className="flex h-8 w-8 items-center justify-center rounded-[var(--radius)] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-                    >
-                      <Pencil size={14} strokeWidth={2} />
-                    </button>
-                    <Button
-                      variant="destructive"
-                      small
-                      disabled={deletingFile === e.file}
-                      onClick={() => setDeleteTarget(e.file)}
-                      aria-label={tf("assets.delete-aria", { name: e.file })}
-                    >
-                      <Trash2 size={14} strokeWidth={2} />
-                    </Button>
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    );
-  }
-
   const q = search.trim();
   const filtered = (entries ?? []).filter((e) => matches(e, q));
   const recommended = filtered.filter(isRecommended);
   const library = filtered.filter((e) => !isRecommended(e));
 
+  // Ba trạng thái "rỗng" KHÁC NHAU, và mỗi lúc chỉ được hiện đúng một cái: thư
+  // viện chưa có gì / lọc không ra gì / khu này rỗng nhưng khu kia có. Trước đây
+  // bốn <EmptyState> có thể cùng xuất hiện một lúc, đọc ra thành bốn lời khuyên
+  // trái ngược nhau.
+  const loading = entries === null;
+  const noEntries = entries !== null && entries.length === 0;
+  const noMatch = entries !== null && entries.length > 0 && filtered.length === 0;
+
+  const addButton = (
+    <Button onClick={() => setOpen(true)}>
+      <Upload size={15} strokeWidth={2} />
+      {t("sfx.add")}
+    </Button>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            {t("nav.sfx")}
-            <InfoHint
-              titleKey="help.sfx.title"
-              bodyKey="help.sfx.body"
-              size={14}
-            />
-          </span>
-        }
+        title={t("nav.sfx")}
+        hint={{ titleKey: "help.sfx.title", bodyKey: "help.sfx.body" }}
         subtitle={t("sfx.subtitle")}
         actions={
           <>
-            <Button onClick={() => setOpen(true)}>
-              <Upload size={15} strokeWidth={2} />
-              {t("sfx.add")}
+            <Button variant="secondary" onClick={() => setMusicAddOpen(true)}>
+              <Music size={15} strokeWidth={2} />
+              {t("music.add")}
             </Button>
+            {addButton}
           </>
         }
       />
 
-      {error && (
-        <ErrorBanner
-          message={t("sfx.load-error")}
-          detail={error}
-        />
-      )}
+      {error && <ErrorBanner message={t("sfx.load-error")} detail={error} />}
       {actionError && <ErrorBanner message={actionError} />}
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search
-          size={15}
-          strokeWidth={2}
-          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--text-muted)]"
+      {/* Khu đề xuất - AI ưu tiên dùng khi brief đặt sfxMode "recommended".
+          Ô tìm kiếm nằm ở card ĐẦU TIÊN vì nó lọc cả hai bảng sound effect bên
+          dưới (số đếm trên tiêu đề mỗi card đã tính theo bộ lọc). */}
+      <Card
+        title={tf("sfx.recommended-title", { n: recommended.length })}
+        actions={
+          <Star
+            size={16}
+            strokeWidth={2}
+            fill="currentColor"
+            className="text-[var(--primary)]"
+          />
+        }
+      >
+        <Toolbar
+          search={{
+            value: search,
+            onChange: setSearch,
+            placeholder: t("sfx.search-placeholder"),
+          }}
         />
-        <input
-          className="input pl-9"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t("sfx.search-placeholder")}
-          aria-label={t("sfx.search-aria")}
-        />
-      </div>
-
-      {entries === null ? (
-        <Card>
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
-        </Card>
-      ) : entries.length === 0 ? (
-        <Card>
+        {/* Khung chờ CHỈ hiện khi đang tải thật. Tải hỏng thì chỉ còn banner đỏ
+            ở trên: để khung chờ chạy tiếp là vừa báo "đang tải" vừa báo "tải lỗi"
+            cùng lúc, mà cho danh sách về rỗng thì lại nói dối là "chưa có gì". */}
+        {loading ? (
+          !error && <TableSkeleton rows={3} />
+        ) : noEntries ? (
           <EmptyState
             icon={AudioLines}
             description={t("sfx.empty")}
-            action={
-              <Button onClick={() => setOpen(true)}>
-                <Upload size={15} strokeWidth={2} />
-                {t("sfx.add")}
-              </Button>
-            }
+            action={addButton}
           />
-        </Card>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={SearchX}
-            description={tf("sfx.no-match", { q })}
+        ) : noMatch ? (
+          <EmptyState icon={SearchX} description={tf("sfx.no-match", { q })} />
+        ) : recommended.length > 0 ? (
+          <AudioTable
+            rows={recommended}
+            tagsLabel={t("common.tags")}
+            playing={playing}
+            onPlay={togglePlay}
+            onEdit={openEdit}
+            onDelete={(row) => setDeleteTarget(row.file)}
+            deletingFile={deletingFile}
+            recommend={{
+              tag: RECOMMENDED_TAG,
+              isOn: isRecommended,
+              toggle: toggleRecommended,
+            }}
+            highlight
           />
-        </Card>
-      ) : (
-        <>
-          {/* Khu đề xuất - AI ưu tiên dùng khi brief đặt sfxMode "recommended" */}
-          <Card
-            title={tf("sfx.recommended-title", { n: recommended.length })}
-            actions={
-              <Star
-                size={16}
-                strokeWidth={2}
-                fill="currentColor"
-                className="text-[var(--primary)]"
-              />
-            }
-          >
-            {recommended.length > 0 ? (
-              renderTable(recommended, true)
-            ) : (
-              <EmptyState
-                icon={Star}
-                description={t("sfx.rec-empty")}
-              />
-            )}
-          </Card>
+        ) : (
+          <EmptyState icon={Star} description={t("sfx.rec-empty")} />
+        )}
+      </Card>
 
-          <Card title={tf("sfx.library-title", { n: library.length })}>
-            {library.length > 0 ? (
-              renderTable(library, false)
-            ) : (
-              <EmptyState
-                icon={AudioLines}
-                description={t("sfx.all-in-rec")}
-              />
-            )}
-          </Card>
-        </>
+      {/* Thư viện: ẩn hẳn khi thư viện trống hoặc lọc không ra gì - hai trạng
+          thái đó đã được card trên nói rồi, nhắc lại là hai ô trống chồng nhau */}
+      {!noEntries && !noMatch && (
+        <Card title={tf("sfx.library-title", { n: library.length })}>
+          {loading ? (
+            !error && <TableSkeleton />
+          ) : library.length > 0 ? (
+            <AudioTable
+              rows={library}
+              tagsLabel={t("common.tags")}
+              playing={playing}
+              onPlay={togglePlay}
+              onEdit={openEdit}
+              onDelete={(row) => setDeleteTarget(row.file)}
+              deletingFile={deletingFile}
+              recommend={{
+                tag: RECOMMENDED_TAG,
+                isOn: isRecommended,
+                toggle: toggleRecommended,
+              }}
+            />
+          ) : (
+            <EmptyState icon={AudioLines} description={t("sfx.all-in-rec")} />
+          )}
+        </Card>
       )}
 
       {/* Nhạc nền - thư viện riêng tại assets/music/, AI tự chọn theo mood khi brief bật */}
-      <MusicSection />
+      <MusicSection
+        addOpen={musicAddOpen}
+        onOpenAdd={() => setMusicAddOpen(true)}
+        onCloseAdd={() => setMusicAddOpen(false)}
+      />
 
       {/* Modal upload */}
       <Modal
@@ -462,10 +523,7 @@ export default function SfxPage() {
         }
       >
         {uploadError && <ErrorBanner message={uploadError} />}
-        <div>
-          <label className="label" htmlFor="sfx-file">
-            {t("sfx.file-label")}
-          </label>
+        <Field label={t("sfx.file-label")} htmlFor="sfx-file">
           <input
             id="sfx-file"
             type="file"
@@ -473,11 +531,8 @@ export default function SfxPage() {
             className="input h-auto py-1.5"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="sfx-tags">
-            {t("sfx.tags-label")}
-          </label>
+        </Field>
+        <Field label={t("sfx.tags-label")} htmlFor="sfx-tags">
           <input
             id="sfx-tags"
             className="input"
@@ -485,11 +540,8 @@ export default function SfxPage() {
             onChange={(e) => setTags(e.target.value)}
             placeholder={t("sfx.tags-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="sfx-desc">
-            {t("sfx.col-desc")}
-          </label>
+        </Field>
+        <Field label={t("sfx.col-desc")} htmlFor="sfx-desc">
           <textarea
             id="sfx-desc"
             className="input"
@@ -498,7 +550,7 @@ export default function SfxPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t("sfx.desc-placeholder")}
           />
-        </div>
+        </Field>
       </Modal>
 
       {/* Modal sửa description + tags */}
@@ -528,10 +580,7 @@ export default function SfxPage() {
         }
       >
         {editError && <ErrorBanner message={editError} />}
-        <div>
-          <label className="label" htmlFor="sfx-edit-desc">
-            {t("sfx.col-desc")}
-          </label>
+        <Field label={t("sfx.col-desc")} htmlFor="sfx-edit-desc">
           <textarea
             id="sfx-edit-desc"
             className="input"
@@ -540,11 +589,12 @@ export default function SfxPage() {
             onChange={(e) => setEditDesc(e.target.value)}
             placeholder={t("sfx.desc-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="sfx-edit-tags">
-            {t("sfx.tags-label")}
-          </label>
+        </Field>
+        <Field
+          label={t("sfx.tags-label")}
+          htmlFor="sfx-edit-tags"
+          hint={t("sfx.rec-tag-hint")}
+        >
           <input
             id="sfx-edit-tags"
             className="input"
@@ -552,10 +602,7 @@ export default function SfxPage() {
             onChange={(e) => setEditTags(e.target.value)}
             placeholder={t("sfx.tags-placeholder")}
           />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("sfx.rec-tag-hint")}
-          </p>
-        </div>
+        </Field>
       </Modal>
 
       {/* Modal xác nhận xóa sound effect - bắt gõ DELETE */}
@@ -584,19 +631,34 @@ export default function SfxPage() {
  * Section "Nhạc nền" - thư viện assets/music/ (cùng pattern với sound effects).
  * Tags = mood (nang-luong, chill, cam-hung, cang-thang, vui-ve…) để AI chọn
  * bài hợp nội dung khi brief đặt musicMode "auto".
+ *
+ * DÙNG ĐÚNG BA KHUÔN của nửa Sound effect ở trên - trước đây nửa dưới lệch hẳn
+ * nửa trên trong cùng một trang: nút thêm là `small` nhét trong header card
+ * (trên kia là <Button> cỡ thường ở PageHeader), không có ô tìm kiếm nào, và
+ * banner lỗi nằm TRONG card. Ba chỗ lệch đó nay đã khớp: nút thêm do trang mẹ
+ * dựng ở PageHeader (nên `addOpen` là prop), có <Toolbar search> riêng, và
+ * <ErrorBanner> đứng cấp trang - fragment này là con trực tiếp của cột gap-4.
  */
-function MusicSection() {
+function MusicSection({
+  addOpen,
+  onOpenAdd,
+  onCloseAdd,
+}: {
+  addOpen: boolean;
+  onOpenAdd: () => void;
+  onCloseAdd: () => void;
+}) {
   const { t, tf } = useT();
   const [entries, setEntries] = useState<MusicEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   // Nghe thử: một audio element dùng chung
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
 
   // Upload modal
-  const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
@@ -708,7 +770,7 @@ function MusicSection() {
     setUploadError(null);
     try {
       await uploadMusic(file, tags.trim(), description.trim());
-      setOpen(false);
+      onCloseAdd();
       setFile(null);
       setTags("");
       setDescription("");
@@ -720,130 +782,68 @@ function MusicSection() {
     }
   }
 
+  const q = search.trim();
+  const filtered = (entries ?? []).filter((e) => matches(e, q));
+
   return (
     <>
+      {/* Banner lỗi ở CẤP TRANG (fragment này là con của cột gap-4), giống nửa
+          sound effect - nhét trong card thì hai nửa cùng một trang lại báo lỗi
+          ở hai độ sâu khác nhau. */}
+      {error && <ErrorBanner message={t("music.load-error")} detail={error} />}
+      {actionError && <ErrorBanner message={actionError} />}
+
       <Card
         title={tf("music.title", { n: entries?.length ?? 0 })}
         actions={
-          <span className="flex items-center gap-2">
-            <Music size={16} strokeWidth={2} className="text-[var(--primary)]" />
-            <Button small onClick={() => setOpen(true)}>
-              <Upload size={13} strokeWidth={2} />
-              {t("music.add-short")}
-            </Button>
-          </span>
+          <Music size={16} strokeWidth={2} className="text-[var(--primary)]" />
         }
       >
-        {error && (
-          <ErrorBanner message={t("music.load-error")} detail={error} />
-        )}
-        {actionError && <ErrorBanner message={actionError} />}
+        <Toolbar
+          search={{
+            value: search,
+            onChange: setSearch,
+            placeholder: t("music.search"),
+          }}
+        />
 
+        {/* Khung chờ CHỈ hiện khi đang tải thật - tải hỏng thì chỉ còn banner đỏ. */}
         {entries === null ? (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
+          !error && <TableSkeleton rows={3} />
         ) : entries.length === 0 ? (
           <EmptyState
             icon={Music}
             description={t("music.empty")}
             action={
-              <Button onClick={() => setOpen(true)}>
+              <Button onClick={onOpenAdd}>
                 <Upload size={15} strokeWidth={2} />
                 {t("music.add")}
               </Button>
             }
           />
+        ) : filtered.length > 0 ? (
+          <AudioTable
+            rows={filtered}
+            tagsLabel={t("music.col-mood")}
+            playing={playing}
+            onPlay={togglePlay}
+            onEdit={openEdit}
+            onDelete={(row) => setDeleteTarget(row.file)}
+            deletingFile={deletingFile}
+          />
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th className="w-12"></th>
-                <th>{t("sfx.col-file")}</th>
-                <th>{t("music.col-mood")}</th>
-                <th>{t("sfx.col-duration")}</th>
-                <th>{t("sfx.col-desc")}</th>
-                <th className="w-20"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e) => (
-                <tr key={e.file}>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => togglePlay(e.file)}
-                      aria-label={playing === e.file ? t("sfx.stop") : t("sfx.play")}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 ${
-                        playing === e.file
-                          ? "bg-[var(--primary)]"
-                          : "bg-[var(--primary-soft)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-[var(--primary-soft)]"
-                      }`}
-                    >
-                      {playing === e.file ? (
-                        <Pause
-                          size={14}
-                          strokeWidth={2}
-                          className="text-[var(--primary-soft)]"
-                        />
-                      ) : (
-                        <Play size={14} strokeWidth={2} />
-                      )}
-                    </button>
-                  </td>
-                  <td className="font-medium">{e.file}</td>
-                  <td>
-                    <span className="flex flex-wrap gap-1">
-                      {e.tags.map((t) => (
-                        <span key={t} className="chip">
-                          {t}
-                        </span>
-                      ))}
-                    </span>
-                  </td>
-                  <td className="text-[var(--text-muted)]">
-                    {formatDurationMs(e.durationMs)}
-                  </td>
-                  <td className="max-w-xs truncate text-[var(--text-muted)]">
-                    {e.description || "-"}
-                  </td>
-                  <td>
-                    <span className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(e)}
-                        aria-label={tf("sfx.edit-aria", { name: e.file })}
-                        title={t("sfx.edit-title")}
-                        className="flex h-8 w-8 items-center justify-center rounded-[var(--radius)] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-                      >
-                        <Pencil size={14} strokeWidth={2} />
-                      </button>
-                      <Button
-                        variant="destructive"
-                        small
-                        disabled={deletingFile === e.file}
-                        onClick={() => setDeleteTarget(e.file)}
-                        aria-label={tf("assets.delete-aria", { name: e.file })}
-                      >
-                        <Trash2 size={14} strokeWidth={2} />
-                      </Button>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <EmptyState icon={SearchX} description={t("common.no-match")} />
         )}
       </Card>
 
       {/* Modal upload nhạc */}
       <Modal
         title={t("music.add")}
-        open={open}
-        onClose={() => setOpen(false)}
+        open={addOpen}
+        onClose={onCloseAdd}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={onCloseAdd}>
               {t("common.cancel")}
             </Button>
             <Button onClick={onUpload} disabled={!file || uploading}>
@@ -853,10 +853,7 @@ function MusicSection() {
         }
       >
         {uploadError && <ErrorBanner message={uploadError} />}
-        <div>
-          <label className="label" htmlFor="music-file">
-            {t("music.file-label")}
-          </label>
+        <Field label={t("music.file-label")} htmlFor="music-file">
           <input
             id="music-file"
             type="file"
@@ -864,11 +861,8 @@ function MusicSection() {
             className="input h-auto py-1.5"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="music-tags">
-            {t("music.tags-label")}
-          </label>
+        </Field>
+        <Field label={t("music.tags-label")} htmlFor="music-tags">
           <input
             id="music-tags"
             className="input"
@@ -876,11 +870,8 @@ function MusicSection() {
             onChange={(e) => setTags(e.target.value)}
             placeholder={t("music.tags-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="music-desc">
-            {t("sfx.col-desc")}
-          </label>
+        </Field>
+        <Field label={t("sfx.col-desc")} htmlFor="music-desc">
           <textarea
             id="music-desc"
             className="input"
@@ -889,7 +880,7 @@ function MusicSection() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t("music.desc-placeholder")}
           />
-        </div>
+        </Field>
       </Modal>
 
       {/* Modal sửa description + tags */}
@@ -919,10 +910,7 @@ function MusicSection() {
         }
       >
         {editError && <ErrorBanner message={editError} />}
-        <div>
-          <label className="label" htmlFor="music-edit-desc">
-            {t("sfx.col-desc")}
-          </label>
+        <Field label={t("sfx.col-desc")} htmlFor="music-edit-desc">
           <textarea
             id="music-edit-desc"
             className="input"
@@ -931,11 +919,8 @@ function MusicSection() {
             onChange={(e) => setEditDesc(e.target.value)}
             placeholder={t("music.desc-placeholder")}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor="music-edit-tags">
-            {t("music.tags-label")}
-          </label>
+        </Field>
+        <Field label={t("music.tags-label")} htmlFor="music-edit-tags">
           <input
             id="music-edit-tags"
             className="input"
@@ -943,7 +928,7 @@ function MusicSection() {
             onChange={(e) => setEditTags(e.target.value)}
             placeholder={t("music.tags-placeholder")}
           />
-        </div>
+        </Field>
       </Modal>
 
       {/* Modal xác nhận xóa bài nhạc - bắt gõ DELETE */}

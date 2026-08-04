@@ -73,33 +73,52 @@ open_browser() {
 
 probe() { curl -s -o /dev/null -w '%{http_code}' -m 3 "$1" 2>/dev/null || echo 000; }
 
-# 2. Trạng thái hiện tại: web (6868) VÀ backend (qua proxy /api/health)
+# 2. Đang chạy sẵn hay không - và nếu có thì có ĐÚNG là bản dựng từ code hiện
+#    tại không.
+#
+#    KHÔNG được kết luận chỉ vì cổng 6868 có người trả lời. Người dùng lỡ chạy
+#    `npm run dev` trước đó thì dev server cũng trả 200, và script cũ sẽ mở
+#    trình duyệt vào đúng cái bản CŨ nằm trong bộ nhớ tiến trình đó - sửa code
+#    xong bấm start mà không thấy gì đổi.
+#
+#    Bằng chứng đáng tin là .aiev/run.json: chỉ chính script này ghi ra, kèm dấu
+#    vân tay mã nguồn lúc khởi động.
+STATE_DIR="$ROOT/.aiev"
+RUN_FILE="$STATE_DIR/run.json"
+SRC_STAMP="$(node "$ROOT/start/build-stamp.mjs" --print)"
+
+kill_ports() {
+  for port in 6868 6869; do
+    lsof -ti tcp:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
+  done
+  rm -f "$RUN_FILE"
+  sleep 1
+}
+
 WEB_UP=false; API_UP=false
 [ "$(probe "$WEB_URL")" = "200" ] && WEB_UP=true
 [ "$(probe "$WEB_URL/api/health")" = "200" ] && API_UP=true
 
-if $WEB_UP && $API_UP; then
-  # Đang chạy NHƯNG code mới hơn bản build (vừa git pull) → phải build + khởi động lại
-  STALE=false
-  [ -n "$(find "$ROOT/apps/server/src" -type f -newer "$ROOT/apps/server/dist" -print -quit 2>/dev/null)" ] && STALE=true
-  [ -n "$(find "$ROOT/apps/web/src" -type f -newer "$ROOT/apps/web/.next" -print -quit 2>/dev/null)" ] && STALE=true
-  if ! $STALE; then
-    ok "Hệ thống đang chạy sẵn - mở trình duyệt."
+if $WEB_UP || $API_UP; then
+  RUN_STAMP=""
+  if [ -f "$RUN_FILE" ]; then
+    RUN_STAMP="$(node -e 'try{process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).stamp||"")}catch(e){}' "$RUN_FILE")"
+  fi
+
+  if $WEB_UP && $API_UP && [ -n "$RUN_STAMP" ] && [ "$RUN_STAMP" = "$SRC_STAMP" ]; then
+    ok "Hệ thống đang chạy sẵn (đúng bản mới nhất) - mở trình duyệt."
     open_browser
     exit 0
   fi
-  step "Có code mới chưa build - dừng hệ thống để build lại..."
-  for port in 6868 6869; do
-    lsof -ti tcp:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
-  done
-  sleep 1
-fi
-if $WEB_UP || $API_UP; then
-  step "Phát hiện hệ thống chạy dở dang - khởi động lại cho sạch..."
-  for port in 6868 6869; do
-    lsof -ti tcp:$port 2>/dev/null | xargs kill -9 2>/dev/null || true
-  done
-  sleep 1
+
+  if [ -z "$RUN_STAMP" ]; then
+    step "Cổng 6868/6869 đang bị tiến trình khác chiếm (vd 'npm run dev') - dừng để chạy lại cho đúng..."
+  elif [ "$RUN_STAMP" != "$SRC_STAMP" ]; then
+    step "Code đã đổi so với bản đang chạy - dừng để build lại..."
+  else
+    step "Hệ thống chạy dở dang - khởi động lại cho sạch..."
+  fi
+  kill_ports
 fi
 
 # 3. Cài dependencies lần đầu
@@ -109,20 +128,27 @@ if [ ! -d "$ROOT/node_modules" ]; then
   ok "Đã cài dependencies."
 fi
 
-# 4. Build nếu chưa build HOẶC source mới hơn bản build
-needs_build() { # $1=src dir, $2=build dir
-  [ ! -d "$2" ] && return 0
-  [ -n "$(find "$1" -type f -newer "$2" -print -quit 2>/dev/null)" ] && return 0
-  return 1
-}
-if needs_build "$ROOT/apps/server/src" "$ROOT/apps/server/dist"; then
+# 4. Build lại khi mã nguồn đã đổi so với lần build gần nhất.
+#
+#    So bằng DẤU VÂN TAY mã nguồn (start/build-stamp.mjs), không dùng
+#    `find src -newer .next` như bản cũ. Hai lý do: `next start` ghi cache vào
+#    chính `.next` lúc chạy nên `.next` luôn trông mới hơn `src`; và `-newer`
+#    so với mtime của THƯ MỤC `.next`, thứ chỉ đổi khi thêm/xóa file con trực
+#    tiếp - gần như không bao giờ bắt được thay đổi thật.
+STAMP_OK=true
+node "$ROOT/start/build-stamp.mjs" --check || STAMP_OK=false
+
+if ! $STAMP_OK || [ ! -d "$ROOT/apps/server/dist" ]; then
   step "Build backend..."
   npm run build -w apps/server || { err "Build server thất bại."; exit 1; }
 fi
-if needs_build "$ROOT/apps/web/src" "$ROOT/apps/web/.next"; then
+if ! $STAMP_OK || [ ! -d "$ROOT/apps/web/.next" ]; then
   step "Build web UI (vài phút)..."
   npm run build -w apps/web || { err "Build web thất bại."; exit 1; }
 fi
+# Ghi dấu vân tay SAU KHI build xong - build hỏng giữa chừng thì lần sau vẫn
+# phải build lại.
+node "$ROOT/start/build-stamp.mjs" --save >/dev/null
 
 # 5. Tạo .env nếu chưa có
 if [ ! -f "$ROOT/.env" ]; then
@@ -142,6 +168,12 @@ step "Đang đợi hệ thống sẵn sàng..."
 for _ in $(seq 1 60); do
   sleep 2
   if [ "$(probe "$WEB_URL")" = "200" ]; then
+    # Ghi lại "lần chạy này dựng từ mã nguồn nào" - lần chạy script kế tiếp đọc
+    # đúng file này để biết nên mở trình duyệt luôn hay phải build lại.
+    mkdir -p "$STATE_DIR"
+    printf '{\n  "stamp": "%s",\n  "at": "%s"\n}\n' \
+      "$SRC_STAMP" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$RUN_FILE"
+
     ok "Hệ thống đã sẵn sàng!"
     open_browser
     echo ""

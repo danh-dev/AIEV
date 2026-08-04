@@ -6,10 +6,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { deleteSkill, getSkill, updateSkill } from "@/lib/api";
 import { Card } from "@/components/Card";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PageHeader } from "@/components/PageHeader";
+import { Skeleton } from "@/components/Skeleton";
 import { useT } from "@/lib/i18n";
 
 export default function SkillDetailPage() {
@@ -75,7 +77,10 @@ export default function SkillDetailPage() {
   }
 
   return (
-    // Full-width + editor cao hết viewport - tối đa diện tích soạn thảo
+    // Full-width + editor cao hết viewport - tối đa diện tích soạn thảo.
+    // 56px = thanh trên cùng của shell, 40px = padding dọc vùng nội dung. Hai
+    // con số này hardcode vì chúng nằm trong Shell.tsx chứ không phải biến CSS;
+    // đổi chiều cao shell thì phải sửa cả dòng này.
     <div className="flex h-[calc(100vh-56px-40px)] w-full flex-col gap-4">
       <PageHeader
         title={name}
@@ -102,15 +107,15 @@ export default function SkillDetailPage() {
 
       {error && <ErrorBanner message={t("skills.action-error")} detail={error} />}
       {savedAt && !dirty && !error && (
-        <div className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--success-bg)] px-4 py-2 text-sm text-[var(--success)]">
-          {t("common.saved")}
-        </div>
+        <Banner tone="success" message={t("common.saved")} />
       )}
 
       <Card className="flex min-h-0 flex-1 flex-col">
         {content != null ? (
+          // text-sm chứ không phải 13px: đây là ô người dùng GÕ vào, thu nhỏ
+          // đúng chỗ cần đọc kỹ nhất là tự làm khó mình
           <textarea
-            className="input h-full min-h-0 w-full flex-1 resize-none font-mono text-[13px] leading-relaxed"
+            className="input h-full min-h-0 w-full flex-1 resize-none font-mono text-sm leading-relaxed"
             value={content}
             spellCheck={false}
             onChange={(e) => {
@@ -119,9 +124,7 @@ export default function SkillDetailPage() {
             }}
           />
         ) : !error ? (
-          <p className="py-8 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
+          <Skeleton className="min-h-0 w-full flex-1" />
         ) : null}
       </Card>
 

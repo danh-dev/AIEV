@@ -4,6 +4,7 @@ import { ExternalLink, FolderOpen, Loader2, Maximize2 } from "lucide-react";
 import { useEffect, useState, type MouseEvent } from "react";
 import { mediaUrl, revealFile, type FileInfo } from "@/lib/api";
 import { Button } from "@/components/Button";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
 
@@ -73,8 +74,11 @@ export function ZoomableThumb({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt={alt} className={imgClassName} />
       {/* Lớp phủ chỉ hiện khi rê chuột - để người dùng biết ảnh bấm được.
-          Icon để trắng cố ý: nó nằm trên nền tối của lớp phủ ở CẢ hai theme,
-          dùng token --text sẽ tàng hình ở theme tối. */}
+          NGOẠI LỆ MÀU CÓ CHỦ Ý (đã ghi trong ALLOW của scripts/check-design-system.mjs):
+          `bg-black/45` + `text-white` nằm ngoài bảng token vì lớp phủ này đè lên
+          MEDIA BẤT KỲ - ảnh có thể sáng trắng hoặc đen kịt, không theo theme của
+          dashboard. Dùng --bg-subtle/--text ở đây thì icon tàng hình đúng một
+          nửa số ảnh. Ngoại lệ chỉ áp cho lớp phủ trên media, không lan ra chỗ khác. */}
       <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <Maximize2 size={iconSize} strokeWidth={2} className="text-white" />
       </span>
@@ -89,10 +93,17 @@ export function ZoomableThumb({
 export function RevealButton({
   relPath,
   onError,
+  small = true,
   className = "",
 }: {
   relPath: string;
   onError: (message: string) => void;
+  /**
+   * Mặc định cỡ nhỏ 30px vì nút này hay nằm trong hàng danh sách asset dày đặc.
+   * Trong FOOTER của modal thì truyền `small={false}` - luật chung là nút footer
+   * luôn cao 36px, không được có cỡ thứ tư.
+   */
+  small?: boolean;
   className?: string;
 }) {
   const { t, tf } = useT();
@@ -117,17 +128,17 @@ export function RevealButton({
   return (
     <Button
       variant="secondary"
-      small
-      className={`h-6 px-2 text-xs ${className}`}
+      small={small}
+      className={className}
       disabled={busy}
       onClick={onClick}
       title={t("media.reveal-title")}
       aria-label={tf("media.reveal-aria", { path: relPath })}
     >
       {busy ? (
-        <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+        <Loader2 size={14} strokeWidth={2} className="animate-spin" />
       ) : (
-        <FolderOpen size={12} strokeWidth={2} />
+        <FolderOpen size={14} strokeWidth={2} />
       )}
       {t("common.open-file")}
     </Button>
@@ -164,25 +175,28 @@ export function MediaPreviewModal({
       title={file.name}
       onClose={onClose}
       footer={
+        // [phụ] … [chính]: luôn có đường thoát bằng nút Đóng chứ không chỉ dấu X,
+        // và mọi nút đều là <Button> cỡ mặc định 36px.
         <>
-          {error && (
-            <p className="mr-auto min-w-0 self-center text-xs text-[var(--danger)]">
-              {error}
-            </p>
-          )}
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 self-center text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+          <Button variant="secondary" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+          <RevealButton relPath={file.relPath} small={false} onError={setError} />
+          {/* Mở tab mới: <Button> chứ không phải <a> đội lốt nút - footer chỉ có
+              một hình dạng nút duy nhất. window.open ngay trong handler do người
+              dùng bấm nên không bị trình duyệt chặn popup. */}
+          <Button
+            onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
           >
-            <ExternalLink size={13} strokeWidth={2} />
+            <ExternalLink size={14} strokeWidth={2} />
             {t("media.open-tab")}
-          </a>
-          <RevealButton relPath={file.relPath} onError={setError} />
+          </Button>
         </>
       }
     >
+      {/* Lỗi luôn ở ĐẦU thân modal - trước đây nó nằm lẫn trong footer ở 12px */}
+      {error && <ErrorBanner message={error} />}
+
       {file.kind === "image" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -215,7 +229,9 @@ export function MediaPreviewModal({
         </p>
       )}
       {/* Đường dẫn tương đối - biết file nằm đâu trong repo mà không phải mở Explorer */}
-      <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{file.relPath}</p>
+      <p className="break-all text-meta text-[var(--text-muted)]">
+        {file.relPath}
+      </p>
     </Modal>
   );
 }

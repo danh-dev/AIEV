@@ -63,8 +63,14 @@ import {
   type TtsVoice,
   type TtsVoiceKind,
 } from "@/lib/api";
+import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
+import { Field } from "@/components/Field";
+import { IconButton } from "@/components/IconButton";
+import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
+import { Panel } from "@/components/Panel";
+import { Segmented, type SegmentedOption } from "@/components/Segmented";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -511,200 +517,195 @@ export function VoicePicker({
     voices !== null &&
     !list.some((v) => v.kind === "cloned");
 
+  /**
+   * Hai hàng bộ lọc dùng <Segmented> - cùng một hình dạng với mọi chỗ chọn-một
+   * khác trong app. Mục 0 giọng là ngõ cụt nên bỏ hẳn khỏi nhóm (trừ mục đang
+   * chọn và mục "Tất cả", vì luôn phải có đường quay lại).
+   */
+  const countLabel = (label: string, n: number) => (
+    <>
+      {label}
+      <span className="ml-1 tabular-nums opacity-70">{n}</span>
+    </>
+  );
+
+  const genderOptions: SegmentedOption<string>[] = (
+    [null, ...GENDERS] as (TtsGender | null)[]
+  )
+    .filter((g) => !g || counts[g] > 0 || genderFilter === g)
+    .map((g) => ({
+      value: g ?? "all",
+      label: countLabel(
+        g ? t(GENDER_LABEL_KEY[g]) : t("ttv.voice.filter.all"),
+        g ? counts[g] : genderTotal
+      ),
+    }));
+
+  const regionOptions: SegmentedOption<string>[] = (
+    [null, ...REGIONS] as (TtsRegion | null)[]
+  )
+    .filter((r) => !r || regionCounts[r] > 0 || regionFilter === r)
+    .map((r) => ({
+      value: r ?? "all",
+      label: countLabel(
+        r ? t(REGION_LABEL_KEY[r]) : t("ttv.voice.region.all"),
+        r ? regionCounts[r] : regionTotal
+      ),
+    }));
+
+  const speedOptions: SegmentedOption<string>[] = SPEEDS.map((s) => ({
+    value: String(s),
+    label: s === 1 ? t("ttv.voice.speed-normal") : `x${s}`,
+  }));
+
   return (
     <div className="flex flex-col gap-4">
       {/* Không lấy được danh sách = gần như luôn do thiếu khóa Gemini - nói thẳng
           cách sửa thay vì để người dùng nhìn một khung trống */}
       {loadError && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <ErrorBanner message={t("ttv.voice.load-error")} detail={loadError} />
           {isGemini && (
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-meta text-[var(--text-muted)]">
               {t("ttv.voice.gemini-hint")}
             </p>
           )}
         </div>
       )}
 
-      {/* 0. Engine đọc - quyết định mọi thứ phía dưới nên đứng trên cùng */}
-      <div>
-        <span className="label">{t("ttv.voice.engine")}</span>
+      {/* 0. Engine đọc - quyết định mọi thứ phía dưới nên đứng trên cùng.
+          Thẻ chỉ giữ TÊN + MỘT dòng mô tả + huy hiệu chạy được hay không; lý do
+          hỏng và đường dẫn dài đưa xuống <Banner> bên dưới nhóm. Trước đây sáu
+          dòng chữ ở bốn cỡ khác nhau chen trong một nút rộng chưa tới 190px. */}
+      <Field label={t("ttv.voice.engine")}>
         {engines === null ? (
-          <p className="flex items-center gap-1.5 py-2 text-xs text-[var(--text-muted)]">
-            <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+          <p className="flex items-center gap-2 py-2 text-sm text-[var(--text-muted)]">
+            <Loader2 size={14} strokeWidth={2} className="animate-spin" />
             {t("ttv.voice.engine.checking")}
           </p>
         ) : (
-          <>
-            <div
-              role="radiogroup"
-              aria-label={t("ttv.voice.engine")}
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+          <div className="flex flex-col gap-2">
+            {/* MỘT thẻ mỗi hàng, không chia đôi: khối này nằm trong cột hẹp
+                (~340px) của bố cục 3 cột, chia đôi thì tiêu đề "Gemini (đám
+                mây)" chỉ còn "Gemi…" - mất đúng phần nói engine chạy ở đâu. */}
+            <OptionCardGroup
+              label={t("ttv.voice.engine")}
+              className="grid-cols-1"
             >
               {TTS_ENGINES.map((e) => {
                 const st = engines.find((s) => s.engine === e) ?? null;
                 const ok = st?.available === true;
-                const active = engine === e;
                 const busy = switching === e;
-                const Icon = ENGINE_ICON[e];
                 return (
-                  <button
+                  <OptionCard
                     key={e}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    // Engine máy chưa chạy được thì KHÓA - hiện ra để giải thích
-                    // vì sao, chứ không cho chọn một thứ chắc chắn lỗi
+                    selected={engine === e}
+                    // Engine máy chưa chạy được thì KHÓA - vẫn hiện ra để giải
+                    // thích vì sao, chứ không cho chọn một thứ chắc chắn lỗi
                     disabled={disabled || !ok || switching !== null}
-                    onClick={() => switchEngine(e)}
-                    className={`flex min-w-0 flex-col gap-1 rounded-[var(--radius)] border p-3 text-left transition-colors duration-150 disabled:cursor-not-allowed ${
-                      active
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)]"
-                        : "border-[var(--border)] bg-[var(--surface)]"
-                    } ${ok ? "" : "opacity-70"}`}
-                  >
-                    {/* Cho XUỐNG DÒNG chứ không cắt bằng "…": cột này hẹp, mà
-                        cắt đi thì "Gemini (đám mây)" chỉ còn "Gemi…" - mất đúng
-                        phần nói cho người dùng biết engine chạy ở đâu. */}
-                    <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-                      {busy ? (
-                        <Loader2
-                          size={14}
-                          strokeWidth={2}
-                          aria-hidden="true"
-                          className="shrink-0 animate-spin text-[var(--text-muted)]"
-                        />
-                      ) : (
-                        <Icon
-                          size={14}
-                          strokeWidth={2}
-                          aria-hidden="true"
-                          className={`shrink-0 ${
-                            active
-                              ? "text-[var(--primary)]"
-                              : "text-[var(--text-muted)]"
-                          }`}
-                        />
-                      )}
-                      <span
-                        className={`min-w-0 text-[13px] leading-snug font-semibold ${
-                          active ? "text-[var(--primary)]" : "text-[var(--text)]"
-                        }`}
-                      >
-                        {t(ENGINE_LABEL_KEY[e])}
-                      </span>
-                      <span
-                        className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    onSelect={() => switchEngine(e)}
+                    icon={busy ? Loader2 : ENGINE_ICON[e]}
+                    // Lúc đang đổi engine, icon duy nhất trong thẻ là Loader2 -
+                    // cho nó quay để thấy máy đang làm việc chứ không phải treo
+                    className={busy ? "[&_svg]:animate-spin" : ""}
+                    title={t(ENGINE_LABEL_KEY[e])}
+                    description={
+                      <>
+                        {t(ENGINE_DESC_KEY[e])}
+                        {ok && st?.canClone && (
+                          <span className="font-medium text-[var(--success)]">
+                            {" · "}
+                            {t("ttv.voice.engine.clone-ready")}
+                          </span>
+                        )}
+                      </>
+                    }
+                    badge={
+                      <Badge
+                        tone={ok ? "success" : "danger"}
+                        dot={false}
+                        label={
                           ok
-                            ? "bg-[var(--success-bg)] text-[var(--success)]"
-                            : "bg-[var(--danger-bg)] text-[var(--danger)]"
-                        }`}
-                      >
-                        {ok
-                          ? t("ttv.voice.engine.ready")
-                          : t("ttv.voice.engine.unavailable")}
-                      </span>
-                    </span>
-                    <span className="text-[11px] leading-snug text-[var(--text-muted)]">
-                      {t(ENGINE_DESC_KEY[e])}
-                    </span>
-                    {ok && st?.canClone && (
-                      <span className="text-[11px] leading-snug font-medium text-[var(--success)]">
-                        {t("ttv.voice.engine.clone-ready")}
-                      </span>
-                    )}
-                    {/* Có mã lý do là có chuyện chưa ổn - kể cả khi vẫn đọc được
-                        (vd đọc được nhưng thiếu torch nên chưa nhân bản được) */}
-                    {st?.reason && (
-                      <span className="flex items-start gap-1.5 text-[11px] leading-snug text-[var(--danger)]">
-                        <AlertTriangle
-                          size={12}
-                          strokeWidth={2}
-                          aria-hidden="true"
-                          className="mt-0.5 shrink-0"
-                        />
-                        <span className="min-w-0">{t(reasonKey(st.reason))}</span>
-                      </span>
-                    )}
-                    {st?.reason && st.detail && (
-                      <span className="min-w-0 text-[10px] leading-snug text-[var(--text-muted)]">
-                        <span className="block">{t("voices.detail")}</span>
-                        {/* Đường dẫn Python dài - cho ngắt giữa chữ, tuyệt đối
-                            không để nó đẩy ngang cả cột */}
-                        <span className="block break-all font-mono">
-                          {st.detail}
-                        </span>
-                      </span>
-                    )}
-                  </button>
+                            ? t("ttv.voice.engine.ready")
+                            : t("ttv.voice.engine.unavailable")
+                        }
+                      />
+                    }
+                  />
                 );
               })}
-            </div>
-            {noEngine && (
-              <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--danger)]">
-                <AlertTriangle
-                  size={13}
-                  strokeWidth={2}
-                  aria-hidden="true"
-                  className="mt-0.5 shrink-0"
+            </OptionCardGroup>
+            {/* Có mã lý do là có chuyện chưa ổn - kể cả khi vẫn đọc được (vd đọc
+                được nhưng thiếu torch nên chưa nhân bản được). Đường dẫn Python
+                dài nằm trong phần "Chi tiết" gấp lại được của banner. */}
+            {engines.map((st) =>
+              st.reason ? (
+                <Banner
+                  key={st.engine}
+                  tone="danger"
+                  message={`${t(ENGINE_LABEL_KEY[st.engine])}: ${t(reasonKey(st.reason))}`}
+                  detail={st.detail ?? null}
                 />
-                {t("ttv.voice.engine.none")}
-              </p>
+              ) : null
             )}
-          </>
+            {noEngine && (
+              <Banner tone="danger" message={t("ttv.voice.engine.none")} />
+            )}
+          </div>
         )}
-      </div>
+      </Field>
 
       {/* 1. Giọng đang chọn - danh sách giọng cuộn trong khung riêng, không có
           dòng này thì chọn xong kéo đi chỗ khác là quên mất mình đã chọn ai */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
-        <span className="shrink-0 text-xs text-[var(--text-muted)]">
-          {t("ttv.voice.selected")}
-        </span>
-        {value.name ? (
-          <>
-            {/* Hiện TÊN HIỂN THỊ, không hiện `name`: với giọng nhân bản thì
-                `name` là id kebab-case, phun ra đây chỉ tổ xấu và khó nhận ra */}
-            <span className="min-w-0 truncate text-sm font-semibold text-[var(--primary)]">
-              {selected?.title || value.name}
-            </span>
-            {selected && (
-              <span
-                className="min-w-0 truncate text-xs text-[var(--text-muted)]"
-                title={
-                  selected.f0 > 0
-                    ? tf("ttv.voice.f0-title", { f0: selected.f0 })
-                    : undefined
-                }
-              >
-                · {t(qualifierKey(selected))} · {describe(selected, t)}
-              </span>
-            )}
-            {isGemini && (
-              <span className="ml-auto min-w-0 max-w-full truncate text-xs text-[var(--text-muted)]">
-                {value.style.trim() || t("ttv.voice.style-default")}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="min-w-0 text-sm text-[var(--text-muted)]">
-            {t("ttv.voice.none-selected")}
+      <Panel>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="shrink-0 text-meta text-[var(--text-muted)]">
+            {t("ttv.voice.selected")}
           </span>
-        )}
-      </div>
+          {value.name ? (
+            <>
+              {/* Hiện TÊN HIỂN THỊ, không hiện `name`: với giọng nhân bản thì
+                  `name` là id kebab-case, phun ra đây chỉ tổ xấu và khó nhận ra */}
+              <span className="min-w-0 truncate text-sm font-semibold text-[var(--primary)]">
+                {selected?.title || value.name}
+              </span>
+              {selected && (
+                <span
+                  className="min-w-0 truncate text-meta text-[var(--text-muted)]"
+                  title={
+                    selected.f0 > 0
+                      ? tf("ttv.voice.f0-title", { f0: selected.f0 })
+                      : undefined
+                  }
+                >
+                  · {t(qualifierKey(selected))} · {describe(selected, t)}
+                </span>
+              )}
+              {isGemini && (
+                <span className="ml-auto min-w-0 max-w-full truncate text-meta text-[var(--text-muted)]">
+                  {value.style.trim() || t("ttv.voice.style-default")}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="min-w-0 text-sm text-[var(--text-muted)]">
+              {t("ttv.voice.none-selected")}
+            </span>
+          )}
+        </div>
+      </Panel>
 
       {/* 2. Model TTS - CHỈ Gemini. Engine trên máy chỉ có một model nên hiện ô
           này ở đó là bày ra một cái nút không làm gì */}
       {isGemini && (
-        <div>
-          <label className="label" htmlFor="ttv-tts-model">
-            {t("ttv.voice.model")}
-            <InfoHint
-              className="ml-1.5 align-middle"
-              titleKey="help.ttv-voice-model.title"
-              bodyKey="help.ttv-voice-model.body"
-            />
-          </label>
+        <Field
+          label={t("ttv.voice.model")}
+          htmlFor="ttv-tts-model"
+          hintKeys={{
+            titleKey: "help.ttv-voice-model.title",
+            bodyKey: "help.ttv-voice-model.body",
+          }}
+        >
           <select
             id="ttv-tts-model"
             className="input"
@@ -720,22 +721,32 @@ export function VoicePicker({
               </option>
             ))}
           </select>
-        </div>
+        </Field>
       )}
 
       {/* 3. Ngôn ngữ - ĐỘC LẬP với giọng, cố ý không dùng để lọc danh sách
           giọng. Cũng chỉ Gemini: engine trên máy đọc tiếng Việt, không nhận mã
           ngôn ngữ */}
       {isGemini && (
-        <div>
-          <label className="label" htmlFor="ttv-tts-language">
-            {t("ttv.voice.language")}
-            <InfoHint
-              className="ml-1.5 align-middle"
-              titleKey="help.ttv-voice-language.title"
-              bodyKey="help.ttv-voice-language.body"
-            />
-          </label>
+        <Field
+          label={t("ttv.voice.language")}
+          htmlFor="ttv-tts-language"
+          hintKeys={{
+            titleKey: "help.ttv-voice-language.title",
+            bodyKey: "help.ttv-voice-language.body",
+          }}
+          hint={
+            <span className="flex items-start gap-2">
+              <Globe
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+              />
+              {t("ttv.voice.language-hint")}
+            </span>
+          }
+        >
           <select
             id="ttv-tts-language"
             className="input"
@@ -752,336 +763,325 @@ export function VoicePicker({
               </option>
             ))}
           </select>
-          <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-            <Globe size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
-            {t("ttv.voice.language-hint")}
-          </p>
-        </div>
+        </Field>
       )}
 
       {/* 4. Danh sách giọng - lọc theo giới tính (+ vùng miền với engine trên
           máy) + ô tìm, nghe thử từng giọng */}
-      <div>
-        <span className="label">
-          {t("ttv.voice.voice")}
-          <InfoHint
-            className="ml-1.5 align-middle"
-            titleKey="help.ttv-voice.title"
-            bodyKey="help.ttv-voice.body"
-          />
-        </span>
-
-        <div
-          role="group"
-          aria-label={t("ttv.voice.filter-aria")}
-          className="mb-2 flex flex-wrap gap-1.5"
-        >
-          {([null, ...GENDERS] as (TtsGender | null)[]).map((g) => {
-            const active = genderFilter === g;
-            const label = g ? t(GENDER_LABEL_KEY[g]) : t("ttv.voice.filter.all");
-            const n = g ? counts[g] : genderTotal;
-            // Chip 0 giọng là ngõ cụt: bấm vào chỉ ra danh sách rỗng. Ẩn đi,
-            // trừ chip "Tất cả" (luôn phải có đường quay lại).
-            if (g && n === 0 && genderFilter !== g) return null;
-            return (
-              <button
-                key={g ?? "all"}
-                type="button"
-                aria-pressed={active}
-                disabled={disabled}
-                onClick={() => setGenderFilter(g)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  active
-                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-              >
-                {label}
-                <span className="ml-1 tabular-nums opacity-70">{n}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Vùng miền chỉ có nghĩa với giọng chạy trên máy - giọng Gemini trả
-            region null nên hiện bộ lọc này ở đó là bày ra một hàng nút chết */}
-        {showRegion && (
-          <div
-            role="group"
-            aria-label={t("ttv.voice.region")}
-            className="mb-2 flex flex-wrap gap-1.5"
-          >
-            {([null, ...REGIONS] as (TtsRegion | null)[]).map((r) => {
-              const active = regionFilter === r;
-              const label = r
-                ? t(REGION_LABEL_KEY[r])
-                : t("ttv.voice.region.all");
-              const n = r ? regionCounts[r] : regionTotal;
-              // Cùng lý do như chip giới tính: không bày ngõ cụt
-              if (r && n === 0 && regionFilter !== r) return null;
-              return (
-                <button
-                  key={r ?? "all"}
-                  type="button"
-                  aria-pressed={active}
-                  disabled={disabled}
-                  onClick={() => setRegionFilter(r)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-                    active
-                      ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 tabular-nums opacity-70">{n}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="relative mb-2">
-          <Search
-            size={14}
-            strokeWidth={2}
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--text-muted)]"
-          />
-          <input
-            className="input pl-8"
-            value={query}
-            disabled={disabled}
-            aria-label={t("ttv.voice.search")}
-            placeholder={t("ttv.voice.search")}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-
-        {clonedEmpty && (
-          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[var(--radius)] border border-dashed border-[var(--border)] px-2.5 py-2">
-            <span className="min-w-0 text-[11px] leading-snug text-[var(--text-muted)]">
-              {t("ttv.voice.cloned-empty")}
-            </span>
-            <Link
-              href="/voices"
-              className="shrink-0 text-[11px] font-medium text-[var(--primary)] hover:underline"
-            >
-              {t("ttv.voice.manage")}
-            </Link>
-          </div>
-        )}
-
-        {previewError && (
-          <div className="mb-2">
-            <ErrorBanner message={t("ttv.voice.preview-failed")} detail={previewError} />
-          </div>
-        )}
-
-        {voices === null ? (
-          <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-            {t("common.loading")}
-          </p>
-        ) : groupList.length === 0 ? (
-          <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-            {list.length === 0 ? t("ttv.voice.none") : t("ttv.voice.no-match")}
-          </p>
-        ) : (
-          <div
-            role="radiogroup"
-            aria-label={t("ttv.voice.voice")}
-            className="max-h-[320px] overflow-y-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2"
-          >
-            {selectedMissing && (
-              <p className="mb-2 flex items-start gap-1.5 px-1 text-xs text-[var(--text-muted)]">
-                <AlertTriangle
-                  size={13}
-                  strokeWidth={2}
-                  aria-hidden="true"
-                  className="mt-0.5 shrink-0 text-[var(--danger)]"
-                />
-                {tf("ttv.voice.missing", { name: value.name })}
-              </p>
+      <Field
+        label={t("ttv.voice.voice")}
+        hintKeys={{
+          titleKey: "help.ttv-voice.title",
+          bodyKey: "help.ttv-voice.body",
+        }}
+        hint={
+          // MỘT câu gợi ý cho cả khối, không phải hai: cột này chỉ rộng ~340px.
+          // "Nghe thử tốn tiền" chỉ đúng với Gemini; engine chạy trên máy không
+          // mất đồng nào, cái cần biết ở đó là lần đọc đầu chậm vì phải nạp model.
+          <span className="flex items-start gap-2">
+            {isGemini ? (
+              <Volume2
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+              />
+            ) : (
+              <Timer
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+              />
             )}
-            {groupList.map((group) => (
-              <div key={group.key} className="mb-2 last:mb-0">
-                <p className="px-1 pb-1 text-[11px] font-semibold tracking-wide text-[var(--text-muted)] uppercase">
-                  {group.label}
-                  <span className="ml-1 tabular-nums opacity-70">
-                    {group.items.length}
-                  </span>
-                </p>
-                {/* Giọng lưỡng tính đảo giới giữa các lần tổng hợp - báo trước ở
-                    ngay đầu nhóm, đừng để người dùng phát hiện lúc render xong */}
-                {group.neutralNote && (
-                  <p className="mb-1 flex items-start gap-1.5 px-1 text-[11px] leading-snug text-[var(--text-muted)]">
-                    <AlertTriangle
-                      size={12}
-                      strokeWidth={2}
-                      aria-hidden="true"
-                      className="mt-0.5 shrink-0 text-[var(--danger)]"
-                    />
-                    {t("ttv.voice.neutral-note")}
-                  </p>
-                )}
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 2xl:grid-cols-3">
-                  {group.items.map((v) => {
-                    const active = value.name === v.name;
-                    const isLoading = loadingVoice === v.name;
-                    const isPlaying = playing === v.name;
-                    return (
-                      <div
-                        key={`${v.engine}:${v.name}`}
-                        className={`flex min-w-0 items-center gap-2 rounded-[var(--radius)] border p-2 transition-colors duration-150 ${
-                          active
-                            ? "border-[var(--primary)] bg-[var(--primary-soft)]"
-                            : "border-[var(--border)] bg-[var(--surface)]"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          disabled={disabled}
-                          onClick={() => onChange({ name: v.name })}
-                          className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
-                        >
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <span
-                              className={`min-w-0 truncate text-[13px] font-semibold ${
-                                active
-                                  ? "text-[var(--primary)]"
-                                  : "text-[var(--text)]"
-                              }`}
-                            >
-                              {v.title}
-                            </span>
-                            {/* Giọng nhân bản nằm lẫn trong nhóm khác (khi đang
-                                lọc/tìm) vẫn phải nhận ra ngay là của mình */}
-                            {v.kind === "cloned" && (
-                              <span className="shrink-0 rounded-full bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-                                {t("ttv.voice.kind.cloned")}
-                              </span>
-                            )}
-                          </span>
-                          {/* Số Hz để trong title chứ không hiện ra: người chọn
-                              giọng cần biết "nữ trầm", không cần biết 152.
-                              Cho xuống dòng chứ KHÔNG cắt bằng "…": cột này hẹp,
-                              cắt đi thì "nam trầm · mượt mà" chỉ còn "nam trầm ·
-                              mu…" - mất đúng phần mô tả chất giọng cần đọc. */}
-                          <span
-                            className="block text-[11px] leading-snug text-[var(--text-muted)]"
-                            title={
-                              v.f0 > 0
-                                ? tf("ttv.voice.f0-title", { f0: v.f0 })
-                                : undefined
-                            }
-                          >
-                            {t(qualifierKey(v))} · {describe(v, t)}
-                          </span>
-                          {/* Ghi chú người dùng tự nhập lúc nhân bản - cắt một
-                              dòng, không để ghi chú dài xé toang cái thẻ */}
-                          {v.note && (
-                            <span className="block truncate text-[11px] leading-snug text-[var(--text-muted)] opacity-80">
-                              {v.note}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={disabled || (loadingVoice !== null && !isLoading)}
-                          title={
-                            isPlaying ? t("ttv.voice.stop") : t("ttv.voice.preview")
-                          }
-                          aria-label={
-                            isPlaying
-                              ? tf("ttv.voice.stop-aria", { name: v.title })
-                              : tf("ttv.voice.preview-aria", { name: v.title })
-                          }
-                          onClick={() => togglePreview(v.name)}
-                          className={`shrink-0 rounded-[var(--radius)] p-1.5 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-                            isPlaying
-                              ? "bg-[var(--primary-soft)] text-[var(--primary)]"
-                              : "text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-                          }`}
-                        >
-                          {isLoading ? (
-                            <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                          ) : isPlaying ? (
-                            <Square size={14} strokeWidth={2} />
-                          ) : (
-                            <Play size={14} strokeWidth={2} />
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+            {isGemini ? t("ttv.voice.preview-cost") : t("voices.first-run-slow")}
+          </span>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          <Segmented
+            className="self-start"
+            label={t("ttv.voice.filter-aria")}
+            disabled={disabled}
+            value={genderFilter ?? "all"}
+            options={genderOptions}
+            onChange={(v) =>
+              setGenderFilter(v === "all" ? null : (v as TtsGender))
+            }
+          />
 
-        {/* "Nghe thử tốn tiền" chỉ đúng với Gemini. Engine chạy trên máy không
-            mất đồng nào, cái người dùng cần biết ở đó là lần đọc đầu chậm vì
-            phải nạp model - nói nhầm câu là mất lòng tin vào cả hai câu */}
-        <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-          {isGemini ? (
-            <Volume2 size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
-          ) : (
-            <Timer size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
+          {/* Vùng miền chỉ có nghĩa với giọng chạy trên máy - giọng Gemini trả
+              region null nên hiện bộ lọc này ở đó là bày ra một hàng nút chết */}
+          {showRegion && (
+            <Segmented
+              className="self-start"
+              label={t("ttv.voice.region")}
+              disabled={disabled}
+              value={regionFilter ?? "all"}
+              options={regionOptions}
+              onChange={(v) =>
+                setRegionFilter(v === "all" ? null : (v as TtsRegion))
+              }
+            />
           )}
-          {isGemini ? t("ttv.voice.preview-cost") : t("voices.first-run-slow")}
-        </p>
-      </div>
+
+          <div className="relative">
+            <Search
+              size={14}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--text-muted)]"
+            />
+            <input
+              className="input pl-8"
+              value={query}
+              disabled={disabled}
+              aria-label={t("ttv.voice.search")}
+              placeholder={t("ttv.voice.search")}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+
+          {clonedEmpty && (
+            <Banner
+              tone="muted"
+              message={t("ttv.voice.cloned-empty")}
+              actions={
+                <Link
+                  href="/voices"
+                  className="text-sm font-medium text-[var(--primary)] hover:underline"
+                >
+                  {t("ttv.voice.manage")}
+                </Link>
+              }
+            />
+          )}
+
+          {previewError && (
+            <ErrorBanner
+              message={t("ttv.voice.preview-failed")}
+              detail={previewError}
+            />
+          )}
+
+          {voices === null ? (
+            <p className="py-6 text-center text-sm text-[var(--text-muted)]">
+              {t("common.loading")}
+            </p>
+          ) : groupList.length === 0 ? (
+            <p className="py-6 text-center text-sm text-[var(--text-muted)]">
+              {list.length === 0 ? t("ttv.voice.none") : t("ttv.voice.no-match")}
+            </p>
+          ) : (
+            <Panel className="max-h-[320px] overflow-y-auto">
+              {selectedMissing && (
+                <p className="flex items-start gap-2 text-meta text-[var(--text-muted)]">
+                  <AlertTriangle
+                    size={14}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0 text-[var(--danger)]"
+                  />
+                  {tf("ttv.voice.missing", { name: value.name })}
+                </p>
+              )}
+              <div
+                role="radiogroup"
+                aria-label={t("ttv.voice.voice")}
+                className="flex flex-col gap-3"
+              >
+                {groupList.map((group) => (
+                  <div key={group.key} className="flex flex-col gap-1">
+                    <p className="t-eyebrow">
+                      {group.label}
+                      <span className="ml-1 tabular-nums opacity-70">
+                        {group.items.length}
+                      </span>
+                    </p>
+                    {/* Giọng lưỡng tính đảo giới giữa các lần tổng hợp - báo
+                        trước ngay đầu nhóm, đừng để người dùng phát hiện lúc
+                        render xong */}
+                    {group.neutralNote && (
+                      <p className="flex items-start gap-2 text-meta text-[var(--text-muted)]">
+                        <AlertTriangle
+                          size={14}
+                          strokeWidth={2}
+                          aria-hidden="true"
+                          className="mt-0.5 shrink-0 text-[var(--danger)]"
+                        />
+                        {t("ttv.voice.neutral-note")}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+                      {group.items.map((v) => {
+                        const active = value.name === v.name;
+                        const isLoading = loadingVoice === v.name;
+                        const isPlaying = playing === v.name;
+                        return (
+                          // Mượn hình dạng `.option-card` (viền, bo, nền lúc
+                          // được chọn) nhưng nằm ngang và giữ p-2: thẻ giọng có
+                          // nút nghe thử riêng bên phải nên không thể là MỘT nút
+                          // như <OptionCard>.
+                          <div
+                            key={`${v.engine}:${v.name}`}
+                            className={`option-card min-w-0 flex-row items-center gap-2 p-2 ${
+                              active
+                                ? "border-[var(--primary)] bg-[var(--primary-soft)]"
+                                : ""
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              disabled={disabled}
+                              onClick={() => onChange({ name: v.name })}
+                              className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+                            >
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className={`min-w-0 truncate text-sm font-semibold ${
+                                    active
+                                      ? "text-[var(--primary)]"
+                                      : "text-[var(--text)]"
+                                  }`}
+                                >
+                                  {v.title}
+                                </span>
+                                {/* Giọng nhân bản nằm lẫn trong nhóm khác (khi
+                                    đang lọc/tìm) vẫn phải nhận ra ngay là của
+                                    mình */}
+                                {v.kind === "cloned" && (
+                                  <Badge
+                                    tone="muted"
+                                    dot={false}
+                                    className="shrink-0"
+                                    label={t("ttv.voice.kind.cloned")}
+                                  />
+                                )}
+                              </span>
+                              {/* Số Hz để trong title chứ không hiện ra: người
+                                  chọn giọng cần biết "nữ trầm", không cần biết
+                                  152. Cho xuống dòng chứ KHÔNG cắt bằng "…":
+                                  cột hẹp, cắt đi thì "nam trầm · mượt mà" chỉ
+                                  còn "nam trầm · mu…" - mất đúng phần mô tả
+                                  chất giọng cần đọc. */}
+                              <span
+                                className="block text-meta text-[var(--text-muted)]"
+                                title={
+                                  v.f0 > 0
+                                    ? tf("ttv.voice.f0-title", { f0: v.f0 })
+                                    : undefined
+                                }
+                              >
+                                {t(qualifierKey(v))} · {describe(v, t)}
+                              </span>
+                              {/* Ghi chú người dùng tự nhập lúc nhân bản - cắt
+                                  một dòng, không để ghi chú dài xé toang thẻ */}
+                              {v.note && (
+                                <span className="block truncate text-meta text-[var(--text-muted)] opacity-80">
+                                  {v.note}
+                                </span>
+                              )}
+                            </button>
+                            <IconButton
+                              size="sm"
+                              label={
+                                isPlaying
+                                  ? tf("ttv.voice.stop-aria", { name: v.title })
+                                  : tf("ttv.voice.preview-aria", {
+                                      name: v.title,
+                                    })
+                              }
+                              disabled={
+                                disabled || (loadingVoice !== null && !isLoading)
+                              }
+                              onClick={() => togglePreview(v.name)}
+                              className={
+                                isPlaying
+                                  ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+                                  : ""
+                              }
+                            >
+                              {isLoading ? (
+                                <Loader2
+                                  size={14}
+                                  strokeWidth={2}
+                                  className="animate-spin"
+                                />
+                              ) : isPlaying ? (
+                                <Square size={14} strokeWidth={2} />
+                              ) : (
+                                <Play size={14} strokeWidth={2} />
+                              )}
+                            </IconButton>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+        </div>
+      </Field>
 
       {/* 5. Tốc độ đọc - áp cho MỌI engine (làm bằng ffmpeg sau khi tổng hợp,
           không phụ thuộc engine nào đọc) */}
-      <div>
-        <span className="label">{t("ttv.voice.speed")}</span>
-        <div role="group" aria-label={t("ttv.voice.speed")} className="flex flex-wrap gap-1.5">
-          {SPEEDS.map((s) => {
-            const active = Math.abs(value.speed - s) < 0.001;
-            return (
-              <button
-                key={s}
-                type="button"
-                aria-pressed={active}
-                disabled={disabled}
-                onClick={() => onChange({ speed: s })}
-                className={`rounded-full border px-3 py-1 text-xs font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
-                  active
-                    ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-              >
-                {s === 1 ? t("ttv.voice.speed-normal") : `x${s}`}
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
-          <Gauge size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
-          {t("ttv.voice.speed-hint")}
-        </p>
-        {Math.abs(value.speed - 1) > 0.001 && (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("ttv.voice.speed-preview-note")}
-          </p>
-        )}
-      </div>
+      <Field
+        label={t("ttv.voice.speed")}
+        hint={
+          // Gộp hai đoạn gợi ý cũ thành MỘT: câu "nghe thử đã áp tốc độ" chỉ có
+          // nghĩa khi tốc độ khác x1, nối vào cùng dòng thay vì thêm một đoạn.
+          <span className="flex items-start gap-2">
+            <Gauge
+              size={14}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="mt-0.5 shrink-0"
+            />
+            <span>
+              {t("ttv.voice.speed-hint")}
+              {Math.abs(value.speed - 1) > 0.001 && (
+                <> {t("ttv.voice.speed-preview-note")}</>
+              )}
+            </span>
+          </span>
+        }
+      >
+        <Segmented
+          className="self-start tabular-nums"
+          label={t("ttv.voice.speed")}
+          disabled={disabled}
+          value={String(SPEEDS.find((s) => Math.abs(value.speed - s) < 0.001) ?? "")}
+          options={speedOptions}
+          onChange={(v) => onChange({ speed: Number(v) })}
+        />
+      </Field>
 
       {/* 6. Cách đọc - prompt tự do, đổi là thời lượng đổi theo. Chỉ Gemini:
           engine trên máy không nhận lời chỉ dẫn cách đọc */}
       {isGemini && (
-        <div>
-          <label className="label" htmlFor="ttv-voice-style">
-            {t("ttv.voice.style")}
-            <InfoHint
-              className="ml-1.5 align-middle"
-              titleKey="help.ttv-voice-style.title"
-              bodyKey="help.ttv-voice-style.body"
-            />
-          </label>
+        <Field
+          label={t("ttv.voice.style")}
+          htmlFor="ttv-voice-style"
+          hintKeys={{
+            titleKey: "help.ttv-voice-style.title",
+            bodyKey: "help.ttv-voice-style.body",
+          }}
+          hint={
+            <span className="flex items-start gap-2 text-[var(--danger)]">
+              <AlertTriangle
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+              />
+              {t("ttv.voice.style-warning")}
+            </span>
+          }
+        >
           <input
             id="ttv-voice-style"
             className="input"
@@ -1090,11 +1090,7 @@ export function VoicePicker({
             placeholder={t("ttv.voice.style-placeholder")}
             onChange={(e) => onChange({ style: e.target.value })}
           />
-          <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--danger)]">
-            <AlertTriangle size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
-            {t("ttv.voice.style-warning")}
-          </p>
-        </div>
+        </Field>
       )}
     </div>
   );

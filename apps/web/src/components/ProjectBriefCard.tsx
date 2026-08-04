@@ -3,10 +3,10 @@
 import { Check, ChevronDown, ChevronUp, Minus, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { updateBrief, type Brief } from "@/lib/api";
+import { Badge } from "@/components/Badge";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { InfoHint } from "@/components/InfoHint";
 import {
   BriefFields,
   DEFAULT_BRIEF,
@@ -20,23 +20,29 @@ import { useT } from "@/lib/i18n";
 // Re-export để nơi đang import từ đây không phải sửa.
 export { DEFAULT_BRIEF, MUSIC_MODE_LABEL, SFX_MODE_LABEL };
 
-/** Badge Có/Không nhỏ cho tóm tắt compact. */
+/**
+ * Badge Có/Không cho tóm tắt compact.
+ *
+ * `dot={false}`: đây là nhãn PHÂN LOẠI ("có bật cắt tự động hay không"), không
+ * phải trạng thái đang chạy - chấm tròn ở đây bị đọc nhầm thành "đang xử lý".
+ * Dấu tick / gạch ngang đã nói đủ nghĩa bật/tắt.
+ */
 function YesNoBadge({ label, value }: { label: string; value: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none ${
-        value
-          ? "bg-[var(--success-bg)] text-[var(--success)]"
-          : "bg-[var(--bg-subtle)] text-[var(--text-muted)]"
-      }`}
-    >
-      {value ? (
-        <Check size={11} strokeWidth={2.5} />
-      ) : (
-        <Minus size={11} strokeWidth={2.5} />
-      )}
-      {label}
-    </span>
+    <Badge
+      tone={value ? "success" : "muted"}
+      dot={false}
+      label={
+        <>
+          {value ? (
+            <Check size={12} strokeWidth={2.5} className="shrink-0" />
+          ) : (
+            <Minus size={12} strokeWidth={2.5} className="shrink-0" />
+          )}
+          {label}
+        </>
+      }
+    />
   );
 }
 
@@ -112,22 +118,14 @@ export function ProjectBriefCard({
   // Compact + chưa bấm "Chỉnh sửa" → chỉ hiện tóm tắt chỉ đọc
   const showSummary = compact && !expandedForm;
 
-  // Tiêu đề dùng chung cho cả hai nhánh render (tóm tắt / form đầy đủ) - chú
-  // thích (i) chỉ đặt ở tiêu đề card, các toggle bên trong đã có dòng mô tả riêng
-  const cardTitle = (
-    <span className="inline-flex items-center gap-1.5">
-      {t("brief.title")}
-      <InfoHint
-        titleKey="help.brief.title"
-        bodyKey="help.brief.body"
-        size={14}
-      />
-    </span>
-  );
+  // Chú thích (i) chỉ đặt ở tiêu đề card (prop `hint` của Card), các toggle bên
+  // trong đã có dòng mô tả riêng
+  const cardHint = { titleKey: "help.brief.title", bodyKey: "help.brief.body" };
 
-  const summaryRowLabel = "w-24 shrink-0 pt-px text-xs text-[var(--text-muted)]";
+  const summaryRowLabel =
+    "w-24 shrink-0 pt-px text-meta text-[var(--text-muted)]";
   const summary = (
-    <div className="flex flex-col gap-2 text-[13px]">
+    <div className="flex flex-col gap-2 text-sm">
       <div className="flex gap-2">
         <span className={summaryRowLabel}>{t("brief.sum-source")}</span>
         <span className="min-w-0 flex-1 truncate">
@@ -150,7 +148,7 @@ export function ProjectBriefCard({
       </div>
       <div className="flex gap-2">
         <span className={summaryRowLabel}>{t("brief.sum-options")}</span>
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <YesNoBadge label={t("brief.badge-cut")} value={form.autoCut} />
           <YesNoBadge label={t("brief.subtitles")} value={form.subtitles} />
           <YesNoBadge label="Highlight" value={form.highlightEnabled} />
@@ -182,7 +180,8 @@ export function ProjectBriefCard({
   if (showSummary) {
     return (
       <Card
-        title={cardTitle}
+        title={t("brief.title")}
+        hint={cardHint}
         actions={
           // Nhãn nói về việc MỞ RỘNG chứ không phải "Sửa": ở project đã xong,
           // người dùng bấm vào đây chủ yếu để xem lại cấu hình đã dùng.
@@ -203,7 +202,8 @@ export function ProjectBriefCard({
 
   return (
     <Card
-      title={cardTitle}
+      title={t("brief.title")}
+      hint={cardHint}
       actions={
         compact ? (
           <Button
@@ -217,7 +217,7 @@ export function ProjectBriefCard({
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         {error && (
           <ErrorBanner message={t("brief.save-error")} detail={error} />
         )}

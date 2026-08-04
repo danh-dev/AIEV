@@ -3,7 +3,10 @@
 import { Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/Button";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { Field } from "@/components/Field";
 import { Modal } from "@/components/Modal";
+import { Panel } from "@/components/Panel";
 import { useT } from "@/lib/i18n";
 
 /** Chuỗi bắt buộc gõ đúng để mở khóa nút Xóa. */
@@ -54,6 +57,11 @@ export function ConfirmDeleteModal({
 
   const confirmed = text === CONFIRM_TEXT;
 
+  // Dấu X và nút Hủy đi CHUNG một đường - đang xóa thì cả hai cùng bị chặn
+  function close() {
+    if (!busy) onClose();
+  }
+
   return (
     <Modal
       title={
@@ -62,12 +70,10 @@ export function ConfirmDeleteModal({
         </span>
       }
       open={open}
-      onClose={() => {
-        if (!busy) onClose();
-      }}
+      onClose={close}
       footer={
         <>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
+          <Button variant="secondary" disabled={busy} onClick={close}>
             {t("common.cancel")}
           </Button>
           <Button
@@ -83,30 +89,39 @@ export function ConfirmDeleteModal({
         </>
       }
     >
+      {/* Lỗi lần xóa trước: banner ở ĐẦU thân modal như mọi modal khác, không
+          phải một dòng chữ đỏ trần lẫn vào phần mô tả */}
       {error && (
-        <p className="whitespace-pre-line text-sm text-[var(--danger)]">
-          {error}
-        </p>
+        <ErrorBanner
+          message={<span className="whitespace-pre-line">{error}</span>}
+        />
       )}
       {description && <div className="text-sm">{description}</div>}
       {items && items.length > 0 && (
-        <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-          {items.map((item) => (
-            <li key={item} className="break-all text-sm font-medium">
-              {item}
-            </li>
-          ))}
-        </ul>
+        <Panel>
+          <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+            {items.map((item) => (
+              <li key={item} className="break-all text-sm font-medium">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </Panel>
       )}
-      <label className="flex flex-col gap-1 text-sm">
-        <span>
-          {t("confirm.type-before")}{" "}
-          <code className="rounded bg-[var(--danger-bg)] px-1 text-xs font-semibold text-[var(--danger)]">
-            {CONFIRM_TEXT}
-          </code>{" "}
-          {t("confirm.type-after")}
-        </span>
+      <Field
+        htmlFor="confirm-delete-text"
+        label={
+          <>
+            {t("confirm.type-before")}{" "}
+            <code className="rounded bg-[var(--danger-bg)] px-1 text-xs font-semibold text-[var(--danger)]">
+              {CONFIRM_TEXT}
+            </code>{" "}
+            {t("confirm.type-after")}
+          </>
+        }
+      >
         <input
+          id="confirm-delete-text"
           className="input"
           autoFocus
           value={text}
@@ -118,7 +133,7 @@ export function ConfirmDeleteModal({
           placeholder={CONFIRM_TEXT}
           aria-label={tf("confirm.type-aria", { text: CONFIRM_TEXT })}
         />
-      </label>
+      </Field>
     </Modal>
   );
 }

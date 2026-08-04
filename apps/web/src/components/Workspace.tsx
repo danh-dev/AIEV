@@ -145,6 +145,8 @@ export interface WorkspaceBlockProps {
   /** id vùng nội dung - nút gấp/mở trỏ vào đây bằng aria-controls, phải duy nhất */
   id: string;
   title: ReactNode;
+  /** Khóa i18n cho nút (i) cạnh tiêu đề khối - chuyển thẳng xuống <Card> */
+  hint?: { titleKey: string; bodyKey: string };
   /** Một dòng cho biết bên trong có gì - CHỈ hiện lúc đang gấp */
   summary?: ReactNode;
   icon?: LucideIcon;
@@ -163,6 +165,7 @@ export interface WorkspaceBlockProps {
 export function WorkspaceBlock({
   id,
   title,
+  hint,
   summary,
   icon: Icon,
   actions,
@@ -190,8 +193,9 @@ export function WorkspaceBlock({
   return (
     <Card
       className={className}
+      hint={hint}
       title={
-        <span className="inline-flex min-w-0 items-center gap-1.5">
+        <span className="inline-flex min-w-0 items-center gap-2">
           {Icon && (
             <Icon
               size={15}
@@ -228,7 +232,7 @@ export function WorkspaceBlock({
       }
     >
       {isCollapsed && summary != null && (
-        <p className="truncate text-xs text-[var(--text-muted)]">{summary}</p>
+        <p className="truncate text-meta text-[var(--text-muted)]">{summary}</p>
       )}
       {/* Thân khối GIỮ NGUYÊN trong DOM và chỉ bị `hidden`, KHÔNG tháo ra: bên
           trong là các card tự đi lấy dữ liệu (VoicePicker, StyleSelect,
@@ -257,6 +261,8 @@ export interface OutputBlockProps {
   aspect?: string;
   error?: string | null;
   title?: ReactNode;
+  /** Khóa i18n cho nút (i) cạnh tiêu đề - chuyển thẳng xuống WorkspaceBlock/Card */
+  hint?: { titleKey: string; bodyKey: string };
   summary?: ReactNode;
   actions?: ReactNode;
   /** Nội dung thêm dưới video: chip thời lượng, link sang project… */
@@ -284,6 +290,7 @@ export function OutputBlock({
   aspect = "16 / 9",
   error,
   title,
+  hint,
   summary,
   actions,
   children,
@@ -310,6 +317,7 @@ export function OutputBlock({
       id={id}
       icon={Clapperboard}
       title={title ?? t("workspace.output.title")}
+      hint={hint}
       summary={summary ?? statusText}
       collapsed={collapsed}
       defaultCollapsed={defaultCollapsed}
@@ -346,7 +354,7 @@ export function OutputBlock({
                   className="animate-spin text-[var(--text-muted)]"
                   aria-hidden="true"
                 />
-                <p className="text-xs text-[var(--text-muted)]">
+                <p className="text-sm text-[var(--text-muted)]">
                   {step ? `${statusText} · ${step}` : statusText}
                 </p>
               </div>
@@ -381,9 +389,9 @@ export function OutputBlock({
           <a
             href={videoUrl}
             download
-            className="inline-flex w-fit items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
+            className="inline-flex w-fit items-center gap-2 text-meta text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
           >
-            <Download size={13} strokeWidth={2} aria-hidden="true" />
+            <Download size={14} strokeWidth={2} aria-hidden="true" />
             {t("workspace.output.download")}
           </a>
         )}

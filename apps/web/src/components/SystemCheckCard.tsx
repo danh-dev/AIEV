@@ -15,14 +15,13 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
-  Copy,
   Download,
   ExternalLink,
   Loader2,
   Minus,
   RotateCcw,
 } from "lucide-react";
-import Link from "next/link";
+import { LinkButton } from "@/components/LinkButton";
 import { useCallback, useEffect, useState } from "react";
 import {
   getDoctor,
@@ -30,12 +29,12 @@ import {
   type DoctorCheck,
   type DoctorReport,
 } from "@/lib/api";
+import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { InfoHint } from "@/components/InfoHint";
+import { CopyButton } from "@/components/CopyButton";
 import { useT } from "@/lib/i18n";
-
-const COPIED_MS = 1600;
 
 /** Nhãn ưu tiên bản dịch (Claude login → Đăng nhập Claude); thiếu thì dùng tên riêng từ server */
 function useLabel() {
@@ -70,7 +69,6 @@ function CheckRow({
   const label = useLabel();
   const [busy, setBusy] = useState(false);
   const [failLog, setFailLog] = useState<string[] | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const install = async () => {
     setBusy(true);
@@ -89,17 +87,6 @@ function CheckRow({
     }
   };
 
-  const copy = async () => {
-    if (!check.fix?.command) return;
-    try {
-      await navigator.clipboard.writeText(check.fix.command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPIED_MS);
-    } catch {
-      // Trình duyệt chặn clipboard (không phải https) - lệnh vẫn hiện để chép tay
-    }
-  };
-
   const noteText = check.note ? t(`doctor.note.${check.note}`) : "";
   const sub = [check.detail, noteText].filter(Boolean).join(" · ");
   const missing = check.status === "missing" && check.level !== "info";
@@ -111,29 +98,33 @@ function CheckRow({
         <StatusIcon check={check} />
       </span>
       <div className="min-w-0 flex-1">
+        {/* Tên check và câu mô tả đi cùng nó đều là NỘI DUNG - trước đây câu mô
+            tả nhỏ hơn hẳn một bậc nên cả bảng đọc thành một khối xám */}
         <div className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-sm font-medium">{label(check)}</span>
           {sub && (
-            <span className="min-w-0 break-all text-xs text-[var(--text-muted)]">{sub}</span>
+            <span className="min-w-0 break-all text-sm text-[var(--text-muted)]">
+              {sub}
+            </span>
           )}
         </div>
         {missing && (
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
             {t(`doctor.why.${check.id}`)}
           </p>
         )}
         {/* Lệnh chạy được thì cho vào khối code (chép được); còn lại là chỉ dẫn
             bằng lời, để chữ thường cho khỏi trông như lệnh gõ vào terminal */}
         {missing && !fix?.auto && fix?.command && (
-          <code className="mt-1 inline-block max-w-full break-all rounded-[var(--radius)] bg-[var(--bg-subtle)] px-2 py-1 font-mono text-[11px] text-[var(--text-muted)]">
+          <code className="mt-1 inline-block max-w-full break-all rounded-[var(--radius)] bg-[var(--bg-subtle)] px-2 py-1 font-mono text-meta text-[var(--text-muted)]">
             {fix.command}
           </code>
         )}
         {missing && !fix?.auto && !fix?.command && fix?.manual && (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">{fix.manual}</p>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{fix.manual}</p>
         )}
         {failLog && (
-          <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap rounded-[var(--radius)] bg-[var(--danger-bg)] px-2 py-1.5 font-mono text-[11px] text-[var(--text)]">
+          <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap rounded-[var(--radius)] bg-[var(--danger-bg)] px-2 py-1.5 font-mono text-meta text-[var(--text)]">
             {failLog.join("\n")}
           </pre>
         )}
@@ -158,26 +149,18 @@ function CheckRow({
             </Button>
           )}
           {!fix?.auto && fix?.link && (
-            <Link href={fix.link} className="btn btn-secondary btn-sm">
+            <LinkButton small href={fix.link}>
               {t("doctor.open-page")}
-            </Link>
+            </LinkButton>
           )}
           {!fix?.auto && fix?.command && (
-            <Button variant="secondary" small onClick={copy}>
-              <Copy size={13} strokeWidth={2} />
-              {copied ? t("doctor.copied") : t("doctor.copy")}
-            </Button>
+            <CopyButton value={fix.command} label={t("doctor.copy")} />
           )}
           {!fix?.auto && fix?.url && (
-            <a
-              href={fix.url}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-secondary btn-sm"
-            >
-              <ExternalLink size={13} strokeWidth={2} />
+            <LinkButton small external href={fix.url}>
+              <ExternalLink size={14} strokeWidth={2} aria-hidden="true" />
               {t("doctor.guide")}
-            </a>
+            </LinkButton>
           )}
         </div>
       )}
@@ -216,12 +199,8 @@ export function SystemCheckCard() {
   // Đủ hết thì mặc định thu gọn - card này chỉ cần nổi bật khi có việc phải làm
   const showAll = expanded || hasProblem;
 
-  const title = (
-    <span className="inline-flex items-center gap-1.5">
-      {t("doctor.title")}
-      <InfoHint titleKey="help.doctor.title" bodyKey="help.doctor.body" size={14} />
-    </span>
-  );
+  const title = t("doctor.title");
+  const hint = { titleKey: "help.doctor.title", bodyKey: "help.doctor.body" };
 
   const actions = (
     <Button variant="secondary" small onClick={() => void load(true)} disabled={checking}>
@@ -236,8 +215,8 @@ export function SystemCheckCard() {
 
   if (error) {
     return (
-      <Card title={title} actions={actions}>
-        <p className="text-sm text-[var(--danger)]">{error}</p>
+      <Card title={title} hint={hint} actions={actions}>
+        <Banner tone="danger" message={error} />
       </Card>
     );
   }
@@ -246,7 +225,7 @@ export function SystemCheckCard() {
     // Có nhãn chứ không phải khung xám trơn: lần dò đầu mất ~6s, khung trống
     // suốt 6s trông như trang bị hỏng
     return (
-      <Card title={title}>
+      <Card title={title} hint={hint}>
         <span className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)]">
           <Loader2 size={14} strokeWidth={2} className="animate-spin" />
           {t("doctor.checking")}
@@ -256,31 +235,32 @@ export function SystemCheckCard() {
   }
 
   return (
-    <Card title={title} actions={actions}>
+    <Card title={title} hint={hint} actions={actions}>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         {missingRequired.length === 0 ? (
-          <span className="badge badge-success">
-            <span className="badge-dot" />
-            {t("doctor.all-good")}
-          </span>
+          <Badge tone="success" label={t("doctor.all-good")} />
         ) : (
-          <span className="badge badge-danger">
-            <span className="badge-dot" />
-            {tf("doctor.missing-required", { n: missingRequired.length })}
-          </span>
+          <Badge
+            tone="danger"
+            label={tf("doctor.missing-required", {
+              n: missingRequired.length,
+            })}
+          />
         )}
         {missingOptional.length > 0 && (
-          <span className="badge badge-muted">
-            <span className="badge-dot" />
-            {tf("doctor.missing-optional", { n: missingOptional.length })}
-          </span>
+          <Badge
+            tone="muted"
+            label={tf("doctor.missing-optional", {
+              n: missingOptional.length,
+            })}
+          />
         )}
         <span className="grow" />
         {!hasProblem && (
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text)]"
+            className="inline-flex items-center gap-1 text-meta font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)]"
           >
             <ChevronDown
               size={13}
