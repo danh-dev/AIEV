@@ -80,13 +80,19 @@
       lại nháy đúng một khung hình mỗi lần tải trang.
 
    2. Tự gấp theo bề rộng màn hình cũng nằm ở đây, không dùng JS resize listener:
-      - dưới 1024px rail luôn ở dạng icon (220px chiếm quá nhiều chỗ của workspace,
-        mà dưới ngưỡng này workspace chỉ còn 1-2 cột);
-      - dưới 1280px panel phải thôi chừa chỗ và chuyển thành drawer đè lên
-        (1280 = rail 220 + panel 440 + ~600px còn lại cho nội dung, hẹp hơn nữa
-        thì nội dung không đủ thở).
+      - dưới 1440px rail MẶC ĐỊNH về dạng icon. Con số này tính ngược từ
+        workspace: chrome ăn 220 (rail) + 440 (panel) = 660px, dưới 1440 thì
+        workspace còn chưa tới 740px, tức là tụt xuống dưới ngưỡng 2 cột. Rail
+        phải là thứ nhường chỗ trước, không phải workspace.
+      - dưới 1280px panel phải thôi chừa chỗ và chuyển hẳn thành drawer đè lên
+        (giữ đúng ngưỡng `xl` mà các trang đang dùng).
       Media query phải liệt kê CẢ `:root` LẪN `html[data-nav="collapsed"]` thì
-      mới thắng được khối gán ở trên - cùng độ ưu tiên nên thắng bằng thứ tự. */
+      mới thắng được khối gán ở trên - cùng độ ưu tiên nên thắng bằng thứ tự.
+
+   3. Tự gấp chỉ là MẶC ĐỊNH, không phải luật. Người dùng bấm mở rail thì ghi
+      hẳn `data-nav="expanded"`, và khối gán cho giá trị đó đặt SAU media query
+      nên thắng - máy đoán hộ thì được, đoán rồi khóa luôn thì không. Vì thế nút
+      gấp/mở KHÔNG bị ẩn ở màn hẹp. */
 
 :root {
   /* Rail trái - giá trị của trạng thái MỞ */
@@ -121,7 +127,7 @@ html[data-nav="collapsed"] {
   --shell-nav-only-collapsed: inline-flex;
 }
 
-@media (max-width: 1023.98px) {
+@media (max-width: 1439.98px) {
   :root,
   html[data-nav="collapsed"] {
     --shell-nav-cur: 56px;
@@ -132,10 +138,20 @@ html[data-nav="collapsed"] {
     --shell-nav-extra: none;
     --shell-nav-only-expanded: none;
     --shell-nav-only-collapsed: inline-flex;
-    /* Ẩn nút gấp: dưới ngưỡng này lựa chọn của người dùng không áp dụng được,
-       để nút bấm được mà không có tác dụng gì là lừa người dùng. */
-    --shell-nav-toggle: none;
   }
+}
+
+/* PHẢI đứng sau media query ở trên: cùng độ ưu tiên nên thắng nhờ thứ tự dòng.
+   Đây là chỗ "người dùng đã tự tay mở rail" thắng phép tự gấp theo bề rộng. */
+html[data-nav="expanded"] {
+  --shell-nav-cur: 220px;
+  --shell-nav-pad: 12px;
+  --shell-nav-item-pad: 12px;
+  --shell-nav-justify: flex-start;
+  --shell-nav-label: inline;
+  --shell-nav-extra: flex;
+  --shell-nav-only-expanded: inline-flex;
+  --shell-nav-only-collapsed: none;
 }
 
 html[data-panel="collapsed"] {
@@ -630,8 +646,11 @@ textarea.input {
   gap: 16px;
 }
 /* Ngưỡng tính theo bề rộng tối thiểu dùng được của một cột (~340px cho label +
-   input + padding card) cộng gap: 2 cột = 2*340 + 16 ≈ 700 → chốt 720px. */
-@container workspace (min-width: 720px) {
+   input + padding card) cộng gap: 2 cột = 2*340 + 16 ≈ 700px.
+   Ba ngưỡng 700/1200 đã kiểm bằng trình duyệt thật cho monotonic: thu nhỏ cửa sổ
+   thì số cột chỉ giảm, không có chỗ nào hẹp hơn mà lại ra NHIỀU cột hơn - lúc
+   panel chuyển thành drawer nó trả lại 440px một phát, rất dễ dính lỗi đó. */
+@container workspace (min-width: 700px) {
   .workspace-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -641,8 +660,9 @@ textarea.input {
     grid-column: 1 / -1;
   }
 }
-/* 3 cột = 3*340 + 2*16 ≈ 1050 → chốt 1100px cho thoáng */
-@container workspace (min-width: 1100px) {
+/* 3 cột: chốt 1200px chứ không phải 1050px lý thuyết, để mỗi cột còn ~390px -
+   đủ cho ô nhập + nút mà không phải xuống hàng liên tục. */
+@container workspace (min-width: 1200px) {
   .workspace-grid {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr) minmax(0, 1.25fr);
   }

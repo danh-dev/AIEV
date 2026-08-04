@@ -74,7 +74,13 @@ const PANEL_STORAGE_KEY = "aiev-panel";
  * THEME_SCRIPT trong layout.tsx làm với theme. Đặt làm phần tử đầu của shell nên
  * nó chạy lúc trình duyệt còn đang phân tích markup, xong trước khi có gì được vẽ.
  */
-const SHELL_SCRIPT = `try{var d=document.documentElement;if(localStorage.getItem("${NAV_STORAGE_KEY}")==="collapsed")d.setAttribute("data-nav","collapsed");if(localStorage.getItem("${PANEL_STORAGE_KEY}")==="collapsed")d.setAttribute("data-panel","collapsed")}catch(e){}`;
+const SHELL_SCRIPT = `try{var d=document.documentElement,n=localStorage.getItem("${NAV_STORAGE_KEY}");if(n==="collapsed"||n==="expanded")d.setAttribute("data-nav",n);if(localStorage.getItem("${PANEL_STORAGE_KEY}")==="collapsed")d.setAttribute("data-panel","collapsed")}catch(e){}`;
+
+/**
+ * Dưới ngưỡng này rail MẶC ĐỊNH gấp lại (xem lý do con số trong globals.css).
+ * Chỉ dùng để nhãn aria nói đúng - bề rộng vẫn là việc của media query cùng số.
+ */
+const NAV_AUTO_COLLAPSE = "(max-width: 1439.98px)";
 
 /**
  * Logo GitHub dạng SVG inline. Lucide đã bỏ icon thương hiệu khỏi bộ chính nên
@@ -244,19 +250,32 @@ export function Shell({ children }: { children: ReactNode }) {
   /** Chỉ để nhãn aria/tooltip nói đúng - bề rộng rail là việc của CSS */
   const [navCollapsed, setNavCollapsed] = useState(false);
 
-  // Đọc lại trạng thái mà SHELL_SCRIPT đã ghi lên <html>. Đọc thuộc tính chứ
-  // không đọc localStorage lần nữa: một nguồn sự thật, không sợ lệch nhau.
+  // Trạng thái THẤY ĐƯỢC của rail = thuộc tính data-nav mà SHELL_SCRIPT đã ghi,
+  // cộng phép tự gấp theo bề rộng khi chưa có lựa chọn rõ ràng. Đọc thuộc tính
+  // chứ không đọc lại localStorage: một nguồn sự thật, không sợ hai bên lệch.
+  // Đây CHỈ để nhãn aria/tooltip nói đúng - bề rộng do CSS lo, nên listener này
+  // có chậm một nhịp cũng không làm layout nhảy.
   useEffect(() => {
-    setNavCollapsed(
-      document.documentElement.getAttribute("data-nav") === "collapsed"
-    );
+    const mq = window.matchMedia(NAV_AUTO_COLLAPSE);
+    const sync = () => {
+      const attr = document.documentElement.getAttribute("data-nav");
+      if (attr === "collapsed") setNavCollapsed(true);
+      else if (attr === "expanded") setNavCollapsed(false);
+      else setNavCollapsed(mq.matches);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
   const setNav = useCallback((next: boolean) => {
     setNavCollapsed(next);
-    const root = document.documentElement;
-    if (next) root.setAttribute("data-nav", "collapsed");
-    else root.removeAttribute("data-nav");
+    // Ghi HẲN "expanded" chứ không xóa thuộc tính: xóa đi là rơi lại vào phép tự
+    // gấp theo bề rộng, tức là ở màn hẹp người dùng bấm mở mà rail không mở.
+    document.documentElement.setAttribute(
+      "data-nav",
+      next ? "collapsed" : "expanded"
+    );
     try {
       localStorage.setItem(NAV_STORAGE_KEY, next ? "collapsed" : "expanded");
     } catch {
@@ -433,87 +452,83 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="w-full p-5">{children}</div>
           </main>
 
-          {panelTitle !== null && (
-            <>
-              <div
-                className={`shell-panel-scrim ${drawerOpen ? "is-open" : ""}`}
-                onClick={() => setDrawerOpen(false)}
-                aria-hidden="true"
-              />
-              <aside
-                className={`shell-panel ${drawerOpen ? "is-open" : ""}`}
-                aria-label={panelTitle}
-              >
-                {/* Dải mỏng lúc gấp: panel KHÔNG biến mất hẳn, luôn còn 40px bấm
-                    vào là mở lại - biến mất hẳn thì người dùng không tìm ra đường về */}
-                <button
-                  type="button"
-                  onClick={() => setPanelCollapsed(false)}
-                  className="shell-panel-strip"
-                  aria-expanded={false}
-                  aria-controls="shell-panel-body"
-                  aria-label={t("shell.panel-expand")}
-                  title={t("shell.panel-expand")}
-                >
-                  <PanelRightOpen
-                    size={16}
-                    strokeWidth={1.75}
+          {/* Khung panel LUÔN nằm trong DOM (rộng 0 khi trang không khai báo) -
+              xem `.shell-panel.is-empty` trong globals.css để biết vì sao. */}
+          <div
+            className={`shell-panel-scrim ${
+              drawerOpen && panelTitle !== null ? "is-open" : ""
+            }`}
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          <aside
+            className={`shell-panel ${panelTitle === null ? "is-empty" : ""} ${
+              drawerOpen ? "is-open" : ""
+            }`}
+            aria-label={panelTitle ?? undefined}
+            aria-hidden={panelTitle === null ? true : undefined}
+          >
+            {/* Dải mỏng lúc gấp: panel KHÔNG biến mất hẳn, luôn còn 40px bấm vào
+                là mở lại - biến mất hẳn thì người dùng không tìm ra đường về */}
+            <button
+              type="button"
+              onClick={() => setPanelCollapsed(false)}
+              className="shell-panel-strip"
+              aria-expanded={false}
+              aria-controls="shell-panel-body"
+              aria-label={t("shell.panel-expand")}
+              title={t("shell.panel-expand")}
+            >
+              <PanelRightOpen size={16} strokeWidth={1.75} aria-hidden="true" />
+              <span className="shell-panel-strip-label">{panelTitle}</span>
+            </button>
+
+            <div
+              id="shell-panel-body"
+              className="shell-panel-body min-h-0 min-w-0 flex-1 flex-col gap-3 p-3"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2">
+                <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                  <MessageSquare
+                    size={15}
+                    strokeWidth={2}
+                    className="shrink-0 text-[var(--text-muted)]"
                     aria-hidden="true"
                   />
-                  <span className="shell-panel-strip-label">{panelTitle}</span>
-                </button>
-
-                <div
-                  id="shell-panel-body"
-                  className="shell-panel-body min-h-0 min-w-0 flex-1 flex-col gap-3 p-3"
-                >
-                  <div className="flex shrink-0 items-center justify-between gap-2">
-                    <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                      <MessageSquare
-                        size={15}
-                        strokeWidth={2}
-                        className="shrink-0 text-[var(--text-muted)]"
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">{panelTitle}</span>
-                    </h2>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setPanelCollapsed(true)}
-                        className="shell-panel-toggle shell-icon-btn"
-                        aria-expanded={true}
-                        aria-controls="shell-panel-body"
-                        aria-label={t("shell.panel-collapse")}
-                        title={t("shell.panel-collapse")}
-                      >
-                        <PanelRightClose
-                          size={16}
-                          strokeWidth={1.75}
-                          aria-hidden="true"
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDrawerOpen(false)}
-                        className="shell-panel-drawer shell-icon-btn"
-                        aria-label={t("shell.panel-close")}
-                        title={t("shell.panel-close")}
-                      >
-                        <X size={16} strokeWidth={2} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Điểm hạ cánh của portal - nội dung panel do trang cung cấp */}
-                  <div
-                    ref={setSlot}
-                    className="flex min-h-0 flex-1 flex-col gap-3"
-                  />
+                  <span className="truncate">{panelTitle}</span>
+                </h2>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPanelCollapsed(true)}
+                    className="shell-panel-toggle shell-icon-btn"
+                    aria-expanded={true}
+                    aria-controls="shell-panel-body"
+                    aria-label={t("shell.panel-collapse")}
+                    title={t("shell.panel-collapse")}
+                  >
+                    <PanelRightClose
+                      size={16}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    className="shell-panel-drawer shell-icon-btn"
+                    aria-label={t("shell.panel-close")}
+                    title={t("shell.panel-close")}
+                  >
+                    <X size={16} strokeWidth={2} aria-hidden="true" />
+                  </button>
                 </div>
-              </aside>
-            </>
-          )}
+              </div>
+
+              {/* Điểm hạ cánh của portal - nội dung panel do trang cung cấp */}
+              <div ref={setSlot} className="flex min-h-0 flex-1 flex-col gap-3" />
+            </div>
+          </aside>
         </div>
       </div>
     </ShellPanelContext.Provider>
