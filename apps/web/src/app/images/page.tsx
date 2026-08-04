@@ -1,22 +1,33 @@
 "use client";
 
-import { CheckCircle2, Image as ImageIcon, Images, Plus, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  Image as ImageIcon,
+  Images,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   cleanImageJunk,
+  cloneImageProject,
   createImageProject,
   deleteImageProject,
   getImageJunk,
   getImageProjects,
   getJobs,
+  renameImageProject,
   type FileInfo,
   type ImageProject,
 } from "@/lib/api";
 import { useJobEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -35,6 +46,7 @@ import {
 import { Modal } from "@/components/Modal";
 import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
+import { RenameProjectModal } from "@/components/RenameProjectModal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -58,6 +70,17 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+
+  // Đổi tên / nhân bản một dự án ảnh
+  const [renameTarget, setRenameTarget] = useState<ImageProject | null>(null);
+  const [cloneSource, setCloneSource] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [cloneNotice, setCloneNotice] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Bulk "Xóa file rác" trên các dự án đã chọn
   const [junkBusy, setJunkBusy] = useState(false);
@@ -282,6 +305,25 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         />
       )}
 
+      {/* Nhân bản xong thì Ở LẠI danh sách kèm link mở bản sao - khác trang chi
+          tiết (nhảy thẳng sang bản sao): ở đây người ta thường nhân bản vài cái
+          liền tay, bị đá sang trang khác là mất mạch */}
+      {cloneNotice && (
+        <div className="flex items-center gap-2 rounded-[var(--radius)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)]">
+          <Copy size={15} strokeWidth={2} className="shrink-0" />
+          <span>
+            {t("projects.cloned-to")}{" "}
+            <span className="font-medium">{cloneNotice.name}</span> -{" "}
+            <Link
+              href={`/images/${cloneNotice.id}`}
+              className="font-medium underline underline-offset-2"
+            >
+              {t("projects.open-new")}
+            </Link>
+          </span>
+        </div>
+      )}
+
       <Card>
         {selected.size > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2">
@@ -343,6 +385,9 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                 <th>Model</th>
                 <th>{t("common.created")}</th>
                 <th>{t("common.updated")}</th>
+                <th className="w-20">
+                  <span className="sr-only">{t("common.actions")}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -421,6 +466,30 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
                     <td className="text-[var(--text-muted)]">
                       {formatDateTime(p.updatedAt)}
                     </td>
+                    {/* stopPropagation: cả hàng click được để mở project, nút ở
+                        đây phải làm việc của nó chứ không mở trang chi tiết */}
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <span className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          title={t("projects.rename")}
+                          aria-label={tf("projects.rename-aria", { name: p.name })}
+                          onClick={() => setRenameTarget(p)}
+                          className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+                        >
+                          <Pencil size={15} strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          title={t("clone.title")}
+                          aria-label={tf("projects.clone-aria", { name: p.name })}
+                          onClick={() => setCloneSource({ id: p.id, name: p.name })}
+                          className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+                        >
+                          <Copy size={15} strokeWidth={2} />
+                        </button>
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
@@ -456,6 +525,27 @@ function ImageProjectList({ onCreate }: { onCreate: () => void }) {
         confirmLabel={tf("imagesPage.delete-n", { n: selectedProjects.length })}
         onClose={() => setBulkDeleteOpen(false)}
         onConfirm={onDeleteSelected}
+      />
+
+      {/* Đổi tên - chỉ đổi tên hiển thị, id (tên thư mục) giữ nguyên */}
+      <RenameProjectModal
+        target={renameTarget}
+        rename={renameImageProject}
+        hintKey="imagesPage.rename-hint"
+        onClose={() => setRenameTarget(null)}
+        onRenamed={load}
+      />
+
+      <CloneProjectModal
+        source={cloneSource}
+        clone={cloneImageProject}
+        descriptionKey="clone.image-description"
+        onClose={() => setCloneSource(null)}
+        onCloned={async (p) => {
+          setCloneSource(null);
+          setCloneNotice({ id: p.id, name: p.name });
+          await load();
+        }}
       />
 
       {/* Xem chi tiết ảnh ngay từ bảng - modal dùng chung toàn app */}

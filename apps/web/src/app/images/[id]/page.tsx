@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  Copy,
   Download,
   Image as ImageIcon,
   Layers,
@@ -16,11 +17,13 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  cloneImageProject,
   deleteImageProject,
   generateImage,
   getImageProject,
   getJobs,
   imageFileUrl,
+  renameImageProject,
   updateImageProject,
   uploadImageBackground,
   type FileInfo,
@@ -36,7 +39,9 @@ import {
 import { useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { CloneProjectModal } from "@/components/CloneProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
+import { EditableTitle } from "@/components/EditableTitle";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import {
@@ -138,7 +143,8 @@ export default function ImageProjectDetailPage() {
 
   // Form sửa (prompt/loại/tỉ lệ/overlay) - bản nháp tách khỏi dữ liệu server
   const [draft, setDraft] = useState<ImageDraft | null>(null);
-  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [cloneOpen, setCloneOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -197,7 +203,6 @@ export default function ImageProjectDetailPage() {
             styleId: p.styleId ?? null,
           }
       );
-      setNameDraft((n) => n ?? p.name);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -294,21 +299,18 @@ export default function ImageProjectDetailPage() {
     (activeJob.status === "queued" || activeJob.status === "running");
   const generating = proj?.status === "generating" || jobRunning;
 
+  /** Đổi tên ngay trên tiêu đề - server là nguồn sự thật, lấy tên nó trả về. */
+  async function saveName(next: string) {
+    setProj(await renameImageProject(imageId, next));
+  }
+
   async function onSave() {
     if (!draft || saving) return;
-    // Xóa trắng tên rồi Lưu: trước đây field bị lặng lẽ bỏ qua (giữ tên cũ)
-    // mà không nói gì - giờ báo lỗi rõ ràng thay vì im lặng
-    if (nameDraft !== null && !nameDraft.trim()) {
-      setSaved(false);
-      setSaveError(t("imageDetail.name-required"));
-      return;
-    }
     setSaving(true);
     setSaveError(null);
     setSaved(false);
     try {
       const p = await updateImageProject(imageId, {
-        ...(nameDraft && nameDraft.trim() ? { name: nameDraft.trim() } : {}),
         prompt: draft.prompt,
         kind: draft.kind,
         aspect: draft.aspect,
@@ -354,7 +356,6 @@ export default function ImageProjectDetailPage() {
   async function onSaveSilent() {
     if (!draft) return;
     const p = await updateImageProject(imageId, {
-      ...(nameDraft && nameDraft.trim() ? { name: nameDraft.trim() } : {}),
       prompt: draft.prompt,
       kind: draft.kind,
       aspect: draft.aspect,
@@ -422,7 +423,18 @@ export default function ImageProjectDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={proj?.name ?? imageId}
+        title={
+          <EditableTitle
+            value={proj?.name ?? null}
+            fallback={imageId}
+            onSave={saveName}
+            onError={setRenameError}
+            editLabel={t("imageDetail.rename")}
+            emptyError={t("imageDetail.name-required")}
+            saveLabel={t("common.save")}
+            cancelLabel={t("common.cancel")}
+          />
+        }
         subtitle={
           proj
             ? `${t(KIND_LABEL[proj.kind])} · ${tf("project.updated", { time: formatRelative(proj.updatedAt) })}`
@@ -444,6 +456,9 @@ export default function ImageProjectDetailPage() {
         </div>
       )}
 
+      {renameError && (
+        <ErrorBanner message={t("imageDetail.rename-error")} detail={renameError} />
+      )}
       {error && (
         <ErrorBanner message={t("imageDetail.load-error")} detail={error} />
       )}
@@ -672,18 +687,33 @@ export default function ImageProjectDetailPage() {
                 </p>
               )}
 
-              {/* Hàng phụ - thao tác ít dùng */}
-              <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
-                <button
-                  type="button"
-                  disabled={uploadingBg || generating}
-                  title={t("imageDetail.upload-bg-title")}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => bgInputRef.current?.click()}
-                >
-                  <Upload size={13} strokeWidth={2} />
-                  {uploadingBg ? t("imageDetail.uploading-bg") : t("imageDetail.upload-bg")}
-                </button>
+              {/* Hàng phụ - thao tác ít dùng. Xóa đứng RIÊNG một bên: nó không
+                  hoàn tác được, đừng để cạnh nút thường dễ bấm nhầm. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[var(--border)] pt-3">
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <button
+                    type="button"
+                    disabled={uploadingBg || generating}
+                    title={t("imageDetail.upload-bg-title")}
+                    className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => bgInputRef.current?.click()}
+                  >
+                    <Upload size={13} strokeWidth={2} />
+                    {uploadingBg ? t("imageDetail.uploading-bg") : t("imageDetail.upload-bg")}
+                  </button>
+                  {/* Nhân bản KHÔNG bị khóa khi đang generate: bản sao là project
+                      khác, chép nền hiện có - không đụng gì tới job đang chạy */}
+                  <button
+                    type="button"
+                    disabled={!proj}
+                    title={t("imageDetail.clone-title")}
+                    className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => setCloneOpen(true)}
+                  >
+                    <Copy size={13} strokeWidth={2} />
+                    {t("clone.action")}
+                  </button>
+                </span>
                 <button
                   type="button"
                   className="flex items-center gap-1.5 text-xs font-medium text-[var(--danger)] transition-colors duration-150 hover:opacity-75"
@@ -693,6 +723,7 @@ export default function ImageProjectDetailPage() {
                   {t("imageDetail.delete-project")}
                 </button>
               </div>
+
               <input
                 ref={bgInputRef}
                 type="file"
@@ -716,21 +747,8 @@ export default function ImageProjectDetailPage() {
                 <p className="text-xs font-semibold tracking-wide text-[var(--text-muted)] uppercase">
                   {t("imageDetail.content")}
                 </p>
-                <div>
-                  <label className="label" htmlFor="image-edit-name">
-                    {t("common.name")}
-                  </label>
-                  <input
-                    id="image-edit-name"
-                    className="input"
-                    value={nameDraft ?? ""}
-                    disabled={saving}
-                    onChange={(e) => {
-                      setNameDraft(e.target.value);
-                      setSaved(false);
-                    }}
-                  />
-                </div>
+                {/* Tên KHÔNG còn ở đây - sửa thẳng trên tiêu đề trang, lưu ngay,
+                    không phải bấm Lưu chung với prompt/overlay đang sửa dở */}
                 <ImageProjectFields
                   value={draft}
                   onChange={(p) => {
@@ -785,6 +803,19 @@ export default function ImageProjectDetailPage() {
         error={deleteError}
         onClose={() => setDeleteOpen(false)}
         onConfirm={onDelete}
+      />
+
+      {/* Nhân bản → mở thẳng bản sao: người ta nhân bản để SỬA bản sao, ở lại
+          bản gốc thì lần nào cũng phải tự đi tìm project mới */}
+      <CloneProjectModal
+        source={cloneOpen ? { id: imageId, name: proj?.name ?? imageId } : null}
+        clone={cloneImageProject}
+        descriptionKey="clone.image-description"
+        onClose={() => setCloneOpen(false)}
+        onCloned={(p) => {
+          setCloneOpen(false);
+          router.push(`/images/${p.id}`);
+        }}
       />
 
       {/* Xem chi tiết ảnh - modal dùng chung toàn app (Esc, mở tab mới, mở file) */}

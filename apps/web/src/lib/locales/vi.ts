@@ -17,6 +17,7 @@ export const vi: Record<string, string> = {
   "common.saved": "Đã lưu.",
   "common.edit": "Sửa",
   "common.new": "mới",
+  "common.actions": "Thao tác",
   "common.name": "Tên",
   "common.tags": "Tags",
 
@@ -86,6 +87,8 @@ export const vi: Record<string, string> = {
   "clone.action": "Nhân bản",
   "clone.error": "Không nhân bản được project.",
   "clone.description": "Bản sao gồm compositions, assets (kèm mô tả), brief, tags và scenes - không gồm renders và video output. Project mới ở trạng thái draft.",
+  "clone.image-description":
+    "Bản sao giữ ảnh nền, prompt, loại, tỉ lệ, Style Design và toàn bộ phần chữ - không gồm ảnh hoàn thiện. Bấm Hoàn thiện ở bản sao là ra ảnh mới, không phải tạo lại nền.",
   "clone.new-name": "Tên project mới",
   "clone.id-hint": "ID (tên folder) tự sinh từ tên này.",
 
@@ -331,6 +334,7 @@ export const vi: Record<string, string> = {
   "projects.rename-aria": "Đổi tên {name}",
   "projects.rename-title": "Đổi tên project",
   "projects.rename-hint": "Chỉ đổi tên hiển thị. ID (tên thư mục) vẫn là {id}.",
+  "imagesPage.rename-hint": "Chỉ đổi tên hiển thị. ID (tên thư mục) vẫn là {id}.",
   "projects.name-required": "Tên không được để trống.",
   "projects.no-tag-match": "Không có project nào khớp tag đang lọc.",
   "projects.delete-selected-title": "Xóa project đã chọn",
@@ -390,6 +394,9 @@ export const vi: Record<string, string> = {
   "project.tags-error": "Không lưu được tags: {error}",
   "project.rename": "Đổi tên project",
   "project.rename-error": "Không đổi được tên project.",
+  "imageDetail.rename": "Đổi tên dự án ảnh",
+  "imageDetail.rename-error": "Không đổi được tên dự án ảnh.",
+  "imageDetail.clone-title": "Tạo dự án mới từ dự án này - giữ ảnh nền, bỏ ảnh hoàn thiện",
   "project.name-required": "Tên không được để trống.",
   "project.start-edit-new-session": "Bắt đầu Edit bằng AI với phiên mới",
   "project.load-error": "Không tải được project.",

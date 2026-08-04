@@ -2,26 +2,41 @@
 
 import { Copy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cloneProject, type ProjectSummary } from "@/lib/api";
+import { cloneProject } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { Modal } from "@/components/Modal";
 import { useT } from "@/lib/i18n";
 
+/** Thứ duy nhất modal cần biết về project mới: đi tới đâu và gọi nó là gì. */
+interface ClonedProject {
+  id: string;
+  name: string;
+}
+
 /**
- * Modal "Nhân bản project" - dùng chung cho trang danh sách và trang chi tiết.
- * Prefill tên "<tên cũ> (bản sao)", gọi POST clone, trả project mới qua onCloned
- * (caller tự quyết: reload danh sách hoặc chuyển sang project mới).
+ * Modal "Nhân bản project" - dùng chung cho video và ảnh, cả trang danh sách lẫn
+ * trang chi tiết. Prefill tên "<tên cũ> (bản sao)", gọi POST clone, trả project
+ * mới qua onCloned (caller tự quyết: reload danh sách hay chuyển sang bản sao).
+ *
+ * `clone` và `descriptionKey` để đổi được vì hai loại project sao chép ra thứ
+ * khác nhau - video giữ scenes/assets bỏ renders, ảnh giữ nền bỏ ảnh hoàn thiện.
+ * Mô tả nói sai thì người dùng không đoán được mình sắp mất gì.
  */
 export function CloneProjectModal({
   source,
   onClose,
   onCloned,
+  clone = cloneProject,
+  descriptionKey = "clone.description",
 }: {
   /** Project gốc cần nhân bản - null = modal đóng. */
   source: { id: string; name: string } | null;
   onClose: () => void;
-  onCloned: (p: ProjectSummary) => void;
+  onCloned: (p: ClonedProject) => void;
+  /** Mặc định nhân bản VIDEO project; trang ảnh truyền cloneImageProject. */
+  clone?: (id: string, name?: string) => Promise<ClonedProject>;
+  descriptionKey?: string;
 }) {
   const { t } = useT();
   const [name, setName] = useState("");
@@ -44,7 +59,7 @@ export function CloneProjectModal({
     setCloning(true);
     setError(null);
     try {
-      const p = await cloneProject(source.id, name.trim() || undefined);
+      const p = await clone(source.id, name.trim() || undefined);
       onCloned(p);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -75,9 +90,7 @@ export function CloneProjectModal({
       {error && (
         <ErrorBanner message={t("clone.error")} detail={error} />
       )}
-      <p className="text-sm text-[var(--text-muted)]">
-        {t("clone.description")}
-      </p>
+      <p className="text-sm text-[var(--text-muted)]">{t(descriptionKey)}</p>
       <div>
         <label className="label" htmlFor="clone-project-name">
           {t("clone.new-name")}

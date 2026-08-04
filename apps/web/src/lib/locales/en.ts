@@ -17,6 +17,7 @@ export const en: Record<string, string> = {
   "common.saved": "Saved.",
   "common.edit": "Edit",
   "common.new": "new",
+  "common.actions": "Actions",
   "common.name": "Name",
   "common.tags": "Tags",
 
@@ -86,6 +87,8 @@ export const en: Record<string, string> = {
   "clone.action": "Clone",
   "clone.error": "Could not clone the project.",
   "clone.description": "The copy includes compositions, assets (with descriptions), brief, tags and scenes - not renders or the output video. The new project starts as a draft.",
+  "clone.image-description":
+    "The copy keeps the background image, prompt, kind, aspect, Style Design and all the text - but not the finished image. Hit Compose on the copy and you get a new image without regenerating the background.",
   "clone.new-name": "New project name",
   "clone.id-hint": "The ID (folder name) is generated from this name.",
 
@@ -331,6 +334,7 @@ export const en: Record<string, string> = {
   "projects.rename-aria": "Rename {name}",
   "projects.rename-title": "Rename project",
   "projects.rename-hint": "Only the display name changes. The ID (folder name) stays {id}.",
+  "imagesPage.rename-hint": "Only the display name changes. The ID (folder name) stays {id}.",
   "projects.name-required": "The name cannot be empty.",
   "projects.no-tag-match": "No projects match the selected tags.",
   "projects.delete-selected-title": "Delete selected projects",
@@ -390,6 +394,9 @@ export const en: Record<string, string> = {
   "project.tags-error": "Could not save tags: {error}",
   "project.rename": "Rename project",
   "project.rename-error": "Could not rename the project.",
+  "imageDetail.rename": "Rename image project",
+  "imageDetail.rename-error": "Could not rename the image project.",
+  "imageDetail.clone-title": "Create a new project from this one - keeps the background, drops the finished image",
   "project.name-required": "The name cannot be empty.",
   "project.start-edit-new-session": "Start AI edit in a new session",
   "project.load-error": "Could not load the project.",

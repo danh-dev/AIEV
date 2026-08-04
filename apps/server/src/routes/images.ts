@@ -86,6 +86,22 @@ function parseStyleId(raw: unknown, fallback: string | null): string | null {
   return id;
 }
 
+/**
+ * Tên project ảnh: bắt buộc, tối đa 120 ký tự - cùng giới hạn với video project
+ * (PUT /api/projects/:id/name). Tên dài hơn thế sinh ra tên thư mục dài, và
+ * Windows vẫn còn giới hạn 260 ký tự cho cả đường dẫn.
+ */
+function parseName(raw: unknown): string {
+  const name = typeof raw === "string" ? raw.trim() : "";
+  if (!name) {
+    throw new HttpError(400, "INVALID_NAME", "Tên project không được để trống");
+  }
+  if (name.length > 120) {
+    throw new HttpError(400, "INVALID_NAME", "Tên project tối đa 120 ký tự");
+  }
+  return name;
+}
+
 function parseKind(raw: unknown, fallback: ImageKind): ImageKind {
   if (raw === undefined) return fallback;
   if (!IMAGE_KINDS.includes(raw as ImageKind)) {
@@ -155,7 +171,7 @@ router.put("/:id", (req, res) => {
     if (typeof body.name !== "string" || !body.name.trim()) {
       throw new HttpError(400, "INVALID_NAME", "name phải là string không rỗng");
     }
-    meta.name = body.name.trim();
+    meta.name = parseName(body.name);
   }
   if ("prompt" in body) {
     if (typeof body.prompt !== "string") {
@@ -189,6 +205,65 @@ router.delete("/:id", (req, res) => {
   }
   fs.rmSync(imageDirOf(id), { recursive: true, force: true });
   res.status(204).end();
+});
+
+/**
+ * POST /api/images/:id/clone - { name? } → nhân bản thành project ảnh mới (201)
+ *
+ * GIỮ ẢNH NỀN, BỎ ẢNH HOÀN THIỆN. Lý do: nền là NGUYÊN LIỆU (Gemini sinh ra, hoặc
+ * người dùng tự tải lên) còn final.png là SẢN PHẨM của bước compose. Người ta nhân
+ * bản để đổi chữ/logo trên cùng một nền - chép nền sang là bản sao compose lại được
+ * ngay, không phải trả tiền Gemini lần nữa. Muốn nền mới thì bấm tạo lại nền, một
+ * nút thôi; còn nếu bỏ nền thì không có đường nào lấy lại nền cũ.
+ *
+ * Không đụng tới id của bản gốc - đây là THÊM project mới, không phải di trú.
+ */
+router.post("/:id/clone", (req, res) => {
+  const src = readImageMeta(req.params.id); // ném 404 nếu không có
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const name =
+    body.name === undefined || body.name === null || body.name === ""
+      ? `${src.name} (bản sao)`
+      : parseName(body.name);
+
+  const newId = newImageProjectId(name);
+  const dstDir = imageDirOf(newId);
+  ensureDir(dstDir);
+
+  /*
+   * CHỈ CHÉP ĐÚNG FILE NỀN ĐANG DÙNG - danh sách cho phép, không phải danh sách
+   * loại trừ. Thư mục project chạy lâu ngày còn đọng lại bản final cũ
+   * ("final-v3.png") và props của lần stage trước ("thumb.props.json"): loại trừ
+   * theo tên thì bỏ sót đúng những thứ đó, và bản sao mang theo vài MB rác kèm
+   * một tấm ảnh cũ chẳng ai tham chiếu tới.
+   */
+  let background = src.background;
+  if (background) {
+    const srcFile = path.join(imageDirOf(src.id), background);
+    if (fs.existsSync(srcFile)) {
+      fs.copyFileSync(srcFile, path.join(dstDir, background));
+    } else {
+      // meta nói có nền mà file đã bị xóa tay → đừng nói dối: để null, giao diện
+      // hiện "chưa có nền" thay vì một ô ảnh vỡ
+      background = null;
+    }
+  }
+
+  const now = nowIso();
+  const meta: ImageProject = {
+    ...src,
+    id: newId,
+    name,
+    background,
+    status: "draft", // bản gốc có thể đang generating - bản sao thì chưa có job nào
+    final: null,
+    error: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  writeImageMeta(newId, meta);
+
+  res.status(201).json(readImageMeta(newId));
 });
 
 // POST /api/images/:id/background - multipart, tự upload nền (không cần Gemini) → ImageProject

@@ -880,6 +880,17 @@ GET    /api/images                → ImageProject[]
 POST   /api/images                { name, prompt, kind, aspect, overlay? } → 201 (id sinh từ name)
 GET    /api/images/:id            → ImageProject
 PUT    /api/images/:id            partial (name/prompt/kind/aspect/overlay) → ImageProject
+                                  `name` đổi TÊN HIỂN THỊ, KHÔNG đổi `id` (id là tên thư mục, bị
+                                  tham chiếu ở đường dẫn ảnh và projectId của job). 400 INVALID_NAME
+                                  khi rỗng hoặc quá 120 ký tự - cùng luật với video project.
+POST   /api/images/:id/clone      { name? } → ImageProject (201) — nhân bản project ảnh:
+                                  copy ẢNH NỀN + prompt/kind/aspect/model/styleId/overlay,
+                                  KHÔNG copy ảnh hoàn thiện (final = null, status = draft).
+                                  Nền là nguyên liệu (Gemini sinh hoặc người dùng tải lên), final
+                                  là sản phẩm - giữ nền để bản sao compose lại được ngay mà không
+                                  phải gọi Gemini lần nữa. Chỉ chép đúng file nền đang dùng, không
+                                  chép bản final cũ hay props còn đọng trong thư mục.
+                                  Tên bỏ trống → "<tên gốc> (bản sao)"; id mới sinh từ tên.
 DELETE /api/images/:id            → 204
 POST   /api/images/:id/background multipart → ImageProject (tự upload nền, không cần Gemini)
 POST   /api/images/:id/generate   { step?: "all"|"background"|"compose" } → 202 Job (queue type "image-gen")

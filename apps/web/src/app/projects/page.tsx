@@ -31,6 +31,7 @@ import { Card } from "@/components/Card";
 import { ProjectBadge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { CloneProjectModal } from "@/components/CloneProjectModal";
+import { RenameProjectModal } from "@/components/RenameProjectModal";
 import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -154,9 +155,6 @@ export default function ProjectsPage() {
   // Đổi tên project - project đang sửa (null = modal đóng) + tên đang gõ.
   // Chỉ đổi TÊN HIỂN THỊ, id (tên thư mục) giữ nguyên.
   const [renameTarget, setRenameTarget] = useState<ProjectSummary | null>(null);
-  const [renameName, setRenameName] = useState("");
-  const [renaming, setRenaming] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
 
   // Modal tạo project
   const [open, setOpen] = useState(false);
@@ -439,39 +437,6 @@ export default function ProjectsPage() {
     }
     if (errors.length > 0) setBulkActionErrors(errors);
     await load();
-  }
-
-  // ---- Đổi tên project ----
-
-  function openRename(p: ProjectSummary) {
-    setRenameError(null);
-    setRenameName(p.name);
-    setRenameTarget(p);
-  }
-
-  async function onRename() {
-    if (!renameTarget || renaming) return;
-    const next = renameName.trim();
-    // Xóa trắng tên rồi lưu: báo lỗi rõ ràng thay vì lặng lẽ giữ tên cũ
-    if (!next) {
-      setRenameError(t("projects.name-required"));
-      return;
-    }
-    if (next === renameTarget.name) {
-      setRenameTarget(null);
-      return;
-    }
-    setRenaming(true);
-    setRenameError(null);
-    try {
-      await renameProject(renameTarget.id, next);
-      setRenameTarget(null);
-      await load();
-    } catch (e) {
-      setRenameError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRenaming(false);
-    }
   }
 
   // ---- Tạo project ----
@@ -799,7 +764,7 @@ export default function ProjectsPage() {
                         type="button"
                         title={t("projects.rename")}
                         aria-label={tf("projects.rename-aria", { name: p.name })}
-                        onClick={() => openRename(p)}
+                        onClick={() => setRenameTarget(p)}
                         className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
                       >
                         <Pencil size={15} strokeWidth={2} />
@@ -854,53 +819,13 @@ export default function ProjectsPage() {
         }}
       />
 
-      {/* Modal đổi tên project - chỉ đổi tên hiển thị, id giữ nguyên */}
-      <Modal
-        title={t("projects.rename-title")}
-        open={renameTarget !== null}
-        onClose={() => {
-          if (!renaming) setRenameTarget(null);
-        }}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              disabled={renaming}
-              onClick={() => setRenameTarget(null)}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button disabled={renaming} onClick={onRename}>
-              {renaming ? t("common.saving") : t("common.save")}
-            </Button>
-          </>
-        }
-      >
-        {renameError && <ErrorBanner message={renameError} />}
-        <div>
-          <label className="label" htmlFor="rename-project-name">
-            {t("common.name")}
-          </label>
-          <input
-            id="rename-project-name"
-            className="input"
-            autoFocus
-            value={renameName}
-            disabled={renaming}
-            onChange={(e) => setRenameName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                onRename();
-              }
-            }}
-            placeholder={t("projects.name-placeholder")}
-          />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {tf("projects.rename-hint", { id: renameTarget?.id ?? "" })}
-          </p>
-        </div>
-      </Modal>
+      {/* Đổi tên project - chỉ đổi tên hiển thị, id giữ nguyên */}
+      <RenameProjectModal
+        target={renameTarget}
+        rename={renameProject}
+        onClose={() => setRenameTarget(null)}
+        onRenamed={load}
+      />
 
       {/* Modal xác nhận xóa nhiều project - bắt gõ DELETE */}
       <ConfirmDeleteModal

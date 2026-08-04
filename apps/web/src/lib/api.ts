@@ -1562,6 +1562,20 @@ export const updateImageProject = (
 ) =>
   jsonBody<ImageProject>(`/api/images/${encodeURIComponent(id)}`, "PUT", patch);
 
+/**
+ * Đổi TÊN project ảnh, KHÔNG đụng id (id là tên thư mục, bị tham chiếu trong
+ * đường dẫn ảnh và projectId của job) - đúng nguyên tắc của renameProject.
+ */
+export const renameImageProject = (id: string, name: string) =>
+  updateImageProject(id, { name });
+
+/** Nhân bản project ảnh - giữ nền và mọi cài đặt, bỏ ảnh hoàn thiện. */
+export const cloneImageProject = (id: string, name?: string) =>
+  post<ImageProject>(
+    `/api/images/${encodeURIComponent(id)}/clone`,
+    name && name.trim() ? { name: name.trim() } : {}
+  );
+
 export const deleteImageProject = (id: string) =>
   request<void>(`/api/images/${encodeURIComponent(id)}`, { method: "DELETE" });
 
