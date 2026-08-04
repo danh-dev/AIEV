@@ -1005,6 +1005,18 @@ export const updateProjectTags = (id: string, tags: string[]) =>
     { tags }
   );
 
+/**
+ * PUT đổi TÊN HIỂN THỊ của project (meta.name). `id` là tên thư mục nên KHÔNG
+ * đổi theo - đường dẫn video-projects/<id> giữ nguyên.
+ * 400 INVALID_NAME khi tên rỗng sau khi trim hoặc dài quá 120 ký tự.
+ */
+export const renameProject = (id: string, name: string) =>
+  jsonBody<ProjectSummary>(
+    `/api/projects/${encodeURIComponent(id)}/name`,
+    "PUT",
+    { name }
+  );
+
 /** PUT mô tả một asset của project. */
 export const updateAssetDescription = (
   projectId: string,

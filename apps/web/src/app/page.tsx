@@ -571,7 +571,12 @@ export default function DashboardPage() {
                         }
                         className="truncate font-medium hover:text-[var(--primary)]"
                       >
-                        {job.projectId}
+                        {/* Hiện TÊN project chứ không phải id: id là tên thư mục,
+                            đổi tên project xong mà đây vẫn hiện "demo111" thì đổi
+                            tên chẳng giải quyết được gì. Job của auto-cut và
+                            text-to-video mang id PHIÊN nên không có trong danh
+                            sách project - khi đó lùi về hiện id như cũ. */}
+                        {projects?.find((p) => p.id === job.projectId)?.name ?? job.projectId}
                       </Link>
                       <span className="shrink-0 text-xs text-[var(--text-muted)]">
                         {t(JOB_TYPE_LABEL[job.type])}

@@ -17,6 +17,7 @@ import {
   MonitorPlay,
   MoreHorizontal,
   Music,
+  Pencil,
   Play,
   Plus,
   Sparkles,
@@ -41,6 +42,7 @@ import {
   getProject,
   getProjectJunk,
   mediaUrl,
+  renameProject,
   startProjectEdit,
   updateBrief,
   updateProjectTags,
@@ -531,6 +533,12 @@ export default function ProjectDetailPage() {
   const [tagInput, setTagInput] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
 
+  // Đổi TÊN HIỂN THỊ ngay trên tiêu đề - null = không sửa, chuỗi = đang gõ.
+  // ID (tên thư mục video-projects/<id>) không đổi theo.
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+
   // Modal "Nhân bản project"
   const [cloneOpen, setCloneOpen] = useState(false);
 
@@ -754,6 +762,43 @@ export default function ProjectDetailPage() {
     }
   }
 
+  /** Mở ô sửa tên trên tiêu đề, seed bằng tên đang hiển thị. */
+  function startRename() {
+    setRenameError(null);
+    setNameDraft(project?.name ?? projectId);
+  }
+
+  function cancelRename() {
+    setRenameError(null);
+    setNameDraft(null);
+  }
+
+  /** Lưu tên mới - server là nguồn sự thật, lấy tên nó trả về. */
+  async function saveName() {
+    if (nameDraft === null || renaming) return;
+    const next = nameDraft.trim();
+    // Xóa trắng tên rồi lưu: báo lỗi rõ ràng thay vì lặng lẽ giữ tên cũ
+    if (!next) {
+      setRenameError(t("project.name-required"));
+      return;
+    }
+    if (next === project?.name) {
+      cancelRename();
+      return;
+    }
+    setRenaming(true);
+    setRenameError(null);
+    try {
+      const saved = await renameProject(projectId, next);
+      setProject((p) => (p ? { ...p, name: saved.name } : p));
+      setNameDraft(null);
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRenaming(false);
+    }
+  }
+
   function addTag() {
     const tag = tagInput.trim();
     setTagInput("");
@@ -851,7 +896,67 @@ export default function ProjectDetailPage() {
       {/* Header chừa chỗ panel AI ghim phải như vùng nội dung - không thì timeline chui xuống dưới panel */}
       <div className="xl:pr-[452px]">
       <PageHeader
-        title={project?.name ?? projectId}
+        title={
+          nameDraft !== null ? (
+            /* Đang sửa tên: Enter/nút check lưu, Escape/nút X bỏ - id không đổi */
+            <span className="inline-flex max-w-full items-center gap-1.5">
+              <input
+                className="input w-72 max-w-full"
+                autoFocus
+                value={nameDraft}
+                disabled={renaming}
+                aria-label={t("project.rename")}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    saveName();
+                  } else if (e.key === "Escape") {
+                    cancelRename();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                title={t("common.save")}
+                aria-label={t("common.save")}
+                disabled={renaming}
+                onClick={saveName}
+                className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {renaming ? (
+                  <Loader2 size={15} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Check size={15} strokeWidth={2} />
+                )}
+              </button>
+              <button
+                type="button"
+                title={t("common.cancel")}
+                aria-label={t("common.cancel")}
+                disabled={renaming}
+                onClick={cancelRename}
+                className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X size={15} strokeWidth={2} />
+              </button>
+            </span>
+          ) : (
+            <span className="inline-flex max-w-full items-center gap-1.5">
+              {project?.name ?? projectId}
+              <button
+                type="button"
+                title={t("project.rename")}
+                aria-label={t("project.rename")}
+                disabled={!project}
+                onClick={startRename}
+                className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Pencil size={15} strokeWidth={2} />
+              </button>
+            </span>
+          )
+        }
         subtitle={
           project
             ? `${project.width}×${project.height} · ${project.fps}fps · ${tf("project.updated", { time: formatRelative(project.updatedAt) })}`
@@ -987,6 +1092,10 @@ export default function ProjectDetailPage() {
             </span>
           )}
         </div>
+      )}
+
+      {renameError && (
+        <ErrorBanner message={t("project.rename-error")} detail={renameError} />
       )}
 
       {error && (

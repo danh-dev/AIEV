@@ -98,6 +98,12 @@ POST   /api/projects/:id/clone  { name? } → ProjectSummary (201) — nhân b�
                                   copy compositions/assets/brief/tags/scenes (bỏ renders/cache),
                                   reset status draft + output null, id mới sinh từ name
 
+PUT    /api/projects/:id/name   { name } → ProjectSummary - đổi TÊN HIỂN THỊ (400 INVALID_NAME khi
+                                  rỗng hoặc quá 120 ký tự). CHỈ đổi `meta.name`, KHÔNG đổi `id`:
+                                  id là tên thư mục và bị tham chiếu ở đường dẫn asset, tên file
+                                  trong outputs/, thư mục staging Remotion, cột projectId của job và
+                                  phiên chat, project con của Auto cut - đổi id là một cuộc di trú
+                                  chứ không phải sửa một trường
 PUT    /api/projects/:id/tags   { tags: string[] } → 200 { tags } - thay toàn bộ tags của project
 
 GET    /api/projects/:id/junk        → { items: [{ relPath, size }], totalBytes } — file rác (file trung gian):

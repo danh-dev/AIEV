@@ -290,6 +290,30 @@ router.put("/:id/tags", (req, res) => {
   res.json({ tags: meta.tags });
 });
 
+/**
+ * PUT /api/projects/:id/name - đổi TÊN HIỂN THỊ của project.
+ *
+ * CHỈ đổi `meta.name`, KHÔNG đụng tới `id`. Id là tên thư mục và bị tham chiếu
+ * khắp nơi (đường dẫn asset, tên file trong outputs/, thư mục staging của
+ * Remotion, cột projectId của job và phiên chat, project con của Auto cut) -
+ * đổi id là một cuộc di trú chứ không phải một phép sửa tên, nên để riêng.
+ */
+router.put("/:id/name", (req, res) => {
+  const id = req.params.id;
+  const meta = readMeta(id); // ném 404 nếu không có
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!name) {
+    throw new HttpError(400, "INVALID_NAME", "Tên project không được để trống");
+  }
+  if (name.length > 120) {
+    throw new HttpError(400, "INVALID_NAME", "Tên project tối đa 120 ký tự");
+  }
+  meta.name = name;
+  writeMeta(id, meta);
+  res.json(projectSummaryOf(id));
+});
+
 // PUT /api/projects/:id/brief - partial Brief, validate từng field, merge vào meta.json
 router.put("/:id/brief", (req, res) => {
   const id = req.params.id;

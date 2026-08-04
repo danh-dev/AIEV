@@ -5,6 +5,7 @@ import {
   Clapperboard,
   Copy,
   FileText,
+  Pencil,
   Play,
   Plus,
   Ruler,
@@ -22,6 +23,7 @@ import {
   deleteProject,
   getProjectJunk,
   getProjects,
+  renameProject,
   startProjectEdit,
   type ProjectSummary,
 } from "@/lib/api";
@@ -148,6 +150,13 @@ export default function ProjectsPage() {
     id: string;
     name: string;
   } | null>(null);
+
+  // Đổi tên project - project đang sửa (null = modal đóng) + tên đang gõ.
+  // Chỉ đổi TÊN HIỂN THỊ, id (tên thư mục) giữ nguyên.
+  const [renameTarget, setRenameTarget] = useState<ProjectSummary | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   // Modal tạo project
   const [open, setOpen] = useState(false);
@@ -432,6 +441,39 @@ export default function ProjectsPage() {
     await load();
   }
 
+  // ---- Đổi tên project ----
+
+  function openRename(p: ProjectSummary) {
+    setRenameError(null);
+    setRenameName(p.name);
+    setRenameTarget(p);
+  }
+
+  async function onRename() {
+    if (!renameTarget || renaming) return;
+    const next = renameName.trim();
+    // Xóa trắng tên rồi lưu: báo lỗi rõ ràng thay vì lặng lẽ giữ tên cũ
+    if (!next) {
+      setRenameError(t("projects.name-required"));
+      return;
+    }
+    if (next === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    setRenaming(true);
+    setRenameError(null);
+    try {
+      await renameProject(renameTarget.id, next);
+      setRenameTarget(null);
+      await load();
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRenaming(false);
+    }
+  }
+
   // ---- Tạo project ----
 
   function openCreate() {
@@ -667,8 +709,8 @@ export default function ProjectsPage() {
                 <th>{t("projects.col-tokens")}</th>
                 <th>{t("common.created")}</th>
                 <th>{t("common.updated")}</th>
-                <th className="w-10">
-                  <span className="sr-only">{t("clone.action")}</span>
+                <th className="w-20">
+                  <span className="sr-only">{t("project.actions-aria")}</span>
                 </th>
               </tr>
             </thead>
@@ -752,17 +794,28 @@ export default function ProjectsPage() {
                     {formatDateTime(p.updatedAt)}
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      title={t("clone.title")}
-                      aria-label={tf("projects.clone-aria", { name: p.name })}
-                      onClick={() =>
-                        setCloneSource({ id: p.id, name: p.name })
-                      }
-                      className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-                    >
-                      <Copy size={15} strokeWidth={2} />
-                    </button>
+                    <span className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        title={t("projects.rename")}
+                        aria-label={tf("projects.rename-aria", { name: p.name })}
+                        onClick={() => openRename(p)}
+                        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+                      >
+                        <Pencil size={15} strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        title={t("clone.title")}
+                        aria-label={tf("projects.clone-aria", { name: p.name })}
+                        onClick={() =>
+                          setCloneSource({ id: p.id, name: p.name })
+                        }
+                        className="rounded-[var(--radius)] p-1.5 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+                      >
+                        <Copy size={15} strokeWidth={2} />
+                      </button>
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -800,6 +853,54 @@ export default function ProjectsPage() {
           await load();
         }}
       />
+
+      {/* Modal đổi tên project - chỉ đổi tên hiển thị, id giữ nguyên */}
+      <Modal
+        title={t("projects.rename-title")}
+        open={renameTarget !== null}
+        onClose={() => {
+          if (!renaming) setRenameTarget(null);
+        }}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={renaming}
+              onClick={() => setRenameTarget(null)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button disabled={renaming} onClick={onRename}>
+              {renaming ? t("common.saving") : t("common.save")}
+            </Button>
+          </>
+        }
+      >
+        {renameError && <ErrorBanner message={renameError} />}
+        <div>
+          <label className="label" htmlFor="rename-project-name">
+            {t("common.name")}
+          </label>
+          <input
+            id="rename-project-name"
+            className="input"
+            autoFocus
+            value={renameName}
+            disabled={renaming}
+            onChange={(e) => setRenameName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onRename();
+              }
+            }}
+            placeholder={t("projects.name-placeholder")}
+          />
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            {tf("projects.rename-hint", { id: renameTarget?.id ?? "" })}
+          </p>
+        </div>
+      </Modal>
 
       {/* Modal xác nhận xóa nhiều project - bắt gõ DELETE */}
       <ConfirmDeleteModal
