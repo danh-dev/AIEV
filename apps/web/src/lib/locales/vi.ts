@@ -2258,6 +2258,12 @@ export const vi: Record<string, string> = {
   "tv.translating-hint": "AI đang dịch từng câu, giữ nguyên mốc thời gian…",
   "tv.no-translation": "chưa dịch",
   "tv.cue-aria": "Lời dịch câu {n}",
+  "tv.cue-subtitle-of": "Chữ trên hình ({lang})",
+  "tv.cue-dub-of": "Đọc lên ({lang})",
+  "tv.cue-dub-missing": "Chưa có - bấm Dịch lại",
+  "tv.cue-dub-aria": "Câu đọc lên số {n}",
+  "tv.dub-needs-retranslate":
+    "Đã chọn lồng tiếng bằng {lang} nhưng chưa có bản dịch để đọc. Bấm Dịch lại - nếu không, bước dựng sẽ bị chặn.",
   "tv.cue-hint": "Sửa tay câu nào cũng được, thay đổi tự lưu.",
 
   "tv.model": "Model dịch",

@@ -3163,7 +3163,13 @@ export interface TranslatedCue {
   start: number;
   /** giây */
   end: number;
+  /** Bản dịch sang `targetLang` - chữ HIỆN LÊN MÀN HÌNH. */
   text: string;
+  /**
+   * Bản dịch sang `dubLang` - chữ ĐỌC THÀNH TIẾNG, chỉ có khi ngôn ngữ lồng
+   * tiếng khác ngôn ngữ phụ đề. Thiếu thì bước đọc dùng `text`.
+   */
+  dubText?: string;
   /** Lời gốc trước khi dịch - để đối chiếu lúc sửa tay. */
   original?: string;
   speaker?: string;

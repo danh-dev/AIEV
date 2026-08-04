@@ -1245,6 +1245,17 @@ export default function TranslateVideoDetailPage() {
     queue({ cues: next });
   }
 
+  /**
+   * Sửa câu ĐỌC LÊN (bản dịch sang ngôn ngữ lồng tiếng) - chỉ có nghĩa khi hai
+   * bên khác ngôn ngữ. Tách riêng khỏi `patchCueText` vì đây là hai bản dịch
+   * khác nhau của cùng một câu, sửa cái này không được đụng cái kia.
+   */
+  function patchCueDubText(index: number, dubText: string) {
+    const next = cues.map((c, i) => (i === index ? { ...c, dubText } : c));
+    setCues(next);
+    queue({ cues: next });
+  }
+
   // ---- Chạy bước ----
 
   async function upload(files: FileList | null) {
@@ -1380,6 +1391,15 @@ export default function TranslateVideoDetailPage() {
   const isDub = wantsDubMode;
   /** Ngôn ngữ THỰC SỰ đọc lên - null nghĩa là giống phụ đề, không phải "chưa có" */
   const effectiveDubLang = dubLang ?? targetLang;
+  /** Chữ trên hình và tiếng đọc lên đang là HAI ngôn ngữ khác nhau */
+  const twoLangs = wantsDubMode && effectiveDubLang !== targetLang;
+  /**
+   * Đã chọn hai ngôn ngữ nhưng CHƯA dịch bản để đọc. Server chặn render trong
+   * trường hợp này (400 NO_DUB_TRANSLATION), nên UI phải nói trước - chứ không
+   * để người dùng bấm render rồi mới nhận lỗi.
+   */
+  const dubTranslationMissing =
+    twoLangs && cues.length > 0 && !cues.some((c) => c.dubText);
   const sttCap = (sttProviders ?? []).find((p) => p.id === sttProvider) ?? null;
 
   /**
@@ -1970,6 +1990,21 @@ export default function TranslateVideoDetailPage() {
                 <EmptyState icon={Languages} description={t("tv.no-transcript")} />
               ) : (
                 <>
+                  {/* Nói TRƯỚC khi bấm render: server sẽ chặn (400) chứ không
+                      đọc liều bản phụ đề bằng sai ngôn ngữ */}
+                  {dubTranslationMissing && (
+                    <p className="flex items-start gap-1.5 rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+                      <AlertTriangle
+                        size={13}
+                        strokeWidth={2}
+                        aria-hidden="true"
+                        className="mt-0.5 shrink-0"
+                      />
+                      {tf("tv.dub-needs-retranslate", {
+                        lang: langLabel(effectiveDubLang),
+                      })}
+                    </p>
+                  )}
                   <ul className="flex flex-col gap-1.5">
                     {cues.map((c, i) => (
                       <li
@@ -1987,6 +2022,15 @@ export default function TranslateVideoDetailPage() {
                             {c.original}
                           </p>
                         )}
+                        {/* Hai ngôn ngữ thì phải THẤY cả hai. Trước đây chỗ này
+                            chỉ hiện chữ phụ đề, nên chọn lồng tiếng bằng tiếng
+                            khác xong vẫn nhìn thấy toàn tiếng của phụ đề và
+                            tưởng bản đọc không đổi theo ngôn ngữ đã chọn. */}
+                        {twoLangs && (
+                          <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                            {tf("tv.cue-subtitle-of", { lang: langLabel(targetLang) })}
+                          </span>
+                        )}
                         <textarea
                           className="input text-[13px]"
                           rows={2}
@@ -1996,6 +2040,24 @@ export default function TranslateVideoDetailPage() {
                           onChange={(e) => patchCueText(i, e.target.value)}
                           onBlur={() => flush()}
                         />
+                        {twoLangs && (
+                          <>
+                            <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)]">
+                              <Mic size={11} strokeWidth={2} aria-hidden="true" />
+                              {tf("tv.cue-dub-of", { lang: langLabel(effectiveDubLang) })}
+                            </span>
+                            <textarea
+                              className="input text-[13px]"
+                              rows={2}
+                              value={c.dubText ?? ""}
+                              disabled={locked}
+                              placeholder={t("tv.cue-dub-missing")}
+                              aria-label={tf("tv.cue-dub-aria", { n: i + 1 })}
+                              onChange={(e) => patchCueDubText(i, e.target.value)}
+                              onBlur={() => flush()}
+                            />
+                          </>
+                        )}
                       </li>
                     ))}
                   </ul>

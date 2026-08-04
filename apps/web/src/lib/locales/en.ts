@@ -2263,6 +2263,12 @@ export const en: Record<string, string> = {
     "The AI is translating line by line, keeping the timecodes intact…",
   "tv.no-translation": "not translated",
   "tv.cue-aria": "Translation of line {n}",
+  "tv.cue-subtitle-of": "On screen ({lang})",
+  "tv.cue-dub-of": "Spoken ({lang})",
+  "tv.cue-dub-missing": "Not translated yet - hit Translate again",
+  "tv.cue-dub-aria": "Spoken line {n}",
+  "tv.dub-needs-retranslate":
+    "Dubbing is set to {lang} but there is no translation to speak yet. Hit Translate again, or the render will be blocked.",
   "tv.cue-hint": "Edit any line by hand - changes save themselves.",
 
   "tv.model": "Translation model",
