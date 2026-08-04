@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { Router } from "express";
 import { repoRoot } from "../config.js";
 import * as db from "../db.js";
+import { readRenderSettings, type UpdateChannel } from "../renderSettings.js";
 import { nowIso } from "../util.js";
 
 const execFileAsync = promisify(execFile);
@@ -15,20 +16,39 @@ export interface UpdateCommit {
   message: string;
 }
 
-/** Trạng thái cập nhật so với origin/main trên GitHub. */
+/**
+ * Trạng thái cập nhật.
+ *
+ * Mốc so sánh phụ thuộc KÊNH (settings.updateChannel):
+ * - "stable" (mặc định): so với tag release mới nhất (`v*`). Người dùng chỉ nhận
+ *   bản đã được chủ dự án đóng dấu là chạy được.
+ * - "latest": so với `origin/main` như hành vi cũ - mọi commit push lên đều hiện
+ *   thành "có bản mới", kể cả commit dở dang.
+ */
 export interface UpdateStatus {
   /** Short hash của HEAD hiện tại ("" nếu git lỗi). */
   current: string;
-  /** Số commit HEAD đang thua origin/main. */
+  /** Phiên bản đang chạy: tag `v*` gần nhất tính ngược từ HEAD (null nếu chưa có tag nào). */
+  currentVersion: string | null;
+  /**
+   * Phiên bản kênh hiện tại đang chào mời. Kênh "latest" trả null vì thứ chào
+   * mời là một commit chứ không phải một bản phát hành - UI sẽ hiện theo commit.
+   */
+  latestVersion: string | null;
+  /** Kênh đã dùng cho lần check này. */
+  channel: UpdateChannel;
+  /** Số commit HEAD đang thua mốc so sánh. */
   behind: number;
   upToDate: boolean;
-  /** Message commit mới nhất trên origin/main (null khi đã mới nhất). */
+  /** Message commit mới nhất ở mốc so sánh (null khi đã mới nhất). */
   latestMessage: string | null;
   /** Danh sách commit sắp về, mới nhất trước (tối đa 10) - rỗng khi đã mới nhất. */
   commits: UpdateCommit[];
   checkedAt: string;
   /** false khi `git fetch origin` thất bại (offline…) - behind tính theo refs cũ. */
   fetchOk: boolean;
+  /** true khi kênh "stable" nhưng repo CHƯA có tag nào -> đã lùi về so với main. */
+  fellBackToMain?: boolean;
   /** Lỗi ngắn khi check thất bại (offline, không có git…) - không bao giờ 500. */
   error?: string;
 }
@@ -51,15 +71,60 @@ function shortError(err: unknown): string {
   return raw.split("\n")[0].slice(0, 200);
 }
 
+/**
+ * Chỉ tag dạng `v*` mới được coi là bản phát hành. Repo có thể mang tag khác
+ * (mốc thử nghiệm, tag của thư viện nhúng…) - lấy bừa mọi tag là hiểu nhầm ngay.
+ */
+const RELEASE_TAG_GLOB = "v*";
+
+/** Tag release mới nhất đã biết sau khi fetch - null nếu repo chưa phát hành bản nào */
+async function latestReleaseTag(): Promise<string | null> {
+  // -v:refname sắp theo SỐ phiên bản, không phải theo chữ cái: thiếu nó thì
+  // v1.0.9 lại đứng trên v1.0.10.
+  const raw = await git(["tag", "-l", RELEASE_TAG_GLOB, "--sort=-v:refname"]);
+  return raw.split("\n")[0]?.trim() || null;
+}
+
+/** Phiên bản HEAD đang đứng: tag `v*` gần nhất đi ngược từ HEAD */
+async function currentReleaseTag(): Promise<string | null> {
+  try {
+    return (
+      (await git(["describe", "--tags", "--abbrev=0", "--match", RELEASE_TAG_GLOB])) || null
+    );
+  } catch {
+    // Chưa tag nào là tổ tiên của HEAD (clone giữa chừng, hoặc repo chưa release)
+    return null;
+  }
+}
+
+/**
+ * Mốc mà bản cài này sẽ đuổi theo. Dùng chung cho cả /check lẫn /apply để hai
+ * bên không bao giờ nói một đằng làm một nẻo.
+ */
+async function resolveTarget(channel: UpdateChannel): Promise<{
+  ref: string;
+  version: string | null;
+  fellBackToMain: boolean;
+}> {
+  if (channel !== "stable") return { ref: "origin/main", version: null, fellBackToMain: false };
+  const tag = await latestReleaseTag();
+  // Chưa có release nào mà chặn cập nhật thì người dùng kẹt vĩnh viễn - lùi về main
+  if (!tag) return { ref: "origin/main", version: null, fellBackToMain: true };
+  return { ref: tag, version: tag, fellBackToMain: false };
+}
+
 async function checkUpdate(): Promise<UpdateStatus> {
   const checkedAt = nowIso();
+  const channel = readRenderSettings().updateChannel;
 
-  // Fetch best-effort: offline thì vẫn so được với refs origin/main đã biết
-  // từ lần fetch trước - máy mất mạng vẫn báo đúng "có bản mới" nếu đã biết.
+  // Fetch best-effort: offline thì vẫn so được với refs đã biết từ lần fetch
+  // trước - máy mất mạng vẫn báo đúng "có bản mới" nếu đã biết.
+  // --tags BẮT BUỘC cho kênh stable: không kéo tag về thì máy không bao giờ
+  // thấy release mới. --force để tag bị dời ở remote cũng đồng bộ lại được.
   let fetchOk = true;
   let error: string | undefined;
   try {
-    await git(["fetch", "origin"]);
+    await git(["fetch", "origin", "--tags", "--force"]);
   } catch (err) {
     fetchOk = false;
     error = shortError(err);
@@ -74,20 +139,15 @@ async function checkUpdate(): Promise<UpdateStatus> {
   }
 
   try {
-    await git(["rev-parse", "--verify", "origin/main"]);
-    const behind =
-      Number(await git(["rev-list", "HEAD..origin/main", "--count"])) || 0;
-    const latestMessage =
-      behind > 0 ? await git(["log", "origin/main", "-1", "--format=%s"]) : null;
+    const { ref, version, fellBackToMain } = await resolveTarget(channel);
+    await git(["rev-parse", "--verify", ref]);
+    const currentVersion = await currentReleaseTag();
+    const behind = Number(await git(["rev-list", `HEAD..${ref}`, "--count"])) || 0;
+    const latestMessage = behind > 0 ? await git(["log", ref, "-1", "--format=%s"]) : null;
     // Danh sách commit sắp về để popup nói rõ "có gì mới" thay vì chỉ một con số
     let commits: UpdateCommit[] = [];
     if (behind > 0) {
-      const raw = await git([
-        "log",
-        "HEAD..origin/main",
-        "-10",
-        "--format=%h\x1f%s",
-      ]);
+      const raw = await git(["log", `HEAD..${ref}`, "-10", "--format=%h\x1f%s"]);
       commits = raw
         .split("\n")
         .map((l) => l.split("\x1f"))
@@ -96,18 +156,25 @@ async function checkUpdate(): Promise<UpdateStatus> {
     }
     return {
       current,
+      currentVersion,
+      latestVersion: version,
+      channel,
       behind,
       upToDate: behind === 0,
       latestMessage,
       commits,
       checkedAt,
       fetchOk,
+      ...(fellBackToMain ? { fellBackToMain: true } : {}),
       ...(error ? { error } : {}),
     };
   } catch (err) {
     // rev-parse/rev-list cũng fail (không có git, chưa từng fetch…) → báo lỗi thật
     return {
       current,
+      currentVersion: null,
+      latestVersion: null,
+      channel,
       behind: 0,
       upToDate: true,
       latestMessage: null,
@@ -120,19 +187,21 @@ async function checkUpdate(): Promise<UpdateStatus> {
 }
 
 const CACHE_MS = 3 * 60 * 1000;
-let cached: { at: number; status: UpdateStatus } | null = null;
+/** Cache kèm kênh: đổi kênh trong Cấu hình phải thấy kết quả mới ngay, không chờ hết 3 phút */
+let cached: { at: number; channel: UpdateChannel; status: UpdateStatus } | null = null;
 
 const router = Router();
 
 // GET /api/update/check - cache 3 phút, ?force=1 bỏ cache
 router.get("/check", async (req, res) => {
   const force = req.query.force === "1";
-  if (!force && cached && Date.now() - cached.at < CACHE_MS) {
+  const channel = readRenderSettings().updateChannel;
+  if (!force && cached && cached.channel === channel && Date.now() - cached.at < CACHE_MS) {
     res.json(cached.status);
     return;
   }
   const status = await checkUpdate();
-  cached = { at: Date.now(), status };
+  cached = { at: Date.now(), channel, status };
   res.json(status);
 });
 
@@ -189,7 +258,7 @@ router.get("/log", (req, res) => {
 
 // POST /api/update/apply - spawn script update DETACHED rồi trả 202 ngay.
 // Script sẽ kill server này, nên process con phải sống độc lập (detached + unref).
-router.post("/apply", (_req, res) => {
+router.post("/apply", async (_req, res) => {
   // Job queued cũng phải chặn - nó có thể bắt đầu chạy đúng lúc script update kill server
   if (db.getRunningJob() || db.countQueuedJobs() > 0) {
     res.status(409).json({
@@ -200,8 +269,25 @@ router.post("/apply", (_req, res) => {
     });
     return;
   }
+
+  // Nói cho script biết phải nhảy tới ĐÂU. Truyền qua file thay vì tham số dòng
+  // lệnh vì script chạy detached qua `cmd /c start` trên Windows - chuỗi tham số
+  // đi qua đó rất dễ bị nuốt. File cũng là đường lùi tự nhiên: bản cài cũ chưa
+  // có file này thì script mặc định origin/main y như trước.
+  let targetRef = "origin/main";
+  try {
+    targetRef = (await resolveTarget(readRenderSettings().updateChannel)).ref;
+  } catch {
+    // Git lỗi thì cứ để script tự xoay với origin/main, đừng chặn cập nhật
+  }
+  try {
+    fs.writeFileSync(path.join(repoRoot, "start", "update-target.txt"), `${targetRef}\n`, "utf8");
+  } catch {
+    // Không ghi được thì script dùng mặc định - chỉ mất tính năng chọn kênh
+  }
+
   // Script update tự ghi toàn bộ output vào start/update.log - soi khi lỗi.
-  res.status(202).json({ ok: true, logHint: "start/update.log" });
+  res.status(202).json({ ok: true, logHint: "start/update.log", target: targetRef });
   const child =
     process.platform === "win32"
       ? spawn(

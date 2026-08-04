@@ -19,11 +19,26 @@ echo "  ========================="
 # 1. Kéo bản mới TRƯỚC KHI dừng hệ thống - pull fail thì hệ thống cũ vẫn chạy
 echo "[STEP] pull"
 printf '  \033[36m-> Đang kéo bản mới nhất từ GitHub...\033[0m\n'
-if ! git fetch origin; then
+# --tags: kênh "Bản chính thức" nhảy theo tag release nên bắt buộc kéo cả tag về
+if ! git fetch origin --tags --force; then
   printf '  \033[31m[LOI] Không fetch được từ GitHub (mất mạng?). Hệ thống cũ vẫn chạy bình thường.\033[0m\n'
   exit 1
 fi
-if ! git pull --ff-only; then
+
+# Mốc cần nhảy tới do server ghi ra theo kênh cập nhật đã chọn trong Cấu hình
+# (tag release như "v1.0.1", hoặc "origin/main" cho kênh bản mới nhất).
+# Bản cài cũ chưa có file này -> giữ nguyên hành vi cũ là bám ngọn main.
+TARGET="origin/main"
+if [ -f "$ROOT/start/update-target.txt" ]; then
+  T="$(tr -d '\r\n' < "$ROOT/start/update-target.txt")"
+  [ -n "$T" ] && TARGET="$T"
+fi
+printf '  \033[90m-> Cập nhật tới: %s\033[0m\n' "$TARGET"
+
+# merge --ff-only chứ không checkout tag: checkout tag làm repo rơi vào detached
+# HEAD, lần cập nhật sau sẽ rối. Cách này giữ nhánh main và chỉ tua tới đúng
+# commit mà tag trỏ vào.
+if ! git merge --ff-only "$TARGET"; then
   # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) - stash rồi pull lại
   # Backup dữ liệu người dùng TRƯỚC khi stash - skill tự tạo là file untracked,
   # `git stash -u` sẽ gom mất; styles/library.json là file tracked bị server ghi đè.
@@ -34,7 +49,7 @@ if ! git pull --ff-only; then
   done
   printf '  \033[33m-> Pull thất bại - đã backup dữ liệu vào %s rồi stash thay đổi cục bộ...\033[0m\n' "$BK"
   git stash push -u -m "aiev-auto-stash" || true
-  if ! git pull --ff-only; then
+  if ! git merge --ff-only "$TARGET"; then
     printf '  \033[31m[LOI] Vẫn không pull được - xem chi tiết trong start/update.log. Hệ thống cũ vẫn chạy bình thường.\033[0m\n'
     printf '  \033[33m       Chạy "git status" xem file nào đổi, "git stash list" xem bản stash.\033[0m\n'
     exit 1

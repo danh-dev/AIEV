@@ -36,3 +36,5 @@ apps/server/data/
 
 start/bin/
 start/backup-*/
+# Server ghi mốc cập nhật (tag release hoặc origin/main) cho script update đọc
+start/update-target.txt

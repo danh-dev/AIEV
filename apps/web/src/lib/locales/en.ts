@@ -152,6 +152,15 @@ export const en: Record<string, string> = {
     "The old system is still running normally - the script pulls the code before stopping anything, so a failure at this step does not break the version you are using.",
   "update.log-hint": "The full log is in start/update.log.",
   "update.badge-open": "Click to see the update details",
+  "update.updated-to": "Now on version {version}",
+
+  // ===== Update channel (used in both the popup and the Config page) =====
+  "update.channel-stable": "Stable (release)",
+  "update.channel-latest": "Latest (main)",
+  "update.no-releases-note":
+    "This repo has no published release yet, so the system is comparing against the latest code on main.",
+  "update.channel-latest-note":
+    "You are on the Latest (main) channel - every commit just pushed, fixes arrive sooner but it can be unstable.",
 
   // ===== Model picker =====
   "model.performer": "AI engine",
@@ -962,6 +971,9 @@ export const en: Record<string, string> = {
   "config.queue-aria": "Number of concurrent render jobs",
   "config.draft-fps-hint": "15fps drafts are nearly twice as fast, just for pacing review; finals always use the project fps",
   "config.draft-fps-aria": "Draft FPS",
+  "config.update-channel": "Update channel",
+  "config.update-channel-hint": "Stable only offers published releases - recommended. Latest takes every commit pushed to main, so fixes land sooner but it can be unstable.",
+  "config.update-channel-aria": "System update channel",
 
   // ===== Connections =====
   "conn.subtitle": "Manage AI providers and API keys",

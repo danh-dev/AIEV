@@ -481,6 +481,8 @@ export interface RenderSettings {
   queueConcurrency: number;
   /** FPS cho bản draft - null = giữ nguyên fps project; 15 = draft nhanh. */
   draftFps: number | null;
+  /** Kênh cập nhật hệ thống (mặc định "stable" - chỉ nhận bản đã phát hành). */
+  updateChannel: UpdateChannel;
 }
 
 /** Phần cứng máy backend phát hiện được - GET /api/render-settings. */
@@ -869,10 +871,23 @@ export interface UpdateCommit {
   message: string;
 }
 
+/**
+ * Kênh cập nhật:
+ * - "stable" = chỉ nhận bản đã phát hành (release tag), khuyên dùng.
+ * - "latest" = mọi commit đẩy lên main, có fix sớm nhưng có thể chưa ổn định.
+ */
+export type UpdateChannel = "stable" | "latest";
+
 export interface UpdateStatus {
   /** Short hash HEAD hiện tại ("" nếu server check lỗi). */
   current: string;
-  /** Số commit đang thua origin/main. */
+  /** Tag release gần nhất tính từ HEAD, vd "v1.0.0" - null khi chưa có tag nào. */
+  currentVersion: string | null;
+  /** Tag release mới nhất trên remote - null khi kho chưa phát hành bản nào. */
+  latestVersion: string | null;
+  /** Kênh mà lần check này đã dùng. */
+  channel: UpdateChannel;
+  /** Số commit đang thua bản đích (release mới nhất hoặc origin/main). */
   behind: number;
   upToDate: boolean;
   latestMessage: string | null;
@@ -881,6 +896,8 @@ export interface UpdateStatus {
   checkedAt: string;
   /** false khi `git fetch origin` thất bại - behind tính theo refs cũ. */
   fetchOk?: boolean;
+  /** true khi kênh là "stable" nhưng kho chưa có tag nào nên phải so với main. */
+  fellBackToMain?: boolean;
   /** Lỗi ngắn khi check thất bại (offline…) - server không bao giờ 500. */
   error?: string;
 }

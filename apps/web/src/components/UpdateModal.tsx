@@ -129,6 +129,8 @@ export function UpdateModal({
   const [elapsed, setElapsed] = useState(0);
   const [failReason, setFailReason] = useState<FailReason>("timeout");
   const [newHash, setNewHash] = useState<string | null>(null);
+  /** Phiên bản (tag release) sau khi cập nhật - null khi kho chưa có tag. */
+  const [newVersion, setNewVersion] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
 
   const baselineRef = useRef<string[] | null>(null);
@@ -183,9 +185,12 @@ export function UpdateModal({
     setPhase("done");
     try {
       const s = await checkUpdate();
-      if (mountedRef.current) setNewHash(s.current || null);
+      if (mountedRef.current) {
+        setNewHash(s.current || null);
+        setNewVersion(s.currentVersion);
+      }
     } catch {
-      // Không lấy được hash mới - không ảnh hưởng kết quả
+      // Không lấy được hash/phiên bản mới - không ảnh hưởng kết quả
     }
   }, []);
 
@@ -310,6 +315,7 @@ export function UpdateModal({
     setServerDown(false);
     setElapsed(0);
     setNewHash(null);
+    setNewVersion(null);
     setPhase("running");
   }
 
@@ -427,10 +433,39 @@ export function UpdateModal({
     );
   }
 
+  /**
+   * Ghi chú về kênh cập nhật - chỉ hiện khi có chuyện cần nói:
+   * kênh "latest" (bản chưa ổn định) hoặc kênh "stable" mà kho chưa có release
+   * nào nên đành so với main. Kênh "stable" bình thường thì không nói gì.
+   */
+  function renderChannelNote() {
+    const note =
+      status?.channel === "latest"
+        ? t("update.channel-latest-note")
+        : status?.fellBackToMain
+          ? t("update.no-releases-note")
+          : null;
+    if (!note) return null;
+    return (
+      <p className="rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
+        {note}
+      </p>
+    );
+  }
+
   function renderConfirm() {
     const commits = status?.commits ?? [];
     const latestHash = commits[0]?.hash ?? null;
     const rest = status ? Math.max(0, status.behind - commits.length) : 0;
+    /**
+     * Nói bằng PHIÊN BẢN khi có tag release; cài từ bản clone chưa có tag nào
+     * thì rơi về short hash - tuyệt đối không để lọt chữ "null" ra giao diện.
+     */
+    const fromLabel = status?.currentVersion ?? status?.current ?? "";
+    const toLabel =
+      status?.latestVersion ??
+      latestHash ??
+      tf("update.behind", { n: status?.behind ?? 0 });
 
     // Không có bản mới (hoặc check hỏng): chỉ báo trạng thái, không có gì để chạy
     if (!status || status.upToDate) {
@@ -440,7 +475,7 @@ export function UpdateModal({
             <span className="text-[var(--text-muted)]">
               {t("update.current-label")}
             </span>
-            <span className="font-mono">{status?.current || "?"}</span>
+            <span className="font-mono">{fromLabel || "?"}</span>
             {status && !status.error && (
               <span className="inline-flex items-center gap-1 text-[var(--success)]">
                 <Check size={14} strokeWidth={3} />
@@ -448,6 +483,7 @@ export function UpdateModal({
               </span>
             )}
           </div>
+          {renderChannelNote()}
           {status?.error && (
             <ErrorBanner
               message={t("update.check-failed")}
@@ -460,12 +496,12 @@ export function UpdateModal({
 
     return (
       <>
-        {/* Hàng phiên bản: hash hiện tại -> hash mới nhất */}
+        {/* Hàng phiên bản: bản đang chạy -> bản sắp lên (v1.0.0 → v1.0.1) */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius)] bg-[var(--bg-subtle)] px-3 py-2 text-xs">
           <span className="text-[var(--text-muted)]">
             {t("update.current-label")}
           </span>
-          <span className="font-mono">{status?.current || "?"}</span>
+          <span className="font-mono">{fromLabel || "?"}</span>
           <ArrowRight
             size={14}
             strokeWidth={2}
@@ -475,14 +511,16 @@ export function UpdateModal({
             {t("update.latest-label")}
           </span>
           <span className="font-mono font-semibold text-[var(--primary)]">
-            {latestHash ?? tf("update.behind", { n: status?.behind ?? 0 })}
+            {toLabel}
           </span>
-          {latestHash && (
+          {(status?.latestVersion || latestHash) && (
             <span className="text-[var(--text-muted)]">
               ({tf("update.behind", { n: status?.behind ?? 0 })})
             </span>
           )}
         </div>
+
+        {renderChannelNote()}
 
         {/* Có gì mới */}
         <div>
@@ -568,9 +606,12 @@ export function UpdateModal({
           <div className="min-w-0">
             <p className="text-sm font-semibold">{t("update.success-title")}</p>
             <p className="text-xs text-[var(--text-muted)]">
-              {newHash
-                ? `${tf("update.new-version", { hash: newHash })} · ${t("update.reloading")}`
-                : t("update.reloading")}
+              {/* Có tag release thì khoe phiên bản, không thì đành nói hash */}
+              {newVersion
+                ? `${tf("update.updated-to", { version: newVersion })} · ${t("update.reloading")}`
+                : newHash
+                  ? `${tf("update.new-version", { hash: newHash })} · ${t("update.reloading")}`
+                  : t("update.reloading")}
             </p>
           </div>
         </div>

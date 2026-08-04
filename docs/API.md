@@ -824,15 +824,28 @@ GET /api/usage/timeline?days=30&scope=all|video|image
 
 ```
 GET  /api/update/check[?force=1]
-→ { current: "<short-hash>", behind, upToDate, latestMessage, checkedAt, error? }
-POST /api/update/apply  → 202 { ok: true } | 409 JOB_RUNNING (đang có job render)
+→ { current: "<short-hash>", currentVersion: "v1.0.0"|null, latestVersion: "v1.0.1"|null,
+    channel: "stable"|"latest", behind, upToDate, latestMessage,
+    commits: [{hash, message}], checkedAt, fetchOk, fellBackToMain?, error? }
+POST /api/update/apply  → 202 { ok: true, logHint, target } | 409 JOB_RUNNING (đang có job render)
 ```
 
-- Check `git fetch origin` + so HEAD vs origin/main, cache 10 phút (`force=1` bỏ cache);
+- **Kênh cập nhật** = `settings.updateChannel` (mặc định `"stable"`):
+  - `"stable"`: mốc so sánh là **tag release mới nhất** khớp `v*` (sắp bằng `--sort=-v:refname`
+    nên `v1.0.10` đứng trên `v1.0.9`). Người dùng chỉ nhận bản đã được publish thành Release.
+  - `"latest"`: mốc là `origin/main` như hành vi cũ — mọi commit push lên đều thành "có bản mới".
+    Kênh này trả `latestVersion: null` vì thứ chào mời là commit chứ không phải bản phát hành.
+- `currentVersion` = tag `v*` gần nhất tính ngược từ HEAD (`git describe --abbrev=0`), `null` khi
+  chưa tag nào là tổ tiên của HEAD. `fellBackToMain: true` khi kênh `stable` mà repo **chưa có tag
+  nào** — khi đó tự lùi về so với main để người dùng không kẹt vĩnh viễn.
+- Check chạy `git fetch origin --tags --force` (thiếu `--tags` thì máy không bao giờ thấy release
+  mới), cache 3 phút **theo kênh** (đổi kênh là thấy kết quả mới ngay, `force=1` bỏ cache);
   lỗi (offline, không có git) trả `upToDate: true` + `error` ngắn — không bao giờ 500.
-- Apply spawn script `update/update.bat` (win32) / `update/update.sh` detached — script
-  dừng server, `git pull --ff-only`, `npm install` rồi khởi động lại; UI poll `/api/health`
-  chờ server chết → sống lại rồi tự reload.
+- Apply ghi mốc đích ra `start/update-target.txt` rồi spawn `update/update.bat` (win32) /
+  `update/update.sh` detached. Script đọc file đó và `git merge --ff-only <target>` (KHÔNG
+  `checkout` tag — checkout làm repo rơi vào detached HEAD, lần cập nhật sau sẽ rối), rồi
+  `npm install` và khởi động lại; UI poll `/api/health` chờ server chết → sống lại rồi tự reload.
+  Bản cài cũ chưa có file target thì script mặc định `origin/main`, giữ nguyên hành vi cũ.
 
 ## Ghi chú cho render Remotion
 

@@ -16,6 +16,7 @@ import {
   type RenderRecommended,
   type RenderSettings,
   type RenderSettingsResponse,
+  type UpdateChannel,
 } from "@/lib/api";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -31,11 +32,14 @@ const PLATFORM_LABELS: Record<string, string> = {
   linux: "Linux",
 };
 
-/** value dùng chung cho các nhóm nút: number hoặc null (draft fps "Giữ nguyên"). */
-type SegValue = number | null;
+/**
+ * value dùng chung cho các nhóm nút: number hoặc null (draft fps "Giữ nguyên"),
+ * hoặc chuỗi cho các lựa chọn dạng enum (kênh cập nhật).
+ */
+type SegValue = number | string | null;
 
-interface SegOption {
-  value: SegValue;
+interface SegOption<V extends SegValue = number | null> {
+  value: V;
   label: string;
   /** Mốc khuyên dùng theo máy thật - hiển thị suffix ★. */
   recommended?: boolean;
@@ -82,16 +86,22 @@ const DRAFT_FPS_OPTIONS: SegOption[] = [
   { value: 24, label: "24 fps" },
 ];
 
+/** Kênh cập nhật - "stable" là mặc định nên gắn luôn dấu ★ khuyên dùng. */
+const UPDATE_CHANNEL_OPTIONS: SegOption<UpdateChannel>[] = [
+  { value: "stable", label: "update.channel-stable", recommended: true },
+  { value: "latest", label: "update.channel-latest" },
+];
+
 /** Nhóm nút chọn một giá trị - style giống bộ chọn tỉ lệ của Tạo ảnh. */
-function SegGroup({
+function SegGroup<V extends SegValue>({
   options,
   value,
   onSelect,
   ariaLabel,
 }: {
-  options: SegOption[];
-  value: SegValue;
-  onSelect: (v: SegValue) => void;
+  options: SegOption<V>[];
+  value: V;
+  onSelect: (v: V) => void;
   ariaLabel: string;
 }) {
   const { t } = useT();
@@ -548,6 +558,20 @@ export default function ConfigPage() {
                 checked={settings.qcGate !== false}
                 onChange={(v) => apply({ qcGate: v })}
               />
+
+              {/* Kênh cập nhật - server mặc định "stable"; server cũ chưa trả
+                  field này thì vẫn hiện "stable" cho khớp hành vi thật */}
+              <FieldRow
+                label={t("config.update-channel")}
+                hint={t("config.update-channel-hint")}
+              >
+                <SegGroup
+                  ariaLabel={t("config.update-channel-aria")}
+                  options={UPDATE_CHANNEL_OPTIONS}
+                  value={settings.updateChannel ?? "stable"}
+                  onSelect={(v) => apply({ updateChannel: v })}
+                />
+              </FieldRow>
             </div>
           </div>
         </Card>

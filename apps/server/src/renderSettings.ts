@@ -37,7 +37,19 @@ export interface RenderSettings {
    * phí nhất. Tắt được cho trường hợp cố ý bỏ qua (xem routes/jobs.ts).
    */
   qcGate: boolean;
+  /**
+   * Kênh cập nhật của hệ thống:
+   * - "stable": chỉ nhận bản đã được publish thành Release (tag `v*`) - mặc định.
+   * - "latest": bám commit mới nhất trên main, nhận sửa lỗi sớm nhưng có thể dính
+   *   commit dở dang vì mọi push đều hiện ra thành "có bản mới".
+   */
+  updateChannel: UpdateChannel;
 }
+
+/** Kênh cập nhật - xem RenderSettings.updateChannel */
+export type UpdateChannel = "stable" | "latest";
+
+export const UPDATE_CHANNELS: UpdateChannel[] = ["stable", "latest"];
 
 /** Số luồng CPU thật của máy - nguồn cho default + trần của workers/concurrency */
 const cpuThreads = os.cpus().length;
@@ -56,6 +68,7 @@ export const DEFAULT_RENDER_SETTINGS: RenderSettings = {
   queueConcurrency: 2,
   draftFps: null,
   qcGate: true,
+  updateChannel: "stable",
 };
 
 const settingsFile = path.join(paths.dataDir, "render-settings.json");
@@ -71,6 +84,9 @@ function normalizeSettings(raw: Record<string, unknown>): RenderSettings {
   if (typeof raw.gpuEncodeFinal === "boolean") base.gpuEncodeFinal = raw.gpuEncodeFinal;
   if (typeof raw.fastCapture === "boolean") base.fastCapture = raw.fastCapture;
   if (typeof raw.qcGate === "boolean") base.qcGate = raw.qcGate;
+  if (UPDATE_CHANNELS.includes(raw.updateChannel as UpdateChannel)) {
+    base.updateChannel = raw.updateChannel as UpdateChannel;
+  }
   if (typeof raw.remotionConcurrency === "number") {
     base.remotionConcurrency = clamp(Math.round(raw.remotionConcurrency), 0, maxWorkers);
   }

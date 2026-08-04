@@ -61,6 +61,15 @@ export function UpdateBadge() {
   const checkFailed = Boolean(status.error) || status.fetchOk === false;
   // Ưu tiên báo có bản mới: dù fetch lỗi, refs cũ vẫn có thể biết behind > 0
   const hasUpdate = !status.upToDate;
+  /**
+   * Phần bên phải badge nói "cái gì đang được mời cập nhật".
+   * Ưu tiên PHIÊN BẢN vì người dùng nhớ được "v1.0.1", không nhớ được hash.
+   * Kho chưa phát hành bản nào (không có tag) thì giữ nguyên cách nói theo
+   * commit như cũ để không mất thông tin.
+   */
+  const versionText = hasUpdate
+    ? (status.latestVersion ?? tf("update.behind", { n: status.behind }))
+    : (status.currentVersion ?? status.current);
 
   return (
     <>
@@ -113,9 +122,7 @@ export function UpdateBadge() {
                 : t("update.up-to-date")}
           </span>
           <span className="shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
-            {hasUpdate
-              ? tf("update.behind", { n: status.behind })
-              : status.current}
+            {versionText}
           </span>
         </span>
       </button>

@@ -152,6 +152,15 @@ export const vi: Record<string, string> = {
     "Hệ thống cũ vẫn chạy bình thường - script kéo code trước rồi mới tắt máy, nên lỗi ở bước này không làm hỏng bản đang dùng.",
   "update.log-hint": "Log đầy đủ nằm ở file start/update.log.",
   "update.badge-open": "Bấm để xem chi tiết bản cập nhật",
+  "update.updated-to": "Đã lên phiên bản {version}",
+
+  // ===== Kênh cập nhật (dùng cả ở popup lẫn trang Cấu hình) =====
+  "update.channel-stable": "Bản chính thức (release)",
+  "update.channel-latest": "Bản mới nhất (main)",
+  "update.no-releases-note":
+    "Kho code chưa có bản phát hành nào nên hệ thống đang so với code mới nhất trên nhánh main.",
+  "update.channel-latest-note":
+    "Bạn đang ở kênh Bản mới nhất (main) - nhận mọi commit vừa đẩy lên, có fix sớm nhưng có thể chưa ổn định.",
 
   // ===== Model picker =====
   "model.performer": "AI thực hiện",
@@ -962,6 +971,9 @@ export const vi: Record<string, string> = {
   "config.queue-aria": "Số job render đồng thời",
   "config.draft-fps-hint": "Draft 15fps nhanh gần gấp đôi, chỉ để duyệt nhịp; final luôn đúng fps project",
   "config.draft-fps-aria": "FPS bản draft",
+  "config.update-channel": "Kênh cập nhật",
+  "config.update-channel-hint": "Bản chính thức chỉ nhận bản đã phát hành - ổn định, khuyên dùng. Bản mới nhất nhận mọi commit đẩy lên main, có fix sớm hơn nhưng có thể chưa ổn định.",
+  "config.update-channel-aria": "Kênh cập nhật hệ thống",
 
   // ===== Kết nối =====
   "conn.subtitle": "Quản lý AI và API key",
