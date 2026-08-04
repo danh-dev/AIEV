@@ -130,17 +130,36 @@ function pythonScript(): string {
     `    sys.exit(${EXIT_NO_MODULE})`,
     "",
     "# GPU truoc (da kiem chung: nhanh gap doi va giai phong CPU cho render), loi thi CPU",
+    // ĐÃ GẶP THẬT: dựng WhisperModel(device="cuda") THÀNH CÔNG rồi mới chết ở
+    // lần encode đầu tiên với "Library cublas64_12.dll is not found" - vì
+    // ctranslate2 nạp cuBLAS/cuDNN lười, tới lúc chạy mới nạp. Đường lùi cũ chỉ
+    // bọc lúc DỰNG model nên không bao giờ chạy, và cả job chết hẳn.
+    // Vì vậy phải bọc CẢ lượt chạy đầu tiên: chỉ khi model đã đọc được thật thì
+    // mới coi là GPU dùng được.
+    "def build(dev):",
+    '    return WhisperModel("large-v3", device=dev, compute_type=("float16" if dev == "cuda" else "int8"))',
+    "",
+    "def run(dev):",
+    "    m = build(dev)",
+    "    segs, inf = m.transcribe(AUDIO, language=LANG, word_timestamps=True)",
+    "    first = next(iter(segs), None)   # ép chạy thật - lỗi CUDA lộ ra ở đây",
+    "    return m, segs, inf, first",
+    "",
     'device = "cuda"',
     "try:",
-    '    model = WhisperModel("large-v3", device="cuda", compute_type="float16")',
+    '    model, segments, info, _first = run("cuda")',
     "except Exception as err:",
-    '    log("[whisper] khong dung duoc CUDA (" + str(err)[:200] + ") - chuyen sang CPU")',
+    '    log("[whisper] khong dung duoc CUDA (" + str(err)[:300] + ") - chuyen sang CPU")',
     '    device = "cpu"',
-    '    model = WhisperModel("large-v3", device="cpu", compute_type="int8")',
+    '    model, segments, info, _first = run("cpu")',
     "",
     'log("[whisper] bat dau - device=" + device + " model=large-v3 lang=" + (LANG or "auto"))',
     "",
-    "segments, info = model.transcribe(AUDIO, language=LANG, word_timestamps=True)",
+    // `segments` là generator ĐÃ tiêu mất phần tử đầu ở bước dò trên - nối lại
+    // để không mất câu mở đầu của video.
+    "import itertools",
+    "if _first is not None:",
+    "    segments = itertools.chain([_first], segments)",
     "",
     "out_segments = []",
     "last_log = -99.0",
