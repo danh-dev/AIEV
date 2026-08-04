@@ -424,12 +424,10 @@ export const en: Record<string, string> = {
   "project.extra-notes": "Extra notes for this run",
   // ----- Three-column workspace on the project detail page -----
   "project.card-action": "Start & actions",
-  "project.card-pipeline": "Build progress",
   "project.session-count": "{n} AI sessions",
   "project.scene-count": "{n} scenes",
   "project.render-count": "{n} render files",
   "project.no-scenes-short": "No scenes yet",
-  "project.no-job": "No job has run yet.",
   "project.brief-autosave": "The edit brief saves itself once you stop typing.",
   "project.brief-save-error": "Could not save the edit brief.",
 
@@ -2079,8 +2077,6 @@ export const en: Record<string, string> = {
 
   "tv.mode.subtitle": "Subtitles",
   "tv.mode.dub": "Dubbing",
-  "tv.mode.soon": "Dubbing is still being built - subtitles only for now.",
-  "tv.mode.soon-short": "coming soon",
 
   "tv.lang.auto": "Auto-detect",
   "tv.lang.vi": "Vietnamese",
@@ -2138,6 +2134,19 @@ export const en: Record<string, string> = {
   "tv.job-no-log": "No log lines yet.",
   "tv.job-log-error": "Could not read the job log.",
 
+  "tv.stt-provider": "Speech-to-text AI",
+  "tv.stt.local": "On this machine - faster-whisper (free)",
+  "tv.stt.gemini": "Gemini (uses the key you already have)",
+  "tv.stt.soniox": "Soniox ($0.10/hour)",
+  "tv.stt.diarization": "labels speakers",
+  "tv.stt.unavailable": "not available",
+  "tv.stt.diarization-hint":
+    "This one labels who says each line, so dubbing can give every speaker their own voice.",
+  "tv.stt.no-diarization-hint":
+    "This one cannot tell speakers apart, so dubbing gets a single voice for the whole video.",
+  "tv.transcript-speakers": "{n} speakers",
+  "tv.transcript-no-speakers": "no speaker labels",
+
   "tv.card-translation": "Translation",
   "tv.card-translation-status": "Translation progress",
   "tv.translate": "AI translate",
@@ -2150,11 +2159,21 @@ export const en: Record<string, string> = {
   "tv.cue-aria": "Translation of line {n}",
   "tv.cue-hint": "Edit any line by hand - changes save themselves.",
 
+  "tv.model": "Translation model",
+  "tv.model.gemini-2.5-flash": "Flash (recommended, fast + cheap)",
+  "tv.model.gemini-2.5-pro": "Pro (hard lines, idioms)",
+  "tv.model.gemini-2.5-flash-lite": "Flash Lite (cheapest)",
+  "tv.model-current": "Translated by {provider}, model {model}.",
+
   "tv.card-subtitle": "Subtitles",
   "tv.preview": "Preview",
   "tv.preview-text": "This is a sample subtitle line",
   "tv.preview-hint":
-    "This box is a simulation - font size and bottom offset are scaled down from the real frame.",
+    "The backdrop is a real frame from the video you uploaded. This box is a simulation - font size, blur and bottom offset are scaled down from the real frame.",
+  "tv.preview-hint-no-source":
+    "No source video yet, so the backdrop is a stand-in pattern. Upload a video to preview on a real frame.",
+  "tv.subtitle-unused-in-dub":
+    "Dubbing is selected: the render burns no text onto the picture, so this subtitle style only applies if you switch back to Subtitles.",
   "tv.font": "Font",
   "tv.font.vietnamese": "Vietnamese-ready (recommended)",
   "tv.font.sans": "Sans serif",
@@ -2183,9 +2202,54 @@ export const en: Record<string, string> = {
   "tv.render-need-translation": "Not ready: translate the dialogue in step 3 first.",
   "tv.download": "Download video",
 
+  "tv.card-dub": "Dubbing",
+  "tv.dub-render": "Dub the video",
+  "tv.dub-re-render": "Dub again",
+  "tv.dub-rendering-hint":
+    "Reading each line, squeezing it to fit and placing it at its exact timecode…",
+  "tv.dub-render-hint":
+    "Press Dub the video: every translated line is read aloud, stretched a little to match its timecode, and replaces the original audio.",
+  "tv.dub.need-cues": "Nothing to dub yet - pull the dialogue and translate it first.",
+  "tv.dub.engine": "Speech engine",
+  "tv.dub.voices": "Voice per speaker",
+  "tv.dub.voices-error": "Could not load the voice list.",
+  "tv.dub.not-diarized":
+    "This dialogue has no speaker labels, so the whole video uses one voice. For a voice per person, pull the dialogue again with Gemini or Soniox.",
+  "tv.dub.all-speakers": "One voice for the whole video",
+  "tv.dub.speaker": "Speaker {name}",
+  "tv.dub.speaker-count": "{n} speakers",
+  "tv.dub.voice-aria": "Voice for speaker {name}",
+  "tv.dub.voice-auto": "Pick automatically from the original pitch",
+  "tv.dub.f0": "{f0} Hz",
+  "tv.dub.f0-title":
+    "Measured pitch of the original voice - the basis for matching a voice of the same gender",
+  "tv.dub.preview": "Preview",
+  "tv.dub.stop": "Stop",
+  "tv.dub.preview-failed": "Could not play the preview.",
+  "tv.dub.preview-hint":
+    "The preview reads ONE real line from that speaker and stretches it exactly like the real render does - if it already sounds rushed, the translation is too long, so fix the words before dubbing the whole video.",
+  "tv.dub.tempo": "x{tempo} faster",
+  "tv.dub.fit": "{final}s / {source}s of room",
+  "tv.dub.clipped": "hit the stretch limit",
+  "tv.dub.overflowed": "runs into the next line",
+  "tv.dub.keep-original": "Keep the original audio low underneath",
+  "tv.dub.keep-original-short": "original kept",
+  "tv.dub.original-volume": "Original audio level: {percent}%",
+  "tv.dub.original-volume-hint":
+    "The ceiling is deliberately low so the dubbed voice always stays clear and the two layers never clip when they add up.",
+  "tv.dub.report": "Last dubbing run",
+  "tv.dub.stretched": "{n} lines stretched",
+  "tv.dub.tempo-range": "tempo x{min}-x{max}",
+  "tv.dub.clipped-count": "{n} lines hit the limit",
+  "tv.dub.overflowed-count": "{n} lines overflowed",
+  "tv.dub.report-ok":
+    "No line runs into the next one - the dub sits on the original timing.",
+  "tv.dub.report-overflow":
+    "Some lines are longer than the room they have, even at full stretch. Shorten the wording on exactly those lines and dub again - stretching harder just makes the voice sound fast-forwarded.",
+
   "help.tv.title": "What is Translate video?",
   "help.tv.body":
-    "Drop a video in: the system pulls the dialogue with timecodes, the AI translates it into the language you pick, then the translated subtitles are burned onto that same video.\nEvery session goes through 5 steps: Source, Dialogue, Translation, Subtitles, Result. Each step can be edited and re-run.\nFor now the output is subtitles only; dubbing comes later.",
+    "Drop a video in: the system pulls the dialogue with timecodes, the AI translates it into the language you pick, then the translated subtitles are burned onto that same video - or the translation is read aloud and replaces the original audio.\nEvery session goes through 5 steps: Source, Dialogue, Translation, Subtitles, Result. Each step can be edited and re-run.\nPick the output (Subtitles or Dubbing) in the Translation card.",
   "help.tv-source.title": "What kind of source file works?",
   "help.tv-source.body":
     "Any video file the machine can read (MP4, MOV, MKV…). Once uploaded the system measures duration, resolution and fps itself.\nBig files go straight to the backend instead of through the proxy, so leave the page alone until the upload finishes.\nReplacing the video makes the old dialogue and translation useless - pull the dialogue again.",
@@ -2200,7 +2264,19 @@ export const en: Record<string, string> = {
     "Yes, and you should. Each line shows the original above and the translation below - editing a box saves it, no Save button.\nTimecodes stay exactly as the original, so editing the words never shifts the subtitles.\nTranslating again overwrites every hand edit - think before pressing it.",
   "help.tv-mode.title": "Subtitles or dubbing?",
   "help.tv-mode.body":
-    "Subtitles: the translation is written onto the picture as text, the original audio stays. This is what runs today.\nDubbing: the translation is read out as a voice replacing the original audio - still being built, not selectable yet.",
+    "Subtitles: the translation is written onto the picture as text and the original audio stays.\nDubbing: the translation is read out as a voice that replaces the original audio, with no text burned in. The translation itself is written differently too - the AI is told to pick SHORTER phrasings so each line fits the slot of the original line.\nSwitching mode means translating again: the two modes need two different kinds of sentence.",
+  "help.tv-stt.title": "Why choose a speech-to-text AI?",
+  "help.tv-stt.body":
+    "On this machine (faster-whisper): free, works offline, but it cannot tell speakers apart.\nGemini: uses the key you already have and labels speakers by inference, with no per-word timecodes.\nSoniox: the most reliable speaker labelling, billed by the hour.\nSpeaker labels are what lets dubbing give each person their own voice - this choice decides that.\nChanging it does NOT delete the dialogue you already have; press Pull again to get a version from the new AI.",
+  "help.tv-model.title": "Which translation model?",
+  "help.tv-model.body":
+    "Flash: fast and cheap, good enough for most dialogue - this is the default.\nPro: slower and pricier, worth it only when Flash breaks on idioms, wordplay or specialist terms.\nFlash Lite: the cheapest, fine for simple dialogue made of short lines.\nThis choice applies to the next Translate press only and is not stored on the session - reloading the page returns it to the default.",
+  "help.tv-dub.title": "How does dubbing work?",
+  "help.tv-dub.body":
+    "Every translated line is read as its own file and then placed at the EXACT timecode of the original line - never chained end to end, so timing errors cannot accumulate across the video.\nWhen a line is longer than the room it has, the system speeds the voice up a little (x1.25 at most - past that the ear hears fast-forwarding). If it still does not fit, the line is allowed to spill slightly instead of being cut off.\nHow many lines had to be stretched, and how many overflowed, is reported in the Output video card once dubbing finishes.\nThere is no lip-sync - matching mouths means regenerating the picture, which is a different system.",
+  "help.tv-dub-voices.title": "How are voices matched to speakers?",
+  "help.tv-dub-voices.body":
+    "Left on \"Pick automatically\": the system measures the real pitch of each person in the video, then picks a voice of the same gender with the closest pitch, and never gives two people the same voice.\nPick one by hand and your choice survives every re-run - only the remaining speakers get assigned automatically.\nThe preview reads a real line from that speaker with the exact same stretching as the real render, so it tells you the truth about what you are about to get.\nDialogue without speaker labels shows a single row: one voice for the whole video.",
   "help.tv-subtitle.title": "What can the subtitle style change?",
   "help.tv-subtitle.body":
     "Font, size, text colour, the backdrop behind the text and the distance from the bottom of the frame.\nThe preview box shows the result immediately, so you do not need a render to judge it - a render takes minutes.\nThe numbers are measured on the REAL frame, so a 4K video needs a bigger font size than a 1080p one.",
@@ -2215,6 +2291,9 @@ export const en: Record<string, string> = {
   "shell.nav-aria": "Main navigation",
   "shell.nav-collapse": "Collapse navigation",
   "shell.nav-expand": "Expand navigation",
+  // Label next to the icon inside the rail - the rail is only 220px wide
+  "shell.nav-collapse-short": "Collapse menu",
+  "shell.nav-expand-short": "Expand menu",
   "shell.panel-collapse": "Collapse AI panel",
   "shell.panel-expand": "Expand AI panel",
   "shell.panel-open": "AI panel",

@@ -3018,8 +3018,9 @@ export async function previewClonedVoice(input: {
 
 /**
  * Cách trả kết quả:
- * - "subtitle": đóng phụ đề đã dịch lên chính video gốc (đang chạy).
- * - "dub": lồng tiếng bằng giọng đọc - GIAI ĐOẠN 2, chưa dựng, UI khóa lại.
+ * - "subtitle": đóng phụ đề đã dịch lên chính video gốc.
+ * - "dub": lồng tiếng - đọc bản dịch bằng TTS rồi thay tiếng gốc (server:
+ *   dub.ts + jobs/translateVideo.ts, cùng một cửa POST /:id/render).
  */
 export type TranslateMode = "subtitle" | "dub";
 
@@ -3069,6 +3070,80 @@ export interface TranslatedCue {
   speaker?: string;
 }
 
+/**
+ * AI nào bóc lời thoại. Chỉ "gemini" và "soniox" gắn được nhãn người nói, mà
+ * không có nhãn người nói thì lồng tiếng chỉ đọc được bằng MỘT giọng cho cả
+ * video - nên lựa chọn này quyết định luôn phần gán giọng phía dưới.
+ */
+export type SttProvider = "local" | "gemini" | "soniox";
+
+/** GET /api/translate-video/stt-providers - provider nào chạy được TRÊN MÁY NÀY. */
+export interface SttCapability {
+  id: SttProvider;
+  /** Nhãn do server sinh (tiếng Việt) - chỉ dùng khi web chưa có bản dịch. */
+  label: string;
+  diarization: boolean;
+  available: boolean;
+  /** Lý do không dùng được (tiếng Việt, hiện thẳng lên UI); thiếu = dùng được. */
+  why?: string;
+}
+
+/**
+ * Kết quả bóc lời của LẦN CHẠY GẦN NHẤT - khác `sttProvider` (là lựa chọn cho
+ * lần chạy TIẾP THEO). null = chưa bóc lời lần nào.
+ */
+export interface TranscriptInfo {
+  provider: SttProvider;
+  language: string;
+  /** Có nhãn người nói không - quyết định lồng tiếng gán được mấy giọng. */
+  diarized: boolean;
+  speakers: string[];
+  wordTimestamps: boolean;
+}
+
+/** Một người nói -> một giọng đọc, cố định suốt cả video. */
+export interface DubVoiceAssignment {
+  /** Nhãn người nói; "" = mọi câu (transcript không phân vai). */
+  speaker: string;
+  voice: string;
+  engine: TtsEngine;
+}
+
+/** Cấu hình lồng tiếng của phiên (chỉ có nghĩa khi mode = "dub"). */
+export interface DubSettings {
+  engine: TtsEngine;
+  /** Model TTS (chỉ Gemini) - null = model mặc định của hệ thống. */
+  model: string | null;
+  /** Mã ngôn ngữ đọc, vd "vi-VN". null = server tự suy từ `targetLang`. */
+  language: string | null;
+  /** Người nói -> tên giọng. Khóa "" nghĩa là "một giọng cho cả video". */
+  voices: Record<string, string>;
+  keepOriginal: boolean;
+  /** Âm lượng tiếng gốc chạy nền - trần DUB_ORIGINAL_VOLUME_MAX. */
+  originalVolume: number;
+}
+
+/**
+ * Kết quả lồng tiếng của LẦN CHẠY GẦN NHẤT. `stretched`/`clipped`/`overflowed`
+ * là thứ người dùng nhìn vào để biết bản lồng tiếng ổn không mà không phải ngồi
+ * xem hết video: nhiều câu tràn = bản dịch dài quá so với lời gốc, phải rút chữ.
+ */
+export interface DubInfo {
+  file: string;
+  durationSec: number;
+  cues: number;
+  stretched: number;
+  overflowed: number;
+  clipped: number;
+  minTempo: number;
+  maxTempo: number;
+  assignments: DubVoiceAssignment[];
+  /** Cao độ đo được của từng người nói trong video gốc (Hz). */
+  speakerF0: Record<string, number>;
+  signature: string;
+  createdAt: string;
+}
+
 export interface TranslateVideoSource {
   /** Đường dẫn tương đối tới video nguồn - null = chưa tải lên. */
   relPath: string | null;
@@ -3088,10 +3163,18 @@ export interface TranslateVideoMeta {
   sourceLang: string;
   targetLang: string;
   mode: TranslateMode;
+  /** AI bóc lời cho lần chạy TIẾP THEO - phiên cũ đọc lên thành "local". */
+  sttProvider: SttProvider;
   transcriptFile: string | null;
+  /** Provider nào ĐÃ thực sự bóc transcript đang có + có nhãn người nói không. */
+  transcriptInfo: TranscriptInfo | null;
   cues: TranslatedCue[];
   subtitleStyle: SubtitleStyle;
-  /** Video đã đóng phụ đề - null = chưa render. */
+  /** Lựa chọn lồng tiếng cho lần chạy tiếp theo (chỉ dùng khi mode = "dub"). */
+  dub: DubSettings;
+  /** Track lồng tiếng ĐÃ dựng + số liệu chất lượng; null = chưa lồng tiếng. */
+  dubInfo: DubInfo | null;
+  /** Video đã đóng phụ đề / đã lồng tiếng - null = chưa render. */
   outputFile: string | null;
   status: TranslateStatus;
   error: string | null;
@@ -3182,6 +3265,60 @@ export const SUBTITLE_FONT_SIZE_MAX = 160;
 export const SUBTITLE_BLUR_MAX = 40;
 export const SUBTITLE_BOTTOM_MAX = 600;
 
+/**
+ * AI đứng sau bước dịch. Chỉ một nhà cung cấp: `apps/server/src/translate.ts`
+ * gọi thẳng generativelanguage.googleapis.com. Để hằng số ở đây để trang không
+ * viết chữ "Gemini" rải rác trong JSX - đổi nhà cung cấp thì sửa đúng một chỗ.
+ */
+export const TRANSLATE_PROVIDER = "Gemini";
+
+/**
+ * Model dịch. GƯƠNG của `DEFAULT_TRANSLATE_MODEL` + `TRANSLATE_MODELS` trong
+ * apps/server/src/translate.ts - server CHƯA có endpoint liệt kê model dịch
+ * (khác /api/tts/models), nên đây là bản chép tay và phải sửa cùng lúc với
+ * server. Id nào cũng đi qua `resolveModel` phía server; id lạ vẫn được nhận
+ * miễn sạch, nên danh sách lệch một nhịp cũng không làm hỏng luồng chính.
+ *
+ * Nhãn để dạng KEY dictionary ("tv.model.<id>") thay vì chép chuỗi tiếng Việt
+ * của server - giao diện tiếng Anh phải đọc ra tiếng Anh.
+ */
+export const DEFAULT_TRANSLATE_MODEL = "gemini-2.5-flash";
+
+export interface TranslateModelOption {
+  id: string;
+  labelKey: string;
+}
+
+export const TRANSLATE_MODELS: TranslateModelOption[] = [
+  { id: "gemini-2.5-flash", labelKey: "tv.model.gemini-2.5-flash" },
+  { id: "gemini-2.5-pro", labelKey: "tv.model.gemini-2.5-pro" },
+  { id: "gemini-2.5-flash-lite", labelKey: "tv.model.gemini-2.5-flash-lite" },
+];
+
+/**
+ * Khóa "một giọng cho cả video" - dùng khi transcript không phân vai người nói.
+ * Khớp DUB_ALL_SPEAKERS của server (dub.ts): chuỗi rỗng là khóa HỢP LỆ có chủ ý.
+ */
+export const DUB_ALL_SPEAKERS = "";
+
+/**
+ * Trần âm lượng tiếng gốc chạy nền và trần co giãn giọng - gương của dub.ts
+ * (DUB_ORIGINAL_VOLUME_MAX, DUB_TEMPO_MAX). Web chỉ dùng để vẽ thanh trượt và
+ * để giải thích số đo trả về, server vẫn tự kẹp lại lần nữa.
+ */
+export const DUB_ORIGINAL_VOLUME_MAX = 0.12;
+export const DUB_TEMPO_MAX = 1.25;
+
+/** Mặc định lồng tiếng - khớp defaultDubSettings() của server. */
+export const TRANSLATE_DEFAULT_DUB: DubSettings = {
+  engine: "gemini",
+  model: null,
+  language: null,
+  voices: {},
+  keepOriginal: false,
+  originalVolume: 0.1,
+};
+
 /** Job của phiên dịch: `type` = "translate-video", `projectId` = id phiên. */
 export function isTranslateVideoJob(job: Job, sessionId?: string): boolean {
   if (job.type !== "translate-video") return false;
@@ -3206,8 +3343,11 @@ export const updateTranslateVideo = (
     sourceLang?: string;
     targetLang?: string;
     mode?: TranslateMode;
+    sttProvider?: SttProvider;
     cues?: TranslatedCue[];
     subtitleStyle?: SubtitleStyle;
+    /** Gửi TRỌN khối - server merge theo field nhưng gửi trọn thì khỏi đoán. */
+    dub?: DubSettings;
   }
 ) =>
   jsonBody<TranslateVideoMeta>(
@@ -3234,10 +3374,21 @@ export const uploadTranslateVideoSource = (id: string, file: File) => {
   );
 };
 
-/** 202 - job dài: bóc lời thoại từ video nguồn. */
-export const transcribeTranslateVideo = (id: string) =>
+/** AI bóc lời nào dùng được trên máy này - hỏi server, đừng đoán ở web. */
+export const getSttProviders = () =>
+  request<SttCapability[]>("/api/translate-video/stt-providers");
+
+/**
+ * 202 - job dài: bóc lời thoại từ video nguồn. Truyền `sttProvider` để chọn
+ * luôn provider cho lần chạy này (server ghi vào meta trước khi đẩy job).
+ */
+export const transcribeTranslateVideo = (
+  id: string,
+  input?: { sttProvider?: SttProvider }
+) =>
   post<{ jobId: string }>(
-    `/api/translate-video/${encodeURIComponent(id)}/transcribe`
+    `/api/translate-video/${encodeURIComponent(id)}/transcribe`,
+    input && input.sttProvider !== undefined ? input : undefined
   );
 
 /** Đồng bộ - AI dịch toàn bộ lời thoại, chờ vài chục giây rồi trả meta mới. */
@@ -3247,8 +3398,93 @@ export const translateTranslateVideo = (id: string, input?: { model?: string }) 
     input && input.model !== undefined ? input : undefined
   );
 
-/** 202 - job dài: đóng phụ đề đã dịch lên video. */
+/** 202 - job dài: đóng phụ đề đã dịch lên video, hoặc lồng tiếng (theo `mode`). */
 export const renderTranslateVideo = (id: string) =>
   post<{ jobId: string }>(
     `/api/translate-video/${encodeURIComponent(id)}/render`
   );
+
+/**
+ * Nghe thử MỘT câu lồng tiếng trước khi trả tiền đọc cả video.
+ *
+ * Trả về BYTES audio/wav nên không đi qua request<T> (helper đó luôn parse
+ * JSON). Số đo đi kèm trong header `x-dub-*`: câu nghe thử đã đi qua ĐÚNG phép
+ * co giãn của bước dựng thật, nên `tempo`/`clipped` ở đây nói đúng thứ sắp
+ * nhận được - nghe ra câu bị co là biết bản dịch đang dài quá và sửa chữ ngay.
+ *
+ * Header đọc được vì request đi same-origin qua rewrite /api của Next (không
+ * qua CORS nên không cần Access-Control-Expose-Headers).
+ */
+export interface DubPreviewResult {
+  audio: Blob;
+  /** Giọng server đã thực sự dùng (khi không truyền `voice` thì nó tự gán). */
+  voice: string;
+  /** Thời lượng TTS đọc ra, TRƯỚC khi co giãn. */
+  naturalSec: number;
+  /** Thời lượng sau khi co - đo lại bằng ffprobe, không phải phép chia. */
+  finalSec: number;
+  /** Độ dài câu GỐC trong video. */
+  sourceSec: number;
+  tempo: number;
+  /** Đã đụng trần co (DUB_TEMPO_MAX) mà vẫn chưa vừa chỗ. */
+  clipped: boolean;
+  /** Vẫn lấn sang mốc câu kế tiếp dù đã co hết mức - ca xấu thật sự. */
+  overflowed: boolean;
+}
+
+export async function dubPreviewTranslateVideo(
+  id: string,
+  input?: { index?: number; voice?: string }
+): Promise<DubPreviewResult> {
+  const token = await ensureToken();
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (token) headers.set("x-aiev-token", token);
+
+  let res: Response;
+  try {
+    res = await fetch(
+      withUploadToken(
+        `/api/translate-video/${encodeURIComponent(id)}/dub-preview`
+      ),
+      { method: "POST", headers, body: JSON.stringify(input ?? {}) }
+    );
+  } catch {
+    throw new ApiError(
+      "network",
+      "Không kết nối được backend (port 6869). Kiểm tra server đã chạy chưa.",
+      0
+    );
+  }
+  if (!res.ok) {
+    let code = String(res.status);
+    let message = `Lỗi HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as {
+        error?: { code: string; message: string };
+      };
+      if (body?.error) {
+        code = body.error.code;
+        message = body.error.message;
+      }
+    } catch {
+      // body không phải JSON - giữ message mặc định
+    }
+    throw new ApiError(code, message, res.status);
+  }
+  const num = (name: string): number => {
+    const v = Number(res.headers.get(name));
+    return Number.isFinite(v) ? v : 0;
+  };
+  return {
+    audio: await res.blob(),
+    voice: res.headers.get("x-dub-voice") ?? "",
+    naturalSec: num("x-dub-natural"),
+    finalSec: num("x-dub-final"),
+    sourceSec: num("x-dub-source"),
+    // Thiếu header (proxy lạ cắt mất) -> coi như không co, KHÔNG coi là 0:
+    // tempo 0 hiện ra màn hình là một con số vô nghĩa.
+    tempo: num("x-dub-tempo") || 1,
+    clipped: res.headers.get("x-dub-clipped") === "1",
+    overflowed: res.headers.get("x-dub-overflowed") === "1",
+  };
+}

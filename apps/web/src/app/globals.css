@@ -104,7 +104,6 @@
   --shell-nav-extra: flex; /* badge phiên bản dưới đáy rail */
   --shell-nav-only-expanded: inline-flex;
   --shell-nav-only-collapsed: none;
-  --shell-nav-toggle: inline-flex;
 
   /* Panel phải - giá trị của trạng thái MỞ */
   --shell-panel-w: 440px;
@@ -426,6 +425,49 @@ textarea.input {
   }
 }
 
+/* Thanh tiến trình MỘT DÒNG cho dòng tóm tắt của khối đang gấp (khối video
+   thành phẩm lúc đang dựng). Toàn <span>: dòng tóm tắt của WorkspaceBlock là một
+   <p>, nhét <div> vào đó là HTML không hợp lệ và React sẽ báo lệch hydrate. */
+.summary-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.summary-progress-track {
+  position: relative;
+  /* Bề rộng CỐ ĐỊNH: để nó co giãn thì gặp dòng bước dài (ffmpeg đếm frame) là
+     thanh tụt về đúng bằng min-width, nhìn như cái gạch nối. */
+  flex: 0 0 96px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.summary-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--primary);
+  transition: width var(--transition);
+}
+/* Chưa đo được phần trăm (AI đang chạy, chưa có job) - chạy qua chạy lại */
+.summary-progress-fill.is-indeterminate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+/* % + tên bước là chuỗi tự do, dài thì cắt bớt chứ không đẩy toác thanh */
+.summary-progress-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .switch {
   position: relative;
   width: 36px;
@@ -533,8 +575,41 @@ textarea.input {
 .shell-nav-extra {
   display: var(--shell-nav-extra);
 }
+/* Đáy rail (mã nguồn + phiên bản + nút gấp/mở) dán cứng vào đáy vùng cuộn:
+   màn thấp mà 16 mục điều hướng làm rail phải cuộn thì nút gấp cũng cuộn mất -
+   nút duy nhất để mở rail ra lại mà phải đi tìm bằng cách cuộn là mất luôn. */
+.shell-nav-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  padding-top: 10px;
+}
+/* Nút gấp/mở rail - một Ô đầy đủ chiều ngang rail chứ không phải icon trần:
+   lúc rail còn 56px nó vẫn là ô vuông có viền, nhìn ra ngay là bấm được. */
 .shell-nav-toggle {
-  display: var(--shell-nav-toggle);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: var(--shell-nav-justify);
+  padding: 7px var(--shell-nav-item-pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition),
+    border-color var(--transition);
+}
+.shell-nav-toggle:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary-soft);
+  color: var(--primary);
 }
 .only-nav-expanded {
   display: var(--shell-nav-only-expanded);

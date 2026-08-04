@@ -424,12 +424,10 @@ export const vi: Record<string, string> = {
   "project.extra-notes": "Dặn dò thêm lần này",
   // ----- Khu làm việc 3 cột của trang chi tiết project -----
   "project.card-action": "Bắt đầu & thao tác",
-  "project.card-pipeline": "Tiến trình dựng",
   "project.session-count": "{n} phiên AI",
   "project.scene-count": "{n} scene",
   "project.render-count": "{n} file render",
   "project.no-scenes-short": "Chưa có scene",
-  "project.no-job": "Chưa có job nào chạy.",
   "project.brief-autosave": "Kịch bản edit tự lưu sau khi bạn ngừng gõ.",
   "project.brief-save-error": "Không lưu được kịch bản edit.",
 
@@ -2075,8 +2073,6 @@ export const vi: Record<string, string> = {
 
   "tv.mode.subtitle": "Phụ đề",
   "tv.mode.dub": "Lồng tiếng",
-  "tv.mode.soon": "Lồng tiếng đang làm - hiện tại chỉ đóng phụ đề.",
-  "tv.mode.soon-short": "sắp có",
 
   "tv.lang.auto": "Tự nhận",
   "tv.lang.vi": "Tiếng Việt",
@@ -2134,6 +2130,19 @@ export const vi: Record<string, string> = {
   "tv.job-no-log": "Chưa có dòng log nào.",
   "tv.job-log-error": "Không đọc được log của job.",
 
+  "tv.stt-provider": "AI bóc lời",
+  "tv.stt.local": "Trên máy - faster-whisper (miễn phí)",
+  "tv.stt.gemini": "Gemini (dùng key sẵn có)",
+  "tv.stt.soniox": "Soniox ($0.10/giờ)",
+  "tv.stt.diarization": "phân vai người nói",
+  "tv.stt.unavailable": "chưa dùng được",
+  "tv.stt.diarization-hint":
+    "AI này gắn nhãn người nói cho từng câu, nên lồng tiếng gán được mỗi người một giọng.",
+  "tv.stt.no-diarization-hint":
+    "AI này không phân biệt người nói, nên lồng tiếng chỉ đọc được một giọng cho cả video.",
+  "tv.transcript-speakers": "{n} người nói",
+  "tv.transcript-no-speakers": "không phân vai người nói",
+
   "tv.card-translation": "Bản dịch",
   "tv.card-translation-status": "Tiến trình dịch",
   "tv.translate": "AI dịch",
@@ -2145,11 +2154,21 @@ export const vi: Record<string, string> = {
   "tv.cue-aria": "Lời dịch câu {n}",
   "tv.cue-hint": "Sửa tay câu nào cũng được, thay đổi tự lưu.",
 
+  "tv.model": "Model dịch",
+  "tv.model.gemini-2.5-flash": "Flash (khuyên dùng, nhanh + rẻ)",
+  "tv.model.gemini-2.5-pro": "Pro (câu khó, thành ngữ)",
+  "tv.model.gemini-2.5-flash-lite": "Flash Lite (rẻ nhất)",
+  "tv.model-current": "Dịch bằng {provider}, model {model}.",
+
   "tv.card-subtitle": "Phụ đề",
   "tv.preview": "Xem trước",
   "tv.preview-text": "Đây là dòng phụ đề xem thử",
   "tv.preview-hint":
-    "Ô này chỉ mô phỏng - cỡ chữ và khoảng cách đáy đã thu nhỏ theo tỉ lệ khung hình thật.",
+    "Nền là một khung hình của chính video bạn tải lên. Ô này chỉ mô phỏng - cỡ chữ, độ mờ và khoảng cách đáy đã thu nhỏ theo tỉ lệ khung hình thật.",
+  "tv.preview-hint-no-source":
+    "Chưa có video nguồn nên nền là hình kẻ mẫu. Tải video lên để xem trước ngay trên khung hình thật.",
+  "tv.subtitle-unused-in-dub":
+    "Đang chọn Lồng tiếng: bản dựng KHÔNG đốt chữ lên hình, nên kiểu phụ đề ở đây chỉ dùng khi quay lại chế độ Phụ đề.",
   "tv.font": "Font chữ",
   "tv.font.vietnamese": "Việt hóa (khuyên dùng)",
   "tv.font.sans": "Không chân",
@@ -2177,9 +2196,53 @@ export const vi: Record<string, string> = {
   "tv.render-need-translation": "Chưa đóng được: dịch lời thoại ở bước 3 trước.",
   "tv.download": "Tải video về",
 
+  "tv.card-dub": "Lồng tiếng",
+  "tv.dub-render": "Lồng tiếng",
+  "tv.dub-re-render": "Lồng lại",
+  "tv.dub-rendering-hint":
+    "Đang đọc từng câu, co cho vừa chỗ rồi ghép vào đúng mốc thời gian…",
+  "tv.dub-render-hint":
+    "Bấm Lồng tiếng: hệ thống đọc từng câu đã dịch, co giãn một lượng nhỏ cho khớp mốc thời gian rồi thay tiếng gốc.",
+  "tv.dub.need-cues": "Chưa có câu nào để lồng tiếng - bóc lời và dịch trước đã.",
+  "tv.dub.engine": "Engine đọc",
+  "tv.dub.voices": "Giọng cho từng người nói",
+  "tv.dub.voices-error": "Không lấy được danh sách giọng.",
+  "tv.dub.not-diarized":
+    "Lời thoại này không phân vai người nói nên cả video dùng chung một giọng. Muốn mỗi người một giọng thì bóc lời lại bằng Gemini hoặc Soniox.",
+  "tv.dub.all-speakers": "Một giọng cho cả video",
+  "tv.dub.speaker": "Người nói {name}",
+  "tv.dub.speaker-count": "{n} người nói",
+  "tv.dub.voice-aria": "Giọng đọc cho người nói {name}",
+  "tv.dub.voice-auto": "Tự chọn theo cao độ giọng gốc",
+  "tv.dub.f0": "{f0} Hz",
+  "tv.dub.f0-title": "Cao độ đo được của giọng gốc - căn cứ để gán giọng cùng giới tính",
+  "tv.dub.preview": "Nghe thử",
+  "tv.dub.stop": "Dừng",
+  "tv.dub.preview-failed": "Không nghe thử được.",
+  "tv.dub.preview-hint":
+    "Nghe thử đọc ĐÚNG một câu của người nói đó và đã co giãn y như lúc dựng thật - nghe ra câu bị co là bản dịch đang dài quá, sửa chữ trước khi tốn thời gian lồng cả bài.",
+  "tv.dub.tempo": "co x{tempo}",
+  "tv.dub.fit": "{final}s / chỗ trống {source}s",
+  "tv.dub.clipped": "kẹp ở trần co",
+  "tv.dub.overflowed": "tràn sang câu sau",
+  "tv.dub.keep-original": "Giữ tiếng gốc chạy nhỏ bên dưới",
+  "tv.dub.keep-original-short": "còn tiếng gốc",
+  "tv.dub.original-volume": "Âm lượng tiếng gốc: {percent}%",
+  "tv.dub.original-volume-hint":
+    "Trần cố định ở mức thấp để giọng lồng luôn nghe rõ và không bị rè khi hai lớp tiếng cộng vào nhau.",
+  "tv.dub.report": "Kết quả lồng tiếng lần gần nhất",
+  "tv.dub.stretched": "{n} câu phải co",
+  "tv.dub.tempo-range": "tempo x{min}-x{max}",
+  "tv.dub.clipped-count": "{n} câu kẹp trần",
+  "tv.dub.overflowed-count": "{n} câu tràn",
+  "tv.dub.report-ok":
+    "Không câu nào tràn sang câu sau - lời đọc bám đúng mốc của lời gốc.",
+  "tv.dub.report-overflow":
+    "Có câu đọc dài hơn chỗ trống dù đã co hết mức. Rút gọn chữ ở đúng những câu đó rồi lồng lại - chỉnh máy móc thêm nữa chỉ làm giọng nghe như bị tua.",
+
   "help.tv.title": "Dịch video là gì?",
   "help.tv.body":
-    "Đưa một video vào, hệ thống bóc lời thoại kèm mốc thời gian, AI dịch sang ngôn ngữ bạn chọn, rồi đóng phụ đề đã dịch lên chính video đó.\nMỗi phiên đi qua 5 bước: Nguồn, Lời thoại, Bản dịch, Phụ đề, Kết quả. Bước nào cũng sửa lại và chạy lại được.\nHiện tại chỉ trả kết quả bằng phụ đề; lồng tiếng là giai đoạn sau.",
+    "Đưa một video vào, hệ thống bóc lời thoại kèm mốc thời gian, AI dịch sang ngôn ngữ bạn chọn, rồi đóng phụ đề đã dịch lên chính video đó - hoặc đọc bản dịch thành giọng và thay tiếng gốc.\nMỗi phiên đi qua 5 bước: Nguồn, Lời thoại, Bản dịch, Phụ đề, Kết quả. Bước nào cũng sửa lại và chạy lại được.\nChọn cách trả kết quả (Phụ đề hay Lồng tiếng) ở khối Bản dịch.",
   "help.tv-source.title": "Video nguồn nên là file thế nào?",
   "help.tv-source.body":
     "Bất kỳ file video nào máy đọc được (MP4, MOV, MKV…). Tải lên xong hệ thống tự đo độ dài, kích thước và fps.\nFile lớn đi thẳng vào backend chứ không qua proxy, nên cứ để yên trang cho tới khi tải xong.\nĐổi video khác thì lời thoại và bản dịch cũ không còn khớp - bóc lại từ đầu.",
@@ -2194,7 +2257,19 @@ export const vi: Record<string, string> = {
     "Được, và nên sửa. Mỗi câu hiện lời gốc ở trên, lời dịch ở dưới - sửa ô nào là lưu ô đó, không cần bấm Lưu.\nMốc thời gian giữ nguyên của lời gốc, nên sửa chữ không làm lệch phụ đề.\nDịch lại là ghi đè mọi chỗ bạn đã sửa tay - cân nhắc trước khi bấm.",
   "help.tv-mode.title": "Phụ đề và lồng tiếng khác gì nhau?",
   "help.tv-mode.body":
-    "Phụ đề: ghi lời dịch thành chữ lên hình, giữ nguyên tiếng gốc. Đây là cách đang chạy.\nLồng tiếng: đọc lời dịch thành giọng và thay tiếng gốc - đang làm, chưa bấm được.",
+    "Phụ đề: ghi lời dịch thành chữ lên hình, giữ nguyên tiếng gốc.\nLồng tiếng: đọc lời dịch thành giọng và thay tiếng gốc, không đốt chữ lên hình. Bản dịch cũng được viết khác đi - AI được dặn chọn cách nói NGẮN hơn để câu đọc vừa đúng chỗ của câu gốc.\nĐổi chế độ thì phải dịch lại: hai chế độ cần hai kiểu câu khác nhau.",
+  "help.tv-stt.title": "Chọn AI bóc lời để làm gì?",
+  "help.tv-stt.body":
+    "Trên máy (faster-whisper): miễn phí, không cần mạng, nhưng KHÔNG phân biệt được người nói.\nGemini: dùng luôn key sẵn có, gắn nhãn người nói theo kiểu suy đoán, không có mốc thời gian từng từ.\nSoniox: phân vai người nói chuẩn nhất, tính tiền theo giờ.\nCó nhãn người nói thì bước lồng tiếng mới gán được mỗi người một giọng - chọn ở đây quyết định luôn chuyện đó.\nĐổi lựa chọn KHÔNG xóa lời thoại đang có; muốn có bản của AI mới thì bấm Bóc lại.",
+  "help.tv-model.title": "Chọn model dịch thế nào?",
+  "help.tv-model.body":
+    "Flash: nhanh và rẻ, đủ tốt cho hầu hết lời thoại - đây là mặc định.\nPro: chậm và đắt hơn, chỉ đáng dùng khi bản dịch Flash hỏng ở những câu nhiều thành ngữ, chơi chữ hoặc thuật ngữ chuyên ngành.\nFlash Lite: rẻ nhất, hợp lời thoại đơn giản, nhiều câu ngắn.\nLựa chọn này chỉ áp cho lần bấm Dịch tiếp theo và không lưu vào phiên - tải lại trang là về mặc định.",
+  "help.tv-dub.title": "Lồng tiếng chạy thế nào?",
+  "help.tv-dub.body":
+    "Mỗi câu dịch được đọc riêng thành một file, rồi đặt vào ĐÚNG mốc thời gian của câu gốc - không nối đuôi nhau, nên sai số không cộng dồn qua cả bài.\nCâu dịch dài hơn chỗ trống thì hệ thống co nhanh giọng đọc một lượng nhỏ (tối đa x1,25 - quá mức đó tai nghe ra ngay là bị tua). Vẫn không vừa thì để câu lấn nhẹ sang sau chứ tuyệt đối không cắt cụt chữ.\nSố câu phải co và số câu tràn hiện ở khối Video thành phẩm sau khi lồng xong.\nHệ thống KHÔNG khớp khẩu hình - muốn khớp môi thì phải sinh lại hình, đó là việc khác.",
+  "help.tv-dub-voices.title": "Giọng đọc gán theo người nói ra sao?",
+  "help.tv-dub-voices.body":
+    "Để \"Tự chọn\": hệ thống đo cao độ giọng thật của từng người trong video rồi chọn giọng cùng giới tính, gần cao độ nhất, và không bao giờ cho hai người chung một giọng.\nChọn tay thì lựa chọn của bạn được giữ nguyên qua mọi lần dựng lại - chỉ phần còn lại mới gán tự động.\nNghe thử đọc đúng một câu của người nói đó và đã co giãn y như lúc dựng thật, nên nghe thử nói đúng thứ bạn sắp nhận được.\nLời thoại không phân vai thì chỉ có một dòng: một giọng cho cả video.",
   "help.tv-subtitle.title": "Kiểu phụ đề chỉnh được những gì?",
   "help.tv-subtitle.body":
     "Font, cỡ chữ, màu chữ, nền sau chữ và khoảng cách tới đáy khung hình.\nÔ xem trước cho thấy kết quả ngay, khỏi phải render mới biết đẹp xấu - render một lần mất hàng phút.\nSố đo tính trên khung hình THẬT của video, nên video 4K cần cỡ chữ lớn hơn video 1080p.",
@@ -2209,6 +2284,9 @@ export const vi: Record<string, string> = {
   "shell.nav-aria": "Điều hướng chính",
   "shell.nav-collapse": "Thu gọn thanh điều hướng",
   "shell.nav-expand": "Mở rộng thanh điều hướng",
+  // Chữ hiện cạnh icon trong rail - rail chỉ rộng 220px nên phải ngắn
+  "shell.nav-collapse-short": "Thu gọn menu",
+  "shell.nav-expand-short": "Mở rộng menu",
   "shell.panel-collapse": "Thu gọn panel AI",
   "shell.panel-expand": "Mở panel AI",
   "shell.panel-open": "Panel AI",

@@ -14,6 +14,10 @@
  * là mỗi lần tải trang lại nháy một khung hình đúng bằng lúc rail bung ra rồi co
  * lại. Icon "gấp/mở" cũng vì lý do đó mà render CẢ HAI rồi để CSS chọn.
  *
+ * Nút gấp/mở rail nằm DƯỚI ĐÁY CHÍNH CÁI RAIL, không ở header: nút điều khiển
+ * cái gì thì đứng ở cái đó. Đáy rail dán cứng (sticky) nên rail dài phải cuộn
+ * thì nút vẫn còn nguyên tại chỗ.
+ *
  * Panel AI là một SLOT của shell chứ không phải mỗi trang tự dựng: trang khai báo
  * <ShellRightPanel title="…">…</ShellRightPanel> ở bất kỳ đâu trong cây, shell lo
  * bề rộng, chỗ chừa, nút gấp và chế độ drawer. Nhờ vậy không trang nào phải tự
@@ -310,9 +314,14 @@ export function Shell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
+  // Nhãn dài dùng cho aria-label/tooltip; nhãn ngắn là chữ hiện cạnh icon trong
+  // rail (rail chỉ rộng 220px, câu dài bị cắt cụt thành "Thu gọn thanh điề…").
   const navToggleLabel = navCollapsed
     ? t("shell.nav-expand")
     : t("shell.nav-collapse");
+  const navToggleShort = navCollapsed
+    ? t("shell.nav-expand-short")
+    : t("shell.nav-collapse-short");
 
   return (
     <ShellPanelContext.Provider value={panelApi}>
@@ -336,31 +345,8 @@ export function Shell({ children }: { children: ReactNode }) {
             />
           </Link>
 
-          <button
-            type="button"
-            onClick={() => setNav(!navCollapsed)}
-            className="shell-nav-toggle shell-icon-btn"
-            aria-expanded={!navCollapsed}
-            aria-controls="shell-nav"
-            aria-label={navToggleLabel}
-            title={navToggleLabel}
-          >
-            {/* Hai icon cùng nằm trong DOM, CSS chọn cái nào hiện - state React
-                chưa kịp đúng ở khung hình đầu, CSS thì đúng ngay */}
-            <PanelLeftClose
-              size={16}
-              strokeWidth={1.75}
-              className="only-nav-expanded"
-              aria-hidden="true"
-            />
-            <PanelLeftOpen
-              size={16}
-              strokeWidth={1.75}
-              className="only-nav-collapsed"
-              aria-hidden="true"
-            />
-          </button>
-
+          {/* Nút gấp/mở rail KHÔNG còn ở header: nó nằm dưới đáy chính cái rail
+              nó điều khiển (xem `.shell-nav-foot` bên dưới). */}
           <span className="min-w-0 truncate text-sm font-semibold">
             {t(pageTitle(pathname))}
           </span>
@@ -418,8 +404,11 @@ export function Shell({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Cuối sidebar: link mã nguồn nằm TRÊN badge phiên bản - hai thứ này
-                cùng nói về "bản dựng nào đang chạy" nên đứng cạnh nhau. */}
-            <div className="mt-auto flex flex-col gap-1 pt-3">
+                cùng nói về "bản dựng nào đang chạy" nên đứng cạnh nhau - và dưới
+                cùng là nút gấp/mở chính cái rail này.
+                `.shell-nav-foot` dán đáy (sticky): rail cao hơn màn hình là phải
+                cuộn, mà nút gấp cuộn mất thì coi như không có nút. */}
+            <div className="shell-nav-foot mt-auto flex flex-col gap-1">
               <a
                 href={REPO_URL}
                 target="_blank"
@@ -444,6 +433,39 @@ export function Shell({ children }: { children: ReactNode }) {
               <div className="shell-nav-extra flex-col">
                 <UpdateBadge />
               </div>
+
+              {/* Nút gấp/mở rail - Ô CUỐI CÙNG của rail, đúng chỗ người dùng đi
+                  tìm nó. Lúc gấp còn 56px thì chỉ còn icon, nhưng vẫn là một ô
+                  viền rõ chiếm hết bề ngang rail nên không lẫn vào đâu được.
+                  aria-controls trỏ về #shell-nav: nút nằm trong chính vùng nó
+                  điều khiển, đây là mẫu disclosure hợp lệ. */}
+              <button
+                type="button"
+                onClick={() => setNav(!navCollapsed)}
+                className="shell-nav-toggle"
+                aria-expanded={!navCollapsed}
+                aria-controls="shell-nav"
+                aria-label={navToggleLabel}
+                title={navToggleLabel}
+              >
+                {/* Hai icon cùng nằm trong DOM, CSS chọn cái nào hiện - state
+                    React chưa kịp đúng ở khung hình đầu, CSS thì đúng ngay */}
+                <PanelLeftClose
+                  size={16}
+                  strokeWidth={1.75}
+                  className="only-nav-expanded shrink-0"
+                  aria-hidden="true"
+                />
+                <PanelLeftOpen
+                  size={16}
+                  strokeWidth={1.75}
+                  className="only-nav-collapsed shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="shell-nav-label min-w-0 truncate">
+                  {navToggleShort}
+                </span>
+              </button>
             </div>
           </aside>
 

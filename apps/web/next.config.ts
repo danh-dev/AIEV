@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_SERVER_PORT:
       process.env.SERVER_PORT ?? process.env.NEXT_PUBLIC_SERVER_PORT ?? "6869",
   },
+  // Huy hiệu dev-tools của Next mặc định neo góc TRÁI DƯỚI - đúng chỗ nút thu gọn
+  // thanh điều hướng nằm, nên lúc chạy `npm run dev` nó đè lên nút (bản production
+  // không có huy hiệu này). Đẩy sang phải cho khỏi vướng.
+  devIndicators: {
+    position: "bottom-right",
+  },
   experimental: {
     // Proxy rewrite mặc định timeout 30s — video lớn (media/stream) cần lâu hơn.
     // Upload file lớn đã đi thẳng backend (serverOrigin trong lib/api.ts), đây là lớp dự phòng.

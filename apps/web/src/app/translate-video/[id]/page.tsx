@@ -4,13 +4,15 @@
  * Chi tiết một phiên "Dịch video" - lắp bằng bộ khối workspace 3 cột dùng chung
  * (`components/Workspace.tsx`), chia theo NHỊP LÀM VIỆC chứ không theo số bước:
  *
- * - Cột `source`: video gốc (tải lên, xem trước) và ngôn ngữ nguồn - thứ mình
- *   BẮT ĐẦU TỪ ĐÓ.
- * - Cột `setup`: ngôn ngữ đích, chế độ, danh sách câu thoại sửa tay được, và
- *   kiểu phụ đề kèm ô xem trước - toàn bộ phần "mình muốn ra cái gì".
+ * - Cột `source`: video gốc (tải lên, xem trước), ngôn ngữ nguồn, và NGAY DƯỚI
+ *   VIDEO là khối bóc lời thoại - thao tác trên nguồn thì phải nằm cạnh nguồn.
+ *   Trước đây khối này ở cột kết quả: người dùng phải nhìn sang đầu kia màn hình
+ *   để bấm một nút làm việc trên chính cái video đang xem ở đây.
+ * - Cột `setup`: ngôn ngữ đích, chế độ, model dịch, danh sách câu thoại sửa tay
+ *   được, cấu hình lồng tiếng và kiểu phụ đề kèm ô xem trước - toàn bộ phần
+ *   "mình muốn ra cái gì".
  * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
- *   thì hiện thẳng video), rồi mới tới những thứ sinh ra trong lúc chạy: log bóc
- *   lời thoại, tiến trình dịch.
+ *   thì hiện thẳng video), rồi mới tới tiến trình dịch.
  *
  * Bề rộng cột do container query trong globals.css quyết định - trang KHÔNG tự
  * tính pixel, vì bề rộng thật còn phụ thuộc rail trái và panel phải đang gấp hay mở.
@@ -23,11 +25,18 @@
  */
 
 import {
+  AlertTriangle,
   ArrowLeft,
+  Bot,
+  Cloud,
+  Cpu,
   FileVideo,
   Film,
   Languages,
   Loader2,
+  Mic,
+  Play,
+  Square,
   Subtitles,
   Trash2,
   Type,
@@ -38,9 +47,16 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteTranslateVideo,
+  dubPreviewTranslateVideo,
+  DEFAULT_TRANSLATE_MODEL,
+  DUB_ALL_SPEAKERS,
+  DUB_ORIGINAL_VOLUME_MAX,
   getJob,
   getJobs,
+  getSttProviders,
   getTranslateVideo,
+  getTtsEngines,
+  getTtsVoices,
   isTranslateVideoJob,
   mediaUrl,
   renderTranslateVideo,
@@ -49,23 +65,36 @@ import {
   SUBTITLE_FONT_SIZE_MAX,
   SUBTITLE_FONT_SIZE_MIN,
   SUBTITLE_FONTS,
+  TRANSLATE_DEFAULT_DUB,
   TRANSLATE_DEFAULT_SUBTITLE_STYLE,
   TRANSLATE_MODE_LABEL,
+  TRANSLATE_MODELS,
+  TRANSLATE_PROVIDER,
   TRANSLATE_SOURCE_LANGS,
   TRANSLATE_TARGET_LANGS,
   TRANSLATE_VIDEO_STATUS_LABEL,
   TRANSLATE_VIDEO_STATUS_TONE,
+  TTS_ENGINES,
   transcribeTranslateVideo,
   translateTranslateVideo,
   updateTranslateVideo,
   uploadTranslateVideoSource,
+  type DubInfo,
+  type DubPreviewResult,
+  type DubSettings,
   type Job,
+  type SttCapability,
+  type SttProvider,
   type SubtitleBackdrop,
   type SubtitleFontId,
   type SubtitleStyle,
   type TranslatedCue,
   type TranslateMode,
   type TranslateVideoMeta,
+  type TtsEngine,
+  type TtsEngineStatus,
+  type TtsGender,
+  type TtsVoice,
 } from "@/lib/api";
 import { useEvents, useJobEvents, useJobLogEvents } from "@/lib/useEvents";
 import { Badge } from "@/components/Badge";
@@ -112,10 +141,11 @@ const FONT_STACK: Record<SubtitleFontId, string> = {
 /** Các khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
 const TV_BLOCKS = [
   "source",
+  "transcript",
   "translation",
+  "dub",
   "subtitle",
   "result",
-  "transcript",
   "progress",
 ] as const;
 type BlockKey = (typeof TV_BLOCKS)[number];
@@ -134,6 +164,14 @@ const STAGE_LABELS = [
   "tv.stage.subtitle",
   "tv.stage.result",
 ] as const;
+
+/**
+ * Mốc lấy khung hình làm nền cho ô xem trước phụ đề (giây).
+ *
+ * Không lấy giây 0: rất nhiều video mở màn bằng một khung đen hoặc một khung
+ * mờ, mà nền đen phẳng chính là thứ làm "Độ mờ" nhìn như không có tác dụng.
+ */
+const PREVIEW_FRAME_SEC = 2;
 
 /** Độ dài tối đa của lỗi hiện trong khối kết quả - xem `shortError`. */
 const ERROR_PREVIEW_MAX = 240;
@@ -155,8 +193,10 @@ interface Patch {
   sourceLang?: string;
   targetLang?: string;
   mode?: TranslateMode;
+  sttProvider?: SttProvider;
   cues?: TranslatedCue[];
   subtitleStyle?: SubtitleStyle;
+  dub?: DubSettings;
 }
 
 /**
@@ -299,6 +339,509 @@ function ColorField({
   );
 }
 
+// ---------------------------------------------------------------- Lồng tiếng
+
+/** Nhóm giọng trong <select> - dùng lại đúng nhãn của trang Text to video. */
+const DUB_GENDERS: TtsGender[] = ["nam", "nu", "trung-tinh"];
+
+const DUB_GENDER_LABEL_KEY: Record<TtsGender, string> = {
+  nam: "ttv.voice.gender.male",
+  nu: "ttv.voice.gender.female",
+  "trung-tinh": "ttv.voice.gender.neutral",
+};
+
+const DUB_ENGINE_LABEL_KEY: Record<TtsEngine, string> = {
+  gemini: "ttv.voice.engine.gemini",
+  vieneu: "ttv.voice.engine.vieneu",
+};
+
+/** Đám mây vs con chip - nói ngay "chạy ở đâu" trước khi đọc chữ. */
+const DUB_ENGINE_ICON: Record<TtsEngine, typeof Cloud> = {
+  gemini: Cloud,
+  vieneu: Cpu,
+};
+
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Cấu hình lồng tiếng: engine đọc + MỘT GIỌNG CHO MỖI NGƯỜI NÓI + nghe thử từng
+ * giọng, và tiếng gốc có chạy nhỏ bên dưới không.
+ *
+ * Vì sao KHÔNG dùng lại `VoicePicker`: component đó chọn ĐÚNG MỘT giọng cho cả
+ * phiên và cột chặt vào `TextToVideoVoice` (kèm tốc độ đọc, "cách đọc", ngôn ngữ
+ * - những thứ lồng tiếng không có). Ở đây cần N giọng trên cùng một màn hình, mỗi
+ * giọng nghe thử bằng ĐÚNG CÂU của người nói ấy qua /dub-preview (đi qua đúng
+ * phép co giãn của bước dựng thật) chứ không phải câu mẫu của /tts/preview. Nhét
+ * VoicePicker vào đây là hoặc bày ra ba lựa chọn vô nghĩa, hoặc nghe thử nói dối.
+ *
+ * Danh sách giọng vẫn lấy từ CHÍNH endpoint /api/tts/voices mà VoicePicker dùng -
+ * hai chỗ không được có hai kho giọng khác nhau.
+ */
+function DubSettingsCard({
+  sessionId,
+  dub,
+  speakers,
+  diarized,
+  cueIndexOf,
+  speakerF0,
+  disabled,
+  onChange,
+}: {
+  sessionId: string;
+  dub: DubSettings;
+  /** Nhãn người nói tìm thấy; rỗng = một giọng đọc cho cả video */
+  speakers: string[];
+  /** Transcript có phân vai người nói không - quyết định câu giải thích */
+  diarized: boolean;
+  /** Câu ĐẦU TIÊN của người nói này - nghe thử phải nghe đúng lời của họ */
+  cueIndexOf: (speaker: string) => number;
+  /** Cao độ đo được ở lần lồng tiếng trước (Hz) - căn cứ hệ thống gán giọng */
+  speakerF0: Record<string, number>;
+  disabled: boolean;
+  /**
+   * Chỉ gửi phần vừa đổi - cha tự merge để không nuốt thay đổi song song.
+   * `immediate = false` cho thứ đổi liên tục (thanh trượt) để gom lại một lần gửi.
+   */
+  onChange: (patch: Partial<DubSettings>, immediate?: boolean) => void;
+}) {
+  const { t, tf } = useT();
+  const engine = dub.engine === "vieneu" ? "vieneu" : "gemini";
+
+  const [engines, setEngines] = useState<TtsEngineStatus[] | null>(null);
+  const [voices, setVoices] = useState<TtsVoice[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Nghe thử: một audio dùng chung - mỗi lúc chỉ một câu được phát
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const urlRef = useRef<string | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, DubPreviewResult>>({});
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  /** Giọng đã tải theo engine - đổi engine qua lại là chuyện thường. */
+  const voiceCache = useRef<Partial<Record<TtsEngine, TtsVoice[]>>>({});
+
+  useEffect(() => {
+    let alive = true;
+    getTtsEngines()
+      .then((list) => alive && setEngines(list))
+      .catch((e) => {
+        if (!alive) return;
+        // Không hỏi được thì coi như chưa engine nào chạy được - dòng cảnh báo
+        // phía dưới sẽ nói ra, đừng để người dùng bấm vào thứ chắc chắn hỏng
+        setEngines([]);
+        setLoadError(errText(e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const hit = voiceCache.current[engine];
+    if (hit) {
+      setVoices(hit);
+      return;
+    }
+    setVoices(null);
+    getTtsVoices(engine)
+      .then((list) => {
+        if (!alive) return;
+        voiceCache.current[engine] = list;
+        setVoices(list);
+        setLoadError(null);
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setVoices([]);
+        setLoadError(errText(e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [engine]);
+
+  // Rời trang giữa lúc đang nghe → tắt tiếng, không để audio chạy mồ côi
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+    };
+  }, []);
+
+  function stop() {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+    }
+    setPlaying(null);
+  }
+
+  async function preview(speaker: string) {
+    if (disabled) return;
+    if (playing === speaker) {
+      stop();
+      return;
+    }
+    stop();
+    if (loadingKey) return; // đang chờ một bản nghe thử khác
+    setLoadingKey(speaker);
+    setPreviewError(null);
+    try {
+      const index = cueIndexOf(speaker);
+      const voice = (dub.voices[speaker] ?? "").trim();
+      const res = await dubPreviewTranslateVideo(sessionId, {
+        index: index >= 0 ? index : 0,
+        // Chưa chốt giọng thì ĐỪNG gửi: server tự gán rồi trả về giọng nó chọn
+        // trong header, và đó chính là giọng bản dựng thật sẽ dùng
+        ...(voice ? { voice } : {}),
+      });
+      setResults((prev) => ({ ...prev, [speaker]: res }));
+      const url = URL.createObjectURL(res.audio);
+      const audio = new Audio(url);
+      audio.onended = () => stop();
+      audio.onerror = () => {
+        stop();
+        setPreviewError(t("tv.dub.preview-failed"));
+      };
+      audioRef.current = audio;
+      urlRef.current = url;
+      setPlaying(speaker);
+      await audio.play().catch(() => stop());
+    } catch (e) {
+      setPreviewError(errText(e));
+    } finally {
+      setLoadingKey(null);
+    }
+  }
+
+  const list = voices ?? [];
+  const rows = speakers.length > 0 ? speakers : [DUB_ALL_SPEAKERS];
+  const noEngine = engines !== null && !engines.some((s) => s.available);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {loadError && (
+        <ErrorBanner message={t("tv.dub.voices-error")} detail={loadError} />
+      )}
+
+      {/* 1. Engine đọc - quyết định kho giọng phía dưới nên đứng trên cùng */}
+      <div>
+        <span className="label">{t("tv.dub.engine")}</span>
+        {engines === null ? (
+          <p className="flex items-center gap-1.5 py-2 text-xs text-[var(--text-muted)]">
+            <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+            {t("ttv.voice.engine.checking")}
+          </p>
+        ) : (
+          <div
+            role="radiogroup"
+            aria-label={t("tv.dub.engine")}
+            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+          >
+            {TTS_ENGINES.map((e) => {
+              const st = engines.find((s) => s.engine === e) ?? null;
+              const ok = st?.available === true;
+              const active = engine === e;
+              const Icon = DUB_ENGINE_ICON[e];
+              return (
+                <button
+                  key={e}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  // Engine máy chưa chạy được thì KHÓA: /render kiểm lại và trả
+                  // 503 ngay, cho bấm chỉ để nhận lỗi là bẫy người dùng
+                  disabled={disabled || !ok}
+                  onClick={() => onChange({ engine: e, voices: {} })}
+                  className={`flex min-w-0 flex-col gap-1 rounded-[var(--radius)] border p-2.5 text-left transition-colors duration-150 disabled:cursor-not-allowed ${
+                    active
+                      ? "border-[var(--primary)] bg-[var(--primary-soft)]"
+                      : "border-[var(--border)] bg-[var(--surface)]"
+                  } ${ok ? "" : "opacity-70"}`}
+                >
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                    <Icon
+                      size={14}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                      className={`shrink-0 ${
+                        active ? "text-[var(--primary)]" : "text-[var(--text-muted)]"
+                      }`}
+                    />
+                    <span
+                      className={`min-w-0 text-[13px] leading-snug font-semibold ${
+                        active ? "text-[var(--primary)]" : "text-[var(--text)]"
+                      }`}
+                    >
+                      {t(DUB_ENGINE_LABEL_KEY[e])}
+                    </span>
+                    <span
+                      className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        ok
+                          ? "bg-[var(--success-bg)] text-[var(--success)]"
+                          : "bg-[var(--danger-bg)] text-[var(--danger)]"
+                      }`}
+                    >
+                      {ok
+                        ? t("ttv.voice.engine.ready")
+                        : t("ttv.voice.engine.unavailable")}
+                    </span>
+                  </span>
+                  {/* Chi tiết kỹ thuật của server (đường dẫn Python, thiếu key)
+                      - KHÔNG dịch, hiện nguyên văn để còn sửa được */}
+                  {!ok && st?.detail && (
+                    <span className="min-w-0 break-all font-mono text-[10px] leading-snug text-[var(--text-muted)]">
+                      {st.detail}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {noEngine && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--danger)]">
+            <AlertTriangle
+              size={13}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="mt-0.5 shrink-0"
+            />
+            {t("ttv.voice.engine.none")}
+          </p>
+        )}
+      </div>
+
+      {/* 2. Giọng cho từng người nói. Transcript không phân vai thì nói THẲNG
+          ra là chỉ có một giọng cho cả video, đừng để người dùng tự đoán vì sao
+          chỉ thấy một dòng */}
+      <div>
+        <span className="label">
+          {t("tv.dub.voices")}
+          <InfoHint
+            className="ml-1.5 align-middle"
+            titleKey="help.tv-dub-voices.title"
+            bodyKey="help.tv-dub-voices.body"
+          />
+        </span>
+        {!diarized && (
+          <p className="mb-2 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+            <AlertTriangle
+              size={13}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="mt-0.5 shrink-0"
+            />
+            {t("tv.dub.not-diarized")}
+          </p>
+        )}
+
+        {previewError && (
+          <div className="mb-2">
+            <ErrorBanner message={t("tv.dub.preview-failed")} detail={previewError} />
+          </div>
+        )}
+
+        <ul className="flex flex-col gap-2">
+          {rows.map((speaker) => {
+            const chosen = dub.voices[speaker] ?? "";
+            const missing =
+              chosen !== "" && list.length > 0 && !list.some((v) => v.name === chosen);
+            const res = results[speaker];
+            const isLoading = loadingKey === speaker;
+            const isPlaying = playing === speaker;
+            const f0 = speakerF0[speaker] ?? 0;
+            return (
+              <li
+                key={speaker || "__all__"}
+                className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5"
+              >
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-xs font-semibold">
+                    {speaker
+                      ? tf("tv.dub.speaker", { name: speaker })
+                      : t("tv.dub.all-speakers")}
+                  </span>
+                  {f0 > 0 && (
+                    <span className="chip" title={t("tv.dub.f0-title")}>
+                      {tf("tv.dub.f0", { f0: Math.round(f0) })}
+                    </span>
+                  )}
+                </div>
+                <div className="flex min-w-0 items-center gap-2">
+                  <select
+                    className="input"
+                    value={chosen}
+                    disabled={disabled}
+                    aria-label={
+                      speaker
+                        ? tf("tv.dub.voice-aria", { name: speaker })
+                        : t("tv.dub.all-speakers")
+                    }
+                    onChange={(ev) =>
+                      onChange({
+                        voices: { ...dub.voices, [speaker]: ev.target.value },
+                      })
+                    }
+                  >
+                    {/* "" = để hệ thống tự gán theo cao độ giọng gốc - đó là
+                        mặc định TỐT, không phải một ô trống chưa điền */}
+                    <option value="">{t("tv.dub.voice-auto")}</option>
+                    {/* Giọng đã lưu mà kho hiện tại không có (đổi engine, gỡ
+                        giọng nhân bản) vẫn hiện - đừng âm thầm đổi lựa chọn */}
+                    {missing && <option value={chosen}>{chosen}</option>}
+                    {DUB_GENDERS.map((g) => {
+                      const items = list
+                        .filter((v) => v.gender === g)
+                        .sort((a, b) => a.title.localeCompare(b.title));
+                      if (items.length === 0) return null;
+                      return (
+                        <optgroup key={g} label={t(DUB_GENDER_LABEL_KEY[g])}>
+                          {items.map((v) => (
+                            <option key={v.name} value={v.name}>
+                              {v.title}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                  </select>
+                  <Button
+                    variant="secondary"
+                    small
+                    disabled={disabled || (loadingKey !== null && !isLoading)}
+                    onClick={() => preview(speaker)}
+                  >
+                    {isLoading ? (
+                      <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                    ) : isPlaying ? (
+                      <Square size={14} strokeWidth={2} />
+                    ) : (
+                      <Play size={14} strokeWidth={2} />
+                    )}
+                    {isPlaying ? t("tv.dub.stop") : t("tv.dub.preview")}
+                  </Button>
+                </div>
+
+                {/* Số đo của ĐÚNG câu vừa nghe: co bao nhiêu, có tràn không.
+                    Đây là thứ cho biết bản dịch dài quá TRƯỚC KHI render cả bài */}
+                {res && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                    <span className="chip">
+                      {tf("tv.dub.tempo", { tempo: res.tempo.toFixed(2) })}
+                    </span>
+                    <span className="chip">
+                      {tf("tv.dub.fit", {
+                        final: res.finalSec.toFixed(2),
+                        source: res.sourceSec.toFixed(2),
+                      })}
+                    </span>
+                    {res.voice && <span className="chip">{res.voice}</span>}
+                    {res.clipped && (
+                      <span className="flex items-center gap-1 text-[var(--danger)]">
+                        <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
+                        {t("tv.dub.clipped")}
+                      </span>
+                    )}
+                    {res.overflowed && (
+                      <span className="flex items-center gap-1 text-[var(--danger)]">
+                        <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
+                        {t("tv.dub.overflowed")}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+          {t("tv.dub.preview-hint")}
+        </p>
+      </div>
+
+      {/* 3. Tiếng gốc chạy nhỏ bên dưới - mặc định TẮT: lồng tiếng là để THAY
+          tiếng gốc, bật sẵn thì video nào cũng nghe lùng bùng hai lớp tiếng */}
+      <div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={dub.keepOriginal}
+            disabled={disabled}
+            onChange={(e) => onChange({ keepOriginal: e.target.checked })}
+          />
+          {t("tv.dub.keep-original")}
+        </label>
+        {dub.keepOriginal && (
+          <div className="mt-2">
+            <label className="label" htmlFor="tv-dub-original-volume">
+              {tf("tv.dub.original-volume", {
+                percent: Math.round(dub.originalVolume * 100),
+              })}
+            </label>
+            <input
+              id="tv-dub-original-volume"
+              type="range"
+              className="w-full"
+              min={0}
+              max={DUB_ORIGINAL_VOLUME_MAX}
+              step={0.01}
+              value={dub.originalVolume}
+              disabled={disabled}
+              onChange={(e) =>
+                onChange({ originalVolume: Number(e.target.value) }, false)
+              }
+            />
+            <p className="text-xs text-[var(--text-muted)]">
+              {t("tv.dub.original-volume-hint")}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Số liệu chất lượng của lần lồng tiếng gần nhất - xem `DubInfo` ở api.ts. */
+function DubReport({ info }: { info: DubInfo }) {
+  const { t, tf } = useT();
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-2.5">
+      <span className="text-xs font-semibold">{t("tv.dub.report")}</span>
+      <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+        <span className="chip">{tf("tv.cue-count", { n: info.cues })}</span>
+        <span className="chip">{tf("tv.dub.stretched", { n: info.stretched })}</span>
+        <span className="chip">
+          {tf("tv.dub.tempo-range", {
+            min: info.minTempo.toFixed(2),
+            max: info.maxTempo.toFixed(2),
+          })}
+        </span>
+        <span className={info.clipped > 0 ? "chip text-[var(--danger)]" : "chip"}>
+          {tf("tv.dub.clipped-count", { n: info.clipped })}
+        </span>
+        <span className={info.overflowed > 0 ? "chip text-[var(--danger)]" : "chip"}>
+          {tf("tv.dub.overflowed-count", { n: info.overflowed })}
+        </span>
+      </div>
+      {/* Câu tràn là lỗi NỘI DUNG (bản dịch dài quá), không phải lỗi máy - nói rõ
+          cách sửa chứ đừng chỉ ném ra một con số */}
+      <p className="text-xs text-[var(--text-muted)]">
+        {info.overflowed > 0 ? t("tv.dub.report-overflow") : t("tv.dub.report-ok")}
+      </p>
+    </div>
+  );
+}
+
 export default function TranslateVideoDetailPage() {
   const { t, tf } = useT();
   const router = useRouter();
@@ -321,8 +864,21 @@ export default function TranslateVideoDetailPage() {
   const [sourceLang, setSourceLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("vi");
   const [mode, setMode] = useState<TranslateMode>("subtitle");
+  const [sttProvider, setSttProvider] = useState<SttProvider>("local");
   const [cues, setCues] = useState<TranslatedCue[]>([]);
   const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle | null>(null);
+  const [dub, setDub] = useState<DubSettings | null>(null);
+
+  /**
+   * Model dịch. CHỈ sống trong phiên làm việc này: hợp đồng
+   * POST /:id/translate nhận `model` cho từng lần gọi, còn meta.json KHÔNG có
+   * chỗ lưu - nên chọn xong tải lại trang là về mặc định. Ghi ra đây để không ai
+   * tưởng là quên lưu.
+   */
+  const [translateModel, setTranslateModel] = useState(DEFAULT_TRANSLATE_MODEL);
+
+  /** AI bóc lời nào chạy được trên máy này - hỏi server, không đoán. */
+  const [sttProviders, setSttProviders] = useState<SttCapability[] | null>(null);
 
   const pending = useRef<Patch>({});
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -365,6 +921,7 @@ export default function TranslateVideoDetailPage() {
     if (!p.sourceLang) setSourceLang(s.sourceLang || "auto");
     if (!p.targetLang) setTargetLang(s.targetLang || "vi");
     if (!p.mode) setMode(s.mode ?? "subtitle");
+    if (!p.sttProvider) setSttProvider(s.sttProvider ?? "local");
     if (!p.cues) setCues(s.cues ?? []);
     // Phiên tạo trước khi backend có đủ field → lấp bằng mặc định
     if (!p.subtitleStyle) {
@@ -372,6 +929,9 @@ export default function TranslateVideoDetailPage() {
         ...TRANSLATE_DEFAULT_SUBTITLE_STYLE,
         ...(s.subtitleStyle ?? {}),
       });
+    }
+    if (!p.dub) {
+      setDub({ ...TRANSLATE_DEFAULT_DUB, ...(s.dub ?? {}) });
     }
   }, []);
 
@@ -387,6 +947,18 @@ export default function TranslateVideoDetailPage() {
   useEffect(() => {
     load();
   }, [load, resyncTick]);
+
+  // Danh sách AI bóc lời - tĩnh theo cấu hình máy, hỏi một lần là đủ. Hỏng thì
+  // để null: ô chọn vẫn hiện lựa chọn đang lưu, chỉ không khóa được cái thiếu key.
+  useEffect(() => {
+    let alive = true;
+    getSttProviders()
+      .then((list) => alive && setSttProviders(list))
+      .catch(() => alive && setSttProviders(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Seed job đang chạy (mở trang giữa chừng vẫn thấy tiến trình).
   // resyncTick: refetch sau khi SSE nối lại để bắt kịp job đã đổi trạng thái.
@@ -480,6 +1052,23 @@ export default function TranslateVideoDetailPage() {
     queue({ mode: v }, true);
   }
 
+  function patchSttProvider(v: SttProvider) {
+    setSttProvider(v);
+    queue({ sttProvider: v }, true);
+  }
+
+  /**
+   * Sửa cấu hình lồng tiếng - gửi TRỌN khối để server khỏi phải merge.
+   * `immediate = false` cho thanh trượt âm lượng: kéo một cái là hàng chục sự
+   * kiện, gửi ngay từng cái là hàng chục PATCH đua nhau trên cùng một file.
+   */
+  function patchDub(p: Partial<DubSettings>, immediate = true) {
+    if (!dub) return;
+    const next = { ...dub, ...p };
+    setDub(next);
+    queue({ dub: next }, immediate);
+  }
+
   function patchStyle(p: Partial<SubtitleStyle>, immediate = false) {
     if (!subtitleStyle) return;
     const next = { ...subtitleStyle, ...p };
@@ -517,11 +1106,13 @@ export default function TranslateVideoDetailPage() {
       // Gửi nốt sửa đổi đang chờ trước - server phải làm việc trên bản mới nhất
       await flush();
       if (step === "translate") {
-        adopt(await translateTranslateVideo(sessionId));
+        adopt(await translateTranslateVideo(sessionId, { model: translateModel }));
       } else {
         const { jobId } =
           step === "transcribe"
-            ? await transcribeTranslateVideo(sessionId)
+            ? // Gửi kèm provider của lần chạy NÀY: PATCH vừa bay đi có thể chưa
+              // tới đĩa, mà server đọc meta để biết dùng AI nào
+              await transcribeTranslateVideo(sessionId, { sttProvider })
             : await renderTranslateVideo(sessionId);
         currentJobId.current = jobId;
         setJobPhase(step === "transcribe" ? "transcribe" : "render");
@@ -556,7 +1147,27 @@ export default function TranslateVideoDetailPage() {
     return label === key ? code : label;
   }
 
-  if (!session || !subtitleStyle) {
+  /**
+   * Tên AI bóc lời. Provider server có mà web chưa dịch (server mới hơn web)
+   * thì lấy nhãn tiếng Việt của server - thà hiện tiếng Việt còn hơn phun ra
+   * chuỗi "tv.stt.foo".
+   */
+  function sttName(id: string): string {
+    const key = `tv.stt.${id}`;
+    const label = t(key);
+    if (label !== key) return label;
+    return (sttProviders ?? []).find((p) => p.id === id)?.label ?? id;
+  }
+
+  /** Nhãn model dịch - id lạ (server đổi trước web) hiện thẳng id. */
+  function modelLabel(id: string): string {
+    const hit = TRANSLATE_MODELS.find((m) => m.id === id);
+    if (!hit) return id;
+    const label = t(hit.labelKey);
+    return label === hit.labelKey ? hit.id : label;
+  }
+
+  if (!session || !subtitleStyle || !dub) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title={t("nav.translate-video")} />
@@ -590,6 +1201,22 @@ export default function TranslateVideoDetailPage() {
   const outputUrl = session.outputFile
     ? `${mediaUrl(session.outputFile)}?v=${encodeURIComponent(session.updatedAt)}`
     : null;
+
+  const isDub = mode === "dub";
+  const sttCap = (sttProviders ?? []).find((p) => p.id === sttProvider) ?? null;
+
+  /**
+   * Người nói để gán giọng. Lấy nhãn từ transcript NHƯNG chỉ giữ nhãn nào thật
+   * sự có câu trong bản dịch - đúng luật của /dub-preview phía server. Gán giọng
+   * cho một nhãn không câu nào mang là bày ra một ô chọn không đổi được gì.
+   */
+  const speakers = (
+    session.transcriptInfo?.diarized ? session.transcriptInfo.speakers : []
+  ).filter((s) => cues.some((c) => (c.speaker ?? "") === s));
+
+  /** Câu ĐẦU TIÊN của một người nói - nghe thử phải nghe đúng lời của họ. */
+  const cueIndexOf = (speaker: string): number =>
+    speaker ? cues.findIndex((c) => (c.speaker ?? "") === speaker) : 0;
 
   // Log của bước nào thì hiện ở khối ấy. Chưa biết (mở trang giữa chừng) thì suy
   // từ trạng thái phiên - đó là thông tin đáng tin nhất đang có.
@@ -636,23 +1263,35 @@ export default function TranslateVideoDetailPage() {
         .filter(Boolean)
         .join(" · ")
     : t("tv.no-source-yet");
-  const transcriptSummary =
-    cues.length > 0
-      ? tf("tv.cue-count", { n: cues.length })
-      : t("tv.no-transcript");
-  const translationSummary =
+  const transcriptSummary = [
+    sttName(session.transcriptInfo?.provider ?? sttProvider),
+    cues.length > 0 ? tf("tv.cue-count", { n: cues.length }) : t("tv.no-transcript"),
+    session.transcriptInfo?.diarized
+      ? tf("tv.transcript-speakers", { n: session.transcriptInfo.speakers.length })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  // Model đi kèm ngay trong dòng tóm tắt: gấp khối lại vẫn phải biết bản dịch
+  // này do AI nào làm - đó là câu hỏi đầu tiên khi thấy một câu dịch lạ.
+  const translationSummary = `${langLabel(sourceLang)} → ${langLabel(targetLang)} · ${
     translatedCount > 0
-      ? `${langLabel(sourceLang)} → ${langLabel(targetLang)} · ${tf(
-          "tv.translated-count",
-          { n: translatedCount }
-        )}`
-      : `${langLabel(sourceLang)} → ${langLabel(targetLang)} · ${t(
-          "tv.no-translation"
-        )}`;
+      ? tf("tv.translated-count", { n: translatedCount })
+      : t("tv.no-translation")
+  } · ${TRANSLATE_PROVIDER} ${translateModel}`;
   const subtitleSummary = `${t(`tv.font.${subtitleStyle.fontFamily}`)} · ${
     subtitleStyle.fontSizePx
   }px · ${t(`tv.backdrop.${subtitleStyle.backdrop}`)}`;
   const resultSummary = session.outputFile ?? statusLabel;
+  const dubSummary = [
+    t(DUB_ENGINE_LABEL_KEY[dub.engine === "vieneu" ? "vieneu" : "gemini"]),
+    speakers.length > 0
+      ? tf("tv.dub.speaker-count", { n: speakers.length })
+      : t("tv.dub.all-speakers"),
+    dub.keepOriginal ? t("tv.dub.keep-original-short") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="flex flex-col gap-4">
@@ -871,6 +1510,134 @@ export default function TranslateVideoDetailPage() {
               </div>
             </div>
           </WorkspaceBlock>
+
+          {/* Bóc lời thoại NẰM NGAY DƯỚI VIDEO: nó là thao tác trên chính cái
+              video vừa xem ở trên (nghe hết video, ghi lại từng câu). Đặt ở cột
+              kết quả như trước là bắt người dùng nhìn sang đầu kia màn hình để
+              bấm một nút làm việc trên nguồn. */}
+          <WorkspaceBlock
+            id="tv-block-transcript"
+            icon={Subtitles}
+            collapsed={group.isCollapsed("transcript")}
+            onToggle={() => group.toggle("transcript")}
+            summary={transcriptSummary}
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                {t("tv.card-transcript")}
+                <InfoHint
+                  titleKey="help.tv-transcript.title"
+                  bodyKey="help.tv-transcript.body"
+                  size={14}
+                />
+              </span>
+            }
+            actions={
+              <Button
+                small
+                disabled={!canTranscribe || busy !== null}
+                onClick={() => run("transcribe")}
+              >
+                {busy === "transcribe" ? (
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Subtitles size={14} strokeWidth={2} />
+                )}
+                {cues.length > 0 ? t("tv.re-transcribe") : t("tv.transcribe")}
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {/* AI nào bóc lời: chỉ Gemini và Soniox gắn được nhãn người nói,
+                  mà không có nhãn thì lồng tiếng chỉ đọc được một giọng cho cả
+                  video - nên lựa chọn này phải nằm ngay tại đây, không giấu đi */}
+              <div>
+                <label className="label" htmlFor="tv-stt-provider">
+                  {t("tv.stt-provider")}
+                  <InfoHint
+                    className="ml-1.5 align-middle"
+                    titleKey="help.tv-stt.title"
+                    bodyKey="help.tv-stt.body"
+                  />
+                </label>
+                <select
+                  id="tv-stt-provider"
+                  className="input"
+                  value={sttProvider}
+                  disabled={locked}
+                  onChange={(e) => patchSttProvider(e.target.value as SttProvider)}
+                >
+                  {/* Không hỏi được danh sách (server cũ/mạng lỗi) thì vẫn phải
+                      hiện lựa chọn đang lưu, đừng để ô rỗng */}
+                  {sttProviders === null && (
+                    <option value={sttProvider}>{sttName(sttProvider)}</option>
+                  )}
+                  {(sttProviders ?? []).map((p) => (
+                    <option key={p.id} value={p.id} disabled={!p.available}>
+                      {sttName(p.id)}
+                      {p.diarization ? ` · ${t("tv.stt.diarization")}` : ""}
+                      {p.available ? "" : ` · ${t("tv.stt.unavailable")}`}
+                    </option>
+                  ))}
+                </select>
+                {sttCap && !sttCap.available && sttCap.why && (
+                  <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--danger)]">
+                    <AlertTriangle
+                      size={13}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0"
+                    />
+                    {sttCap.why}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  {sttCap?.diarization
+                    ? t("tv.stt.diarization-hint")
+                    : t("tv.stt.no-diarization-hint")}
+                </p>
+              </div>
+
+              {session.status === "transcribing" && (
+                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                  {t("tv.transcribing-hint")}
+                </p>
+              )}
+
+              {job && phase === "transcribe" ? (
+                <JobLogBlock job={job} />
+              ) : cues.length === 0 ? (
+                <EmptyState
+                  icon={Subtitles}
+                  description={hasSource ? t("tv.no-transcript") : t("tv.no-source-yet")}
+                />
+              ) : null}
+
+              {/* Transcript ĐANG CÓ là của ai, tiếng gì, có nhãn người nói
+                  không - khác hẳn ô chọn phía trên (đó là cho lần chạy SAU) */}
+              {session.transcriptInfo && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="chip">
+                    {sttName(session.transcriptInfo.provider)}
+                  </span>
+                  <span className="chip">{session.transcriptInfo.language}</span>
+                  <span className="chip">
+                    {session.transcriptInfo.diarized
+                      ? tf("tv.transcript-speakers", {
+                          n: session.transcriptInfo.speakers.length,
+                        })
+                      : t("tv.transcript-no-speakers")}
+                  </span>
+                </div>
+              )}
+
+              {session.transcriptFile && (
+                <span className="chip w-fit">
+                  {t("tv.transcript-file")}: {session.transcriptFile}
+                </span>
+              )}
+            </div>
+          </WorkspaceBlock>
         </WorkspaceColumn>
 
         {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
@@ -943,19 +1710,16 @@ export default function TranslateVideoDetailPage() {
                   <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("tv.mode")}>
                     {(
                       [
-                        ["subtitle", Subtitles, false],
-                        ["dub", Film, true],
+                        ["subtitle", Subtitles],
+                        ["dub", Mic],
                       ] as const
-                    ).map(([m, Icon, soon]) => (
+                    ).map(([m, Icon]) => (
                       <button
                         key={m}
                         type="button"
                         role="radio"
                         aria-checked={mode === m}
-                        // Lồng tiếng là giai đoạn 2, backend chưa có - cho bấm là
-                        // người dùng chọn xong rồi ngồi chờ một thứ không chạy.
-                        disabled={locked || soon}
-                        title={soon ? t("tv.mode.soon") : undefined}
+                        disabled={locked}
                         onClick={() => patchMode(m as TranslateMode)}
                         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors duration-150 ${
                           mode === m
@@ -965,16 +1729,50 @@ export default function TranslateVideoDetailPage() {
                       >
                         <Icon size={13} strokeWidth={2} />
                         {t(TRANSLATE_MODE_LABEL[m as TranslateMode])}
-                        {soon && (
-                          <span className="text-[10px] opacity-80">
-                            ({t("tv.mode.soon-short")})
-                          </span>
-                        )}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                {/* AI nào dịch và model gì - câu hỏi đầu tiên khi đọc phải một
+                    câu dịch lạ, nên nó phải nằm ngay cạnh nút Dịch chứ không
+                    nằm trong tài liệu. Danh sách model là gương của
+                    apps/server/src/translate.ts (xem TRANSLATE_MODELS). */}
+                <div>
+                  <label className="label" htmlFor="tv-model">
+                    {t("tv.model")}
+                    <InfoHint
+                      className="ml-1.5 align-middle"
+                      titleKey="help.tv-model.title"
+                      bodyKey="help.tv-model.body"
+                    />
+                  </label>
+                  <select
+                    id="tv-model"
+                    className="input"
+                    value={translateModel}
+                    disabled={locked}
+                    onChange={(e) => setTranslateModel(e.target.value)}
+                  >
+                    {!TRANSLATE_MODELS.some((m) => m.id === translateModel) && (
+                      <option value={translateModel}>{translateModel}</option>
+                    )}
+                    {TRANSLATE_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {modelLabel(m.id)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+                <Bot size={13} strokeWidth={2} aria-hidden="true" className="mt-0.5 shrink-0" />
+                {tf("tv.model-current", {
+                  provider: TRANSLATE_PROVIDER,
+                  model: translateModel,
+                })}
+              </p>
 
               {session.status === "translating" ? (
                 <p className="flex items-center gap-2 py-4 text-xs text-[var(--text-muted)]">
@@ -1023,6 +1821,43 @@ export default function TranslateVideoDetailPage() {
             </div>
           </WorkspaceBlock>
 
+          {/* Lồng tiếng - CHỈ hiện khi chọn chế độ này. Bày ra cả một khối gán
+              giọng trong lúc đang làm phụ đề là bày ra thứ không dùng tới. */}
+          {isDub && (
+            <WorkspaceBlock
+              id="tv-block-dub"
+              icon={Mic}
+              collapsed={group.isCollapsed("dub")}
+              onToggle={() => group.toggle("dub")}
+              summary={dubSummary}
+              title={
+                <span className="inline-flex items-center gap-1.5">
+                  {t("tv.card-dub")}
+                  <InfoHint
+                    titleKey="help.tv-dub.title"
+                    bodyKey="help.tv-dub.body"
+                    size={14}
+                  />
+                </span>
+              }
+            >
+              {cues.length === 0 ? (
+                <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
+              ) : (
+                <DubSettingsCard
+                  sessionId={sessionId}
+                  dub={dub}
+                  speakers={speakers}
+                  diarized={session.transcriptInfo?.diarized === true}
+                  cueIndexOf={cueIndexOf}
+                  speakerF0={session.dubInfo?.speakerF0 ?? {}}
+                  disabled={locked}
+                  onChange={patchDub}
+                />
+              )}
+            </WorkspaceBlock>
+          )}
+
           {/* Kiểu phụ đề + ô xem trước - vẫn là "muốn ra cái gì", nên ở cột 2 */}
           <WorkspaceBlock
             id="tv-block-subtitle"
@@ -1042,16 +1877,67 @@ export default function TranslateVideoDetailPage() {
             }
           >
             <div className="flex flex-col gap-4">
+              {/* Lồng tiếng KHÔNG đốt chữ lên hình - nói thẳng thay vì để người
+                  dùng chỉnh cả bảng kiểu chữ rồi không thấy chữ đâu trong video */}
+              {isDub && (
+                <p className="flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+                  <AlertTriangle
+                    size={13}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0"
+                  />
+                  {t("tv.subtitle-unused-in-dub")}
+                </p>
+              )}
+
               {/* Xem trước NGAY: đổi cỡ chữ hay màu nền mà phải render mới biết
                   đẹp xấu thì mỗi lần thử mất hàng chục phút. */}
               <div>
                 <span className="label">{t("tv.preview")}</span>
+                {/* Khung giả lập video: nền tối cố định (không phải token) vì
+                    đây là MÔ PHỎNG khung hình, không phải giao diện dashboard -
+                    đổi theo theme sáng/tối là xem trước sai. */}
                 <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[var(--radius)] bg-[#1c1c20]">
-                  {/* Khung giả lập video: nền tối cố định (không phải token) vì
-                      đây là MÔ PHỎNG khung hình, không phải giao diện dashboard -
-                      đổi theo theme sáng/tối là xem trước sai. */}
+                  {/*
+                    PHÍA SAU CHỮ PHẢI CÓ HÌNH THẬT.
+
+                    Lỗi đã sửa: `backdrop-filter: blur()` chỉ làm mờ NHỮNG GÌ NẰM
+                    PHÍA SAU nó. Trước đây ô xem trước là một khối màu phẳng, mà
+                    làm mờ một màu phẳng thì ra đúng màu phẳng đó - kéo "Độ mờ"
+                    từ 0 lên 40 không đổi lấy một pixel, người dùng tưởng tính
+                    năng hỏng.
+                    Nên: một khung hình của CHÍNH video người dùng vừa tải lên
+                    (mốc PREVIEW_FRAME_SEC, tránh giây đầu thường là màn đen),
+                    chưa có nguồn thì dùng nền kẻ sọc tương phản - cả hai đều có
+                    chi tiết để làm mờ, nên 0 / 20 / 40 nhìn ra ngay là ba mức.
+                    Video ở đây câm và không có controls: nó là HÌNH NỀN, người
+                    dùng đã có trình phát thật ở khối Video nguồn.
+                  */}
+                  {sourceUrl ? (
+                    <video
+                      key={sourceUrl}
+                      src={`${sourceUrl}#t=${PREVIEW_FRAME_SEC}`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0"
+                      // Sọc chéo hai tông xám: đủ chi tiết để thấy độ mờ, và cố
+                      // ý KHÔNG dùng token màu (xem ghi chú khung giả lập trên).
+                      style={{
+                        background:
+                          "repeating-linear-gradient(135deg, #3a3f4b 0 14px, #191c22 14px 28px)",
+                      }}
+                    />
+                  )}
                   <div
-                    className="max-w-[86%] rounded-[6px] px-3 py-1.5 text-center leading-snug"
+                    className="relative max-w-[86%] rounded-[6px] px-3 py-1.5 text-center leading-snug"
                     style={{
                       marginBottom: `${Math.min(
                         // bottomPx tính trên khung hình thật (vd 1080px cao), ô
@@ -1071,9 +1957,12 @@ export default function TranslateVideoDetailPage() {
                         subtitleStyle.backdrop === "none"
                           ? "transparent"
                           : subtitleStyle.backdropColor,
+                      // Bán kính mờ thu theo ĐÚNG tỉ lệ của cỡ chữ (÷3): ô xem
+                      // trước nhỏ hơn khung hình thật chừng ấy lần, để nguyên
+                      // 40px là cả ô nhòe thành một mảng - lại nói dối kiểu khác.
                       backdropFilter:
                         subtitleStyle.backdrop === "blur"
-                          ? `blur(${subtitleStyle.blurPx}px)`
+                          ? `blur(${(subtitleStyle.blurPx / 3).toFixed(1)}px)`
                           : undefined,
                       opacity: subtitleStyle.backdrop === "blur" ? 0.92 : 1,
                     }}
@@ -1082,7 +1971,7 @@ export default function TranslateVideoDetailPage() {
                   </div>
                 </div>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {t("tv.preview-hint")}
+                  {sourceUrl ? t("tv.preview-hint") : t("tv.preview-hint-no-source")}
                 </p>
               </div>
 
@@ -1262,22 +2151,35 @@ export default function TranslateVideoDetailPage() {
               >
                 {busy === "render" ? (
                   <Loader2 size={15} strokeWidth={2} className="animate-spin" />
+                ) : isDub ? (
+                  <Mic size={15} strokeWidth={2} />
                 ) : (
                   <Film size={15} strokeWidth={2} />
                 )}
-                {session.outputFile ? t("tv.re-render") : t("tv.render")}
+                {isDub
+                  ? session.outputFile
+                    ? t("tv.dub-re-render")
+                    : t("tv.dub-render")
+                  : session.outputFile
+                    ? t("tv.re-render")
+                    : t("tv.render")}
               </Button>
             }
           >
             {session.status === "rendering" && (
               <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                 <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                {t("tv.rendering-hint")}
+                {isDub ? t("tv.dub-rendering-hint") : t("tv.rendering-hint")}
               </p>
             )}
 
             {/* Log của bước đóng phụ đề - thứ SINH RA trong lúc chạy, đúng chỗ */}
             {renderJob && <JobLogBlock job={renderJob} />}
+
+            {/* Số liệu của lần lồng tiếng gần nhất: bao nhiêu câu phải co, bao
+                nhiêu câu tràn, dải tempo. Đây là cách DUY NHẤT để biết bản lồng
+                tiếng có ổn không mà không phải ngồi xem hết video. */}
+            {session.dubInfo && <DubReport info={session.dubInfo} />}
 
             {outputUrl ? (
               <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
@@ -1286,70 +2188,15 @@ export default function TranslateVideoDetailPage() {
             ) : (
               <p className="text-xs text-[var(--text-muted)]">
                 {canRender
-                  ? t("tv.render-hint")
+                  ? isDub
+                    ? t("tv.dub-render-hint")
+                    : t("tv.render-hint")
                   : cues.length === 0
                     ? t("tv.render-need-transcript")
                     : t("tv.render-need-translation")}
               </p>
             )}
           </OutputBlock>
-
-          {/* Lời thoại bóc ra được - sản phẩm của bước 2, không phải ô nhập */}
-          <WorkspaceBlock
-            id="tv-block-transcript"
-            icon={Subtitles}
-            collapsed={group.isCollapsed("transcript")}
-            onToggle={() => group.toggle("transcript")}
-            summary={transcriptSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-transcript")}
-                <InfoHint
-                  titleKey="help.tv-transcript.title"
-                  bodyKey="help.tv-transcript.body"
-                  size={14}
-                />
-              </span>
-            }
-            actions={
-              <Button
-                small
-                disabled={!canTranscribe || busy !== null}
-                onClick={() => run("transcribe")}
-              >
-                {busy === "transcribe" ? (
-                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                ) : (
-                  <Subtitles size={14} strokeWidth={2} />
-                )}
-                {cues.length > 0 ? t("tv.re-transcribe") : t("tv.transcribe")}
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              {session.status === "transcribing" && (
-                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                  {t("tv.transcribing-hint")}
-                </p>
-              )}
-
-              {job && phase === "transcribe" ? (
-                <JobLogBlock job={job} />
-              ) : cues.length === 0 ? (
-                <EmptyState
-                  icon={Subtitles}
-                  description={hasSource ? t("tv.no-transcript") : t("tv.no-source-yet")}
-                />
-              ) : null}
-
-              {session.transcriptFile && (
-                <span className="chip w-fit">
-                  {t("tv.transcript-file")}: {session.transcriptFile}
-                </span>
-              )}
-            </div>
-          </WorkspaceBlock>
 
           {/* Dịch tới đâu rồi - đếm trên chính danh sách câu đang sửa ở cột 2 */}
           <WorkspaceBlock

@@ -9,20 +9,21 @@
  * - Cột `setup`: kịch bản edit (Brief: màu/font, phong cách dựng, phụ đề, key…),
  *   hàng nút bắt đầu edit bằng AI, duyệt bản draft và cắt short - "mình muốn ra
  *   cái gì".
- * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
- *   thì hiện thẳng video), rồi mới tới những thứ SINH RA trong lúc chạy: tiến
- *   trình dựng, scene, file render, QC, báo cáo cắt tự động, thumbnail, gói xuất
- *   bản.
+ * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (đang chạy thì gấp lại còn một
+ *   dòng thanh tiến trình, xong thì tự mở ra hiện thẳng video), rồi mới tới
+ *   những thứ SINH RA trong lúc chạy: scene, file render, QC, báo cáo cắt tự
+ *   động, thumbnail, gói xuất bản.
  *
  * Panel AI là SLOT CỦA SHELL: trang chỉ khai báo <ShellRightPanel> và shell lo bề
  * rộng, chỗ chừa, nút gấp, chế độ drawer. Trước đây trang tự dựng một <aside>
  * `fixed` rồi chừa chỗ bằng `xl:pr-[452px]` - con số đó sai ngay khi người dùng
  * gấp panel lại, và mỗi trang lại phải nhớ tự chừa.
  *
- * Project xong (status "done") thì các khối khác tự gấp lại còn một dòng tóm tắt,
- * riêng khối video thành phẩm vẫn mở: lúc đó người dùng vào trang là để XEM video
- * vừa ra, không phải để sửa brief nữa. Gấp/mở vẫn bấm tay được và ý người dùng
- * luôn thắng mặc định - xem `useCollapseGroup`.
+ * Project xong (status "done") thì các khối khác tự gấp lại còn một dòng tóm tắt:
+ * lúc đó người dùng vào trang là để XEM video vừa ra, không phải để sửa brief
+ * nữa. Riêng khối video thành phẩm theo luật của nó - đang chạy thì gấp (mở ra
+ * cũng chỉ có một ô trống), có video thì mở. Gấp/mở vẫn bấm tay được và ý người
+ * dùng luôn thắng mặc định - xem `useCollapseGroup` và `outputCollapsed`.
  *
  * Vài card lớn (Nguồn & Asset, QC, Gói xuất bản, Duyệt draft, Cắt short, Cắt tự
  * động) tự nó ĐÃ LÀ một <Card> hoàn chỉnh nên đứng thẳng trong cột chứ không lồng
@@ -41,7 +42,6 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
-  ListVideo,
   MessageSquare,
   Minus,
   MoreHorizontal,
@@ -107,7 +107,6 @@ import {
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { deriveStage, PipelineTimeline } from "@/components/PipelineTimeline";
-import { ProgressBar } from "@/components/ProgressBar";
 import { ShellRightPanel } from "@/components/Shell";
 import {
   BriefFields,
@@ -139,23 +138,20 @@ import { useT } from "@/lib/i18n";
 /** Gộp nhiều lần gõ phím thành một PUT brief - không bắn request mỗi ký tự. */
 const BRIEF_DEBOUNCE_MS = 700;
 
-/** Các khối của project - key vừa là id state gấp/mở vừa là id vùng nội dung. */
+/**
+ * Các khối của project - key vừa là id state gấp/mở vừa là id vùng nội dung.
+ *
+ * KHÔNG có "output" ở đây: khối video thành phẩm gấp/mở theo luật riêng ("đã có
+ * video chưa" chứ không phải "project xong chưa") nên giữ state riêng - xem
+ * `outputCollapsed` trong component.
+ */
 const PROJECT_BLOCKS = [
   "brief",
   "action",
-  "output",
-  "pipeline",
   "scenes",
   "renders",
   "thumbnail",
 ] as const;
-type BlockKey = (typeof PROJECT_BLOCKS)[number];
-
-/**
- * Khối vẫn MỞ khi project xong: video thành phẩm. Xong việc thì người dùng vào
- * trang là để xem thành phẩm, không phải để sửa brief nữa.
- */
-const PROJECT_KEEP_EXPANDED: readonly BlockKey[] = ["output"];
 
 function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   const cls = "shrink-0 text-[var(--text-muted)]";
@@ -897,7 +893,6 @@ export default function ProjectDetailPage() {
   const group = useCollapseGroup({
     keys: PROJECT_BLOCKS,
     finished: project?.status === "done",
-    keepExpanded: PROJECT_KEEP_EXPANDED,
   });
 
   // Timeline tự ẩn khi chưa có gì để hiện (deriveStage trả null). Tính trước ở
@@ -942,6 +937,17 @@ export default function ProjectDetailPage() {
       : "idle";
   const aspect = project ? `${project.width} / ${project.height}` : "16 / 9";
 
+  // Gấp/mở khối video thành phẩm - luật riêng, KHÔNG đi chung `group`:
+  //   đang chạy mà chưa có video → GẤP, chỉ còn một dòng thanh tiến trình (mở ra
+  //     cũng chỉ thấy một ô trống nhấp nháy, chiếm nửa cột để nói "chưa có gì");
+  //   đã có video               → MỞ, vào trang là để xem cái video đó.
+  // Vẫn đúng luật cũ của cả trang: mặc định SUY RA NGAY TRONG LÚC RENDER, tuyệt
+  // đối không useEffect đồng bộ theo status - trang bám SSE job + agent, mỗi
+  // dòng log là một lần render, effect kiểu đó sẽ đóng sập đúng cái khối người
+  // dùng vừa mở. Bấm tay một lần là ý người dùng thắng vĩnh viễn.
+  const [outputOverride, setOutputOverride] = useState<boolean | null>(null);
+  const outputCollapsed = outputOverride ?? (outputUrl === null && busyNow);
+
   // ---- Một dòng tóm tắt cho từng khối lúc gấp ----
 
   const briefSummary =
@@ -951,10 +957,44 @@ export default function ProjectDetailPage() {
   const actionSummary = started
     ? tf("project.session-count", { n: chatSessions?.length ?? 0 })
     : t("project.start-edit");
-  const outputSummary = outputName ?? t("project.no-output");
-  const pipelineSummary = runningJob
-    ? `${runningJob.type} · ${runningJob.progress}%`
-    : t("project.no-job");
+  /**
+   * Dòng tóm tắt của khối video thành phẩm. Lúc đang chạy đây là NƠI DUY NHẤT
+   * còn hiện % + tên bước của job (khối "Tiến trình dựng" đã bỏ - 6 giai đoạn
+   * của nó trùng hệt thanh bước ở đầu trang, chỉ % và tên bước là của riêng nó
+   * nên dọn về đây, ngay cạnh thanh tiến trình).
+   *
+   * Toàn <span>: WorkspaceBlock bọc summary trong <p>, nhét <div> vào là HTML
+   * không hợp lệ.
+   */
+  const jobPct = runningJob
+    ? Math.max(0, Math.min(100, Math.round(runningJob.progress)))
+    : null;
+  const progressText = runningJob
+    ? [`${runningJob.type} · ${jobPct}%`, runningJob.step]
+        .filter(Boolean)
+        .join(" · ")
+    : aiRunning
+      ? t("project.ai-making-ellipsis")
+      : t("workspace.output.running");
+  const outputSummary: ReactNode = busyNow ? (
+    <span className="summary-progress">
+      <span className="summary-progress-track">
+        {jobPct === null ? (
+          <span className="summary-progress-fill is-indeterminate" />
+        ) : (
+          <span
+            className="summary-progress-fill"
+            style={{ width: `${jobPct}%` }}
+          />
+        )}
+      </span>
+      <span className="summary-progress-text" title={progressText}>
+        {progressText}
+      </span>
+    </span>
+  ) : (
+    (outputName ?? t("project.no-output"))
+  );
   const sceneSummary =
     scenes.length > 0
       ? tf("project.scene-count", { n: scenes.length })
@@ -1381,8 +1421,9 @@ export default function ProjectDetailPage() {
 
         {/* ============ Cột 3: tiến trình & kết quả ============ */}
         <WorkspaceColumn role="output" title={t("workspace.col.output")}>
-          {/* Khối ĐẦU TIÊN của cột: đang dựng thì nhấp nháy chờ, xong thì hiện
-              thẳng video. Liếc một chỗ là biết project đang ở đâu. */}
+          {/* Khối ĐẦU TIÊN của cột. Đang dựng thì GẤP lại còn một dòng thanh
+              tiến trình (% + tên bước của job), xong thì tự mở ra và hiện thẳng
+              video. Liếc một chỗ là biết project đang ở đâu. */}
           <OutputBlock
             id="project-block-output"
             status={outputStatus}
@@ -1390,8 +1431,8 @@ export default function ProjectDetailPage() {
             progress={runningJob ? runningJob.progress : null}
             step={runningJob?.step}
             aspect={aspect}
-            collapsed={group.isCollapsed("output")}
-            onToggle={() => group.toggle("output")}
+            collapsed={outputCollapsed}
+            onToggle={setOutputOverride}
             summary={outputSummary}
             title={
               <span className="inline-flex items-center gap-1.5">
@@ -1451,51 +1492,11 @@ export default function ProjectDetailPage() {
             ) : null}
           </OutputBlock>
 
-          {/* Tiến trình dựng: 6 giai đoạn + job đang chạy. Cùng dữ liệu với thanh
-              bước ở header, nhưng ở đây kèm % và tên bước của job. */}
-          <WorkspaceBlock
-            id="project-block-pipeline"
-            icon={ListVideo}
-            collapsed={group.isCollapsed("pipeline")}
-            onToggle={() => group.toggle("pipeline")}
-            summary={pipelineSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("project.card-pipeline")}
-                <InfoHint
-                  titleKey="help.pipeline.title"
-                  bodyKey="help.pipeline.body"
-                  size={14}
-                />
-              </span>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              {pipelineInput && showPipeline ? (
-                <PipelineTimeline {...pipelineInput} />
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {t("project.no-job")}
-                </p>
-              )}
-              {runningJob && (
-                <>
-                  <ProgressBar
-                    progress={runningJob.progress}
-                    step={runningJob.step}
-                  />
-                  <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                    <Loader2
-                      size={12}
-                      strokeWidth={2}
-                      className="shrink-0 animate-spin"
-                    />
-                    <span className="min-w-0 truncate">{runningJob.type}</span>
-                  </p>
-                </>
-              )}
-            </div>
-          </WorkspaceBlock>
+          {/* KHÔNG có khối "Tiến trình dựng" ở đây nữa: 6 giai đoạn của nó là
+              đúng cái thanh bước đã nằm ở đầu trang, để hai chỗ là bắt người
+              dùng đọc cùng một thứ hai lần. Phần RIÊNG của nó (% + tên bước của
+              job đang chạy) đã dọn lên dòng tóm tắt của khối video thành phẩm,
+              nơi giờ có thanh tiến trình. */}
 
           {/* Scene do AI dựng - sản phẩm của lượt edit, không phải ô nhập */}
           <WorkspaceBlock
