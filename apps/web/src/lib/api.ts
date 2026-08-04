@@ -2847,8 +2847,91 @@ export const getTtsVoices = (engine?: TtsEngine) =>
 /** Engine nào dùng được trên MÁY NÀY - đừng đoán ở phía web, hỏi server. */
 export const getTtsEngines = () => request<TtsEngineStatus[]>("/api/tts/engines");
 
-/** 20 phong cách dựng - catalog tĩnh trong code server, không đổi giữa các lần gọi. */
+/**
+ * Danh sách phong cách dựng cho Ô CHỌN của brief - shape gọn (không có
+ * `art`/`avoid`). Trang quản lý dùng `getManagedVideoStyles()` bên dưới.
+ */
 export const getVideoStyles = () => request<VideoStyle[]>("/api/video-styles");
+
+// ------------------------------------------------- Quản lý phong cách dựng
+
+/**
+ * Phong cách dựng ở dạng ĐẦY ĐỦ - chỉ trang /video-styles dùng.
+ *
+ * `art`/`avoid` là prompt chỉ đạo mỹ thuật gửi Gemini (viết tiếng Anh vì model
+ * bám sát hơn hẳn). Ô chọn trong brief cố tình không hiện hai field này; người
+ * đi SỬA phong cách thì bắt buộc phải thấy, không thì phong cách tự tạo không
+ * có chỉ đạo mỹ thuật nào.
+ */
+export interface ManagedVideoStyle {
+  id: string;
+  name: string;
+  art: string;
+  avoid: string;
+  palette: VideoStylePalette;
+  motion: string;
+  /** Bản mặc định ship kèm repo - sửa/xóa được, nhưng khôi phục lại được. */
+  builtin: boolean;
+  /** Số project/phiên đang trỏ tới phong cách này. */
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Một project/phiên đang dùng phong cách - hiện ở trang chi tiết trước khi xóa. */
+export interface VideoStyleUsage {
+  kind: "video-project" | "text-to-video" | "auto-cut" | "translate-video";
+  id: string;
+  name: string;
+}
+
+export type ManagedVideoStyleDetail = ManagedVideoStyle & {
+  usage: VideoStyleUsage[];
+};
+
+/** Nội dung sửa được của một phong cách - dùng chung cho tạo mới và cập nhật. */
+export interface VideoStyleInput {
+  name: string;
+  art: string;
+  avoid: string;
+  palette: VideoStylePalette;
+  motion: string;
+}
+
+export const getManagedVideoStyles = () =>
+  request<ManagedVideoStyle[]>("/api/video-styles?full=1");
+
+export const getVideoStyleDetail = (id: string) =>
+  request<ManagedVideoStyleDetail>(
+    `/api/video-styles/${encodeURIComponent(id)}`
+  );
+
+/** Tạo phong cách - `cloneFrom` lấy nội dung một phong cách có sẵn làm nền. */
+export const createVideoStyle = (
+  input: Partial<VideoStyleInput> & { id?: string; cloneFrom?: string }
+) => post<ManagedVideoStyle>("/api/video-styles", input);
+
+/** PUT partial - id KHÔNG đổi được (project cũ trỏ vào id này). */
+export const updateVideoStyle = (id: string, patch: Partial<VideoStyleInput>) =>
+  jsonBody<ManagedVideoStyle>(
+    `/api/video-styles/${encodeURIComponent(id)}`,
+    "PUT",
+    patch
+  );
+
+/**
+ * Xóa phong cách. Đang có project dùng mà không `force` thì server trả
+ * 409 VIDEO_STYLE_IN_USE kèm tên các project - UI phải hỏi lại rồi mới force.
+ */
+export const deleteVideoStyle = (id: string, force = false) =>
+  request<void>(
+    `/api/video-styles/${encodeURIComponent(id)}${force ? "?force=1" : ""}`,
+    { method: "DELETE" }
+  );
+
+/** Khôi phục một phong cách MẶC ĐỊNH về đúng nội dung ship kèm repo. */
+export const resetVideoStyle = (id: string) =>
+  post<ManagedVideoStyle>(`/api/video-styles/${encodeURIComponent(id)}/reset`);
 
 // --------------------------------------------------------------- Giọng nhân bản
 

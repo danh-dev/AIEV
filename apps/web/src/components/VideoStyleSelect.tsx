@@ -19,11 +19,20 @@ import { getVideoStyles, type VideoStyle } from "@/lib/api";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { useT } from "@/lib/i18n";
 
-/** Tên + mô tả ưu tiên bản dịch; phong cách mới chưa có key thì lùi về dữ liệu server. */
-function nameOf(s: VideoStyle, t: (k: string) => string): string {
-  const key = `vstyle.${s.id}.name`;
-  const v = t(key);
-  return v === key ? s.name : v;
+/**
+ * TÊN luôn lấy từ server, KHÔNG lấy bản dịch.
+ *
+ * Phong cách dựng giờ sửa được ở tab riêng. Ưu tiên key dịch như trước thì người
+ * dùng đổi tên một phong cách dựng sẵn xong: prompt gửi AI đổi ngay, còn nhãn
+ * trong Kịch bản edit vẫn là tên cũ - hai nơi nói hai kiểu về cùng một thứ, và
+ * người dùng tưởng thao tác sửa không ăn.
+ *
+ * Đánh đổi đã cân nhắc: giao diện tiếng Anh mất tên dịch của 20 phong cách dựng
+ * sẵn. Chấp nhận được, vì chúng vốn là khái niệm thuần Việt (giấy gấp Nhật, mực
+ * tàu, tranh Đông Hồ) và tên do người dùng đặt mới là thứ phải đúng.
+ */
+function nameOf(s: VideoStyle): string {
+  return s.name;
 }
 
 function descOf(s: VideoStyle, t: (k: string) => string): string {
@@ -71,7 +80,7 @@ export function VideoStyleSelect({
   const filtered = q
     ? list.filter(
         (s) =>
-          nameOf(s, t).toLowerCase().includes(q) ||
+          nameOf(s).toLowerCase().includes(q) ||
           descOf(s, t).toLowerCase().includes(q) ||
           s.id.includes(q)
       )
@@ -94,7 +103,7 @@ export function VideoStyleSelect({
         {selected ? (
           <>
             <span className="min-w-0 text-sm font-semibold text-[var(--primary)]">
-              {nameOf(selected, t)}
+              {nameOf(selected)}
             </span>
             {selected.palette === "loose" && (
               <span className="shrink-0 rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--danger)]">
@@ -160,7 +169,7 @@ export function VideoStyleSelect({
                 key={s.id}
                 active={value === s.id}
                 disabled={disabled}
-                title={nameOf(s, t)}
+                title={nameOf(s)}
                 desc={descOf(s, t)}
                 loose={s.palette === "loose"}
                 looseLabel={t("vstyle.loose-badge")}

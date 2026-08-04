@@ -38,6 +38,7 @@ import {
   MessageSquare,
   Mic,
   Palette,
+  Shapes,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -118,6 +119,10 @@ const NAV = [
   // đó, để lẫn xuống cụm thư viện phía dưới là người dùng không tìm ra.
   { href: "/voices", label: "nav.voices", icon: Mic },
   { href: "/styles", label: "nav.styles", icon: Palette },
+  // Ngay dưới Style Design: hai lớp "style" chồng nhau nên để cạnh nhau cho dễ
+  // phân biệt - Style Design là màu/font/logo thương hiệu, còn cái này là chất
+  // liệu và chuyển động của riêng từng video (xem CLAUDE.md mục 5.6).
+  { href: "/video-styles", label: "nav.video-styles", icon: Shapes },
   { href: "/queue", label: "nav.queue", icon: ListVideo },
   { href: "/assets", label: "nav.assets", icon: FolderOpen },
   { href: "/sfx", label: "nav.sfx", icon: AudioLines },

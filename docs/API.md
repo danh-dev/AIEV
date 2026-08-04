@@ -175,7 +175,7 @@ Brief = {
                                            //   null = AI tự quyết theo nội dung. Đặt số để video dài đổi nền liên tục
   styleId: string|null,                    // Style Design áp cho project (null = style default)
   videoStyleId: string|null,               // Phong cách dựng (GET /api/video-styles) - null = AI tự quyết;
-                                           //   id không còn trong catalog → server lùi về null
+                                           //   id không còn trong danh sách → server lùi về null
   notes: string                            // Yêu cầu edit (prompt) — nội dung chính gửi AI, đổ được từ prompt mẫu
 }
 
@@ -607,15 +607,42 @@ POST   /api/voices/:id/preview { uiLang? } -> bytes audio/wav - câu đọc th�
                                tự do), không rate limit (chỉ tốn CPU máy chủ)
 ```
 
-## Video styles (phong cách dựng - GET /api/video-styles)
+## Video styles (phong cách dựng - trang /video-styles)
 
 ```
-GET /api/video-styles -> [{ id, name, palette: "strict"|"loose", motion }]
+GET    /api/video-styles          -> [{ id, name, palette: "brand"|"loose", motion }]  (ô chọn của brief)
+GET    /api/video-styles?full=1   -> ManagedVideoStyle[]                               (trang quản lý)
+GET    /api/video-styles/:id      -> ManagedVideoStyle & { usage: VideoStyleUsage[] }
+POST   /api/video-styles          { name, art, avoid, palette, motion, id?, cloneFrom? } -> 201 ManagedVideoStyle
+PUT    /api/video-styles/:id      partial { name?, art?, avoid?, palette?, motion? } -> ManagedVideoStyle
+DELETE /api/video-styles/:id[?force=1] -> 204 | 409 VIDEO_STYLE_IN_USE
+POST   /api/video-styles/:id/reset     -> ManagedVideoStyle (chỉ phong cách mặc định)
+
+ManagedVideoStyle = { id, name, art, avoid, palette, motion, builtin, usageCount, createdAt, updatedAt }
+VideoStyleUsage   = { kind: "video-project"|"text-to-video"|"auto-cut"|"translate-video", id, name }
 ```
 
-Catalog tĩnh trong `apps/server/src/videoStyles.ts` (20 phong cách) cho ô chọn "Phong cách dựng"
-của brief (`Brief.videoStyleId`). KHÔNG trả `art`/`avoid` - đó là prompt chỉ đạo mỹ thuật nội bộ
-gửi Gemini, web không dùng tới.
+Nguồn sự thật: `assets/video-styles/video-styles.json` = `{ styles: [], removedBuiltins: [] }`.
+20 phong cách mặc định nằm trong `BUILTIN_VIDEO_STYLES` (apps/server/src/videoStyles.ts) và được
+GIEO vào file JSON ở lần đọc đầu tiên - repo mới clone vẫn có đủ. Bản cập nhật repo sau này thêm
+phong cách mặc định mới thì lần đọc kế tiếp tự chèn, trừ id đã nằm trong `removedBuiltins`.
+
+- `GET /` (không có `full`) giữ ĐÚNG shape cũ cho ô chọn của brief (`Brief.videoStyleId`) và KHÔNG
+  trả `art`/`avoid` - đó là prompt chỉ đạo mỹ thuật gửi Gemini, người đi CHỌN không cần đọc. Các
+  endpoint quản lý thì trả đủ, vì người đi SỬA bắt buộc phải sửa được hai field đó.
+- `palette`: `"brand"` = ảnh Gemini bám bảng màu Style Design; `"loose"` = phong cách có bảng màu
+  ruột của nó (mực tàu, Đông Hồ, ảnh thật), màu thương hiệu tụt xuống làm điểm nhấn - chữ/đồ họa
+  do HyperFrames/Remotion vẽ thì vẫn theo Style Design.
+- `id` KHÔNG sửa được (400 VIDEO_STYLE_ID_IMMUTABLE): brief của project cũ trỏ vào đúng id đó.
+- Bốn field `name`/`art`/`avoid`/`motion` bắt buộc không rỗng (400 INVALID_VIDEO_STYLE) - rỗng là
+  prompt gửi Gemini/agent bị cụt.
+- XÓA khi còn project dùng: mặc định TỪ CHỐI `409 VIDEO_STYLE_IN_USE` kèm tên các project (quét
+  `video-projects/`, `text-to-video/`, `auto-cut/`, `translate-video/`). Gọi lại với `?force=1` thì
+  xóa thật - các project đó lặng lẽ về "AI tự quyết" (briefOf hạ id lạ về null), video đã render
+  không đổi.
+- Phong cách MẶC ĐỊNH vẫn sửa/xóa được thoải mái vì luôn có đường về: `POST /:id/reset` dựng lại
+  đúng bản ship kèm repo (kể cả khi đã xóa hẳn). Phong cách tự tạo thì reset trả 400
+  NOT_BUILTIN_VIDEO_STYLE.
 
 ## Brand logos (thư viện logo brand - AI gọi khi kịch bản nhắc tới brand)
 

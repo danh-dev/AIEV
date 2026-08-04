@@ -1,3 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
+import { paths } from "./config.js";
+import { ensureDir, nowIso } from "./util.js";
+
 /**
  * Phong cách dựng video - "video này TRÔNG như thế nào".
  *
@@ -12,10 +17,28 @@
  * vào đó là ra một thứ nửa nọ nửa kia. Nên mỗi phong cách mang theo câu chỉ đạo
  * mỹ thuật RIÊNG (`art`) để đá hẳn câu mặc định ra, kèm `avoid` để chặn đúng
  * những thứ hay lẫn vào.
+ *
+ * ---------------------------------------------------------------------------
+ * TỪ CODE SANG DỮ LIỆU (giống hệt styles.ts của Style Design)
+ *
+ * Trước đây 20 phong cách là một mảng hằng trong file này, sửa được thì phải
+ * sửa code. Giờ nguồn sự thật là `assets/video-styles/video-styles.json`, còn
+ * mảng `BUILTIN_VIDEO_STYLES` bên dưới chỉ còn là HẠT GIỐNG:
+ *
+ * - Lần đọc đầu tiên chưa có file JSON -> ghi ra từ mảng này (repo mới clone
+ *   vẫn có đủ 20 phong cách, không cần bước cài đặt nào).
+ * - Bản cập nhật repo sau này thêm phong cách dựng mới vào mảng -> lần đọc kế
+ *   tiếp tự chèn phong cách đó vào file của người dùng, TRỪ KHI họ đã xóa nó
+ *   (id nằm trong `removedBuiltins`). Không có danh sách đó thì phong cách vừa
+ *   xóa sẽ mọc lại sau mỗi lần khởi động server.
+ * - Người dùng sửa/xóa/thêm gì trên dashboard cũng chỉ ghi vào file JSON; mảng
+ *   hạt giống giữ nguyên để nút "Khôi phục bản gốc" còn cái mà khôi phục.
  */
 
 /** Bảng màu: đa số phong cách vẫn theo màu thương hiệu; vài phong cách thì không thể */
 export type VideoStylePalette = "brand" | "loose";
+
+export const VIDEO_STYLE_PALETTES: VideoStylePalette[] = ["brand", "loose"];
 
 export interface VideoStyle {
   id: string;
@@ -39,14 +62,28 @@ export interface VideoStyle {
   palette: VideoStylePalette;
   /** Dựng cảnh và chuyển động cho HyperFrames/Remotion - tiếng Việt, cho agent đọc */
   motion: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Hạt giống chưa có mốc thời gian - timestamp sinh lúc gieo vào file JSON */
+export type VideoStyleSeed = Omit<VideoStyle, "createdAt" | "updatedAt">;
+
+export interface VideoStylesFile {
+  styles: VideoStyle[];
+  /**
+   * Id phong cách MẶC ĐỊNH đã bị người dùng xóa. Giữ lại để lần đọc sau không
+   * gieo lại - xóa rồi mà cứ mọc lại thì tính năng xóa coi như không có.
+   */
+  removedBuiltins: string[];
 }
 
 /**
- * 20 phong cách. Tiêu chí chọn: (1) nhìn là phân biệt được ngay với 19 cái còn
- * lại, (2) Gemini vẽ ra được ổn định, (3) HTML/CSS/GSAP dựng chuyển động hợp
- * với nó được - đẹp mà pipeline không dựng nổi thì chỉ là danh sách trang trí.
+ * 20 phong cách mặc định. Tiêu chí chọn: (1) nhìn là phân biệt được ngay với 19
+ * cái còn lại, (2) Gemini vẽ ra được ổn định, (3) HTML/CSS/GSAP dựng chuyển động
+ * hợp với nó được - đẹp mà pipeline không dựng nổi thì chỉ là danh sách trang trí.
  */
-export const VIDEO_STYLES: VideoStyle[] = [
+export const BUILTIN_VIDEO_STYLES: VideoStyleSeed[] = [
   {
     id: "giay-gap-nhat",
     name: "Gấp giấy Nhật Bản",
@@ -229,12 +266,204 @@ export const VIDEO_STYLES: VideoStyle[] = [
   },
 ];
 
+const BUILTIN_IDS = new Set(BUILTIN_VIDEO_STYLES.map((s) => s.id));
+
+/** Phong cách này có phải bản mặc định ship kèm repo không (để UI gắn nhãn + cho phép khôi phục) */
+export function isBuiltinVideoStyle(id: string): boolean {
+  return BUILTIN_IDS.has(id);
+}
+
+/** Bản gốc của một phong cách mặc định - dùng cho nút "Khôi phục bản gốc" */
+export function builtinVideoStyle(id: string): VideoStyle | null {
+  const seed = BUILTIN_VIDEO_STYLES.find((s) => s.id === id);
+  if (!seed) return null;
+  const now = nowIso();
+  return { ...seed, createdAt: now, updatedAt: now };
+}
+
+// Thư mục dữ liệu đặt cạnh assets/styles/ (Style Design) cho dễ tìm và dễ sao lưu.
+// KHÔNG khai vào paths của config.ts: prompts.ts cũng tự dựng đường dẫn kiểu này,
+// và giữ nó ở đây thì cả tính năng nằm gọn trong một file.
+const videoStylesDir = path.join(paths.assetsDir, "video-styles");
+const videoStylesFile = path.join(videoStylesDir, "video-styles.json");
+
+/**
+ * Chuẩn hóa một phong cách đọc từ đĩa (dữ liệu đĩa không tin kiểu).
+ * Thiếu id hợp lệ -> null (bỏ khỏi danh sách, không làm hỏng cả file).
+ */
+function normVideoStyle(raw: unknown): VideoStyle | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const s = raw as Record<string, unknown>;
+  if (typeof s.id !== "string" || !s.id.trim()) return null;
+  const id = s.id.trim();
+  const str = (key: string, fallback: string): string =>
+    typeof s[key] === "string" && (s[key] as string).trim() ? (s[key] as string) : fallback;
+  const now = nowIso();
+  return {
+    id,
+    name: str("name", id),
+    art: str("art", ""),
+    avoid: str("avoid", ""),
+    palette: s.palette === "loose" ? "loose" : "brand",
+    motion: str("motion", ""),
+    createdAt: str("createdAt", now),
+    updatedAt: str("updatedAt", now),
+  };
+}
+
+/**
+ * Cache theo mtime+size của file: `videoStyleExists()` bị gọi cho MỌI project khi
+ * web nạp danh sách, đọc lại và parse JSON từng lần là phí. File đổi (server tự
+ * ghi hoặc người dùng sửa tay) thì stat đổi theo và cache tự hỏng.
+ */
+let cache: { key: string; data: VideoStylesFile } | null = null;
+
+function cacheKey(): string | null {
+  try {
+    const st = fs.statSync(videoStylesFile);
+    return `${st.mtimeMs}:${st.size}`;
+  } catch {
+    return null; // chưa có file
+  }
+}
+
+/** Gieo file lần đầu từ mảng hạt giống - repo mới clone vẫn có đủ 20 phong cách */
+function seedFile(): VideoStylesFile {
+  const now = nowIso();
+  const data: VideoStylesFile = {
+    styles: BUILTIN_VIDEO_STYLES.map((s) => ({ ...s, createdAt: now, updatedAt: now })),
+    removedBuiltins: [],
+  };
+  writeVideoStyles(data);
+  return data;
+}
+
+/**
+ * Đọc video-styles.json. Lần đầu chưa có file thì gieo từ BUILTIN_VIDEO_STYLES;
+ * file đã có mà repo vừa thêm phong cách mặc định mới thì chèn bổ sung (trừ các
+ * id người dùng đã xóa). File hỏng -> gieo lại, vì một danh sách rỗng sẽ làm
+ * mọi project đang trỏ tới phong cách tụt hết về "AI tự quyết".
+ */
+export function readVideoStyles(): VideoStylesFile {
+  const key = cacheKey();
+  if (key === null) {
+    cache = null;
+    return seedFile();
+  }
+  if (cache && cache.key === key) return cache.data;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(fs.readFileSync(videoStylesFile, "utf8"));
+  } catch {
+    cache = null;
+    return seedFile();
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    cache = null;
+    return seedFile();
+  }
+  const r = parsed as Record<string, unknown>;
+  const styles: VideoStyle[] = [];
+  const seen = new Set<string>();
+  if (Array.isArray(r.styles)) {
+    for (const item of r.styles) {
+      const s = normVideoStyle(item);
+      if (s && !seen.has(s.id)) {
+        seen.add(s.id);
+        styles.push(s);
+      }
+    }
+  }
+  const removedBuiltins = Array.isArray(r.removedBuiltins)
+    ? [...new Set(r.removedBuiltins.filter((x): x is string => typeof x === "string"))]
+    : [];
+
+  // Phong cách mặc định mới có trong bản cập nhật repo mà file chưa có -> chèn thêm
+  const missing = BUILTIN_VIDEO_STYLES.filter(
+    (s) => !seen.has(s.id) && !removedBuiltins.includes(s.id),
+  );
+  const data: VideoStylesFile = { styles, removedBuiltins };
+  if (missing.length > 0) {
+    const now = nowIso();
+    for (const s of missing) data.styles.push({ ...s, createdAt: now, updatedAt: now });
+    writeVideoStyles(data);
+    return data;
+  }
+  cache = { key, data };
+  return data;
+}
+
+export function writeVideoStyles(data: VideoStylesFile): void {
+  ensureDir(videoStylesDir);
+  fs.writeFileSync(videoStylesFile, JSON.stringify(data, null, 2) + "\n", "utf8");
+  const key = cacheKey();
+  if (key !== null) cache = { key, data };
+}
+
 /** null / không khớp = để AI tự quyết (giữ hành vi cũ trước khi có tính năng này) */
 export function getVideoStyle(id: string | null | undefined): VideoStyle | null {
   if (!id) return null;
-  return VIDEO_STYLES.find((s) => s.id === id) ?? null;
+  return readVideoStyles().styles.find((s) => s.id === id) ?? null;
 }
 
 export function videoStyleExists(id: string): boolean {
-  return VIDEO_STYLES.some((s) => s.id === id);
+  return readVideoStyles().styles.some((s) => s.id === id);
+}
+
+// ------------------------------------------------------------- Đang dùng ở đâu
+
+/** Loại "project" có brief - mỗi loại một thư mục con ở gốc repo */
+export type VideoStyleUsageKind =
+  | "video-project"
+  | "text-to-video"
+  | "auto-cut"
+  | "translate-video";
+
+export interface VideoStyleUsage {
+  kind: VideoStyleUsageKind;
+  id: string;
+  name: string;
+}
+
+/**
+ * Quét mọi project/phiên đang trỏ tới một phong cách.
+ *
+ * Đọc thẳng meta.json bằng fs chứ KHÔNG import meta.ts: meta.ts đã import file
+ * này (videoStyleExists), thêm chiều ngược lại là vòng import.
+ */
+export function videoStyleUsage(styleId: string): VideoStyleUsage[] {
+  const roots: Array<{ kind: VideoStyleUsageKind; dir: string }> = [
+    { kind: "video-project", dir: paths.videoProjectsDir },
+    { kind: "text-to-video", dir: paths.textToVideoDir },
+    { kind: "auto-cut", dir: paths.autoCutDir },
+    { kind: "translate-video", dir: paths.translateVideoDir },
+  ];
+  const out: VideoStyleUsage[] = [];
+  for (const { kind, dir } of roots) {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue; // thư mục chưa tồn tại - không phải lỗi
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const raw = JSON.parse(
+          fs.readFileSync(path.join(dir, entry.name, "meta.json"), "utf8"),
+        ) as Record<string, unknown>;
+        const brief = raw.brief as Record<string, unknown> | undefined;
+        if (!brief || brief.videoStyleId !== styleId) continue;
+        out.push({
+          kind,
+          id: entry.name,
+          name: typeof raw.name === "string" && raw.name ? raw.name : entry.name,
+        });
+      } catch {
+        /* không có meta.json hoặc JSON hỏng - bỏ qua */
+      }
+    }
+  }
+  return out;
 }

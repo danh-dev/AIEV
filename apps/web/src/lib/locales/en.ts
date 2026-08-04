@@ -25,6 +25,7 @@ export const en: Record<string, string> = {
   "nav.projects": "Videos Project",
   "nav.images": "Images Project",
   "nav.styles": "Style Design",
+  "nav.video-styles": "Edit styles",
   "nav.queue": "Render Queue",
   "nav.assets": "Assets",
   "nav.sfx": "Sound Effects",
@@ -1949,6 +1950,90 @@ export const en: Record<string, string> = {
   "vstyle.loose-badge": "own palette",
   "vstyle.vs-style-design":
     "The style decides MATERIAL and MOTION; Style Design still decides COLOUR and FONT. A style marked \"own palette\" has a signature palette of its own, so images will not follow the brand colours closely - text and graphics still will.",
+
+  // ===== Edit styles admin page (/video-styles) =====
+  "vstyle.page.subtitle":
+    "Add, edit and delete edit styles. A style decides what the video is made of and how it moves; you pick one per video in the Brief.",
+  "vstyle.page.create": "New style",
+  "vstyle.page.create-short": "Create",
+  "vstyle.page.load-error": "Could not load the edit styles.",
+  "vstyle.page.create-error": "Could not create the style.",
+  "vstyle.page.empty": "No edit styles yet - create one or restore a built-in.",
+  "vstyle.page.count": "{n} styles",
+  "vstyle.page.builtin": "built-in",
+  "vstyle.page.col-name": "Style",
+  "vstyle.page.col-palette": "Palette",
+  "vstyle.page.col-motion": "Scene & motion",
+  "vstyle.page.col-usage": "In use",
+  "vstyle.page.col-updated": "Updated",
+  "vstyle.page.usage-n": "{n} projects",
+  "vstyle.page.usage-none": "unused",
+  "vstyle.page.name-label": "Style name",
+  "vstyle.page.name-placeholder": "e.g. Lacquer painting",
+  "vstyle.page.clone-from": "Copy the content of an existing style",
+  "vstyle.page.blank": "Leave empty - write from scratch",
+  "vstyle.page.clone-hint":
+    "Copies the art direction, the avoid list, the palette mode and the motion notes into the new style so you can tweak instead of writing it all again.",
+
+  // -- Style detail page --
+  "vstyle.detail.subtitle":
+    "Edit this style. Changes apply to the NEXT video you build - they do not re-render finished videos.",
+  "vstyle.detail.load-error": "Could not load this style.",
+  "vstyle.detail.save-error": "Could not save the style.",
+  "vstyle.detail.action-error": "The action failed.",
+  "vstyle.detail.id-label": "Style id",
+  "vstyle.detail.id-hint":
+    "Not editable: the briefs of existing projects point at this exact id. Need a different id? Create a new style.",
+  "vstyle.detail.name-label": "Style name",
+  "vstyle.detail.name-hint":
+    "Shown in the style picker and passed straight into the prompt the AI reads.",
+  "vstyle.detail.name-translated":
+    "Note: the style picker in the Brief shows the translated name \"{name}\" (key vstyle.{id}.name in the locale files), not the name here. Renaming here changes the prompt sent to the AI straight away, but the picker label has to be changed in the locale files.",
+  "vstyle.detail.art-label": "Art direction for images (English)",
+  "vstyle.detail.art-hint":
+    "This REPLACES the default art direction in the Gemini image prompt, it is not added on top. Write it in English - the model follows it far more closely: material, drawing technique, lighting, depth.",
+  "vstyle.detail.art-placeholder":
+    "e.g. Japanese paper craft scene: layered origami shapes, visible washi paper fibre texture, soft drop shadows…",
+  "vstyle.detail.avoid-label": "What images must avoid (English)",
+  "vstyle.detail.avoid-hint":
+    "Blocks exactly what tends to creep into this particular style. Appended to the image prompt as \"Avoid: …\".",
+  "vstyle.detail.avoid-placeholder":
+    "e.g. no photographic realism, no 3D glossy render, no digital gradients",
+  "vstyle.detail.motion-label": "Scene & motion (Vietnamese)",
+  "vstyle.detail.motion-hint":
+    "The AI reads this to build the HyperFrames scenes and the Remotion transitions, and it is also the description users see when picking a style. Describe how things enter and leave, the transitions, the pacing, the typography.",
+  "vstyle.detail.motion-placeholder":
+    "e.g. Chuyển cảnh kiểu GẤP và LẬT giấy, không mờ chồng. Vật thể trượt vào theo lớp…",
+  "vstyle.detail.palette-label": "Palette for generated images",
+  "vstyle.detail.palette-brand": "Follow the brand colours",
+  "vstyle.detail.palette-brand-desc":
+    "Gemini images stick to the Style Design palette (primary, secondary, accent) and are told not to drift. Pick this for most styles.",
+  "vstyle.detail.palette-loose": "The style has its own palette",
+  "vstyle.detail.palette-loose-desc":
+    "The style carries a signature palette of its own (black ink wash, Dong Ho folk print, real photography) - forcing brand colours onto it kills the look. Brand colours then appear only as ACCENTS in the images, while text and graphics drawn by HyperFrames/Remotion still follow Style Design exactly.",
+  "vstyle.detail.required":
+    "All four fields are required - leaving one empty truncates the prompt sent to the AI.",
+  "vstyle.detail.usage-title": "Projects using this style",
+  "vstyle.detail.usage-empty": "No project uses this style yet.",
+  "vstyle.detail.usage-hint":
+    "Editing the style does not re-render these videos - only the next build picks up the new content.",
+  "vstyle.detail.kind.video-project": "Videos Project",
+  "vstyle.detail.kind.text-to-video": "Text to video",
+  "vstyle.detail.kind.auto-cut": "Auto cut",
+  "vstyle.detail.kind.translate-video": "Translate video",
+  "vstyle.detail.builtin-note":
+    "This is a built-in style shipped with the system. Edit or delete it freely - the original can always be restored.",
+  "vstyle.detail.reset": "Restore original",
+  "vstyle.detail.resetting": "Restoring…",
+  "vstyle.detail.reset-title": "Restore this style to the original?",
+  "vstyle.detail.reset-desc":
+    "The whole style goes back to the version shipped with the system. Your edits will be lost.",
+  "vstyle.detail.delete-title": "Delete this edit style?",
+  "vstyle.detail.delete-desc-1": "You are about to delete the style",
+  "vstyle.detail.delete-in-use":
+    "{n} projects use this style. After deleting they fall back to \"let the AI decide\" (finished videos are untouched) and you have to pick a style again to rebuild them with the same material:",
+  "vstyle.detail.delete-builtin":
+    "This is a built-in style - even after deleting it you can bring it back with the \"Restore original\" button on the style with the same id.",
 
   // -- The 20 style names --
   "vstyle.giay-gap-nhat.name": "Japanese paper craft",

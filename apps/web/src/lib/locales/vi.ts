@@ -25,6 +25,7 @@ export const vi: Record<string, string> = {
   "nav.projects": "Videos Project",
   "nav.images": "Images Project",
   "nav.styles": "Style Design",
+  "nav.video-styles": "Phong cách dựng",
   "nav.queue": "Render Queue",
   "nav.assets": "Assets",
   "nav.sfx": "Sound Effects",
@@ -1945,6 +1946,90 @@ export const vi: Record<string, string> = {
   "vstyle.loose-badge": "màu riêng",
   "vstyle.vs-style-design":
     "Phong cách quyết định CHẤT LIỆU và CHUYỂN ĐỘNG; Style Design vẫn quyết định MÀU và FONT. Phong cách gắn nhãn \"màu riêng\" có bảng màu đặc trưng nên ảnh sẽ không bám sát màu thương hiệu - chữ và đồ họa thì vẫn theo.",
+
+  // ===== Trang quản lý phong cách dựng (/video-styles) =====
+  "vstyle.page.subtitle":
+    "Thêm, sửa, xóa phong cách dựng. Phong cách quyết định chất liệu hình ảnh và cách chuyển động của video; chọn phong cách cho từng video ở phần Brief.",
+  "vstyle.page.create": "Tạo phong cách",
+  "vstyle.page.create-short": "Tạo",
+  "vstyle.page.load-error": "Không tải được danh sách phong cách dựng.",
+  "vstyle.page.create-error": "Không tạo được phong cách.",
+  "vstyle.page.empty":
+    "Chưa có phong cách dựng nào - tạo một phong cách hoặc khôi phục bộ mặc định.",
+  "vstyle.page.count": "{n} phong cách",
+  "vstyle.page.builtin": "mặc định",
+  "vstyle.page.col-name": "Phong cách",
+  "vstyle.page.col-palette": "Bảng màu",
+  "vstyle.page.col-motion": "Dựng cảnh & chuyển động",
+  "vstyle.page.col-usage": "Đang dùng",
+  "vstyle.page.col-updated": "Cập nhật",
+  "vstyle.page.usage-n": "{n} project",
+  "vstyle.page.usage-none": "chưa dùng",
+  "vstyle.page.name-label": "Tên phong cách",
+  "vstyle.page.name-placeholder": "vd: Tranh sơn mài",
+  "vstyle.page.clone-from": "Chép nội dung từ phong cách có sẵn",
+  "vstyle.page.blank": "Để trống - tự viết từ đầu",
+  "vstyle.page.clone-hint":
+    "Chép chỉ đạo mỹ thuật, thứ cần tránh, bảng màu và cách chuyển động sang phong cách mới rồi sửa lại - nhanh hơn viết mới hoàn toàn.",
+
+  // -- Trang chi tiết một phong cách --
+  "vstyle.detail.subtitle":
+    "Sửa nội dung phong cách. Mọi thay đổi áp cho lần dựng video KẾ TIẾP, không dựng lại video cũ.",
+  "vstyle.detail.load-error": "Không tải được phong cách này.",
+  "vstyle.detail.save-error": "Không lưu được phong cách.",
+  "vstyle.detail.action-error": "Thao tác không thành công.",
+  "vstyle.detail.id-label": "Mã phong cách (id)",
+  "vstyle.detail.id-hint":
+    "Không đổi được: brief của các project cũ trỏ vào đúng mã này. Muốn mã khác thì tạo phong cách mới.",
+  "vstyle.detail.name-label": "Tên phong cách",
+  "vstyle.detail.name-hint":
+    "Tên hiện trên ô chọn và được đưa thẳng vào prompt cho AI đọc.",
+  "vstyle.detail.name-translated":
+    "Lưu ý: ô chọn phong cách trong Brief đang hiện tên đã dịch \"{name}\" (key vstyle.{id}.name trong file ngôn ngữ) chứ không phải tên ở đây. Đổi tên ở đây thì prompt gửi AI đổi theo ngay, còn nhãn trên ô chọn thì phải sửa file ngôn ngữ.",
+  "vstyle.detail.art-label": "Chỉ đạo mỹ thuật cho ảnh (tiếng Anh)",
+  "vstyle.detail.art-hint":
+    "Câu này THAY THẾ chỉ đạo mặc định trong prompt ảnh Gemini, không cộng thêm. Viết bằng tiếng Anh vì model bám sát hơn hẳn: tả chất liệu, kỹ thuật vẽ, ánh sáng, độ sâu.",
+  "vstyle.detail.art-placeholder":
+    "vd: Japanese paper craft scene: layered origami shapes, visible washi paper fibre texture, soft drop shadows…",
+  "vstyle.detail.avoid-label": "Thứ cần tránh trong ảnh (tiếng Anh)",
+  "vstyle.detail.avoid-hint":
+    "Chặn đúng những thứ hay lẫn vào của riêng phong cách này. Ghép vào prompt ảnh dưới dạng \"Avoid: …\".",
+  "vstyle.detail.avoid-placeholder":
+    "vd: no photographic realism, no 3D glossy render, no digital gradients",
+  "vstyle.detail.motion-label": "Dựng cảnh & chuyển động (tiếng Việt)",
+  "vstyle.detail.motion-hint":
+    "Phần này AI đọc để dựng scene HyperFrames và chuyển cảnh Remotion, và cũng là mô tả người dùng thấy khi chọn phong cách. Tả cách vào/ra của hình, kiểu chuyển cảnh, nhịp, kiểu chữ.",
+  "vstyle.detail.motion-placeholder":
+    "vd: Chuyển cảnh kiểu GẤP và LẬT giấy, không mờ chồng. Vật thể trượt vào theo lớp…",
+  "vstyle.detail.palette-label": "Bảng màu của ảnh minh họa",
+  "vstyle.detail.palette-brand": "Theo màu thương hiệu",
+  "vstyle.detail.palette-brand-desc":
+    "Ảnh Gemini bám bảng màu của Style Design (primary, secondary, accent) và bị cưỡng chế không được đổi tông. Chọn cái này cho hầu hết phong cách.",
+  "vstyle.detail.palette-loose": "Phong cách có màu riêng",
+  "vstyle.detail.palette-loose-desc":
+    "Phong cách có bảng màu ruột của nó (mực tàu đen trắng, tranh Đông Hồ, ảnh chụp thật) - ép màu thương hiệu vào là mất chất. Khi đó màu thương hiệu tụt xuống làm ĐIỂM NHẤN trong ảnh, còn chữ và đồ họa do HyperFrames/Remotion vẽ thì VẪN theo đúng Style Design.",
+  "vstyle.detail.required": "Bốn ô trên đều bắt buộc - để trống là prompt gửi AI bị cụt.",
+  "vstyle.detail.usage-title": "Project đang dùng phong cách này",
+  "vstyle.detail.usage-empty": "Chưa project nào dùng phong cách này.",
+  "vstyle.detail.usage-hint":
+    "Sửa phong cách không dựng lại các video này - lần dựng sau mới ăn nội dung mới.",
+  "vstyle.detail.kind.video-project": "Videos Project",
+  "vstyle.detail.kind.text-to-video": "Text to video",
+  "vstyle.detail.kind.auto-cut": "Auto cut",
+  "vstyle.detail.kind.translate-video": "Dịch video",
+  "vstyle.detail.builtin-note":
+    "Đây là phong cách mặc định ship kèm hệ thống. Sửa hay xóa thoải mái - lúc nào cũng khôi phục lại bản gốc được.",
+  "vstyle.detail.reset": "Khôi phục bản gốc",
+  "vstyle.detail.resetting": "Đang khôi phục…",
+  "vstyle.detail.reset-title": "Khôi phục phong cách về bản gốc?",
+  "vstyle.detail.reset-desc":
+    "Toàn bộ nội dung phong cách này sẽ quay về đúng bản ship kèm hệ thống. Phần bạn đã sửa sẽ mất.",
+  "vstyle.detail.delete-title": "Xóa phong cách dựng?",
+  "vstyle.detail.delete-desc-1": "Bạn sắp xóa phong cách",
+  "vstyle.detail.delete-in-use":
+    "{n} project đang dùng phong cách này. Xóa xong các project đó tự về \"AI tự quyết\" (video cũ đã dựng không đổi), và phải chọn lại phong cách nếu muốn dựng lại đúng chất liệu cũ:",
+  "vstyle.detail.delete-builtin":
+    "Đây là phong cách mặc định - xóa rồi vẫn khôi phục lại được bằng nút \"Khôi phục bản gốc\" ở phong cách cùng mã.",
 
   // -- Tên 20 phong cách --
   "vstyle.giay-gap-nhat.name": "Gấp giấy Nhật Bản",

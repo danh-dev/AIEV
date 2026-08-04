@@ -61,6 +61,7 @@ Edit-Video-AI/
 ├── assets/
 │   ├── brand/                 ← logo, favicon, brand-tokens.css
 │   ├── styles/                ← Style Design (styles.json + font files)
+│   ├── video-styles/          ← Phong cách dựng (video-styles.json) — sửa được trên web UI
 │   ├── prompts/               ← thư viện prompt mẫu
 │   ├── sound-effects/         ← thư viện sound effect dùng chung (library.json)
 │   ├── music/                 ← thư viện nhạc nền dùng chung (library.json, tag theo mood)
@@ -126,7 +127,7 @@ Quy tắc bắt buộc:
    - Bổ sung hàng loạt: `node scripts/fetch-brand-logos.mjs <slug>…`, hoặc bỏ thẳng file SVG vào thư mục.
 6. **Hai lớp "style" chồng lên nhau, đừng gộp:**
    - **Style Design** (`brief.styleId`, `assets/styles/`) = nhận diện thương hiệu: MÀU, FONT, logo. Luôn cưỡng chế 100%.
-   - **Phong cách dựng** (`brief.videoStyleId`, `apps/server/src/videoStyles.ts`) = ngôn ngữ thị giác của riêng video: CHẤT LIỆU và CHUYỂN ĐỘNG (giấy gấp, mực tàu, người que…). 20 phong cách, `null` = AI tự quyết.
+   - **Phong cách dựng** (`brief.videoStyleId`, dữ liệu ở `assets/video-styles/video-styles.json`, quản lý ở tab **Phong cách dựng**) = ngôn ngữ thị giác của riêng video: CHẤT LIỆU và CHUYỂN ĐỘNG (giấy gấp, mực tàu, người que…). 20 phong cách dựng sẵn, thêm/sửa/xóa được, `null` = AI tự quyết. Mảng trong `apps/server/src/videoStyles.ts` chỉ còn là HẠT GIỐNG để seed lần đầu và để `POST /:id/reset` khôi phục bản gốc, không còn là nguồn sự thật.
    - Phong cách dựng **thay thế** chỉ đạo mỹ thuật mặc định trong prompt ảnh, không cộng thêm — cộng vào là ra thứ nửa nọ nửa kia. Vài phong cách có `palette: "loose"` (mực tàu, Đông Hồ, ảnh thật): ảnh theo bảng màu ruột của phong cách, màu brand tụt xuống làm điểm nhấn, còn chữ/đồ họa vẫn theo Style Design.
    - **Thứ tự ưu tiên khi có phong cách dựng** (đã từng sai và làm tính năng vô tác dụng): phong cách quyết định CHẤT LIỆU + CHUYỂN ĐỘNG và **thắng skill** ở phần hình ảnh; skill chỉ còn giữ QUY TRÌNH (thứ tự bước, cắt, key/phụ đề, draft→final, QC); Style Design vẫn giữ MÀU + FONT, nhưng phần Tone/Guidelines nào tả một ngôn ngữ hình ảnh khác thì bỏ. Bất kỳ câu nào trong prompt trao "animation/layout/nhịp" cho skill một cách vô điều kiện đều phá tính năng này.
 
