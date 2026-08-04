@@ -104,15 +104,26 @@ git clone https://github.com/notivn/AIEV.git
 cd AIEV
 ```
 
-**Windows** - double-click `start\start.bat` (hoặc chạy `start\start.ps1`).
+**Windows** - nhấp đúp `start\start.bat` (hoặc chạy `start\start.ps1`).
 
-**macOS / Linux**
+**macOS** - nhấp đúp `start/start.command` trong Finder. File `.sh` KHÔNG nhấp đúp được trên macOS, nó chỉ mở bằng trình soạn thảo. Lần đầu macOS chặn "unidentified developer" thì chuột phải vào file → **Open** → **Open**.
+
+**Linux** - chạy `./start/start.sh`.
+
+Tải bản ZIP (thay vì `git clone`) thì lần đầu cấp quyền chạy cho script:
+
 ```bash
-chmod +x start/start.sh start/stop.sh   # lần đầu
-./start/start.sh
+chmod +x start/*.sh start/*.command update/*.sh update/*.command
 ```
 
-Script tự lo mọi thứ: kiểm tra môi trường → `npm install` (lần đầu) → build → tạo `.env` → chạy server + web → mở `http://localhost:6868`. Dừng bằng `start\stop.bat` / `./start/stop.sh`.
+| Việc | Windows | macOS | Linux |
+|---|---|---|---|
+| Chạy hệ thống | `start\start.bat` | `start/start.command` | `./start/start.sh` |
+| Dừng hệ thống | `start\stop.bat` | `start/stop.command` | `./start/stop.sh` |
+| Cập nhật thủ công | `update\update.bat` | `update/update.command` | `bash update/update.sh` |
+| Mở tunnel (upload từ điện thoại) | `start\tunnel.bat` | `start/tunnel.command` | `./start/tunnel.sh` |
+
+Script tự lo mọi thứ: kiểm tra môi trường → `npm install` (lần đầu) → build → tạo `.env` → chạy server + web → mở `http://localhost:6868`. Bình thường không cần chạy script cập nhật bằng tay, bấm nút cập nhật trên dashboard là xong.
 
 Chạy dev thủ công: `npm install` rồi `npm run dev`.
 

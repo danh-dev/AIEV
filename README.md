@@ -107,13 +107,24 @@ cd AIEV
 
 **Windows** - double-click `start\start.bat` (or run `start\start.ps1`).
 
-**macOS / Linux**
+**macOS** - double-click `start/start.command` in Finder. A `.sh` file cannot be double-clicked on macOS, it just opens in an editor. If macOS blocks it as coming from an unidentified developer, right-click the file → **Open** → **Open**.
+
+**Linux** - run `./start/start.sh`.
+
+If you downloaded a ZIP instead of cloning, make the scripts executable once:
+
 ```bash
-chmod +x start/start.sh start/stop.sh   # first time only
-./start/start.sh
+chmod +x start/*.sh start/*.command update/*.sh update/*.command
 ```
 
-The script handles everything: checks the environment → `npm install` (first run) → build → creates `.env` → starts server + web → opens `http://localhost:6868`. Stop with `start\stop.bat` / `./start/stop.sh`.
+| Task | Windows | macOS | Linux |
+|---|---|---|---|
+| Start | `start\start.bat` | `start/start.command` | `./start/start.sh` |
+| Stop | `start\stop.bat` | `start/stop.command` | `./start/stop.sh` |
+| Update manually | `update\update.bat` | `update/update.command` | `bash update/update.sh` |
+| Open a tunnel (phone uploads) | `start\tunnel.bat` | `start/tunnel.command` | `./start/tunnel.sh` |
+
+The script handles everything: checks the environment → `npm install` (first run) → build → creates `.env` → starts server + web → opens `http://localhost:6868`. You normally never run the update script by hand; the update button on the dashboard does it.
 
 Manual dev run: `npm install` then `npm run dev`.
 

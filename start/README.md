@@ -12,7 +12,7 @@ chmod +x start/*.sh start/*.command   # chỉ cần lần đầu (tải ZIP mớ
 
 Script (cả hai hệ) tự động:
 
-1. Kiểm tra Node.js 20+
+1. Kiểm tra Node.js 22+
 2. **Kiểm tra môi trường + cài phần còn thiếu** (`doctor.mjs` — xem mục dưới)
 3. Cài dependencies nếu là lần chạy đầu (vài phút)
 4. Build backend + web UI nếu chưa build hoặc code mới hơn bản build
@@ -46,7 +46,8 @@ thì sửa đúng một chỗ.
 ## Dừng hệ thống
 
 - Windows: nhấp đúp **`stop.bat`** (hoặc đóng cửa sổ "AI Edit Video - LOG")
-- macOS / Linux: `./start/stop.sh`
+- macOS: nhấp đúp **`stop.command`**
+- Linux: `./start/stop.sh`
 
 > Chưa đăng nhập Claude thì `start.command` (macOS) mở sẵn Claude Code để bạn gõ `/login` — bước
 > đăng nhập là OAuth qua trình duyệt nên phải có bạn xác nhận, không tự làm thay được.

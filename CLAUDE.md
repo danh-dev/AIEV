@@ -184,3 +184,21 @@ Tải về `apps/web/public/brand/` khi scaffold web UI — không hotlink lúc 
 - Backend là nguồn sự thật về trạng thái job; web UI không tự suy diễn trạng thái.
 - Ngôn ngữ: commit message **tiếng Anh**, ngắn gọn. Toàn bộ `.claude/skills/` viết **tiếng Anh** (chuỗi ví dụ đặc thù tiếng Việt như chữ có dấu minh họa lỗi font, filler "ừm/à/kiểu" thì giữ nguyên tiếng Việt vì dịch đi là mất ý nghĩa minh họa). Nội dung video, web UI và tài liệu cho người dùng vẫn **tiếng Việt**.
 - Không commit: `renders/`, `outputs/`, `imports/`, `image-projects/`, `props.resolved.json`, `node_modules/`, `.env`.
+
+## 9. Phát hành (Release)
+
+Người dùng cài từ GitHub, và tính năng cập nhật trong app mặc định chạy ở kênh `stable` — tức là **chỉ nhận bản đã được tag thành Release** (`v*`). Không tạo release thì người dùng không bao giờ thấy code mới.
+
+Quy trình:
+
+1. Chỉ tag commit đã **kiểm chứng thật**: `npm run typecheck` + `npm run build` sạch, CI trên GitHub xanh, và nếu đụng vào pipeline thì đã dựng thử một video draft và xem bằng mắt.
+2. Tạo release ghim đúng commit đó. Truyền **SHA đầy đủ** cho `--target`, hash rút gọn bị GitHub trả `422 target_commitish is invalid`.
+3. Nội dung tiếng Việt phải đi qua `--notes-file`, đừng gõ thẳng vào dòng lệnh — Git Bash trên Windows làm mất dấu (xem skill `video-pipeline`).
+4. **BẮT BUỘC: mọi release đều phải kèm hướng dẫn chạy.** Nối nguyên văn `.github/release-notes-footer.md` vào cuối phần notes. Đó là nguồn sự thật duy nhất về các file khởi động cho từng hệ điều hành (Windows `.bat`, macOS `.command`, Linux `.sh`) — sửa cách chạy thì sửa file đó, đừng chép tay mỗi nơi một kiểu.
+
+```bash
+cat notes.md .github/release-notes-footer.md > /tmp/full-notes.md
+gh release create v1.0.2 --title "v1.0.2" --target <sha-đầy-đủ> --notes-file /tmp/full-notes.md
+```
+
+Đánh số theo `MAJOR.MINOR.PATCH`. Lỡ tag nhầm commit thì đừng dời tag cũ (người khác có thể đã kéo về), phát hành bản vá mới.
