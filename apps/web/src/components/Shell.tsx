@@ -1,5 +1,25 @@
 "use client";
 
+/**
+ * Khung ứng dụng: topbar + rail điều hướng trái + vùng làm việc + panel AI phải.
+ *
+ * Hai thứ ăn chỗ của vùng làm việc đều gấp được và nhớ lựa chọn:
+ * - rail trái (220px ↔ 56px icon), key localStorage `aiev-nav`;
+ * - panel AI phải (440px ↔ dải mỏng 40px), key `aiev-panel`.
+ *
+ * BỀ RỘNG DO CSS QUYẾT ĐỊNH, KHÔNG DO STATE REACT. SHELL_SCRIPT chạy trước paint
+ * ghi `data-nav`/`data-panel` lên <html>, globals.css đọc thẳng hai thuộc tính đó
+ * (xem khối "App shell" ở đầu globals.css). State React ở đây chỉ để nhãn aria và
+ * tooltip nói đúng trạng thái - không được dùng nó để chọn class bề rộng, làm thế
+ * là mỗi lần tải trang lại nháy một khung hình đúng bằng lúc rail bung ra rồi co
+ * lại. Icon "gấp/mở" cũng vì lý do đó mà render CẢ HAI rồi để CSS chọn.
+ *
+ * Panel AI là một SLOT của shell chứ không phải mỗi trang tự dựng: trang khai báo
+ * <ShellRightPanel title="…">…</ShellRightPanel> ở bất kỳ đâu trong cây, shell lo
+ * bề rộng, chỗ chừa, nút gấp và chế độ drawer. Nhờ vậy không trang nào phải tự
+ * đoán số kiểu `xl:pr-[452px]` nữa - con số đó sai ngay khi panel gấp lại.
+ */
+
 import {
   AudioLines,
   BookOpen,
@@ -11,16 +31,31 @@ import {
   Languages,
   LayoutDashboard,
   ListVideo,
+  MessageSquare,
   Mic,
   Palette,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Plug,
   Scissors,
   ScrollText,
   Settings2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { getHealth, type Health } from "@/lib/api";
 import { HardwareMeter } from "@/components/HardwareMeter";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -30,6 +65,16 @@ import { useT } from "@/lib/i18n";
 
 /** Mã nguồn dự án - hiện ở cuối sidebar, ngay trên badge phiên bản */
 const REPO_URL = "https://github.com/notivn/AIEV";
+
+const NAV_STORAGE_KEY = "aiev-nav";
+const PANEL_STORAGE_KEY = "aiev-panel";
+
+/**
+ * Chống nháy layout: đọc lựa chọn gấp/mở TRƯỚC khung hình đầu tiên, đúng cách
+ * THEME_SCRIPT trong layout.tsx làm với theme. Đặt làm phần tử đầu của shell nên
+ * nó chạy lúc trình duyệt còn đang phân tích markup, xong trước khi có gì được vẽ.
+ */
+const SHELL_SCRIPT = `try{var d=document.documentElement;if(localStorage.getItem("${NAV_STORAGE_KEY}")==="collapsed")d.setAttribute("data-nav","collapsed");if(localStorage.getItem("${PANEL_STORAGE_KEY}")==="collapsed")d.setAttribute("data-panel","collapsed")}catch(e){}`;
 
 /**
  * Logo GitHub dạng SVG inline. Lucide đã bỏ icon thương hiệu khỏi bộ chính nên
@@ -137,9 +182,108 @@ function BackendStatus() {
   );
 }
 
+// ============================== Slot panel phải ==============================
+
+interface ShellPanelApi {
+  /** Nút DOM để ShellRightPanel portal nội dung vào - null cho tới khi shell mount */
+  slot: HTMLElement | null;
+  /** Đăng ký "trang này có panel phải"; trả về hàm hủy đăng ký cho useEffect */
+  register: (title: string) => () => void;
+}
+
+const ShellPanelContext = createContext<ShellPanelApi | null>(null);
+
+/**
+ * Trang khai báo panel phải của mình bằng component này. Nội dung được portal
+ * vào khung panel của shell, nên CÂY REACT vẫn nằm ở trang: state, SSE, chat
+ * component… giữ nguyên, chỉ đổi chỗ vẽ ra màn hình.
+ *
+ * Gấp/mở, bề rộng, chỗ chừa và chế độ drawer đều là việc của shell - trang không
+ * cần (và không được) tự tính lại.
+ *
+ * ```tsx
+ * <ShellRightPanel title={t("ttv.ai-panel")}>
+ *   {job && <JobLogBlock job={job} />}
+ *   <ChatThread compact projectId={projectId} />
+ * </ShellRightPanel>
+ * ```
+ */
+export function ShellRightPanel({
+  title,
+  children,
+}: {
+  /** Tiêu đề panel - shell vẽ nó ở đầu panel và dùng làm nhãn dải mỏng lúc gấp */
+  title: string;
+  children: ReactNode;
+}) {
+  const api = useContext(ShellPanelContext);
+
+  useEffect(() => {
+    if (!api) return;
+    return api.register(title);
+  }, [api, title]);
+
+  // Lượt render đầu chưa có slot (shell chưa biết là có panel) - lượt sau context
+  // đổi và portal vào được. Hai lượt, không có vòng lặp.
+  if (!api?.slot) return null;
+  return createPortal(children, api.slot);
+}
+
+// ================================== Shell ===================================
+
 export function Shell({ children }: { children: ReactNode }) {
   const { t } = useT();
   const pathname = usePathname();
+
+  // Trang nào đang khai báo panel phải (null = không có) - chỉ giữ tiêu đề dạng
+  // chuỗi để setState không kéo theo ReactNode và gây render vòng.
+  const [panelTitle, setPanelTitle] = useState<string | null>(null);
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
+  /** Drawer dưới 1280px - trạng thái tạm thời của phiên, cố ý KHÔNG nhớ */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  /** Chỉ để nhãn aria/tooltip nói đúng - bề rộng rail là việc của CSS */
+  const [navCollapsed, setNavCollapsed] = useState(false);
+
+  // Đọc lại trạng thái mà SHELL_SCRIPT đã ghi lên <html>. Đọc thuộc tính chứ
+  // không đọc localStorage lần nữa: một nguồn sự thật, không sợ lệch nhau.
+  useEffect(() => {
+    setNavCollapsed(
+      document.documentElement.getAttribute("data-nav") === "collapsed"
+    );
+  }, []);
+
+  const setNav = useCallback((next: boolean) => {
+    setNavCollapsed(next);
+    const root = document.documentElement;
+    if (next) root.setAttribute("data-nav", "collapsed");
+    else root.removeAttribute("data-nav");
+    try {
+      localStorage.setItem(NAV_STORAGE_KEY, next ? "collapsed" : "expanded");
+    } catch {
+      // localStorage bị chặn - vẫn gấp/mở được cho phiên hiện tại
+    }
+  }, []);
+
+  const setPanelCollapsed = useCallback((next: boolean) => {
+    const root = document.documentElement;
+    if (next) root.setAttribute("data-panel", "collapsed");
+    else root.removeAttribute("data-panel");
+    try {
+      localStorage.setItem(PANEL_STORAGE_KEY, next ? "collapsed" : "expanded");
+    } catch {
+      // như trên
+    }
+  }, []);
+
+  const register = useCallback((title: string) => {
+    setPanelTitle(title);
+    return () => setPanelTitle(null);
+  }, []);
+
+  const panelApi = useMemo<ShellPanelApi>(
+    () => ({ slot, register }),
+    [slot, register]
+  );
 
   // Trang mobile /m/<id> (điện thoại quét QR upload) - layout riêng tối giản,
   // không header/sidebar của dashboard.
@@ -147,74 +291,231 @@ export function Shell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
+  const navToggleLabel = navCollapsed
+    ? t("shell.nav-expand")
+    : t("shell.nav-collapse");
+
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-4">
-        <Link href="/" className="flex shrink-0 items-center">
-          {/* Logo đổi theo theme qua CSS trong globals.css */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logo-duong-ban.png"
-            alt="noti.vn"
-            className="logo-light h-7 w-auto"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logo-am-ban.png"
-            alt="noti.vn"
-            className="logo-dark h-7 w-auto"
-          />
-        </Link>
-        <span className="text-sm font-semibold">{t(pageTitle(pathname))}</span>
-        <div className="ml-auto flex items-center gap-3">
-          <HardwareMeter />
-          <BackendStatus />
-          <LanguageToggle />
-          <ThemeToggle />
-        </div>
-      </header>
+    <ShellPanelContext.Provider value={panelApi}>
+      <div className="flex h-screen flex-col">
+        <script dangerouslySetInnerHTML={{ __html: SHELL_SCRIPT }} />
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-          <nav className="flex flex-col gap-1">
-            {NAV.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`nav-item ${isActive(pathname, href) ? "active" : ""}`}
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4">
+          <Link href="/" className="flex shrink-0 items-center">
+            {/* Logo đổi theo theme qua CSS trong globals.css */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-duong-ban.png"
+              alt="noti.vn"
+              className="logo-light h-7 w-auto"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-am-ban.png"
+              alt="noti.vn"
+              className="logo-dark h-7 w-auto"
+            />
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setNav(!navCollapsed)}
+            className="shell-nav-toggle shell-icon-btn"
+            aria-expanded={!navCollapsed}
+            aria-controls="shell-nav"
+            aria-label={navToggleLabel}
+            title={navToggleLabel}
+          >
+            {/* Hai icon cùng nằm trong DOM, CSS chọn cái nào hiện - state React
+                chưa kịp đúng ở khung hình đầu, CSS thì đúng ngay */}
+            <PanelLeftClose
+              size={16}
+              strokeWidth={1.75}
+              className="only-nav-expanded"
+              aria-hidden="true"
+            />
+            <PanelLeftOpen
+              size={16}
+              strokeWidth={1.75}
+              className="only-nav-collapsed"
+              aria-hidden="true"
+            />
+          </button>
+
+          <span className="min-w-0 truncate text-sm font-semibold">
+            {t(pageTitle(pathname))}
+          </span>
+
+          <div className="ml-auto flex items-center gap-3">
+            {panelTitle !== null && (
+              <button
+                type="button"
+                onClick={() => setDrawerOpen((o) => !o)}
+                className="shell-panel-drawer shell-icon-btn"
+                aria-expanded={drawerOpen}
+                aria-controls="shell-panel-body"
+                aria-label={t("shell.panel-open")}
+                title={t("shell.panel-open")}
               >
-                <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-                {t(label)}
-              </Link>
-            ))}
-          </nav>
-          {/* Cuối sidebar: link mã nguồn nằm TRÊN badge phiên bản - hai thứ này
-              cùng nói về "bản dựng nào đang chạy" nên đứng cạnh nhau. */}
-          <div className="mt-auto flex flex-col gap-1 pt-3">
-            <a
-              href={REPO_URL}
-              target="_blank"
-              rel="noreferrer noopener"
-              title={REPO_URL}
-              className="inline-flex items-center gap-2 rounded-[var(--radius)] px-2 py-1 text-xs text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)]"
-            >
-              <GithubMark size={14} />
-              <span className="min-w-0 flex-1 truncate">{t("nav.source")}</span>
-              <ExternalLink
-                size={12}
-                strokeWidth={2}
-                className="shrink-0 opacity-60"
-              />
-            </a>
-            <UpdateBadge />
+                <MessageSquare size={16} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            )}
+            <HardwareMeter />
+            <BackendStatus />
+            <LanguageToggle />
+            <ThemeToggle />
           </div>
-        </aside>
+        </header>
 
-        {/* FULL WIDTH - không max-width, dùng tối đa không gian màn hình */}
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="w-full p-5">{children}</div>
-        </main>
+        <div className="flex min-h-0 flex-1">
+          <aside
+            id="shell-nav"
+            className="shell-nav flex shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-subtle)]"
+          >
+            <nav
+              className="flex flex-col gap-1"
+              aria-label={t("shell.nav-aria")}
+            >
+              {NAV.map(({ href, label, icon: Icon }) => {
+                const text = t(label);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    // title + aria-label luôn có: lúc rail gấp thì đây là thứ
+                    // duy nhất cho biết icon này là gì
+                    title={text}
+                    aria-label={text}
+                    aria-current={isActive(pathname, href) ? "page" : undefined}
+                    className={`nav-item ${isActive(pathname, href) ? "active" : ""}`}
+                  >
+                    <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+                    <span className="shell-nav-label min-w-0 truncate">
+                      {text}
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Cuối sidebar: link mã nguồn nằm TRÊN badge phiên bản - hai thứ này
+                cùng nói về "bản dựng nào đang chạy" nên đứng cạnh nhau. */}
+            <div className="mt-auto flex flex-col gap-1 pt-3">
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={REPO_URL}
+                aria-label={t("nav.source")}
+                className="shell-nav-source inline-flex items-center gap-2 rounded-[var(--radius)] py-1 text-xs text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)]"
+              >
+                <GithubMark size={14} />
+                <span className="shell-nav-label min-w-0 flex-1 truncate">
+                  {t("nav.source")}
+                </span>
+                <ExternalLink
+                  size={12}
+                  strokeWidth={2}
+                  className="shell-nav-label shrink-0 opacity-60"
+                  aria-hidden="true"
+                />
+              </a>
+              {/* Badge phiên bản là chữ thuần, gấp rail còn 56px là không đọc
+                  được nữa nên ẩn hẳn thay vì bóp vỡ */}
+              <div className="shell-nav-extra flex-col">
+                <UpdateBadge />
+              </div>
+            </div>
+          </aside>
+
+          {/* FULL WIDTH - không max-width, dùng tối đa không gian màn hình */}
+          <main className="min-w-0 flex-1 overflow-y-auto">
+            <div className="w-full p-5">{children}</div>
+          </main>
+
+          {panelTitle !== null && (
+            <>
+              <div
+                className={`shell-panel-scrim ${drawerOpen ? "is-open" : ""}`}
+                onClick={() => setDrawerOpen(false)}
+                aria-hidden="true"
+              />
+              <aside
+                className={`shell-panel ${drawerOpen ? "is-open" : ""}`}
+                aria-label={panelTitle}
+              >
+                {/* Dải mỏng lúc gấp: panel KHÔNG biến mất hẳn, luôn còn 40px bấm
+                    vào là mở lại - biến mất hẳn thì người dùng không tìm ra đường về */}
+                <button
+                  type="button"
+                  onClick={() => setPanelCollapsed(false)}
+                  className="shell-panel-strip"
+                  aria-expanded={false}
+                  aria-controls="shell-panel-body"
+                  aria-label={t("shell.panel-expand")}
+                  title={t("shell.panel-expand")}
+                >
+                  <PanelRightOpen
+                    size={16}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                  <span className="shell-panel-strip-label">{panelTitle}</span>
+                </button>
+
+                <div
+                  id="shell-panel-body"
+                  className="shell-panel-body min-h-0 min-w-0 flex-1 flex-col gap-3 p-3"
+                >
+                  <div className="flex shrink-0 items-center justify-between gap-2">
+                    <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                      <MessageSquare
+                        size={15}
+                        strokeWidth={2}
+                        className="shrink-0 text-[var(--text-muted)]"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{panelTitle}</span>
+                    </h2>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPanelCollapsed(true)}
+                        className="shell-panel-toggle shell-icon-btn"
+                        aria-expanded={true}
+                        aria-controls="shell-panel-body"
+                        aria-label={t("shell.panel-collapse")}
+                        title={t("shell.panel-collapse")}
+                      >
+                        <PanelRightClose
+                          size={16}
+                          strokeWidth={1.75}
+                          aria-hidden="true"
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDrawerOpen(false)}
+                        className="shell-panel-drawer shell-icon-btn"
+                        aria-label={t("shell.panel-close")}
+                        title={t("shell.panel-close")}
+                      >
+                        <X size={16} strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Điểm hạ cánh của portal - nội dung panel do trang cung cấp */}
+                  <div
+                    ref={setSlot}
+                    className="flex min-h-0 flex-1 flex-col gap-3"
+                  />
+                </div>
+              </aside>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </ShellPanelContext.Provider>
   );
 }

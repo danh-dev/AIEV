@@ -2184,4 +2184,29 @@ export const en: Record<string, string> = {
   "help.tv-result.title": "What happens when I burn subtitles?",
   "help.tv-result.body":
     "A job runs through the render queue: the translated lines are written onto the picture with the style from step 4, then a new video is written out.\nProgress and log show up right here; when it finishes you watch and download the video in this same card.\nYou can burn as many times as you like - each run overwrites the previous result.",
+
+  // ===== App shell: collapsible left rail + right panel =====
+  "shell.nav-aria": "Main navigation",
+  "shell.nav-collapse": "Collapse navigation",
+  "shell.nav-expand": "Expand navigation",
+  "shell.panel-collapse": "Collapse AI panel",
+  "shell.panel-expand": "Expand AI panel",
+  "shell.panel-open": "AI panel",
+  "shell.panel-close": "Close AI panel",
+
+  // ===== Three-column workspace =====
+  "workspace.aria": "Workspace",
+  "workspace.col.source": "Source",
+  "workspace.col.setup": "Request & setup",
+  "workspace.col.output": "Progress & output",
+  "workspace.block.expand": "Expand",
+  "workspace.block.collapse": "Collapse",
+  "workspace.done-collapsed": "Finished - the input blocks collapsed themselves to free up the screen",
+  "workspace.output.title": "Output video",
+  "workspace.output.idle": "No video yet - run a build to produce one.",
+  "workspace.output.running": "Building the video…",
+  "workspace.output.done": "Output video is ready",
+  "workspace.output.failed": "The build failed",
+  "workspace.output.no-video": "Finished, but there is no video file.",
+  "workspace.output.download": "Download video",
 };

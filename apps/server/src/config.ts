@@ -252,16 +252,58 @@ export function venvPython(): string | null {
  *
  * `extra` ghi đè sau cùng - chỗ gọi vẫn thêm/sửa biến riêng được.
  */
+/**
+ * Thư mục chứa DLL của CUDA do pip cài (nvidia-cublas-cu12, nvidia-cudnn-cu12,
+ * nvidia-cuda-runtime-cu12, nvidia-cuda-nvrtc-cu12) trong venv của dự án.
+ *
+ * ĐÃ ĐO, đừng đổi cách khác:
+ * - Không chèn vào PATH thì faster-whisper báo "cublas64_12.dll is not found"
+ *   rồi rơi về CPU: video 55s mất 124s thay vì chạy GPU.
+ * - `os.add_dll_directory` bên phía Python KHÔNG ăn, vì ctranslate2 là thư viện
+ *   native gọi LoadLibrary tên trần - đường tìm kiếm đó không áp cho nó.
+ * - Thiếu riêng gói cuda-runtime cũng ra ĐÚNG thông báo "not found" dù file
+ *   cublas có mặt, vì cuBLAS phụ thuộc cudart. Cài đủ 4 gói mới chạy.
+ *
+ * Quét một lần rồi nhớ: childEnv() gọi ở mọi lần spawn, quét đĩa mỗi lần là phí.
+ */
+let cudaDirsCache: string[] | null = null;
+function cudaDllDirs(): string[] {
+  if (cudaDirsCache) return cudaDirsCache;
+  const out: string[] = [];
+  try {
+    // Chỉ Windows mới cần: Linux/macOS nạp qua rpath của chính wheel
+    if (process.platform === "win32") {
+      const nvidiaDir = path.join(paths.runtime.venv, "Lib", "site-packages", "nvidia");
+      for (const entry of fs.readdirSync(nvidiaDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const bin = path.join(nvidiaDir, entry.name, "bin");
+        if (fs.existsSync(bin)) out.push(bin);
+      }
+    }
+  } catch {
+    /* chưa cài gói nvidia hoặc chưa có venv - chạy CPU, không phải lỗi */
+  }
+  cudaDirsCache = out;
+  return out;
+}
+
 export function childEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   // .runtime/bin đứng TRƯỚC PATH cũ: doctor.mjs tải ffmpeg/cloudflared về đó khi
   // máy chưa có sẵn, mà server thì gọi trần "ffmpeg" - không chèn vào PATH thì
   // tải về xong vẫn báo thiếu. Đứng trước chứ không đứng sau để bản của dự án
   // thắng bản hệ thống: đó mới là bản mình kiểm soát được phiên bản.
-  const pathKey = process.platform === "win32" ? "Path" : "PATH";
-  const currentPath = process.env[pathKey] ?? process.env.PATH ?? "";
-  const mergedPath = currentPath
-    ? `${paths.runtime.bin}${path.delimiter}${currentPath}`
-    : paths.runtime.bin;
+  // ĐÃ GẶP THẬT: Windows coi tên biến môi trường là không phân biệt hoa thường,
+  // nhưng object JS thì CÓ. Server chạy dưới Git Bash thì `process.env` mang khoá
+  // "PATH", còn cmd/PowerShell mang "Path". Ghi cứng một kiểu là tiến trình con
+  // nhận CẢ HAI khoá và dùng cái cũ - PATH mới coi như không tồn tại, mà không
+  // có lỗi nào báo ra (đúng ca này: chèn thư mục CUDA vào rồi whisper vẫn báo
+  // thiếu DLL). Phải ghi ĐÈ lên đúng khoá đang tồn tại.
+  const pathKey =
+    Object.keys(process.env).find((k) => k.toLowerCase() === "path") ??
+    (process.platform === "win32" ? "Path" : "PATH");
+  const currentPath = process.env[pathKey] ?? "";
+  const prefix = [paths.runtime.bin, ...cudaDllDirs()].join(path.delimiter);
+  const mergedPath = currentPath ? `${prefix}${path.delimiter}${currentPath}` : prefix;
   return {
     ...process.env,
     [pathKey]: mergedPath,

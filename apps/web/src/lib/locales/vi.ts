@@ -2178,4 +2178,29 @@ export const vi: Record<string, string> = {
   "help.tv-result.title": "Bấm Đóng phụ đề thì chuyện gì xảy ra?",
   "help.tv-result.body":
     "Một job chạy qua render queue: ghi phụ đề đã dịch thẳng lên hình theo đúng kiểu ở bước 4, rồi xuất ra video mới.\nTiến trình và log hiện ngay tại đây; xong thì xem và tải video ngay trong khối này.\nĐóng lại được bao nhiêu lần tùy ý - mỗi lần ghi đè video kết quả trước đó.",
+
+  // ===== Khung ứng dụng: rail trái + panel phải gấp được =====
+  "shell.nav-aria": "Điều hướng chính",
+  "shell.nav-collapse": "Thu gọn thanh điều hướng",
+  "shell.nav-expand": "Mở rộng thanh điều hướng",
+  "shell.panel-collapse": "Thu gọn panel AI",
+  "shell.panel-expand": "Mở panel AI",
+  "shell.panel-open": "Panel AI",
+  "shell.panel-close": "Đóng panel AI",
+
+  // ===== Khu làm việc 3 cột (Workspace) =====
+  "workspace.aria": "Khu làm việc",
+  "workspace.col.source": "Nguồn",
+  "workspace.col.setup": "Yêu cầu & thiết lập",
+  "workspace.col.output": "Tiến trình & kết quả",
+  "workspace.block.expand": "Mở rộng",
+  "workspace.block.collapse": "Thu gọn",
+  "workspace.done-collapsed": "Đã xong - các khối nhập liệu tự thu gọn cho gọn màn hình",
+  "workspace.output.title": "Video thành phẩm",
+  "workspace.output.idle": "Chưa có video - chạy dựng để tạo thành phẩm.",
+  "workspace.output.running": "Đang dựng video…",
+  "workspace.output.done": "Đã có video thành phẩm",
+  "workspace.output.failed": "Dựng video thất bại",
+  "workspace.output.no-video": "Đã xong nhưng chưa có file video.",
+  "workspace.output.download": "Tải video",
 };

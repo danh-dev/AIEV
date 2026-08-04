@@ -123,6 +123,13 @@ function pythonScript(): string {
     "    except Exception:",
     "        pass",
     "",
+    // GHI CHÚ CHO NGƯỜI SỬA SAU (đã thử và ĐO):
+    // DLL của gói pip nvidia-* nằm trong site-packages/nvidia/<lib>/bin, không
+    // trên PATH. Đã thử `os.add_dll_directory` ngay tại đây - KHÔNG ĂN, vì
+    // ctranslate2 là thư viện native gọi LoadLibrary tên trần, mà đường tìm kiếm
+    // do add_dll_directory thêm chỉ áp cho DLL nạp qua LoadLibraryEx. Cách chạy
+    // được là chèn mấy thư mục đó vào PATH của TIẾN TRÌNH CON - xem childEnv()
+    // trong config.ts. Đừng thêm lại add_dll_directory ở đây nữa.
     "try:",
     "    from faster_whisper import WhisperModel",
     "except Exception as err:",

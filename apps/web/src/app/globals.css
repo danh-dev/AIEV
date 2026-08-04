@@ -66,6 +66,95 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+/* ============ App shell - rail trái + panel phải gấp được ============
+
+   RÀNG BUỘC BỐ CỤC (đọc trước khi sửa):
+
+   1. Bề rộng rail và panel do CSS quyết định, KHÔNG do state React. Script chạy
+      trước paint trong Shell.tsx (SHELL_SCRIPT) đọc localStorage rồi ghi
+      `data-nav` / `data-panel` lên <html>, y hệt cách THEME_SCRIPT trong
+      layout.tsx chống nháy theme. Nhờ vậy khung hình ĐẦU TIÊN đã đúng bề rộng;
+      React chỉ đồng bộ lại nhãn aria sau khi mount, không tham gia layout.
+      Hệ quả: mọi thứ đổi theo trạng thái gấp/mở phải đi qua biến CSS dưới đây,
+      không được viết `{collapsed ? "w-14" : "w-56"}` trong JSX - viết thế là
+      lại nháy đúng một khung hình mỗi lần tải trang.
+
+   2. Tự gấp theo bề rộng màn hình cũng nằm ở đây, không dùng JS resize listener:
+      - dưới 1024px rail luôn ở dạng icon (220px chiếm quá nhiều chỗ của workspace,
+        mà dưới ngưỡng này workspace chỉ còn 1-2 cột);
+      - dưới 1280px panel phải thôi chừa chỗ và chuyển thành drawer đè lên
+        (1280 = rail 220 + panel 440 + ~600px còn lại cho nội dung, hẹp hơn nữa
+        thì nội dung không đủ thở).
+      Media query phải liệt kê CẢ `:root` LẪN `html[data-nav="collapsed"]` thì
+      mới thắng được khối gán ở trên - cùng độ ưu tiên nên thắng bằng thứ tự. */
+
+:root {
+  /* Rail trái - giá trị của trạng thái MỞ */
+  --shell-nav-cur: 220px;
+  --shell-nav-pad: 12px;
+  --shell-nav-item-pad: 12px;
+  --shell-nav-justify: flex-start;
+  --shell-nav-label: inline; /* nhãn chữ cạnh icon */
+  --shell-nav-extra: flex; /* badge phiên bản dưới đáy rail */
+  --shell-nav-only-expanded: inline-flex;
+  --shell-nav-only-collapsed: none;
+  --shell-nav-toggle: inline-flex;
+
+  /* Panel phải - giá trị của trạng thái MỞ */
+  --shell-panel-w: 440px;
+  --shell-panel-strip-w: 40px;
+  --shell-panel-cur: var(--shell-panel-w);
+  --shell-panel-strip: none;
+  --shell-panel-body: flex;
+  --shell-panel-toggle: inline-flex; /* nút gấp, chỉ có nghĩa khi panel ghim */
+  --shell-panel-drawer: none; /* nút mở drawer, chỉ có nghĩa khi màn hẹp */
+}
+
+html[data-nav="collapsed"] {
+  --shell-nav-cur: 56px;
+  --shell-nav-pad: 8px;
+  --shell-nav-item-pad: 0px;
+  --shell-nav-justify: center;
+  --shell-nav-label: none;
+  --shell-nav-extra: none;
+  --shell-nav-only-expanded: none;
+  --shell-nav-only-collapsed: inline-flex;
+}
+
+@media (max-width: 1023.98px) {
+  :root,
+  html[data-nav="collapsed"] {
+    --shell-nav-cur: 56px;
+    --shell-nav-pad: 8px;
+    --shell-nav-item-pad: 0px;
+    --shell-nav-justify: center;
+    --shell-nav-label: none;
+    --shell-nav-extra: none;
+    --shell-nav-only-expanded: none;
+    --shell-nav-only-collapsed: inline-flex;
+    /* Ẩn nút gấp: dưới ngưỡng này lựa chọn của người dùng không áp dụng được,
+       để nút bấm được mà không có tác dụng gì là lừa người dùng. */
+    --shell-nav-toggle: none;
+  }
+}
+
+html[data-panel="collapsed"] {
+  --shell-panel-cur: var(--shell-panel-strip-w);
+  --shell-panel-strip: flex;
+  --shell-panel-body: none;
+}
+
+@media (max-width: 1279.98px) {
+  :root,
+  html[data-panel="collapsed"] {
+    /* Drawer thì luôn hiện đủ nội dung, không có dải mỏng và không có nút gấp */
+    --shell-panel-strip: none;
+    --shell-panel-body: flex;
+    --shell-panel-toggle: none;
+    --shell-panel-drawer: inline-flex;
+  }
+}
+
 /* ============ Base ============ */
 
 @layer base {
@@ -384,5 +473,240 @@ textarea.input {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* ---------------- App shell ---------------- */
+
+/* Nút icon vuông trong shell (gấp rail, gấp panel, đóng drawer).
+   CỐ Ý không khai báo `display`: cái đó do lớp trạng thái
+   (.shell-nav-toggle/.shell-panel-toggle/.shell-panel-drawer) đặt qua biến CSS,
+   đặt ở đây nữa là hai rule cùng độ ưu tiên tranh nhau theo thứ tự dòng. */
+.shell-icon-btn {
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+.shell-icon-btn:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.shell-nav {
+  width: var(--shell-nav-cur);
+  padding: var(--shell-nav-pad);
+  /* overflow-x hidden: lúc rail đang co lại, nhãn chưa kịp biến mất sẽ thò ra
+     đè lên nội dung nếu không cắt */
+  overflow-x: hidden;
+  transition: width var(--transition), padding var(--transition);
+}
+.shell-nav .nav-item,
+.shell-nav-source {
+  justify-content: var(--shell-nav-justify);
+  padding-left: var(--shell-nav-item-pad);
+  padding-right: var(--shell-nav-item-pad);
+}
+.shell-nav-label {
+  display: var(--shell-nav-label);
+}
+.shell-nav-extra {
+  display: var(--shell-nav-extra);
+}
+.shell-nav-toggle {
+  display: var(--shell-nav-toggle);
+}
+.only-nav-expanded {
+  display: var(--shell-nav-only-expanded);
+}
+.only-nav-collapsed {
+  display: var(--shell-nav-only-collapsed);
+}
+
+.shell-panel {
+  width: var(--shell-panel-cur);
+  flex: none;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  transition: width var(--transition);
+}
+/* Trang không khai báo panel: khung vẫn nằm sẵn trong DOM nhưng rộng 0.
+   Lý do: trang đăng ký panel bằng useEffect nên SSR chưa biết có panel hay
+   không. Nếu khung chỉ mount khi đăng ký xong thì nội dung vẽ ra full width rồi
+   mới bị thụt vào - giật đúng một khung hình mỗi lần mở trang có panel. Để sẵn
+   ở width 0 thì cú đó thành một lần trượt 150ms, đọc ra là có chủ đích.
+   visibility: hidden chứ không chỉ width 0 - nếu không, nút mở panel vẫn nằm
+   trong thứ tự Tab dù mắt không thấy gì. */
+.shell-panel.is-empty {
+  width: 0;
+  border-left-width: 0;
+  visibility: hidden;
+}
+.shell-panel-strip {
+  display: var(--shell-panel-strip);
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+.shell-panel-strip:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+/* Nhãn dọc trên dải mỏng - dải chỉ rộng 40px nên chữ phải quay 90 độ */
+.shell-panel-strip-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 60vh;
+}
+.shell-panel-body {
+  display: var(--shell-panel-body);
+}
+.shell-panel-toggle {
+  display: var(--shell-panel-toggle);
+}
+.shell-panel-drawer {
+  display: var(--shell-panel-drawer);
+}
+.shell-panel-scrim {
+  display: none;
+}
+
+@media (max-width: 1279.98px) {
+  /* Panel rời khỏi dòng chảy → không chừa chỗ nữa, trượt vào từ mép phải */
+  .shell-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(440px, 100%);
+    transform: translateX(101%);
+    transition: transform var(--transition);
+  }
+  .shell-panel.is-open {
+    transform: none;
+  }
+  .shell-panel-scrim.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: color-mix(in srgb, var(--text) 40%, transparent);
+  }
+}
+
+/* ---------------- Workspace 3 cột ---------------- */
+
+/* Container query chứ không media query: bề rộng thật của workspace phụ thuộc
+   rail và panel đang gấp hay mở, chứ không phụ thuộc bề rộng cửa sổ. Gấp cả hai
+   ở màn 1440px là workspace rộng bằng màn 1920px mở hết - dùng media query thì
+   người dùng gấp bớt mà vẫn chỉ được 2 cột, đúng thứ họ vừa cố tránh. */
+.workspace {
+  container-type: inline-size;
+  container-name: workspace;
+}
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+/* Ngưỡng tính theo bề rộng tối thiểu dùng được của một cột (~340px cho label +
+   input + padding card) cộng gap: 2 cột = 2*340 + 16 ≈ 700 → chốt 720px. */
+@container workspace (min-width: 720px) {
+  .workspace-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Hai cột: nguồn + thiết lập đứng cạnh nhau hàng trên, cột kết quả trải hết
+     bề ngang hàng dưới. Video là thứ cần bề ngang nhất, ép nó vào nửa màn là phí. */
+  .workspace-col-output {
+    grid-column: 1 / -1;
+  }
+}
+/* 3 cột = 3*340 + 2*16 ≈ 1050 → chốt 1100px cho thoáng */
+@container workspace (min-width: 1100px) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+  .workspace-col-output {
+    grid-column: auto;
+  }
+}
+
+.workspace-col-title {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Khung video thành phẩm - giữ đúng tỉ lệ khung hình của project (16/9 hay
+   9/16) nhưng chặn chiều cao để video dọc không đẩy mọi thứ khác xuống dưới
+   màn hình; phần thừa để object-fit: contain xử lý. */
+.workspace-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--workspace-aspect, 16 / 9);
+  max-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+.workspace-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--bg-subtle);
+}
+.workspace-shimmer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.workspace-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: workspace-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes workspace-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-shimmer::after {
+    animation: none;
+  }
 }
 }
