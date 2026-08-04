@@ -2219,6 +2219,12 @@ export const vi: Record<string, string> = {
   "tv.no-transcript": "Chưa có lời thoại - bấm Bóc lời thoại để bắt đầu.",
   "tv.transcript-file": "File lời thoại",
   "tv.job": "Job đang chạy",
+  "tv.ai-panel": "Nhật ký AI",
+  "tv.ai-panel-empty":
+    "Chạy bóc lời, dịch hoặc đóng phụ đề - nhật ký của AI sẽ chảy về đây.",
+  "tv.ai-panel.step-transcribe": "Bóc lời thoại",
+  "tv.ai-panel.step-subtitle": "Đóng phụ đề",
+  "tv.ai-panel.step-dub": "Lồng tiếng",
   "tv.job-no-log": "Chưa có dòng log nào.",
   "tv.job-log-error": "Không đọc được log của job.",
 

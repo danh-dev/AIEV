@@ -2223,6 +2223,12 @@ export const en: Record<string, string> = {
   "tv.no-transcript": "No dialogue yet - press Pull dialogue to start.",
   "tv.transcript-file": "Dialogue file",
   "tv.job": "Running job",
+  "tv.ai-panel": "AI log",
+  "tv.ai-panel-empty":
+    "Run transcription, translation or the subtitle burn - the AI log streams in here.",
+  "tv.ai-panel.step-transcribe": "Transcribing",
+  "tv.ai-panel.step-subtitle": "Burning subtitles",
+  "tv.ai-panel.step-dub": "Dubbing",
   "tv.job-no-log": "No log lines yet.",
   "tv.job-log-error": "Could not read the job log.",
 

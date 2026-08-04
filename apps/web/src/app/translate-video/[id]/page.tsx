@@ -36,6 +36,7 @@ import {
   Loader2,
   Mic,
   Play,
+  ScrollText,
   Square,
   Subtitles,
   Trash2,
@@ -107,6 +108,7 @@ import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
+import { ShellRightPanel } from "@/components/Shell";
 import {
   OutputBlock,
   useCollapseGroup,
@@ -223,10 +225,16 @@ function deriveTvStage(m: TranslateVideoMeta): {
 }
 
 /**
- * Khối log của job - đúng nội dung trang Render Queue hiển thị: tiến trình + từng
+ * Log của job - đúng nội dung trang Render Queue hiển thị: tiến trình + từng
  * dòng log chảy về qua SSE `joblog`.
+ *
+ * Sống trong PANEL PHẢI của shell, không nằm trong cột giữa nữa. Trước đây log
+ * bị nhét vào hai khối khác nhau (bóc lời một chỗ, đóng phụ đề một chỗ) nên
+ * đang chạy bước nào thì phải cuộn đi tìm đúng khối đó, mà mở khối kia ra thì
+ * chẳng thấy gì. Panel phải luôn ở đó, gấp lại được, và giống hệt Videos
+ * Project với Text to video - ba trang cùng một chỗ để nhìn log.
  */
-function JobLogBlock({ job }: { job: Job }) {
+function JobLogBlock({ job, stepLabel }: { job: Job; stepLabel: string }) {
   const { t } = useT();
   const jobId = job.id;
   // SSE nối lại sau khi đứt → refetch log để lấp các dòng đã lỡ
@@ -274,10 +282,14 @@ function JobLogBlock({ job }: { job: Job }) {
   }, [log]);
 
   return (
-    <div className="flex min-w-0 shrink-0 flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
+    // min-h-0 + flex-1 để <pre> CAO BẰNG panel rồi tự cuộn bên trong. Thiếu
+    // min-h-0 thì flex item không co dưới nội dung, log dài sẽ đẩy dài cả panel.
+    <div className="card flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold">{t("tv.job")}</span>
-        <span className="text-xs text-[var(--text-muted)]">{job.status}</span>
+        <span className="min-w-0 text-xs font-semibold">{stepLabel}</span>
+        <span className="shrink-0 text-xs text-[var(--text-muted)]">
+          {job.status}
+        </span>
       </div>
       <ProgressBar progress={job.progress} step={job.step} />
       {error && <ErrorBanner message={t("tv.job-log-error")} detail={error} />}
@@ -286,7 +298,7 @@ function JobLogBlock({ job }: { job: Job }) {
           trắng nên chúng đẩy toác cả cột. */}
       <pre
         ref={preRef}
-        className="max-h-48 min-h-16 min-w-0 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap [overflow-wrap:anywhere]"
+        className="min-h-32 min-w-0 flex-1 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap [overflow-wrap:anywhere]"
       >
         {log || t("tv.job-no-log")}
       </pre>
@@ -1604,9 +1616,9 @@ export default function TranslateVideoDetailPage() {
                 </p>
               )}
 
-              {job && phase === "transcribe" ? (
-                <JobLogBlock job={job} />
-              ) : cues.length === 0 ? (
+              {/* Log của bước bóc lời đã chuyển sang panel AI bên phải - ở đây
+                  chỉ còn dòng chờ phía trên. */}
+              {cues.length === 0 ? (
                 <EmptyState
                   icon={Subtitles}
                   description={hasSource ? t("tv.no-transcript") : t("tv.no-source-yet")}
@@ -2173,9 +2185,8 @@ export default function TranslateVideoDetailPage() {
               </p>
             )}
 
-            {/* Log của bước đóng phụ đề - thứ SINH RA trong lúc chạy, đúng chỗ */}
-            {renderJob && <JobLogBlock job={renderJob} />}
-
+            {/* Log của bước đóng phụ đề nằm ở panel AI bên phải; khối này đã có
+                thanh tiến trình của OutputBlock nên không lặp lại lần nữa. */}
             {/* Số liệu của lần lồng tiếng gần nhất: bao nhiêu câu phải co, bao
                 nhiêu câu tràn, dải tempo. Đây là cách DUY NHẤT để biết bản lồng
                 tiếng có ổn không mà không phải ngồi xem hết video. */}
@@ -2233,6 +2244,29 @@ export default function TranslateVideoDetailPage() {
           </WorkspaceBlock>
         </WorkspaceColumn>
       </Workspace>
+
+      {/* Panel AI - shell lo bề rộng, nút gấp và chế độ drawer; trang chỉ nói
+          "tôi có panel, nội dung đây". Job mới nhất của phiên luôn ở đây, kể cả
+          khi đã chạy xong: chạy hỏng thì log là thứ DUY NHẤT nói vì sao, gấp nó
+          đi ngay khi job kết thúc là cất mất đúng lúc cần đọc nhất. */}
+      <ShellRightPanel title={t("tv.ai-panel")}>
+        {job ? (
+          <JobLogBlock
+            job={job}
+            stepLabel={
+              phase === "transcribe"
+                ? t("tv.ai-panel.step-transcribe")
+                : isDub
+                  ? t("tv.ai-panel.step-dub")
+                  : t("tv.ai-panel.step-subtitle")
+            }
+          />
+        ) : (
+          <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
+            <EmptyState icon={ScrollText} description={t("tv.ai-panel-empty")} />
+          </div>
+        )}
+      </ShellRightPanel>
 
       <ConfirmDeleteModal
         open={deleteOpen}
