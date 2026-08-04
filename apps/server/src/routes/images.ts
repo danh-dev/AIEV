@@ -23,6 +23,7 @@ import {
   type ImageProject,
 } from "../imageMeta.js";
 import { IMAGE_MODELS } from "../gemini.js";
+import { getPrefs, prefBool, prefString, rememberPrefs } from "../prefs.js";
 import { styleExists } from "../styles.js";
 import { queue } from "../queue.js";
 import {
@@ -136,17 +137,34 @@ router.post("/", (req, res) => {
     throw new HttpError(400, "INVALID_PROMPT", "prompt phải là string");
   }
 
+  /*
+   * Mặc định = lựa chọn LẦN TRƯỚC. Người làm mười tấm ảnh cho cùng một chiến
+   * dịch thì chín lần sau vẫn 9:16, vẫn style ấy, vẫn model ấy - bắt chọn lại
+   * từng lần là bắt làm lại một việc đã làm.
+   *
+   * KHÔNG nhớ `prompt` và phần chữ: đó là NỘI DUNG của một tấm ảnh cụ thể, nhớ
+   * lại chỉ tổ đẻ ra ảnh mới mang chữ của ảnh cũ. Riêng "có đóng logo không" và
+   * vị trí khối chữ thì là bố cục, nhớ được.
+   */
+  const pref = getPrefs("image");
+  const base = defaultOverlay();
+  const prefOverlay = {
+    ...base,
+    showLogo: prefBool(pref, "showLogo") ?? base.showLogo,
+    position: prefString(pref, "position") ?? base.position,
+  };
+
   const now = nowIso();
   const meta: ImageProject = {
     id: newImageProjectId(name),
     name,
     prompt: typeof body.prompt === "string" ? body.prompt.trim() : "",
-    kind: parseKind(body.kind, "background"),
-    aspect: parseAspect(body.aspect, "9:16"),
+    kind: parseKind(body.kind, (prefString(pref, "kind") as ImageKind) ?? "background"),
+    aspect: parseAspect(body.aspect, (prefString(pref, "aspect") as ImageAspect) ?? "9:16"),
     status: "draft",
-    model: parseImageModel(body.model, null),
-    styleId: parseStyleId(body.styleId, null),
-    overlay: normOverlay(body.overlay, defaultOverlay()),
+    model: parseImageModel(body.model, prefString(pref, "model") ?? null),
+    styleId: parseStyleId(body.styleId, prefString(pref, "styleId") ?? null),
+    overlay: normOverlay(body.overlay, normOverlay(prefOverlay, base)),
     background: null,
     final: null,
     error: null,
@@ -191,6 +209,18 @@ router.put("/:id", (req, res) => {
   }
 
   writeImageMeta(meta.id, meta);
+
+  // Nhớ "gu" cho ảnh sau - chỉ thứ lặp lại giữa các ảnh, không nhớ nội dung.
+  // Đặt SAU khi ghi thành công: lựa chọn bị 400 thì không đáng được nhớ.
+  rememberPrefs("image", {
+    kind: "kind" in body ? meta.kind : undefined,
+    aspect: "aspect" in body ? meta.aspect : undefined,
+    model: "model" in body ? meta.model : undefined,
+    styleId: "styleId" in body ? meta.styleId : undefined,
+    showLogo: "overlay" in body ? meta.overlay.showLogo : undefined,
+    position: "overlay" in body ? meta.overlay.position : undefined,
+  });
+
   res.json(meta);
 });
 

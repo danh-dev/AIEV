@@ -30,11 +30,26 @@ import { HttpError, isKebabCase, nowIso } from "./util.js";
 
 /**
  * "subtitle" = ghép phụ đề dịch (giữ nguyên tiếng gốc, đốt chữ lên hình);
- * "dub"      = lồng tiếng (thay tiếng gốc bằng giọng đọc bản dịch, không đốt chữ).
- * Hai chế độ dùng CHUNG bước bóc lời và bước dịch, chỉ khác ở bước render.
+ * "dub"      = lồng tiếng (thay tiếng gốc bằng giọng đọc bản dịch, không đốt chữ);
+ * "both"     = vừa lồng tiếng vừa đốt phụ đề, và HAI BÊN CHỌN NGÔN NGỮ RIÊNG.
+ *
+ * Vì sao "both" đáng có chứ không phải bật hai công tắc: nghe tiếng này mà đọc
+ * chữ tiếng kia là nhu cầu thật (video tiếng Anh, lồng tiếng Việt cho người nhà
+ * xem, phụ đề tiếng Anh giữ nguyên để học). Ba chế độ dùng CHUNG bước bóc lời,
+ * khác nhau ở bước dịch (mấy bản dịch) và bước render (đốt chữ / thay tiếng).
  */
-export type TranslateMode = "subtitle" | "dub";
-export const TRANSLATE_MODES: TranslateMode[] = ["subtitle", "dub"];
+export type TranslateMode = "subtitle" | "dub" | "both";
+export const TRANSLATE_MODES: TranslateMode[] = ["subtitle", "dub", "both"];
+
+/** Chế độ này có đốt phụ đề lên hình không */
+export function wantsSubtitle(mode: TranslateMode): boolean {
+  return mode === "subtitle" || mode === "both";
+}
+
+/** Chế độ này có dựng track lồng tiếng không */
+export function wantsDub(mode: TranslateMode): boolean {
+  return mode === "dub" || mode === "both";
+}
 
 export type TranslateStatus =
   | "draft"
@@ -154,8 +169,17 @@ export function defaultSubtitleStyle(): SubtitleStyle {
 export interface TranslatedCue {
   start: number;
   end: number;
-  /** Đã xuống dòng sẵn bằng "\n" (tối đa 2 dòng - xem segmentsToCues) */
+  /**
+   * Bản dịch sang `targetLang` - chữ ĐỌC LÊN MÀN HÌNH. Đã xuống dòng sẵn bằng
+   * "\n" (tối đa 2 dòng - xem segmentsToCues).
+   */
   text: string;
+  /**
+   * Bản dịch sang `dubLang` - chữ ĐỌC THÀNH TIẾNG, chỉ có khi ngôn ngữ lồng
+   * tiếng KHÁC ngôn ngữ phụ đề (mode "both"). Thiếu thì bước lồng tiếng đọc
+   * `text` - đúng hành vi của mọi phiên có trước tính năng hai ngôn ngữ.
+   */
+  dubText?: string;
   /** Câu gốc, giữ lại để người dùng đối chiếu và để dịch lại không mất nguồn */
   original?: string;
   /** Nhãn người nói - giai đoạn 2 (lồng tiếng), chưa dùng ở đường phụ đề */
@@ -263,8 +287,17 @@ export interface TranslateVideoMeta {
   source: TranslateVideoSource;
   /** "auto" hoặc mã ngôn ngữ whisper ("vi", "en", "ja"...) */
   sourceLang: string;
-  /** Mã ngôn ngữ đích ("vi" | "en" | ...) */
+  /** Mã ngôn ngữ đích ("vi" | "en" | ...) - ngôn ngữ của PHỤ ĐỀ (`cue.text`) */
   targetLang: string;
+  /**
+   * Ngôn ngữ LỒNG TIẾNG khi khác phụ đề. null = đọc đúng ngôn ngữ phụ đề.
+   *
+   * Vì sao null chứ không chép sẵn `targetLang` vào: chép sẵn thì đổi ngôn ngữ
+   * phụ đề xong ngôn ngữ đọc vẫn đứng im ở giá trị cũ mà không ai nhận ra, và
+   * mọi phiên cũ (chưa có field này) sẽ phải đoán xem "bằng nhau" là cố ý hay
+   * chỉ là giá trị mặc định.
+   */
+  dubLang: string | null;
   mode: TranslateMode;
   /**
    * AI nào bóc lời cho lần chạy TIẾP THEO. Mặc định "local" (faster-whisper trên
@@ -441,6 +474,8 @@ export function normCues(raw: unknown): TranslatedCue[] {
       end: Math.round(end * 1000) / 1000,
       text,
     };
+    const dubText = normCueText(o.dubText);
+    if (dubText) cue.dubText = dubText;
     const original = normCueText(o.original);
     if (original) cue.original = original;
     if (typeof o.speaker === "string" && o.speaker.trim()) cue.speaker = o.speaker.trim();
@@ -448,6 +483,31 @@ export function normCues(raw: unknown): TranslatedCue[] {
   }
   out.sort((a, b) => a.start - b.start);
   return out;
+}
+
+/**
+ * Ngôn ngữ THỰC SỰ dùng để đọc thành tiếng - `dubLang` nếu có, không thì đúng
+ * ngôn ngữ phụ đề. Mọi nơi cần "đọc bằng tiếng gì" phải đi qua đây, đừng đọc
+ * thẳng `meta.dubLang` (null nghĩa là "giống phụ đề", không phải "chưa có").
+ */
+export function effectiveDubLang(meta: TranslateVideoMeta): string {
+  return meta.dubLang ?? meta.targetLang;
+}
+
+/** Phụ đề và lồng tiếng có đang dùng hai ngôn ngữ khác nhau không */
+export function dubLangDiffers(meta: TranslateVideoMeta): boolean {
+  return effectiveDubLang(meta) !== meta.targetLang;
+}
+
+/**
+ * Câu để ĐỌC THÀNH TIẾNG: lấy `dubText` khi có, không thì `text`.
+ *
+ * Trả về đúng shape TranslatedCue để dùng lại nguyên các hàm sẵn có (synthesizeDub,
+ * dubSignature, fitCue) mà không phải dạy chúng biết về hai ngôn ngữ - bước lồng
+ * tiếng chỉ cần "chữ nào đọc", không cần biết chữ ấy từ đâu ra.
+ */
+export function dubCuesOf(meta: TranslateVideoMeta): TranslatedCue[] {
+  return meta.cues.map((c) => (c.dubText ? { ...c, text: c.dubText } : c));
 }
 
 /**
@@ -634,6 +694,8 @@ export function defaultTranslateVideoMeta(id: string, name: string): TranslateVi
     source: { relPath: null, durationSec: null, width: null, height: null, fps: null },
     sourceLang: "auto",
     targetLang: "vi",
+    // null = đọc đúng ngôn ngữ phụ đề; chỉ mode "both" mới đặt khác đi
+    dubLang: null,
     mode: "subtitle",
     // Mặc định = hành vi cũ: bóc lời trên máy, không tốn tiền, không cần mạng
     sttProvider: DEFAULT_STT_PROVIDER,
@@ -694,6 +756,11 @@ export function readTranslateVideo(id: string): TranslateVideoMeta {
     },
     sourceLang: normLang(raw.sourceLang, base.sourceLang),
     targetLang: normLang(raw.targetLang, base.targetLang),
+    // Chỉ nhận khi meta ghi rõ một mã ngôn ngữ; thiếu/null/rác đều là "giống phụ đề"
+    dubLang:
+      typeof raw.dubLang === "string" && LANG_RE.test(raw.dubLang.trim())
+        ? raw.dubLang.trim().toLowerCase()
+        : null,
     mode: TRANSLATE_MODES.includes(raw.mode as TranslateMode)
       ? (raw.mode as TranslateMode)
       : base.mode,

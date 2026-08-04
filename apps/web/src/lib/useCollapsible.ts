@@ -48,11 +48,25 @@ export function useCollapseGroup<K extends string>({
   keys,
   finished,
   keepExpanded,
+  configured,
 }: {
   /** Toàn bộ khối trong nhóm - thứ tự không quan trọng */
   keys: readonly K[];
   /** Trang báo "việc đã xong": mặc định chuyển sang gấp hết cho gọn màn hình */
   finished: boolean;
+  /**
+   * "Khối này đã chọn xong cấu hình chưa" - trả true thì MẶC ĐỊNH gấp lại, kể
+   * cả khi việc chưa xong.
+   *
+   * Vì sao: khối cấu hình đã điền xong thì phần lớn thời gian nó chỉ chiếm chỗ.
+   * Dòng tóm tắt của WorkspaceBlock đã nói đủ đang đặt gì, còn muốn sửa thì bấm
+   * một cái là mở. Ngược lại khối CHƯA cấu hình phải mở sẵn - đó chính là việc
+   * người dùng cần làm tiếp.
+   *
+   * Vẫn chỉ là MẶC ĐỊNH: người dùng tự bấm mở thì `override` thắng và khối ở
+   * nguyên đấy, không có chuyện điền thêm một chữ là nó tự sập lại.
+   */
+  configured?: (key: K) => boolean;
   /**
    * Khối vẫn mở khi xong - chỗ đặt khối kết quả (video thành phẩm). Xong việc thì
    * người dùng vào trang là để XEM thành phẩm, không phải sửa ô nhập nữa.
@@ -63,8 +77,10 @@ export function useCollapseGroup<K extends string>({
   // theo mặc định.
   const [override, setOverride] = useState<Partial<Record<K, boolean>>>({});
 
-  const defaultCollapsed = (key: K): boolean =>
-    finished && !(keepExpanded ?? []).includes(key);
+  const defaultCollapsed = (key: K): boolean => {
+    if ((keepExpanded ?? []).includes(key)) return false;
+    return finished || configured?.(key) === true;
+  };
 
   const isCollapsed = (key: K): boolean =>
     override[key] ?? defaultCollapsed(key);

@@ -3118,8 +3118,10 @@ export async function previewClonedVoice(input: {
  * - "subtitle": đóng phụ đề đã dịch lên chính video gốc.
  * - "dub": lồng tiếng - đọc bản dịch bằng TTS rồi thay tiếng gốc (server:
  *   dub.ts + jobs/translateVideo.ts, cùng một cửa POST /:id/render).
+ * - "both": vừa lồng tiếng vừa đốt phụ đề, mỗi bên một ngôn ngữ riêng
+ *   (`targetLang` cho chữ, `dubLang` cho tiếng).
  */
-export type TranslateMode = "subtitle" | "dub";
+export type TranslateMode = "subtitle" | "dub" | "both";
 
 export type TranslateStatus =
   | "draft"
@@ -3258,7 +3260,10 @@ export interface TranslateVideoMeta {
   source: TranslateVideoSource;
   /** "auto" = để máy tự nhận ngôn ngữ của video. */
   sourceLang: string;
+  /** Ngôn ngữ của PHỤ ĐỀ (chữ trên hình). */
   targetLang: string;
+  /** Ngôn ngữ LỒNG TIẾNG khi khác phụ đề; null = đọc đúng ngôn ngữ phụ đề. */
+  dubLang: string | null;
   mode: TranslateMode;
   /** AI bóc lời cho lần chạy TIẾP THEO - phiên cũ đọc lên thành "local". */
   sttProvider: SttProvider;
@@ -3314,6 +3319,7 @@ export const TRANSLATE_VIDEO_STATUS_TONE: Record<
 export const TRANSLATE_MODE_LABEL: Record<TranslateMode, string> = {
   subtitle: "tv.mode.subtitle",
   dub: "tv.mode.dub",
+  both: "tv.mode.both",
 };
 
 /**

@@ -16,16 +16,20 @@ import { transcribeWith } from "../stt.js";
 import { segmentsToCues } from "../subtitles.js";
 import { parseTranscriptJson } from "../transcript.js";
 import {
+  dubCuesOf,
   dubDirOf,
   dubMixPathOf,
   dubSignature,
   dubWavPathOf,
+  effectiveDubLang,
   outputPathOf,
   patchTranslateVideo,
   readTranslateVideo,
   sourceAbsOf,
   transcriptPathOf,
   translateVideoDirOf,
+  wantsDub,
+  wantsSubtitle,
   type SubtitleStyle,
   type TranslateVideoMeta,
   type TranslatedCue,
@@ -266,7 +270,7 @@ const DUB_PROGRESS_SHARE = 65;
 
 async function stepRender(ctx: JobCtx, id: string): Promise<void> {
   const meta = patchTranslateVideo(id, { status: "rendering", error: null });
-  const dubbing = meta.mode === "dub";
+  const dubbing = wantsDub(meta.mode);
   if (meta.cues.length === 0) {
     throw new Error(
       dubbing
@@ -388,7 +392,11 @@ async function buildDubTrack(ctx: JobCtx, id: string, videoAbs: string): Promise
   const meta = readTranslateVideo(id);
   const dubDir = dubDirOf(id);
   ensureDir(dubDir);
-  const language = meta.dub.language ?? ttsLanguageFor(meta.targetLang);
+  // Ngôn ngữ ĐỌC lấy theo effectiveDubLang, không phải targetLang: mode "both"
+  // có thể đọc tiếng Việt trong khi phụ đề là tiếng Anh.
+  const language = meta.dub.language ?? ttsLanguageFor(effectiveDubLang(meta));
+  // Chữ để ĐỌC (dubText khi có) - khác chữ hiện lên màn hình
+  const speechCues = dubCuesOf(meta);
 
   // ---- 1. Gán giọng ------------------------------------------------------
   // Chỉ tính người nói THẬT SỰ có câu trong bản dịch: transcriptInfo.speakers là
@@ -433,7 +441,10 @@ async function buildDubTrack(ctx: JobCtx, id: string, videoAbs: string): Promise
 
   // ---- 2. Đọc từng câu + co cho vừa --------------------------------------
   const signature = dubSignature({
-    cues: meta.cues,
+    // PHẢI là chữ đọc: ký theo chữ phụ đề thì đổi riêng ngôn ngữ lồng tiếng sẽ
+    // ra cùng vân tay và hệ thống dùng lại track cũ - người dùng đổi ngôn ngữ
+    // mà video vẫn nói tiếng cũ, không một dòng lỗi nào.
+    cues: speechCues,
     assignments,
     engine: meta.dub.engine,
     model: meta.dub.model,
@@ -458,7 +469,7 @@ async function buildDubTrack(ctx: JobCtx, id: string, videoAbs: string): Promise
         `mỗi câu một lượt gọi để đo và co riêng từng câu`,
     );
     const res = await synthesizeDub({
-      cues: meta.cues,
+      cues: speechCues,
       assignments,
       engine: meta.dub.engine,
       model: meta.dub.model,
@@ -559,7 +570,7 @@ function buildProps(
   const { width, height } = pickSize(meta.source);
   const durationSec = meta.source.durationSec ?? lastCueEnd(meta.cues);
   const durationInFrames = Math.max(1, Math.round(durationSec * fps));
-  const dubbing = meta.mode === "dub" && voiceRel !== null;
+  const dubbing = wantsDub(meta.mode) && voiceRel !== null;
 
   return {
     id: meta.id,
@@ -585,7 +596,11 @@ function buildProps(
     overlays: [],
     watermark: null,
     output: null,
-    subtitles: dubbing ? [] : toSubtitleProps(meta.cues, fps, durationInFrames),
+    // Chữ theo CHẾ ĐỘ, không theo "có lồng tiếng hay không": mode "both" vừa
+    // thay tiếng vừa đốt chữ, nên điều kiện phải hỏi wantsSubtitle.
+    subtitles: wantsSubtitle(meta.mode)
+      ? toSubtitleProps(meta.cues, fps, durationInFrames)
+      : [],
     // Gửi nguyên bộ: SubtitleTrack tự nhân theo đơn vị tỉ lệ `u` của nó (dọc
     // chuẩn hóa theo cao 1920, ngang theo cao 1080)
     subtitleStyle: meta.subtitleStyle,

@@ -5,6 +5,7 @@
 export const en: Record<string, string> = {
   // ===== Common =====
   "common.cancel": "Cancel",
+  "common.done": "Done",
   "common.close": "Close",
   "common.delete": "Delete",
   "common.deleting": "Deleting…",
@@ -2169,6 +2170,13 @@ export const en: Record<string, string> = {
 
   "tv.mode.subtitle": "Subtitles",
   "tv.mode.dub": "Dubbing",
+  "tv.mode.both": "Both",
+  "tv.configure": "Configure",
+  "tv.subtitle-lang": "Subtitle language",
+  "tv.dub-lang": "Dub language",
+  "tv.dub-lang-same": "Same as subtitles ({lang})",
+  "tv.dub-lang-cost":
+    "Speaking a different language than the on-screen text means the AI translates twice - double the cost. Hit Translate again after changing it.",
 
   "tv.lang.auto": "Auto-detect",
   "tv.lang.vi": "Vietnamese",

@@ -5,6 +5,7 @@
 export const vi: Record<string, string> = {
   // ===== Chung =====
   "common.cancel": "Hủy",
+  "common.done": "Xong",
   "common.close": "Đóng",
   "common.delete": "Xóa",
   "common.deleting": "Đang xóa…",
@@ -2165,6 +2166,13 @@ export const vi: Record<string, string> = {
 
   "tv.mode.subtitle": "Phụ đề",
   "tv.mode.dub": "Lồng tiếng",
+  "tv.mode.both": "Cả hai",
+  "tv.configure": "Cấu hình",
+  "tv.subtitle-lang": "Ngôn ngữ phụ đề",
+  "tv.dub-lang": "Ngôn ngữ lồng tiếng",
+  "tv.dub-lang-same": "Giống phụ đề ({lang})",
+  "tv.dub-lang-cost":
+    "Đọc một tiếng khác chữ trên hình nghĩa là AI phải dịch hai bản - tốn gấp đôi. Bấm Dịch lại sau khi đổi.",
 
   "tv.lang.auto": "Tự nhận",
   "tv.lang.vi": "Tiếng Việt",

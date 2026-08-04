@@ -428,7 +428,8 @@ TranslateVideoMeta = { id, name, autoNamed: boolean,
   transcriptFile: string|null,        // transcript GỐC (relPath repo)
   transcriptInfo: {                   // provider ĐÃ chạy ra transcript đang nằm trên đĩa; null = chưa bóc
     provider, language, diarized: boolean, speakers: string[], wordTimestamps: boolean } | null,
-  cues: [{ start, end, text, original?, speaker? }],  // GIÂY trong video nguồn; text đã xuống dòng "\n"
+  cues: [{ start, end, text, dubText?, original?, speaker? }],  // dubText = chữ ĐỌC LÊN
+                                      // (dubLang), chỉ có khi khác ngôn ngữ phụ đề; thiếu thì đọc `text`  // GIÂY trong video nguồn; text đã xuống dòng "\n"
                                       // speaker: có khi provider phân vai được (gán theo segment
                                       // CHỒNG LẤN NHIỀU NHẤT, không theo mốc bắt đầu)
   subtitleStyle: { fontFamily, fontSizePx, color, backdrop: "blur"|"solid"|"none",
@@ -467,11 +468,18 @@ GET    /api/translate-video        -> TranslateVideoMeta[] (mới cập nhật t
 POST   /api/translate-video        { name?, sourceLang?, targetLang?, mode?, sttProvider? } -> 201
                                       name bỏ trống được: đặt tên tạm (autoNamed=true) rồi thay
                                       bằng tên file khi upload nguồn
+                                      Field KHÔNG gửi thì lấy LỰA CHỌN GẦN NHẤT của người dùng
+                                      (data/prefs.json - xem apps/server/src/prefs.ts), không phải
+                                      hằng số mặc định. KHÔNG nhớ `dub.voices`: người nói "1" của
+                                      video này không liên quan gì tới video sau.
 GET    /api/translate-video/:id    -> TranslateVideoMeta
-PATCH  /api/translate-video/:id    { name?, sourceLang?, targetLang?, mode?, sttProvider?,
+PATCH  /api/translate-video/:id    { name?, sourceLang?, targetLang?, dubLang?, mode?, sttProvider?,
                                       subtitleStyle?, cues?, dub? }
                                       - đổi sourceLang -> xóa transcript + cues, về "draft"
-                                      - đổi targetLang -> trả text về `original`, về "transcribed"
+                                      - đổi targetLang -> trả text về `original`, bỏ `dubText`,
+                                        về "transcribed"
+                                      - đổi dubLang -> CHỈ bỏ `dubText` (chữ phụ đề còn nguyên);
+                                        về "transcribed" khi ngôn ngữ đọc khác ngôn ngữ phụ đề
                                       - đổi sttProvider -> KHÔNG xóa gì (transcript cũ chỉ CŨ chứ
                                         không SAI; bấm /transcribe lại nếu muốn bản của provider mới)
                                       - sttProvider lạ -> 400 INVALID_STT_PROVIDER

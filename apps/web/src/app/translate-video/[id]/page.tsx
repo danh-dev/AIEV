@@ -33,6 +33,7 @@ import {
   FileVideo,
   Film,
   Languages,
+  Layers,
   Loader2,
   Mic,
   Play,
@@ -105,6 +106,7 @@ import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
+import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -194,6 +196,8 @@ interface Patch {
   name?: string;
   sourceLang?: string;
   targetLang?: string;
+  /** null = đọc đúng ngôn ngữ phụ đề */
+  dubLang?: string | null;
   mode?: TranslateMode;
   sttProvider?: SttProvider;
   cues?: TranslatedCue[];
@@ -222,6 +226,47 @@ function deriveTvStage(m: TranslateVideoMeta): {
   }
   if (m.transcriptFile) return { stage: 3, active: false, complete: false };
   return { stage: m.source.relPath ? 2 : 1, active: false, complete: false };
+}
+
+/**
+ * Một dòng "đang đặt gì" + nút mở popup cấu hình.
+ *
+ * Vì sao cần dòng này chứ không chỉ một cái nút: cấu hình nằm trong popup nghĩa
+ * là đóng popup lại thì không còn thấy mình đã đặt gì. Một dòng tóm tắt giữ lại
+ * đúng phần thông tin đó mà chỉ tốn một dòng - đúng thứ người dùng cần liếc qua
+ * trước khi bấm render.
+ */
+function ConfigRow({
+  icon: Icon,
+  label,
+  value,
+  openLabel,
+  onOpen,
+}: {
+  icon: typeof Mic;
+  label: string;
+  value: string;
+  openLabel: string;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5">
+      <Icon size={13} strokeWidth={2} aria-hidden="true" className="shrink-0 text-[var(--text-muted)]" />
+      <span className="shrink-0 text-xs font-medium">{label}</span>
+      {/* truncate: bản tóm tắt dài (nhiều người nói, nhiều thông số) không được
+          đẩy nút Cấu hình ra khỏi khung */}
+      <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
+        {value}
+      </span>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="shrink-0 rounded-[var(--radius)] px-2 py-0.5 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:bg-[var(--primary-soft)]"
+      >
+        {openLabel}
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -876,6 +921,10 @@ export default function TranslateVideoDetailPage() {
   const [sourceLang, setSourceLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("vi");
   const [mode, setMode] = useState<TranslateMode>("subtitle");
+  /** null = đọc đúng ngôn ngữ phụ đề (xem dubLang bên server) */
+  const [dubLang, setDubLang] = useState<string | null>(null);
+  const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
+  const [dubModalOpen, setDubModalOpen] = useState(false);
   const [sttProvider, setSttProvider] = useState<SttProvider>("local");
   const [cues, setCues] = useState<TranslatedCue[]>([]);
   const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle | null>(null);
@@ -933,6 +982,7 @@ export default function TranslateVideoDetailPage() {
     if (!p.sourceLang) setSourceLang(s.sourceLang || "auto");
     if (!p.targetLang) setTargetLang(s.targetLang || "vi");
     if (!p.mode) setMode(s.mode ?? "subtitle");
+    if (!p.dubLang) setDubLang(s.dubLang ?? null);
     if (!p.sttProvider) setSttProvider(s.sttProvider ?? "local");
     if (!p.cues) setCues(s.cues ?? []);
     // Phiên tạo trước khi backend có đủ field → lấp bằng mặc định
@@ -1062,6 +1112,22 @@ export default function TranslateVideoDetailPage() {
   function patchMode(v: TranslateMode) {
     setMode(v);
     queue({ mode: v }, true);
+  }
+
+  function patchDubLang(v: string | null) {
+    setDubLang(v);
+    queue({ dubLang: v }, true);
+  }
+
+  /**
+   * Chọn chế độ VÀ mở luôn popup cấu hình của nó. Chọn "cả hai" thì mở popup
+   * phụ đề - chữ trên hình là thứ nhìn thấy trước, còn giọng đọc thì mở sau
+   * bằng hàng tóm tắt ngay bên dưới.
+   */
+  function chooseMode(v: TranslateMode) {
+    patchMode(v);
+    if (v === "dub") setDubModalOpen(true);
+    else setSubtitleModalOpen(true);
   }
 
   function patchSttProvider(v: SttProvider) {
@@ -1214,7 +1280,14 @@ export default function TranslateVideoDetailPage() {
     ? `${mediaUrl(session.outputFile)}?v=${encodeURIComponent(session.updatedAt)}`
     : null;
 
-  const isDub = mode === "dub";
+  // "Chế độ này có đốt chữ / có đọc tiếng không" - gương của wantsSubtitle và
+  // wantsDub bên server (translateVideoMeta.ts). `isDub` giữ nguyên nghĩa cũ
+  // "có lồng tiếng" để mọi chỗ đang dùng nó vẫn đúng với cả mode "both".
+  const wantsSubtitleMode = mode === "subtitle" || mode === "both";
+  const wantsDubMode = mode === "dub" || mode === "both";
+  const isDub = wantsDubMode;
+  /** Ngôn ngữ THỰC SỰ đọc lên - null nghĩa là giống phụ đề, không phải "chưa có" */
+  const effectiveDubLang = dubLang ?? targetLang;
   const sttCap = (sttProviders ?? []).find((p) => p.id === sttProvider) ?? null;
 
   /**
@@ -1689,28 +1762,7 @@ export default function TranslateVideoDetailPage() {
           >
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-1 gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor="tv-target-lang">
-                    {t("tv.target-lang")}
-                  </label>
-                  <select
-                    id="tv-target-lang"
-                    className="input"
-                    value={targetLang}
-                    disabled={locked}
-                    onChange={(e) => patchTargetLang(e.target.value)}
-                  >
-                    {!TRANSLATE_TARGET_LANGS.includes(
-                      targetLang as (typeof TRANSLATE_TARGET_LANGS)[number]
-                    ) && <option value={targetLang}>{targetLang}</option>}
-                    {TRANSLATE_TARGET_LANGS.map((code) => (
-                      <option key={code} value={code}>
-                        {langLabel(code)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
+                <div className="sm:col-span-2">
                   <span className="label">
                     {t("tv.mode")}
                     <InfoHint
@@ -1719,11 +1771,16 @@ export default function TranslateVideoDetailPage() {
                       bodyKey="help.tv-mode.body"
                     />
                   </span>
+                  {/* Chọn chế độ là MỞ LUÔN popup cấu hình của chế độ đó: chọn
+                      xong mà không thấy gì xảy ra thì người dùng phải tự đi tìm
+                      chỗ chỉnh. Chọn "cả hai" thì mở popup phụ đề trước - đó là
+                      thứ nhìn thấy ngay trên hình. */}
                   <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("tv.mode")}>
                     {(
                       [
                         ["subtitle", Subtitles],
                         ["dub", Mic],
+                        ["both", Layers],
                       ] as const
                     ).map(([m, Icon]) => (
                       <button
@@ -1732,7 +1789,7 @@ export default function TranslateVideoDetailPage() {
                         role="radio"
                         aria-checked={mode === m}
                         disabled={locked}
-                        onClick={() => patchMode(m as TranslateMode)}
+                        onClick={() => chooseMode(m as TranslateMode)}
                         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors duration-150 ${
                           mode === m
                             ? "border-[var(--primary)] bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
@@ -1743,6 +1800,30 @@ export default function TranslateVideoDetailPage() {
                         {t(TRANSLATE_MODE_LABEL[m as TranslateMode])}
                       </button>
                     ))}
+                  </div>
+
+                  {/* Một dòng tóm tắt + nút mở lại popup. Đây là chỗ DUY NHẤT
+                      trong cột nhắc tới cấu hình phụ đề/lồng tiếng, nên nó phải
+                      nói được "đang đặt gì" chứ không chỉ là một cái nút. */}
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {wantsSubtitleMode && (
+                      <ConfigRow
+                        icon={Type}
+                        label={t("tv.card-subtitle")}
+                        value={`${langLabel(targetLang)} · ${subtitleSummary}`}
+                        onOpen={() => setSubtitleModalOpen(true)}
+                        openLabel={t("tv.configure")}
+                      />
+                    )}
+                    {wantsDubMode && (
+                      <ConfigRow
+                        icon={Mic}
+                        label={t("tv.card-dub")}
+                        value={`${langLabel(effectiveDubLang)} · ${dubSummary}`}
+                        onOpen={() => setDubModalOpen(true)}
+                        openLabel={t("tv.configure")}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -1833,61 +1914,47 @@ export default function TranslateVideoDetailPage() {
             </div>
           </WorkspaceBlock>
 
-          {/* Lồng tiếng - CHỈ hiện khi chọn chế độ này. Bày ra cả một khối gán
-              giọng trong lúc đang làm phụ đề là bày ra thứ không dùng tới. */}
-          {isDub && (
-            <WorkspaceBlock
-              id="tv-block-dub"
-              icon={Mic}
-              collapsed={group.isCollapsed("dub")}
-              onToggle={() => group.toggle("dub")}
-              summary={dubSummary}
-              title={
-                <span className="inline-flex items-center gap-1.5">
-                  {t("tv.card-dub")}
-                  <InfoHint
-                    titleKey="help.tv-dub.title"
-                    bodyKey="help.tv-dub.body"
-                    size={14}
-                  />
-                </span>
-              }
-            >
-              {cues.length === 0 ? (
-                <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
-              ) : (
-                <DubSettingsCard
-                  sessionId={sessionId}
-                  dub={dub}
-                  speakers={speakers}
-                  diarized={session.transcriptInfo?.diarized === true}
-                  cueIndexOf={cueIndexOf}
-                  speakerF0={session.dubInfo?.speakerF0 ?? {}}
-                  disabled={locked}
-                  onChange={patchDub}
-                />
-              )}
-            </WorkspaceBlock>
-          )}
+          {/* Cấu hình phụ đề và lồng tiếng KHÔNG còn chiếm chỗ trong cột nữa -
+              chúng nằm trong popup, mở từ ô chế độ ở khối Bản dịch. Bày cả bảng
+              kiểu chữ lẫn bảng gán giọng ra cột giữa là bắt người dùng cuộn qua
+              hai màn hình cấu hình mỗi lần chỉ muốn nhìn bản dịch. */}
 
-          {/* Kiểu phụ đề + ô xem trước - vẫn là "muốn ra cái gì", nên ở cột 2 */}
-          <WorkspaceBlock
-            id="tv-block-subtitle"
-            icon={Type}
-            collapsed={group.isCollapsed("subtitle")}
-            onToggle={() => group.toggle("subtitle")}
-            summary={subtitleSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-subtitle")}
-                <InfoHint
-                  titleKey="help.tv-subtitle.title"
-                  bodyKey="help.tv-subtitle.body"
-                  size={14}
-                />
-              </span>
+          {/* ---- Popup: cấu hình PHỤ ĐỀ ---- */}
+          <Modal
+            wide
+            title={t("tv.card-subtitle")}
+            open={subtitleModalOpen}
+            onClose={() => setSubtitleModalOpen(false)}
+            footer={
+              <Button onClick={() => setSubtitleModalOpen(false)}>
+                {t("common.done")}
+              </Button>
             }
           >
+            {/* Ngôn ngữ của CHỮ TRÊN MÀN HÌNH - đặt trong chính popup phụ đề để
+                không phải nhớ nó nằm ở đâu khác */}
+            <div>
+              <label className="label" htmlFor="tv-subtitle-lang">
+                {t("tv.subtitle-lang")}
+              </label>
+              <select
+                id="tv-subtitle-lang"
+                className="input"
+                value={targetLang}
+                disabled={locked}
+                onChange={(e) => patchTargetLang(e.target.value)}
+              >
+                {!TRANSLATE_TARGET_LANGS.includes(
+                  targetLang as (typeof TRANSLATE_TARGET_LANGS)[number]
+                ) && <option value={targetLang}>{targetLang}</option>}
+                {TRANSLATE_TARGET_LANGS.map((code) => (
+                  <option key={code} value={code}>
+                    {langLabel(code)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex flex-col gap-4">
               {/* Lồng tiếng KHÔNG đốt chữ lên hình - nói thẳng thay vì để người
                   dùng chỉnh cả bảng kiểu chữ rồi không thấy chữ đâu trong video */}
@@ -2128,7 +2195,71 @@ export default function TranslateVideoDetailPage() {
                 {locked ? t("tv.style-locked") : t("tv.style-autosave")}
               </p>
             </div>
-          </WorkspaceBlock>
+          </Modal>
+
+          {/* ---- Popup: cấu hình LỒNG TIẾNG ---- */}
+          <Modal
+            wide
+            title={t("tv.card-dub")}
+            open={dubModalOpen}
+            onClose={() => setDubModalOpen(false)}
+            footer={
+              <Button onClick={() => setDubModalOpen(false)}>
+                {t("common.done")}
+              </Button>
+            }
+          >
+            {/* Ngôn ngữ ĐỌC LÊN - chọn riêng với ngôn ngữ phụ đề. "Giống phụ đề"
+                là một lựa chọn thật trong danh sách chứ không phải ô để trống:
+                đó là điều đa số người dùng muốn, phải nhìn thấy được. */}
+            <div>
+              <label className="label" htmlFor="tv-dub-lang">
+                {t("tv.dub-lang")}
+              </label>
+              <select
+                id="tv-dub-lang"
+                className="input"
+                value={dubLang ?? ""}
+                disabled={locked}
+                onChange={(e) => patchDubLang(e.target.value || null)}
+              >
+                <option value="">
+                  {tf("tv.dub-lang-same", { lang: langLabel(targetLang) })}
+                </option>
+                {TRANSLATE_TARGET_LANGS.map((code) => (
+                  <option key={code} value={code}>
+                    {langLabel(code)}
+                  </option>
+                ))}
+              </select>
+              {dubLang && dubLang !== targetLang && (
+                <p className="mt-1 flex items-start gap-1.5 text-xs text-[var(--text-muted)]">
+                  <AlertTriangle
+                    size={13}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0"
+                  />
+                  {t("tv.dub-lang-cost")}
+                </p>
+              )}
+            </div>
+
+            {cues.length === 0 ? (
+              <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
+            ) : (
+              <DubSettingsCard
+                sessionId={sessionId}
+                dub={dub}
+                speakers={speakers}
+                diarized={session.transcriptInfo?.diarized === true}
+                cueIndexOf={cueIndexOf}
+                speakerF0={session.dubInfo?.speakerF0 ?? {}}
+                disabled={locked}
+                onChange={patchDub}
+              />
+            )}
+          </Modal>
         </WorkspaceColumn>
 
         {/* ============ Cột 3: tiến trình & kết quả ============ */}

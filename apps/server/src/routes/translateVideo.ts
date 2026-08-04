@@ -18,6 +18,13 @@ import { broadcast } from "../events.js";
 import { geminiApiKey } from "../gemini.js";
 import { cuesFromTranscript } from "../jobs/translateVideo.js";
 import { queue } from "../queue.js";
+import {
+  getPrefs,
+  prefBool,
+  prefObject,
+  prefString,
+  rememberPrefs,
+} from "../prefs.js";
 import { probeVideo } from "../reframe.js";
 import { STT_PROVIDERS, assertSttAvailable, isSttProvider, sttCapabilities } from "../stt.js";
 import { translateCues } from "../translate.js";
@@ -27,6 +34,8 @@ import {
   defaultBottomPx,
   defaultTranslateVideoMeta,
   dubDirOf,
+  dubLangDiffers,
+  effectiveDubLang,
   isDefaultBottomPx,
   isDubVoiceName,
   normCues,
@@ -40,6 +49,7 @@ import {
   transcriptPathOf,
   translateVideoDirOf,
   translateVideoExists,
+  wantsDub,
   writeTranslateVideo,
   type TranslateMode,
   type TranslateVideoMeta,
@@ -198,6 +208,30 @@ router.post("/", (req, res) => {
 
   const meta = defaultTranslateVideoMeta(uniqueId(name), name);
   meta.autoNamed = autoNamed;
+
+  /*
+   * Mặc định = LẦN TRƯỚC NGƯỜI DÙNG CHỌN GÌ, không phải hằng số trong mã nguồn.
+   * Body vẫn thắng (client gửi rõ thì nghe client), nhưng khi không gửi thì
+   * người làm video thứ mười không phải chọn lại đúng bộ đã chọn chín lần.
+   * Chỉ nhận giá trị đã qua normalize - prefs.json là file trên đĩa, sửa tay được.
+   */
+  const pref = getPrefs("translate-video");
+  meta.sourceLang = normLang(prefString(pref, "sourceLang"), meta.sourceLang);
+  meta.targetLang = normLang(prefString(pref, "targetLang"), meta.targetLang);
+  const prefDubLang = prefString(pref, "dubLang");
+  meta.dubLang = prefDubLang ? normLang(prefDubLang, meta.targetLang) : null;
+  if (TRANSLATE_MODES.includes(pref.mode as TranslateMode)) {
+    meta.mode = pref.mode as TranslateMode;
+  }
+  if (isSttProvider(pref.sttProvider)) meta.sttProvider = pref.sttProvider;
+  meta.subtitleStyle = normSubtitleStyle(prefObject(pref, "subtitleStyle"), meta.subtitleStyle);
+  // Giọng theo người nói KHÔNG nhớ: "người nói 1" của video này không liên quan
+  // gì tới "người nói 1" của video sau - xem ghi chú trong prefs.ts
+  meta.dub = {
+    ...normDubSettings(prefObject(pref, "dub"), meta.dub),
+    voices: {},
+  };
+
   if ("sourceLang" in body) meta.sourceLang = normLang(body.sourceLang, meta.sourceLang);
   if ("targetLang" in body) meta.targetLang = normLang(body.targetLang, meta.targetLang);
   if (TRANSLATE_MODES.includes(body.mode as TranslateMode)) meta.mode = body.mode as TranslateMode;
@@ -230,6 +264,7 @@ router.patch("/:id", (req, res) => {
   const touchesRun =
     "sourceLang" in body ||
     "targetLang" in body ||
+    "dubLang" in body ||
     "mode" in body ||
     "sttProvider" in body ||
     "cues" in body ||
@@ -289,9 +324,40 @@ router.patch("/:id", (req, res) => {
     const next = normLang(body.targetLang, cur.targetLang);
     patch.targetLang = next;
     if (next !== cur.targetLang && cur.cues.length > 0) {
-      patch.cues = cur.cues.map((c) => ({ ...c, text: c.original ?? c.text }));
+      // Trả chữ về câu gốc VÀ bỏ luôn bản đọc: `dubText` chỉ có nghĩa khi nó là
+      // bản dịch song hành của đúng lượt dịch này. Giữ lại là câu đọc thuộc về
+      // một bản dịch đã bị vứt đi.
+      patch.cues = cur.cues.map(({ dubText: _drop, ...c }) => ({
+        ...c,
+        text: c.original ?? c.text,
+      }));
       patch.outputFile = null;
       patch.status = cur.transcriptFile ? "transcribed" : "draft";
+      patch.error = null;
+    }
+  }
+
+  /**
+   * Ngôn ngữ LỒNG TIẾNG. null hoặc "" = đọc đúng ngôn ngữ phụ đề.
+   *
+   * Đổi nó chỉ làm hỏng BẢN ĐỌC, không đụng bản phụ đề - nên khác `targetLang`:
+   * ở đây chỉ bỏ `dubText` rồi lùi trạng thái để người dùng dịch lại, chữ trên
+   * màn hình vẫn còn nguyên chứ không bắt dịch lại từ đầu.
+   */
+  if ("dubLang" in body) {
+    const raw = body.dubLang;
+    const next =
+      raw === null || raw === "" ? null : normLang(raw, cur.dubLang ?? cur.targetLang);
+    patch.dubLang = next;
+    const nextEffective = next ?? (patch.targetLang ?? cur.targetLang);
+    if (nextEffective !== effectiveDubLang(cur) && cur.cues.length > 0) {
+      const base = patch.cues ?? cur.cues;
+      patch.cues = base.map(({ dubText: _drop, ...c }) => c);
+      patch.outputFile = null;
+      // Cần đọc bằng tiếng khác thì phải có bản dịch tiếng ấy - lùi về bước dịch
+      if (nextEffective !== (patch.targetLang ?? cur.targetLang)) {
+        patch.status = cur.transcriptFile ? "transcribed" : "draft";
+      }
       patch.error = null;
     }
   }
@@ -330,7 +396,22 @@ router.patch("/:id", (req, res) => {
     patch.outputFile = null;
   }
 
-  res.json(patchTranslateVideo(cur.id, patch));
+  const saved = patchTranslateVideo(cur.id, patch);
+
+  // Nhớ "gu làm việc" cho phiên sau. Đặt SAU khi ghi thành công: lựa chọn bị
+  // 400 vì không hợp lệ thì không đáng được nhớ.
+  rememberPrefs("translate-video", {
+    sourceLang: "sourceLang" in body ? saved.sourceLang : undefined,
+    targetLang: "targetLang" in body ? saved.targetLang : undefined,
+    dubLang: "dubLang" in body ? (saved.dubLang ?? "") : undefined,
+    mode: "mode" in body ? saved.mode : undefined,
+    sttProvider: "sttProvider" in body ? saved.sttProvider : undefined,
+    subtitleStyle: "subtitleStyle" in body ? saved.subtitleStyle : undefined,
+    // Bỏ `voices` - đó là chuyện riêng của từng video
+    dub: "dub" in body ? { ...saved.dub, voices: {} } : undefined,
+  });
+
+  res.json(saved);
 });
 
 /**
@@ -494,11 +575,28 @@ router.post("/:id/translate", async (req, res) => {
 
   patchTranslateVideo(meta.id, { status: "translating", error: null });
   try {
+    const plain = input.map((c) => ({ start: c.start, end: c.end, text: c.text }));
+    const twoLangs = wantsDub(meta.mode) && dubLangDiffers(meta);
+
+    /*
+     * MỘT lượt dịch hay HAI, và bằng lối dịch nào:
+     *
+     * - Cùng một ngôn ngữ cho cả chữ lẫn tiếng (mọi phiên "subtitle"/"dub", và
+     *   "both" khi hai bên chọn giống nhau): ĐÚNG MỘT lượt. Nếu có lồng tiếng
+     *   thì dịch theo lối "dub" - lối này ràng buộc độ dài câu để đọc lên vừa
+     *   khớp thời gian, mà câu ngắn gọn thì làm phụ đề cũng dễ đọc hơn. Ngược
+     *   lại (chỉ phụ đề) thì dịch theo lối "subtitle", bám sát nguyên văn.
+     *
+     * - Hai ngôn ngữ khác nhau: BUỘC phải hai lượt, không có cách nào rẻ hơn -
+     *   một lượt cho chữ trên màn hình, một lượt cho chữ đọc lên. Tốn gấp đôi
+     *   tiền Gemini, nên UI phải nói trước điều đó chứ đừng để người dùng tự
+     *   phát hiện qua hóa đơn.
+     */
     const result = await translateCues({
-      cues: input.map((c) => ({ start: c.start, end: c.end, text: c.text })),
+      cues: plain,
       sourceLang: meta.sourceLang,
       targetLang: meta.targetLang,
-      mode: meta.mode,
+      mode: twoLangs || meta.mode === "subtitle" ? "subtitle" : "dub",
       model,
       usageTag: "translate-video",
       projectId: meta.id,
@@ -510,6 +608,47 @@ router.post("/:id/translate", async (req, res) => {
         "TRANSLATE_EMPTY",
         "AI không trả về câu dịch nào đọc được - thử lại, hoặc đổi model.",
       );
+    }
+
+    if (twoLangs) {
+      const dubbed = normCues(
+        (
+          await translateCues({
+            cues: plain,
+            sourceLang: meta.sourceLang,
+            targetLang: effectiveDubLang(meta),
+            mode: "dub",
+            model,
+            usageTag: "translate-video",
+            projectId: meta.id,
+          })
+        ).cues,
+      );
+      /*
+       * Ghép theo MỐC THỜI GIAN chứ không theo thứ tự mảng: hai lượt gọi là hai
+       * lần model tự chia câu, số câu trả về có thể lệch nhau. Ghép theo chỉ số
+       * khi lệch một câu là toàn bộ phần sau bị gán nhầm chữ - lỗi đó chỉ lộ ra
+       * khi đã render xong và ngồi nghe.
+       *
+       * Câu nào không tìm được bạn thì để trống `dubText`, bước lồng tiếng sẽ
+       * đọc chữ phụ đề: sai ngôn ngữ một câu vẫn hơn là câm mất một câu.
+       */
+      const byStart = new Map(dubbed.map((c) => [Math.round(c.start * 1000), c.text]));
+      let matched = 0;
+      for (const c of cues) {
+        const hit = byStart.get(Math.round(c.start * 1000));
+        if (hit) {
+          c.dubText = hit;
+          matched++;
+        }
+      }
+      if (matched < cues.length) {
+        // Không ném lỗi - bản dịch phụ đề vẫn dùng được, chỉ nói ra chỗ hụt
+        console.warn(
+          `[translate-video] ${meta.id}: ${cues.length - matched}/${cues.length} câu ` +
+            `không khớp được bản dịch lồng tiếng theo mốc thời gian`,
+        );
+      }
     }
     res.json(
       patchTranslateVideo(meta.id, {
@@ -628,7 +767,10 @@ router.post("/:id/dub-preview", async (req, res) => {
     voice = voiceForCue(assignments, cue.speaker).voice;
   }
 
-  const language = meta.dub.language ?? ttsLanguageFor(meta.targetLang);
+  // Nghe thử phải đi đúng con đường của bản thật: chữ đọc là dubText khi có,
+  // ngôn ngữ đọc là effectiveDubLang. Nghe thử một đằng render một nẻo thì việc
+  // nghe thử chẳng chứng minh được gì.
+  const language = meta.dub.language ?? ttsLanguageFor(effectiveDubLang(meta));
   const dubDir = dubDirOf(meta.id);
   const workDir = path.join(dubDir, "preview");
   const outAbs = path.join(dubDir, "preview.wav");
@@ -638,7 +780,7 @@ router.post("/:id/dub-preview", async (req, res) => {
 
   try {
     const { naturalSec } = await synthDubCue({
-      text: cue.text,
+      text: cue.dubText ?? cue.text,
       voice,
       engine: meta.dub.engine,
       model: meta.dub.model,
@@ -690,7 +832,20 @@ router.post("/:id/render", async (req, res) => {
   if (fileKind(meta.source.relPath ?? "") !== "video") {
     throw new HttpError(400, "INVALID_SOURCE", "Nguồn của phiên không phải file video");
   }
-  if (meta.mode === "dub") await assertDubEngineReady(meta);
+  /*
+   * Đọc tiếng khác phụ đề thì PHẢI có bản dịch của tiếng ấy. Thiếu thì chặn ở
+   * đây chứ đừng để bước lồng tiếng lặng lẽ đọc chữ phụ đề: người dùng trả tiền
+   * đọc cả bài rồi mới nghe ra video nói sai ngôn ngữ mình chọn.
+   */
+  if (wantsDub(meta.mode) && dubLangDiffers(meta) && !meta.cues.some((c) => c.dubText)) {
+    throw new HttpError(
+      400,
+      "NO_DUB_TRANSLATION",
+      `Chưa có bản dịch tiếng "${effectiveDubLang(meta)}" để đọc - bấm Dịch lại ` +
+        "để AI dịch thêm bản cho phần lồng tiếng.",
+    );
+  }
+  if (wantsDub(meta.mode)) await assertDubEngineReady(meta);
   res.status(202).json({ jobId: enqueueJob(meta.id, "render").id });
 });
 

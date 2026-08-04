@@ -860,6 +860,23 @@ export default function ProjectDetailPage() {
   const group = useCollapseGroup({
     keys: PROJECT_BLOCKS,
     finished: project?.status === "done",
+    /*
+     * Khối cấu hình ĐÃ ĐIỀN thì gấp sẵn - dòng tóm tắt đã nói đang đặt gì, mở
+     * cả bảng ra chỉ để nhìn lại thứ mình vừa chọn là tốn nửa màn hình.
+     *
+     * "Đã điền" đo bằng thứ NGƯỜI DÙNG gõ vào (ghi chú / mô tả nguồn), không
+     * phải bằng việc brief đã tải xong: brief rỗng vẫn là một object hợp lệ, mà
+     * gấp sẵn khối rỗng là giấu mất đúng việc cần làm tiếp.
+     *
+     * Khối "action" luôn mở: nó là NÚT BẤM, không phải cấu hình.
+     */
+    configured: (key) =>
+      key === "brief"
+        ? briefView.notes.trim().length > 0 ||
+          briefView.sourceDescription.trim().length > 0
+        : key === "thumbnail"
+          ? Boolean(project?.thumbnail)
+          : false,
   });
 
   // Timeline tự ẩn khi chưa có gì để hiện (deriveStage trả null). Tính trước ở
