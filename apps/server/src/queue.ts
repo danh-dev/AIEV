@@ -1,4 +1,21 @@
 import { spawn, type ChildProcess } from "node:child_process";
+/**
+ * Bỏ mã màu ANSI trước khi lưu/đẩy log.
+ *
+ * Python và ffmpeg tô màu traceback khi thấy stderr, và chuỗi điều khiển đó lọt
+ * nguyên vào log của job rồi hiện lên UI thành rác kiểu `[1;31m...[0m` (đã gặp
+ * thật với traceback của faster-whisper). Lọc ở ĐÂY - một chỗ duy nhất mọi job
+ * đều đi qua - thay vì bắt từng trang web tự dọn.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+function stripAnsi(s: string): string {
+  return s.replace(ANSI_RE, "");
+}
+
+/** Trần độ dài `step` - nó hiện cạnh thanh tiến trình, không phải chỗ để in cả traceback */
+const MAX_STEP_CHARS = 160;
+
 import * as db from "./db.js";
 import { broadcast } from "./events.js";
 import { childEnv } from "./config.js";
@@ -216,17 +233,21 @@ class RenderQueue {
     return {
       job: db.getJob(jobId)!,
       log: (line: string) => {
-        addLogLine(line);
-        broadcast("joblog", { jobId, line });
+        const clean = stripAnsi(line);
+        addLogLine(clean);
+        broadcast("joblog", { jobId, line: clean });
       },
       progress: (progress: number | null, step: string) => {
         if (current.canceled) return;
         const p = progress === null ? null : Math.max(0, Math.min(100, Math.round(progress)));
-        const changed = (p !== null && p !== lastProgress) || step !== lastStep;
+        // step hiện cạnh thanh tiến trình trên UI - cắt ngắn ở đây chứ không để
+        // UI gánh: một dòng traceback dài từng lọt vào đây và đẩy toác cả cột.
+        const cleanStep = stripAnsi(step).slice(0, MAX_STEP_CHARS);
+        const changed = (p !== null && p !== lastProgress) || cleanStep !== lastStep;
         if (!changed) return;
         if (p !== null) lastProgress = p;
-        lastStep = step;
-        db.updateJob(jobId, { ...(p !== null ? { progress: p } : {}), step });
+        lastStep = cleanStep;
+        db.updateJob(jobId, { ...(p !== null ? { progress: p } : {}), step: cleanStep });
         broadcastJob(jobId);
       },
       exec: (file: string, args: string[], cwd: string, onLine?: (line: string) => void) =>

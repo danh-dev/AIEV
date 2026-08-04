@@ -234,16 +234,19 @@ function JobLogBlock({ job }: { job: Job }) {
   }, [log]);
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex min-w-0 shrink-0 flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold">{t("tv.job")}</span>
         <span className="text-xs text-[var(--text-muted)]">{job.status}</span>
       </div>
       <ProgressBar progress={job.progress} step={job.step} />
       {error && <ErrorBanner message={t("tv.job-log-error")} detail={error} />}
+      {/* break-anywhere BẮT BUỘC: traceback của Python có những chuỗi dài không
+          một khoảng trắng (kiểu ^^^^^^^^^^), mà `pre-wrap` chỉ ngắt ở khoảng
+          trắng nên chúng đẩy toác cả cột. */}
       <pre
         ref={preRef}
-        className="max-h-48 min-h-16 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap"
+        className="max-h-48 min-h-16 min-w-0 overflow-auto rounded-[var(--radius)] bg-[var(--bg-subtle)] p-2 font-mono text-[11px] whitespace-pre-wrap [overflow-wrap:anywhere]"
       >
         {log || t("tv.job-no-log")}
       </pre>
