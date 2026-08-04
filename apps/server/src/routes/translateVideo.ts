@@ -5,7 +5,17 @@ import multer from "multer";
 import { nanoid } from "nanoid";
 import { paths, repoRoot } from "../config.js";
 import * as db from "../db.js";
+import {
+  applyTempoToCue,
+  autoAssignVoices,
+  fitCue,
+  gapAfter,
+  synthDubCue,
+  ttsLanguageFor,
+  voiceForCue,
+} from "../dub.js";
 import { broadcast } from "../events.js";
+import { geminiApiKey } from "../gemini.js";
 import { cuesFromTranscript } from "../jobs/translateVideo.js";
 import { queue } from "../queue.js";
 import { probeVideo } from "../reframe.js";
@@ -16,8 +26,11 @@ import {
   TRANSLATE_MODES,
   defaultBottomPx,
   defaultTranslateVideoMeta,
+  dubDirOf,
   isDefaultBottomPx,
+  isDubVoiceName,
   normCues,
+  normDubSettings,
   normLang,
   normSubtitleStyle,
   patchTranslateVideo,
@@ -32,6 +45,9 @@ import {
   type TranslateVideoMeta,
   type TranslatedCue,
 } from "../translateVideoMeta.js";
+import { DEFAULT_TTS_VOICE, listVoices } from "../tts.js";
+import { listLocalVoices, probeLocalEngine } from "../ttsLocal.js";
+import type { TtsVoice } from "../ttsTypes.js";
 import {
   HttpError,
   ensureDir,
@@ -217,7 +233,8 @@ router.patch("/:id", (req, res) => {
     "mode" in body ||
     "sttProvider" in body ||
     "cues" in body ||
-    "subtitleStyle" in body;
+    "subtitleStyle" in body ||
+    "dub" in body;
   if (touchesRun) assertNotBusy(cur);
 
   const patch: Partial<TranslateVideoMeta> = {};
@@ -281,6 +298,18 @@ router.patch("/:id", (req, res) => {
 
   if ("subtitleStyle" in body) {
     patch.subtitleStyle = normSubtitleStyle(body.subtitleStyle, cur.subtitleStyle);
+  }
+
+  /**
+   * Sửa cấu hình lồng tiếng. KHÔNG xóa track đã dựng ở đây: `dubSignature` tự
+   * biết cái gì làm bản đọc hết giá trị (đổi giọng/engine/model/ngôn ngữ) và cái
+   * gì không (bật/tắt giữ tiếng gốc, chỉnh âm lượng nền). Xóa thẳng tay là bắt
+   * người dùng trả tiền đọc lại cả bài chỉ vì họ gạt thử một công tắc trộn.
+   */
+  if ("dub" in body) {
+    patch.dub = normDubSettings(body.dub, cur.dub);
+    // Video cũ dựng bằng cấu hình cũ - không còn khớp lựa chọn hiện tại
+    patch.outputFile = null;
   }
 
   // Sửa bản dịch bằng tay: đọc thấy sai thì sửa chứ không phải dịch lại cả bài
@@ -515,30 +544,153 @@ function sourceCuesOf(meta: TranslateVideoMeta): TranslatedCue[] {
   return meta.cues.map((c) => ({ ...c, text: c.original ?? c.text }));
 }
 
-// ------------------------------------------------------------------ Ghép phụ đề
+// ------------------------------------------------------------------ Lồng tiếng
 
-// POST /api/translate-video/:id/render -> 202 { jobId } - job step "render"
-router.post("/:id/render", (req, res) => {
+/**
+ * Engine đọc có dùng được TRÊN MÁY NÀY không - kiểm TRƯỚC khi vào hàng đợi, đúng
+ * cách /transcribe kiểm provider bóc lời. Không kiểm thì người dùng thấy job
+ * "đang chạy", chờ, rồi nhận một lỗi Python ở phút thứ hai.
+ */
+async function assertDubEngineReady(meta: TranslateVideoMeta): Promise<void> {
+  if (meta.dub.engine === "gemini") {
+    if (!geminiApiKey()) {
+      throw new HttpError(
+        503,
+        "NO_GEMINI_KEY",
+        "Chưa có GEMINI_API_KEY nên không lồng tiếng được. Thêm GEMINI_API_KEY vào .env " +
+          '(lấy key tại aistudio.google.com/apikey), hoặc đổi engine lồng tiếng sang "vieneu" (chạy trên máy).',
+      );
+    }
+    return;
+  }
+  const status = await probeLocalEngine();
+  if (!status.available) {
+    throw new HttpError(503, "LOCAL_TTS_UNAVAILABLE", status.detail);
+  }
+}
+
+/** Kho giọng của engine đang chọn - dùng chung cho nghe thử và cho việc gán */
+async function voiceCatalogOf(meta: TranslateVideoMeta): Promise<TtsVoice[]> {
+  try {
+    return meta.dub.engine === "vieneu" ? await listLocalVoices() : await listVoices();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * POST /api/translate-video/:id/dub-preview { index?, voice? } -> audio/wav
+ *
+ * Nghe thử ĐÚNG MỘT CÂU trước khi trả tiền đọc cả video.
+ *
+ * Quan trọng: câu nghe thử đi qua ĐÚNG phép co giãn của bước dựng thật (fitCue
+ * -> atempo), nên nếu câu đó phải co x1,25 thì người dùng nghe ngay ra là bản
+ * dịch đang dài quá và sửa chữ, thay vì phát hiện sau khi đã render xong video.
+ * Header x-dub-* mang số đo để UI hiện thẳng bên nút.
+ */
+router.post("/:id/dub-preview", async (req, res) => {
+  const meta = mustRead(req.params.id);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  if (meta.cues.length === 0) {
+    throw new HttpError(400, "NO_CUES", "Chưa có câu nào để nghe thử - dịch trước đã.");
+  }
+  await assertDubEngineReady(meta);
+
+  const rawIndex = typeof body.index === "number" ? Math.trunc(body.index) : 0;
+  if (rawIndex < 0 || rawIndex >= meta.cues.length) {
+    throw new HttpError(
+      400,
+      "INVALID_CUE_INDEX",
+      `index phải trong khoảng 0..${meta.cues.length - 1}`,
+    );
+  }
+  const cue = meta.cues[rawIndex];
+
+  // Giọng: ưu tiên giọng truyền thẳng (người dùng đang bấm thử từng giọng), sau
+  // đó tới giọng đã chốt cho người nói này, cuối cùng mới là gán tự động
+  let voice = "";
+  if ("voice" in body) {
+    if (!isDubVoiceName(body.voice)) {
+      throw new HttpError(400, "INVALID_VOICE", "voice không hợp lệ");
+    }
+    voice = (body.voice as string).trim();
+  } else {
+    const speakers = (meta.transcriptInfo?.diarized ? meta.transcriptInfo.speakers : []).filter(
+      (s) => meta.cues.some((c) => (c.speaker ?? "") === s),
+    );
+    const assignments = autoAssignVoices(speakers, {
+      engine: meta.dub.engine,
+      voices: await voiceCatalogOf(meta),
+      speakerF0: meta.dubInfo?.speakerF0 ?? {},
+      locked: meta.dub.voices,
+      defaultVoice: DEFAULT_TTS_VOICE,
+    });
+    voice = voiceForCue(assignments, cue.speaker).voice;
+  }
+
+  const language = meta.dub.language ?? ttsLanguageFor(meta.targetLang);
+  const dubDir = dubDirOf(meta.id);
+  const workDir = path.join(dubDir, "preview");
+  const outAbs = path.join(dubDir, "preview.wav");
+  ensureDir(dubDir);
+  // Dọn lần trước: nghe thử lại mà đọc trúng file cũ là thứ không ai debug nổi
+  fs.rmSync(workDir, { recursive: true, force: true });
+
+  try {
+    const { naturalSec } = await synthDubCue({
+      text: cue.text,
+      voice,
+      engine: meta.dub.engine,
+      model: meta.dub.model,
+      language,
+      workDir,
+      outWavAbs: outAbs,
+    });
+    const durationSec = meta.source.durationSec ?? 0;
+    const fit = fitCue(naturalSec, cue.end - cue.start, gapAfter(meta.cues, rawIndex, durationSec));
+    const finalSec = await applyTempoToCue(outAbs, fit.tempo);
+    const wav = fs.readFileSync(outAbs);
+
+    res.setHeader("content-type", "audio/wav");
+    res.setHeader("content-length", String(wav.length));
+    // Mỗi lần đọc ra một file khác (thời lượng lệch tới 28%) - cấm cache
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-dub-voice", voice);
+    res.setHeader("x-dub-natural", naturalSec.toFixed(2));
+    res.setHeader("x-dub-final", finalSec.toFixed(2));
+    res.setHeader("x-dub-source", (cue.end - cue.start).toFixed(2));
+    res.setHeader("x-dub-tempo", fit.tempo.toFixed(3));
+    res.setHeader("x-dub-clipped", fit.clipped ? "1" : "0");
+    res.setHeader("x-dub-overflowed", fit.overflowed ? "1" : "0");
+    res.send(wav);
+  } finally {
+    fs.rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------------------------------------ Ghép phụ đề / lồng tiếng
+
+/**
+ * POST /api/translate-video/:id/render -> 202 { jobId } - job step "render"
+ * Một cửa cho cả hai chế độ; `meta.mode` quyết định job làm gì (xem stepRender).
+ */
+router.post("/:id/render", async (req, res) => {
   const meta = mustRead(req.params.id);
   sourceAbsOf(meta);
   assertNotBusy(meta);
-  if (meta.mode !== "subtitle") {
-    throw new HttpError(
-      501,
-      "MODE_NOT_IMPLEMENTED",
-      'Mới làm được chế độ "subtitle" (ghép phụ đề) - lồng tiếng là giai đoạn sau.',
-    );
-  }
   if (meta.cues.length === 0) {
     throw new HttpError(
       400,
       "NO_CUES",
-      "Chưa có câu phụ đề nào - chạy bước bóc lời và dịch trước.",
+      meta.mode === "dub"
+        ? "Chưa có câu nào để lồng tiếng - chạy bước bóc lời và dịch trước."
+        : "Chưa có câu phụ đề nào - chạy bước bóc lời và dịch trước.",
     );
   }
   if (fileKind(meta.source.relPath ?? "") !== "video") {
     throw new HttpError(400, "INVALID_SOURCE", "Nguồn của phiên không phải file video");
   }
+  if (meta.mode === "dub") await assertDubEngineReady(meta);
   res.status(202).json({ jobId: enqueueJob(meta.id, "render").id });
 });
 

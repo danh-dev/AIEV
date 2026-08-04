@@ -2,12 +2,24 @@ import fs from "node:fs";
 import path from "node:path";
 import { paths } from "../config.js";
 import { updateJob } from "../db.js";
+import {
+  autoAssignVoices,
+  measureSpeakerF0,
+  mixOriginalUnder,
+  synthesizeDub,
+  ttsLanguageFor,
+  type DubVoiceAssignment,
+} from "../dub.js";
 import type { JobCtx } from "../queue.js";
 import { remotionSpeedArgs } from "../renderSettings.js";
 import { transcribeWith } from "../stt.js";
 import { segmentsToCues } from "../subtitles.js";
 import { parseTranscriptJson } from "../transcript.js";
 import {
+  dubDirOf,
+  dubMixPathOf,
+  dubSignature,
+  dubWavPathOf,
   outputPathOf,
   patchTranslateVideo,
   readTranslateVideo,
@@ -18,7 +30,10 @@ import {
   type TranslateVideoMeta,
   type TranslatedCue,
 } from "../translateVideoMeta.js";
-import { ensureDir, remotionCli, toRepoRel } from "../util.js";
+import { DEFAULT_TTS_VOICE, listVoices } from "../tts.js";
+import { listLocalVoices } from "../ttsLocal.js";
+import type { TtsEngine, TtsVoice } from "../ttsTypes.js";
+import { ensureDir, nowIso, remotionCli, toRepoRel } from "../util.js";
 import { parseProgressLine, shortenStep } from "./progress.js";
 
 /**
@@ -240,25 +255,39 @@ function speakerAt(ranges: SpeakerRange[], start: number, end: number): string |
 const FALLBACK_WIDTH = 1080;
 const FALLBACK_HEIGHT = 1920;
 
+/**
+ * Bước lồng tiếng chiếm bao nhiêu phần trăm thanh tiến độ của job render.
+ *
+ * Nó là phần LÂU NHẤT của chế độ "dub" (mỗi câu một lượt gọi TTS, một video 5
+ * phút là ~80 lượt), nên phải chiếm phần lớn thanh - để 90% cho Remotion thì
+ * thanh đứng im ở 0% suốt vài phút rồi mới nhảy, người dùng tưởng treo.
+ */
+const DUB_PROGRESS_SHARE = 65;
+
 async function stepRender(ctx: JobCtx, id: string): Promise<void> {
   const meta = patchTranslateVideo(id, { status: "rendering", error: null });
-  if (meta.mode !== "subtitle") {
-    throw new Error(
-      `Chế độ "${meta.mode}" chưa render được - giai đoạn này mới làm đường phụ đề.`,
-    );
-  }
+  const dubbing = meta.mode === "dub";
   if (meta.cues.length === 0) {
-    throw new Error("Chưa có câu phụ đề nào để ghép - chạy bước bóc lời và dịch trước.");
+    throw new Error(
+      dubbing
+        ? "Chưa có câu nào để lồng tiếng - chạy bước bóc lời và dịch trước."
+        : "Chưa có câu phụ đề nào để ghép - chạy bước bóc lời và dịch trước.",
+    );
   }
   const videoAbs = sourceAbsOf(meta);
   const dir = translateVideoDirOf(id);
   ensureDir(dir);
 
+  // ---- 0. Lồng tiếng (chỉ mode "dub") ----------------------------------
+  // Làm TRƯỚC khi stage/render: đây là bước tốn tiền và lâu nhất, hỏng ở đây thì
+  // không cần đụng tới Remotion.
+  const voiceAbs = dubbing ? await buildDubTrack(ctx, id, videoAbs) : null;
+
   // ---- 1. Stage video nguồn --------------------------------------------
   // Remotion chỉ đọc file qua staticFile() trong public/ - đường dẫn tuyệt đối
   // trên đĩa sẽ 404 giữa chừng render. Namespace "tvd-" tách khỏi staging của
   // video project (vid-) và image project (img-) trùng id.
-  ctx.progress(0, "Stage video nguồn vào Remotion staging");
+  ctx.progress(dubbing ? DUB_PROGRESS_SHARE : 0, "Stage video nguồn vào Remotion staging");
   const stagingId = `tvd-${id}`;
   const stagingAbs = path.join(paths.stagingDir, stagingId);
   fs.rmSync(stagingAbs, { recursive: true, force: true });
@@ -267,25 +296,35 @@ async function stepRender(ctx: JobCtx, id: string): Promise<void> {
   const ext = path.extname(videoAbs).toLowerCase() || ".mp4";
   const stagedName = `source${ext}`;
   const stagedAbs = path.join(stagingAbs, stagedName);
-  try {
-    fs.linkSync(videoAbs, stagedAbs); // hardlink - không tốn dung lượng
-  } catch {
-    fs.copyFileSync(videoAbs, stagedAbs); // khác ổ đĩa / FS không hỗ trợ hardlink
-  }
+  stageFile(videoAbs, stagedAbs);
   const stagedRel = `staging/${stagingId}/${stagedName}`;
   ctx.log(`[stage] ${meta.source.relPath} -> ${stagedRel}`);
 
+  let voiceRel: string | null = null;
+  if (voiceAbs) {
+    stageFile(voiceAbs, path.join(stagingAbs, "dub.wav"));
+    voiceRel = `staging/${stagingId}/dub.wav`;
+    ctx.log(`[stage] ${toRepoRel(voiceAbs)} -> ${voiceRel}`);
+  }
+
   // ---- 2. props cho Remotion -------------------------------------------
-  const props = buildProps(meta, stagedRel);
+  // Đọc lại meta từ đĩa: bước lồng tiếng vừa ghi dubInfo + giọng đã gán vào đó
+  const props = buildProps(readTranslateVideo(id), stagedRel, voiceRel);
   const propsAbs = path.join(dir, "props.resolved.json");
   fs.writeFileSync(propsAbs, JSON.stringify(props, null, 2) + "\n", "utf8");
   ctx.log(
-    `[props] ${props.width}x${props.height} @${props.fps}fps, ${props.subtitles.length} câu -> ${propsAbs}`,
+    `[props] ${props.width}x${props.height} @${props.fps}fps, ` +
+      (dubbing
+        ? `lồng tiếng (track ${voiceRel}), tiếng gốc ${props.scenes[0].muted ? "tắt" : "giữ"}`
+        : `${props.subtitles.length} câu`) +
+      ` -> ${propsAbs}`,
   );
 
   // ---- 3. Remotion render ----------------------------------------------
   const outAbs = outputPathOf(id);
-  ctx.progress(0, "Remotion ghép phụ đề");
+  const base = dubbing ? DUB_PROGRESS_SHARE : 0;
+  const span = 100 - base;
+  ctx.progress(base, dubbing ? "Remotion ghép track lồng tiếng" : "Remotion ghép phụ đề");
   const args = [
     remotionCli(),
     "render",
@@ -296,7 +335,7 @@ async function stepRender(ctx: JobCtx, id: string): Promise<void> {
   ];
   await ctx.exec(process.execPath, args, paths.remotionDir, (line) => {
     const pct = parseProgressLine(line);
-    if (pct !== null) ctx.progress(pct, shortenStep(line));
+    if (pct !== null) ctx.progress(base + (pct * span) / 100, shortenStep(line));
   });
 
   if (!fs.existsSync(outAbs)) {
@@ -306,7 +345,168 @@ async function stepRender(ctx: JobCtx, id: string): Promise<void> {
   const outputRel = toRepoRel(outAbs);
   updateJob(ctx.job.id, { outputPath: outputRel });
   patchTranslateVideo(id, { outputFile: outputRel, status: "done", error: null });
-  ctx.progress(100, "Đã ghép phụ đề");
+  ctx.progress(100, dubbing ? "Đã lồng tiếng" : "Đã ghép phụ đề");
+}
+
+/** Hardlink (không tốn dung lượng), lùi về copy khi khác ổ đĩa / FS không hỗ trợ */
+function stageFile(srcAbs: string, dstAbs: string): void {
+  try {
+    fs.linkSync(srcAbs, dstAbs);
+  } catch {
+    fs.copyFileSync(srcAbs, dstAbs);
+  }
+}
+
+// ================================================================== Lồng tiếng
+
+/**
+ * Kho giọng của một engine. Kho rỗng là lỗi CÓ THẬT chứ không phải ca hiếm:
+ * engine offline chưa cài thì `listLocalVoices()` trả rỗng, và nếu cứ đi tiếp
+ * thì job chết ở câu đầu tiên với một thông báo của Python không ai đọc nổi.
+ */
+async function loadVoiceCatalog(engine: TtsEngine): Promise<TtsVoice[]> {
+  // `listVoices()` của Gemini KHÔNG bao giờ ném: mất mạng thì nó tự lùi về danh
+  // sách tĩnh trong code. Chỉ engine offline mới thật sự có thể không có giọng nào.
+  if (engine !== "vieneu") return listVoices();
+  const voices: TtsVoice[] = await listLocalVoices().catch(() => []);
+  if (voices.length === 0) {
+    throw new Error(
+      "Chưa có giọng đọc offline nào - cài engine VieNeu-TTS (trang Cấu hình) rồi chạy lại, " +
+        'hoặc đổi engine lồng tiếng sang "gemini".',
+    );
+  }
+  return voices;
+}
+
+/**
+ * Dựng track lồng tiếng cho phiên và trả về ĐƯỜNG DẪN TUYỆT ĐỐI của file sẽ đưa
+ * vào Remotion (bản thuần lồng tiếng, hoặc bản đã trộn tiếng gốc chạy nhỏ).
+ *
+ * Ba việc, theo thứ tự: gán giọng -> đọc + co cho vừa -> (tùy chọn) trộn nền.
+ */
+async function buildDubTrack(ctx: JobCtx, id: string, videoAbs: string): Promise<string> {
+  const meta = readTranslateVideo(id);
+  const dubDir = dubDirOf(id);
+  ensureDir(dubDir);
+  const language = meta.dub.language ?? ttsLanguageFor(meta.targetLang);
+
+  // ---- 1. Gán giọng ------------------------------------------------------
+  // Chỉ tính người nói THẬT SỰ có câu trong bản dịch: transcriptInfo.speakers là
+  // của cả transcript, mà người dùng có thể đã xóa hết câu của một người khi
+  // sửa tay - gán giọng cho một người không nói câu nào chỉ tổ chiếm mất giọng.
+  const speakers = (meta.transcriptInfo?.diarized ? meta.transcriptInfo.speakers : []).filter(
+    (s) => meta.cues.some((c) => (c.speaker ?? "") === s),
+  );
+
+  let speakerF0: Record<string, number> = { ...(meta.dubInfo?.speakerF0 ?? {}) };
+  if (speakers.some((s) => !(speakerF0[s] > 0))) {
+    ctx.progress(1, "Đo cao độ giọng của từng người nói trong video gốc");
+    const measured = await measureSpeakerF0({
+      videoAbs,
+      cues: meta.cues,
+      workDir: path.join(dubDir, "probe"),
+      onLog: (line) => ctx.log(line),
+      isCanceled: () => ctx.isCanceled(),
+    });
+    speakerF0 = { ...speakerF0, ...measured };
+    fs.rmSync(path.join(dubDir, "probe"), { recursive: true, force: true });
+  }
+
+  const voices = await loadVoiceCatalog(meta.dub.engine);
+  const assignments = autoAssignVoices(speakers, {
+    engine: meta.dub.engine,
+    voices,
+    speakerF0,
+    // Lựa chọn của người dùng thắng gán tự động - xem ghi chú ở DubSettings
+    locked: meta.dub.voices,
+    defaultVoice: DEFAULT_TTS_VOICE,
+  });
+  for (const a of assignments) {
+    const who = a.speaker ? `người nói "${a.speaker}"` : "cả video";
+    const f0 = speakerF0[a.speaker];
+    ctx.log(`[dub] ${who} -> giọng ${a.voice}${f0 ? ` (gốc ${f0} Hz)` : ""}`);
+  }
+  // Ghi ngược vào meta để UI hiện đúng giọng đang dùng và sửa đè được lần sau
+  const chosen: Record<string, string> = {};
+  for (const a of assignments) chosen[a.speaker] = a.voice;
+  patchTranslateVideo(id, { dub: { ...meta.dub, voices: chosen } });
+
+  // ---- 2. Đọc từng câu + co cho vừa --------------------------------------
+  const signature = dubSignature({
+    cues: meta.cues,
+    assignments,
+    engine: meta.dub.engine,
+    model: meta.dub.model,
+    language,
+  });
+  const dubWavAbs = dubWavPathOf(id);
+  const durationSec = meta.source.durationSec ?? lastCueEnd(meta.cues);
+
+  if (meta.dubInfo?.signature === signature && fs.existsSync(dubWavAbs)) {
+    ctx.log(
+      `[dub] bản dịch/giọng/engine không đổi so với lần trước - dùng lại track đã có ` +
+        `(${meta.dubInfo.cues} câu), không đọc lại`,
+    );
+  } else {
+    // Dọn cue cũ: số câu lần này có thể ít hơn, để lại cue-081.wav của lần
+    // trước thì lần sau soi lỗi bằng mắt sẽ nhìn nhầm file mồ côi
+    for (const name of fs.readdirSync(dubDir)) {
+      if (/^cue-\d+\.wav$/.test(name)) fs.rmSync(path.join(dubDir, name), { force: true });
+    }
+    ctx.log(
+      `[dub] đọc ${meta.cues.length} câu bằng engine ${meta.dub.engine} (${language}) - ` +
+        `mỗi câu một lượt gọi để đo và co riêng từng câu`,
+    );
+    const res = await synthesizeDub({
+      cues: meta.cues,
+      assignments,
+      engine: meta.dub.engine,
+      model: meta.dub.model,
+      language,
+      durationSec,
+      dubDir,
+      outWavAbs: dubWavAbs,
+      onProgress: (done, total) =>
+        ctx.progress(
+          2 + ((DUB_PROGRESS_SHARE - 6) * done) / total,
+          `Lồng tiếng câu ${done}/${total}`,
+        ),
+      onLog: (line) => ctx.log(line),
+      isCanceled: () => ctx.isCanceled(),
+    });
+    patchTranslateVideo(id, {
+      dubInfo: {
+        file: toRepoRel(res.wavAbs),
+        durationSec: res.durationSec,
+        cues: res.cues.length,
+        stretched: res.stretched,
+        overflowed: res.overflowed,
+        clipped: res.clipped,
+        minTempo: res.minTempo,
+        maxTempo: res.maxTempo,
+        assignments: res.assignments as DubVoiceAssignment[],
+        speakerF0,
+        signature,
+        createdAt: nowIso(),
+      },
+    });
+  }
+
+  // ---- 3. Tiếng gốc chạy nhỏ bên dưới (tùy chọn) -------------------------
+  if (!meta.dub.keepOriginal) return dubWavAbs;
+  const mixAbs = dubMixPathOf(id);
+  ctx.progress(DUB_PROGRESS_SHARE - 3, "Trộn tiếng gốc chạy nhỏ dưới giọng lồng");
+  await mixOriginalUnder({
+    dubWavAbs,
+    videoAbs,
+    originalVolume: meta.dub.originalVolume,
+    durationSec,
+    workDir: dubDir,
+    outWavAbs: mixAbs,
+    isCanceled: () => ctx.isCanceled(),
+  });
+  ctx.log(`[dub] giữ tiếng gốc ở mức ${meta.dub.originalVolume} dưới giọng lồng`);
+  return mixAbs;
 }
 
 /** Một câu phụ đề trong props Remotion - mốc là FRAME TUYỆT ĐỐI trên timeline */
@@ -323,8 +523,8 @@ interface TranslateProps {
   height: number;
   fps: number;
   status: string;
-  scenes: Array<Record<string, unknown>>;
-  audio: { voice: null; sfx: never[]; music: null };
+  scenes: Array<Record<string, unknown> & { muted: boolean }>;
+  audio: { voice: string | null; sfx: never[]; music: null };
   captions: never[];
   overlays: never[];
   watermark: null;
@@ -334,19 +534,32 @@ interface TranslateProps {
 }
 
 /**
- * props.resolved.json cho composition "Assemble": đúng một scene là video nguồn
- * (KHÔNG mute - tiếng gốc chính là thứ người xem cần nghe), không voice, không
- * sfx, không logo. Phần mới là `subtitles` + `subtitleStyle`.
+ * props.resolved.json cho composition "Assemble": đúng một scene là video nguồn,
+ * không sfx, không logo.
+ *
+ * Hai chế độ khác nhau đúng ở khâu TIẾNG và khâu CHỮ, ngược nhau hoàn toàn:
+ *  - "subtitle": giữ tiếng gốc (muted=false), không voice, đốt chữ dịch lên hình.
+ *  - "dub"     : TẮT tiếng gốc của clip (muted=true) và cho track lồng tiếng vào
+ *    `audio.voice` - track đó đã dài đúng bằng video và, nếu người dùng muốn giữ
+ *    không khí gốc, đã trộn sẵn tiếng gốc chạy nhỏ bên trong (xem
+ *    mixOriginalUnder). KHÔNG để clip tự phát tiếng gốc rồi chồng thêm giọng
+ *    lồng lên: hai lớp tiếng cùng nói một nội dung là thứ khó nghe nhất.
+ *    Cũng KHÔNG đốt phụ đề: đã nghe được bằng tiếng của mình thì chữ chỉ che hình.
  *
  * manifestSchema bên Remotion là looseObject nên field lạ đi qua được: nếu bản
  * Remotion trên máy chưa có SubtitleTrack thì video vẫn render ra, chỉ là không
  * có chữ - không bao giờ chết giữa chừng vì props.
  */
-function buildProps(meta: TranslateVideoMeta, stagedRel: string): TranslateProps {
+function buildProps(
+  meta: TranslateVideoMeta,
+  stagedRel: string,
+  voiceRel: string | null,
+): TranslateProps {
   const fps = pickFps(meta.source.fps);
   const { width, height } = pickSize(meta.source);
   const durationSec = meta.source.durationSec ?? lastCueEnd(meta.cues);
   const durationInFrames = Math.max(1, Math.round(durationSec * fps));
+  const dubbing = meta.mode === "dub" && voiceRel !== null;
 
   return {
     id: meta.id,
@@ -361,17 +574,18 @@ function buildProps(meta: TranslateVideoMeta, stagedRel: string): TranslateProps
         srcVideo: stagedRel,
         from: 0,
         durationInFrames,
-        // Tiếng gốc PHẢI giữ: ghép phụ đề mà tắt tiếng là ra video câm
-        muted: false,
+        // Ghép phụ đề mà tắt tiếng là ra video câm; lồng tiếng mà giữ tiếng gốc
+        // là hai người nói chồng lên nhau
+        muted: dubbing,
         srcImage: null,
       },
     ],
-    audio: { voice: null, sfx: [], music: null },
+    audio: { voice: dubbing ? voiceRel : null, sfx: [], music: null },
     captions: [],
     overlays: [],
     watermark: null,
     output: null,
-    subtitles: toSubtitleProps(meta.cues, fps, durationInFrames),
+    subtitles: dubbing ? [] : toSubtitleProps(meta.cues, fps, durationInFrames),
     // Gửi nguyên bộ: SubtitleTrack tự nhân theo đơn vị tỉ lệ `u` của nó (dọc
     // chuẩn hóa theo cao 1920, ngang theo cao 1080)
     subtitleStyle: meta.subtitleStyle,

@@ -407,19 +407,23 @@ POST   /api/text-to-video/:id/build   -> 202 { jobId } - job type "text-to-video
                                      + chạy edit AI); 409 ALREADY_BUILT / JOB_RUNNING
 ```
 
-## Dịch video (bóc lời -> dịch -> ghép phụ đề) - translate-video/<id>/
+## Dịch video (bóc lời -> dịch -> ghép phụ đề HOẶC lồng tiếng) - translate-video/<id>/
 
 Bốn hành động tách riêng CÓ CHỦ Ý - mỗi bước cần người duyệt trước khi tốn thời gian/tiền cho bước sau:
 `/source` (upload + ffprobe) -> `/transcribe` (whisper, vào queue) -> `/translate` (AI dịch, ĐỒNG BỘ,
-tốn token) -> `/render` (Remotion ghép phụ đề, vào queue). Thư mục phiên chứa `meta.json`, `source.<ext>`,
-`transcript.json`, `props.resolved.json`, `output.mp4`.
+tốn token) -> `/render` (Remotion, vào queue). Thư mục phiên chứa `meta.json`, `source.<ext>`,
+`transcript.json`, `props.resolved.json`, `output.mp4`, và `dub/` khi lồng tiếng.
+
+Hai chế độ dùng CHUNG bước bóc lời và bước dịch, chỉ khác ở `/render`:
+- `mode: "subtitle"` - giữ tiếng gốc, đốt chữ dịch lên hình.
+- `mode: "dub"` - đọc bản dịch thành tiếng, TẮT tiếng gốc của clip, không đốt chữ.
 
 ```
 TranslateVideoMeta = { id, name, autoNamed: boolean,
   source: { relPath: string|null, durationSec, width, height, fps },   // đo bằng ffprobe, đã áp cờ xoay
   sourceLang: string,                 // "auto" hoặc mã whisper ("vi","en"...)
   targetLang: string,                 // "vi" | "en" | ...
-  mode: "subtitle"|"dub",             // "dub" (lồng tiếng) là giai đoạn sau - /render trả 501
+  mode: "subtitle"|"dub",             // quyết định /render làm gì (xem trên)
   sttProvider: "local"|"gemini"|"soniox",   // AI bóc lời cho lần chạy TIẾP THEO (mặc định "local")
   transcriptFile: string|null,        // transcript GỐC (relPath repo)
   transcriptInfo: {                   // provider ĐÃ chạy ra transcript đang nằm trên đĩa; null = chưa bóc
@@ -433,6 +437,22 @@ TranslateVideoMeta = { id, name, autoNamed: boolean,
                                       // px đo theo đơn vị của SubtitleTrack: video DỌC chuẩn hóa
                                       // theo cao 1920, video NGANG theo cao 1080 - nên bottomPx mặc
                                       // định là 320 (dọc) / 130 (ngang), tự chọn lúc upload nguồn
+  dub: {                              // LỰA CHỌN lồng tiếng cho lần chạy tiếp theo (mode="dub")
+    engine: "gemini"|"vieneu",        // mặc định "gemini"
+    model: string|null,               // model TTS (chỉ Gemini); null = mặc định hệ thống
+    language: string|null,            // vd "vi-VN"; null = tự suy từ targetLang
+    voices: { [speaker: string]: string },  // khóa "" = một giọng cho CẢ video (transcript
+                                      // không phân vai). Bỏ trống -> /render tự gán rồi ghi ngược
+                                      // vào đây; người dùng PATCH đè thì lần sau giữ nguyên
+    keepOriginal: boolean,            // giữ tiếng gốc chạy nhỏ dưới giọng lồng (mặc định false)
+    originalVolume: number },         // 0..0.12 (trần chống rè, xem dub.ts)
+  dubInfo: {                          // KẾT QUẢ lần lồng tiếng gần nhất; null = chưa chạy
+    file, durationSec, cues,          // track đã ghép (relPath repo), dài đúng bằng video nguồn
+    stretched, overflowed, clipped,   // số câu phải co / tràn sang câu sau / kẹp ở trần co
+    minTempo, maxTempo,               // dải hệ số co đã dùng thật (1.0 = không co)
+    assignments: [{ speaker, voice, engine }],
+    speakerF0: { [speaker]: number }, // cao độ ĐO ĐƯỢC của giọng gốc (Hz) - căn cứ gán giọng
+    signature, createdAt } | null,    // signature khớp -> /render dùng lại track cũ, KHÔNG đọc lại
   outputFile: string|null,
   status: "draft"|"transcribing"|"transcribed"|"translating"|"translated"|"rendering"|"done"|"failed",
   error: string|null, createdAt, updatedAt }
@@ -449,13 +469,16 @@ POST   /api/translate-video        { name?, sourceLang?, targetLang?, mode?, stt
                                       bằng tên file khi upload nguồn
 GET    /api/translate-video/:id    -> TranslateVideoMeta
 PATCH  /api/translate-video/:id    { name?, sourceLang?, targetLang?, mode?, sttProvider?,
-                                      subtitleStyle?, cues? }
+                                      subtitleStyle?, cues?, dub? }
                                       - đổi sourceLang -> xóa transcript + cues, về "draft"
                                       - đổi targetLang -> trả text về `original`, về "transcribed"
                                       - đổi sttProvider -> KHÔNG xóa gì (transcript cũ chỉ CŨ chứ
                                         không SAI; bấm /transcribe lại nếu muốn bản của provider mới)
                                       - sttProvider lạ -> 400 INVALID_STT_PROVIDER
-                                      - sửa cues/đổi ngôn ngữ/đổi provider khi đang chạy job -> 409 BUSY
+                                      - sửa `dub` KHÔNG xóa track lồng tiếng đã dựng: `signature` tự
+                                        biết cái gì làm bản đọc hết giá trị (giọng/engine/model/ngôn
+                                        ngữ) và cái gì không (keepOriginal, originalVolume)
+                                      - sửa cues/đổi ngôn ngữ/đổi provider/sửa dub khi đang chạy job -> 409 BUSY
 DELETE /api/translate-video/:id    -> 204 (xóa cả thư mục phiên + staging)
 
 POST   /api/translate-video/:id/source     multipart: file -> TranslateVideoMeta
@@ -470,9 +493,45 @@ POST   /api/translate-video/:id/transcribe { sttProvider? } -> 202 { jobId }
 POST   /api/translate-video/:id/translate  { model? } -> TranslateVideoMeta (ĐỒNG BỘ)
                                       đầu vào lấy từ transcript GỐC, không dịch chồng lên bản dịch cũ
                                       (400 NO_TRANSCRIPT, 502 TRANSLATE_EMPTY)
+POST   /api/translate-video/:id/dub-preview { index?, voice? } -> audio/wav (ĐỒNG BỘ)
+                                      Nghe thử ĐÚNG MỘT câu trước khi trả tiền đọc cả video.
+                                      index = vị trí cue (mặc định 0); voice = ép giọng cần thử,
+                                      bỏ trống thì lấy giọng đã chốt / gán tự động cho người nói đó.
+                                      Câu nghe thử đi qua ĐÚNG phép co giãn của bước dựng thật, nên
+                                      nghe ra ngay là bản dịch có dài quá không.
+                                      Header: x-dub-voice, x-dub-natural (giây TTS đọc ra),
+                                      x-dub-final (sau khi co), x-dub-source (độ dài câu gốc),
+                                      x-dub-tempo, x-dub-clipped, x-dub-overflowed
+                                      (400 NO_CUES / INVALID_CUE_INDEX / INVALID_VOICE;
+                                       503 NO_GEMINI_KEY / LOCAL_TTS_UNAVAILABLE)
 POST   /api/translate-video/:id/render     -> 202 { jobId } - job step "render"
-                                      (400 NO_CUES, 501 MODE_NOT_IMPLEMENTED nếu mode="dub")
+                                      Một cửa cho cả hai chế độ; `meta.mode` quyết định job làm gì.
+                                      (400 NO_CUES / INVALID_SOURCE; mode="dub" còn kiểm engine đọc
+                                       TRƯỚC khi vào hàng đợi -> 503 NO_GEMINI_KEY /
+                                       LOCAL_TTS_UNAVAILABLE)
 ```
+
+### Lồng tiếng: isochrony (`apps/server/src/dub.ts`)
+
+Câu dịch không bao giờ dài đúng bằng câu gốc. Ba đòn bẩy của nghề lồng tiếng, hệ này dùng hai:
+
+1. **Dịch có khống chế độ dài** - `translate.ts` mode `"dub"` gửi kèm thời lượng từng câu, model
+   được dặn chọn cách diễn đạt ngắn hơn, nhắm +-10%.
+2. **Co giãn thời gian một lượng nhỏ** - `atempo` (giữ nguyên cao độ), **kẹp trong [1.00, 1.25]**.
+   Không bao giờ đọc chậm lại: chỗ dư là khoảng lặng, mà im lặng đúng chỗ nghe tự nhiên hơn hẳn
+   giọng bị kéo giãn. Trần 1.25 vì từ ~1.3x trở lên tai nghe rõ là "bị tua".
+3. Khớp khẩu hình (lip-sync) - **CỐ Ý KHÔNG LÀM**.
+
+Câu dịch được phép "mượn" tối đa **1 giây** đầu khoảng nghỉ phía sau mà không phải co - co giãn tồn
+tại để bảo vệ CÂU KẾ TIẾP, không phải để bảo vệ sự im lặng.
+
+Lắp ráp: mỗi câu đặt ở **mốc tuyệt đối** của nó trên một track lặng dài đúng bằng video nguồn
+(`adelay` + `amix normalize=0`), y hệt cách `sfx[].atFrame` làm bên Remotion. TUYỆT ĐỐI không nối
+đuôi các câu - nối đuôi thì sai số cộng dồn. Đo thật: 200 câu đặt ở mốc tuyệt đối lệch **0,0 ms**.
+
+Gán giọng: một giọng cho mỗi người nói, cố định cả video, không bao giờ trùng nhau. Cao độ (F0) của
+từng người nói được **đo trên chính audio gốc** rồi đối chiếu `VOICE_CATALOG` để chọn giọng cùng
+giới tính, gần cao độ nhất. Transcript không phân vai -> một giọng cho cả video.
 
 ### Bóc lời: chọn provider (`apps/server/src/stt.ts`)
 

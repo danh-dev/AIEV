@@ -1,7 +1,10 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { paths, repoRoot } from "./config.js";
+import { DUB_ORIGINAL_VOLUME_MAX, type DubVoiceAssignment } from "./dub.js";
 import { DEFAULT_STT_PROVIDER, isSttProvider, type SttProvider } from "./stt.js";
+import { DEFAULT_TTS_ENGINE, isTtsEngine, type TtsEngine } from "./ttsTypes.js";
 import { HttpError, isKebabCase, nowIso } from "./util.js";
 
 /**
@@ -25,7 +28,11 @@ import { HttpError, isKebabCase, nowIso } from "./util.js";
 
 // ------------------------------------------------------------------ Kiểu dữ liệu
 
-/** "subtitle" = ghép phụ đề dịch; "dub" = lồng tiếng (giai đoạn 2, chưa chạy) */
+/**
+ * "subtitle" = ghép phụ đề dịch (giữ nguyên tiếng gốc, đốt chữ lên hình);
+ * "dub"      = lồng tiếng (thay tiếng gốc bằng giọng đọc bản dịch, không đốt chữ).
+ * Hai chế độ dùng CHUNG bước bóc lời và bước dịch, chỉ khác ở bước render.
+ */
 export type TranslateMode = "subtitle" | "dub";
 export const TRANSLATE_MODES: TranslateMode[] = ["subtitle", "dub"];
 
@@ -176,6 +183,68 @@ export interface TranscriptInfo {
   wordTimestamps: boolean;
 }
 
+/**
+ * Cấu hình LỒNG TIẾNG của phiên (chỉ có nghĩa khi mode = "dub").
+ *
+ * Vì sao giọng của từng người nói nằm ở ĐÂY chứ không tính lại mỗi lần chạy:
+ * gán tự động chỉ là ĐỀ XUẤT (đo cao độ giọng gốc rồi chọn giọng cùng giới tính),
+ * còn người dùng phải sửa được - và đã sửa thì lần render sau phải giữ nguyên,
+ * nếu không thì mỗi lần chạy lại là một video khác giọng.
+ */
+export interface DubSettings {
+  engine: TtsEngine;
+  /** Model TTS (chỉ Gemini) - null = model mặc định của hệ thống */
+  model: string | null;
+  /**
+   * Mã ngôn ngữ đọc, vd "vi-VN". null = tự suy từ `targetLang` (xem
+   * ttsLanguageFor ở dub.ts) - mặc định đúng cho mọi phiên, khỏi phải chọn tay.
+   */
+  language: string | null;
+  /**
+   * Người nói -> tên giọng. Khóa "" nghĩa là "mọi câu" (transcript không phân
+   * vai). Rỗng = chưa gán, bước render sẽ tự gán rồi ghi ngược lại vào đây.
+   */
+  voices: Record<string, string>;
+  /** Còn nghe được tiếng gốc chạy nhỏ bên dưới giọng lồng không */
+  keepOriginal: boolean;
+  /** Âm lượng tiếng gốc khi keepOriginal (0..0.15 - xem mixOriginalUnder) */
+  originalVolume: number;
+}
+
+/**
+ * Kết quả lồng tiếng của LẦN CHẠY GẦN NHẤT - khác `dub` (là LỰA CHỌN cho lần
+ * chạy tiếp theo), đúng cách `transcriptInfo` khác `sttProvider`.
+ *
+ * `stretched`/`overflowed`/tempo là thứ người dùng nhìn vào để biết bản lồng
+ * tiếng có ổn không TRƯỚC KHI ngồi xem hết video: nhiều câu tràn nghĩa là bản
+ * dịch dài quá so với lời gốc, phải rút gọn chữ chứ không phải chỉnh máy móc.
+ */
+export interface DubInfo {
+  /** Track lồng tiếng đã ghép (đường dẫn tương đối repo) */
+  file: string;
+  durationSec: number;
+  cues: number;
+  /** Số câu phải co giãn (tempo != 1) */
+  stretched: number;
+  /** Số câu tràn sang mốc câu KẾ TIẾP dù đã co hết mức */
+  overflowed: number;
+  /** Số câu bị kẹp ở trần co (tràn qua mốc kết thúc của chính nó) */
+  clipped: number;
+  minTempo: number;
+  maxTempo: number;
+  /** Giọng ĐÃ dùng thật cho lần chạy này */
+  assignments: DubVoiceAssignment[];
+  /** Cao độ đo được của từng người nói trong video gốc (Hz) - căn cứ gán giọng */
+  speakerF0: Record<string, number>;
+  /**
+   * Vân tay của đầu vào đã sinh ra track này (xem dubSignature). Khớp thì lần
+   * render sau DÙNG LẠI file cũ - đọc lại cả bài bằng Gemini là tốn tiền thật,
+   * không được phép tính phí người dùng chỉ vì họ bấm render lần hai.
+   */
+  signature: string;
+  createdAt: string;
+}
+
 export interface TranslateVideoSource {
   /** Đường dẫn tương đối repo tới file nguồn - null = chưa upload */
   relPath: string | null;
@@ -210,7 +279,11 @@ export interface TranslateVideoMeta {
   /** Bản dịch - sửa tay được trên UI qua PATCH */
   cues: TranslatedCue[];
   subtitleStyle: SubtitleStyle;
-  /** Video đã ghép phụ đề (đường dẫn tương đối repo) */
+  /** Lựa chọn lồng tiếng cho lần chạy TIẾP THEO (chỉ dùng khi mode = "dub") */
+  dub: DubSettings;
+  /** Track lồng tiếng ĐÃ dựng + số liệu chất lượng; null = chưa lồng tiếng lần nào */
+  dubInfo: DubInfo | null;
+  /** Video đã ghép phụ đề / đã lồng tiếng (đường dẫn tương đối repo) */
   outputFile: string | null;
   status: TranslateStatus;
   error: string | null;
@@ -237,9 +310,28 @@ export function transcriptPathOf(id: string): string {
   return path.join(translateVideoDirOf(id), "transcript.json");
 }
 
-/** File video đã ghép phụ đề */
+/** File video đã ghép phụ đề / đã lồng tiếng */
 export function outputPathOf(id: string): string {
   return path.join(translateVideoDirOf(id), "output.mp4");
+}
+
+/**
+ * Thư mục làm việc của bước lồng tiếng: cue-XXX.wav của từng câu + track ghép.
+ * Giữ lại từng câu chứ không xóa: hỏng chỗ nào thì nghe đúng câu đó là ra ngay,
+ * và trộn lại track không phải đọc lại (mà đọc lại là tốn tiền).
+ */
+export function dubDirOf(id: string): string {
+  return path.join(translateVideoDirOf(id), "dub");
+}
+
+/** Track lồng tiếng đã ghép - dài đúng bằng video nguồn */
+export function dubWavPathOf(id: string): string {
+  return path.join(dubDirOf(id), "dub.wav");
+}
+
+/** Track lồng tiếng ĐÃ trộn tiếng gốc chạy nhỏ bên dưới (khi keepOriginal) */
+export function dubMixPathOf(id: string): string {
+  return path.join(dubDirOf(id), "dub-mix.wav");
 }
 
 /**
@@ -384,6 +476,153 @@ export function normSttProvider(raw: unknown, fallback: SttProvider): SttProvide
   return isSttProvider(raw) ? raw : fallback;
 }
 
+/**
+ * Tên giọng hợp lệ: chặn ký tự đường dẫn và độ dài, KHÔNG ép về ASCII.
+ * Giọng Gemini là tên Latin không dấu, nhưng giọng offline có thể là tên tiếng
+ * Việt CÓ DẤU ("Minh Đức") hoặc id kebab của giọng nhân bản - ép ASCII là loại
+ * mất nửa số giọng dùng được (xem cùng luật ở routes/tts.ts).
+ */
+export function isDubVoiceName(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length > 0 && v.length <= 80 && !/[\\/\r\n\0]/.test(v);
+}
+
+/**
+ * Âm lượng tiếng gốc chạy nền. Trần lấy THẲNG từ dub.ts chứ không chép lại số:
+ * đó là một hằng số AN TOÀN (chống rè), mà hằng số an toàn có hai bản sao thì
+ * sớm muộn cũng có một bản bị nới ra mà bên kia không biết.
+ */
+export { DUB_ORIGINAL_VOLUME_MAX };
+export const DEFAULT_DUB_ORIGINAL_VOLUME = 0.1;
+
+export function defaultDubSettings(): DubSettings {
+  return {
+    engine: DEFAULT_TTS_ENGINE,
+    model: null,
+    // null = suy từ targetLang: người dùng đã chọn dịch sang tiếng gì thì đọc
+    // bằng tiếng đó, bắt chọn lần nữa chỉ tổ thêm một chỗ để chọn sai
+    language: null,
+    voices: {},
+    // Mặc định TẮT: lồng tiếng là để THAY tiếng gốc. Bật sẵn thì mọi video đều
+    // nghe lùng bùng hai lớp tiếng, mà đó là thứ chỉ một số video cần.
+    keepOriginal: false,
+    originalVolume: DEFAULT_DUB_ORIGINAL_VOLUME,
+  };
+}
+
+/**
+ * Cấu hình lồng tiếng đã kiểm - field sai/thiếu thì giữ giá trị cũ, KHÔNG ném
+ * lỗi (đây là lựa chọn hiển thị, không đáng làm hỏng cả phiên khi đọc đĩa).
+ * Riêng tên giọng sai định dạng thì BỎ hẳn khỏi map thay vì giữ rác: giữ lại
+ * chỉ để bước tổng hợp chết ở giữa chừng với một thông báo khó hiểu hơn.
+ */
+export function normDubSettings(raw: unknown, fallback: DubSettings): DubSettings {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return fallback;
+  const o = raw as Record<string, unknown>;
+
+  let voices = fallback.voices;
+  if (o.voices && typeof o.voices === "object" && !Array.isArray(o.voices)) {
+    voices = {};
+    for (const [k, v] of Object.entries(o.voices as Record<string, unknown>)) {
+      // Khóa "" là hợp lệ CÓ CHỦ Ý: nghĩa là "một giọng cho cả video"
+      if (typeof k !== "string" || k.length > 80) continue;
+      if (isDubVoiceName(v)) voices[k] = v.trim();
+    }
+  }
+
+  return {
+    engine: isTtsEngine(o.engine) ? o.engine : fallback.engine,
+    model:
+      typeof o.model === "string" && o.model.trim()
+        ? o.model.trim().slice(0, 80)
+        : o.model === null
+          ? null
+          : fallback.model,
+    language:
+      typeof o.language === "string" && LANG_RE.test(o.language.trim())
+        ? o.language.trim()
+        : o.language === null
+          ? null
+          : fallback.language,
+    voices,
+    keepOriginal: typeof o.keepOriginal === "boolean" ? o.keepOriginal : fallback.keepOriginal,
+    originalVolume: numInRange(
+      o.originalVolume,
+      0,
+      DUB_ORIGINAL_VOLUME_MAX,
+      fallback.originalVolume,
+    ),
+  };
+}
+
+/** Kết quả lồng tiếng đọc từ đĩa - thiếu field cốt lõi thì coi như chưa có */
+export function normDubInfo(raw: unknown): DubInfo | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.file !== "string" || !o.file) return null;
+  const num = (v: unknown): number =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+  const assignments: DubVoiceAssignment[] = [];
+  if (Array.isArray(o.assignments)) {
+    for (const a of o.assignments) {
+      if (!a || typeof a !== "object") continue;
+      const x = a as Record<string, unknown>;
+      if (typeof x.speaker !== "string" || !isDubVoiceName(x.voice)) continue;
+      assignments.push({
+        speaker: x.speaker,
+        voice: x.voice.trim(),
+        engine: isTtsEngine(x.engine) ? x.engine : DEFAULT_TTS_ENGINE,
+      });
+    }
+  }
+  const speakerF0: Record<string, number> = {};
+  if (o.speakerF0 && typeof o.speakerF0 === "object" && !Array.isArray(o.speakerF0)) {
+    for (const [k, v] of Object.entries(o.speakerF0 as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v) && v > 0) speakerF0[k] = v;
+    }
+  }
+  return {
+    file: o.file,
+    durationSec: num(o.durationSec),
+    cues: num(o.cues),
+    stretched: num(o.stretched),
+    overflowed: num(o.overflowed),
+    clipped: num(o.clipped),
+    minTempo: num(o.minTempo) || 1,
+    maxTempo: num(o.maxTempo) || 1,
+    assignments,
+    speakerF0,
+    signature: typeof o.signature === "string" ? o.signature : "",
+    createdAt: typeof o.createdAt === "string" ? o.createdAt : nowIso(),
+  };
+}
+
+/**
+ * Vân tay của đầu vào lồng tiếng: đổi một chữ trong bản dịch, đổi mốc thời gian,
+ * đổi giọng/engine/model/ngôn ngữ -> đổi vân tay -> phải đọc lại.
+ *
+ * KHÔNG tính `keepOriginal`/`originalVolume` vào: hai thứ đó chỉ ảnh hưởng khâu
+ * TRỘN cuối, không ảnh hưởng tiếng đọc ra. Tính vào là người dùng gạt thử một
+ * công tắc rồi phải trả tiền đọc lại cả bài - đó là cách chắc chắn nhất để
+ * người ta không dám thử gì nữa.
+ */
+export function dubSignature(input: {
+  cues: TranslatedCue[];
+  assignments: DubVoiceAssignment[];
+  engine: TtsEngine;
+  model: string | null;
+  language: string;
+}): string {
+  const h = crypto.createHash("sha1");
+  h.update(`${input.engine}|${input.model ?? ""}|${input.language}\n`);
+  for (const a of [...input.assignments].sort((x, y) => x.speaker.localeCompare(y.speaker))) {
+    h.update(`v:${a.speaker}=${a.engine}:${a.voice}\n`);
+  }
+  for (const c of input.cues) {
+    h.update(`c:${c.start}-${c.end}|${c.speaker ?? ""}|${c.text}\n`);
+  }
+  return h.digest("hex").slice(0, 16);
+}
+
 // ------------------------------------------------------------------ Đọc/ghi
 
 export function defaultTranslateVideoMeta(id: string, name: string): TranslateVideoMeta {
@@ -402,6 +641,8 @@ export function defaultTranslateVideoMeta(id: string, name: string): TranslateVi
     transcriptInfo: null,
     cues: [],
     subtitleStyle: defaultSubtitleStyle(),
+    dub: defaultDubSettings(),
+    dubInfo: null,
     outputFile: null,
     status: "draft",
     error: null,
@@ -461,6 +702,8 @@ export function readTranslateVideo(id: string): TranslateVideoMeta {
     transcriptInfo: normTranscriptInfo(raw.transcriptInfo),
     cues: normCues(raw.cues),
     subtitleStyle: normSubtitleStyle(raw.subtitleStyle, base.subtitleStyle),
+    dub: normDubSettings(raw.dub, base.dub),
+    dubInfo: normDubInfo(raw.dubInfo),
     outputFile: typeof raw.outputFile === "string" ? raw.outputFile : null,
     status: TRANSLATE_STATUSES.includes(status as TranslateStatus)
       ? (status as TranslateStatus)

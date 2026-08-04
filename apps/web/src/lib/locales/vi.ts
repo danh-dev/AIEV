@@ -422,6 +422,16 @@ export const vi: Record<string, string> = {
   "project.sum-main-key": "Key chính:",
   "project.sum-related-keys": "Key liên quan:",
   "project.extra-notes": "Dặn dò thêm lần này",
+  // ----- Khu làm việc 3 cột của trang chi tiết project -----
+  "project.card-action": "Bắt đầu & thao tác",
+  "project.card-pipeline": "Tiến trình dựng",
+  "project.session-count": "{n} phiên AI",
+  "project.scene-count": "{n} scene",
+  "project.render-count": "{n} file render",
+  "project.no-scenes-short": "Chưa có scene",
+  "project.no-job": "Chưa có job nào chạy.",
+  "project.brief-autosave": "Kịch bản edit tự lưu sau khi bạn ngừng gõ.",
+  "project.brief-save-error": "Không lưu được kịch bản edit.",
 
   // ===== Brief (dùng chung) =====
   "brief.edit-request": "Yêu cầu edit",
@@ -1318,6 +1328,20 @@ export const vi: Record<string, string> = {
   "autocut.title-aria": "Tiêu đề đoạn {n}",
   "autocut.score": "Điểm {score}/10",
   "autocut.open-project": "Mở project",
+  // ----- Khu làm việc 3 cột của trang chi tiết phiên cắt -----
+  "autocut.card-config": "Cấu hình phiên",
+  "autocut.card-result": "Project con đã tạo",
+  "autocut.card-job": "Nhật ký job",
+  "autocut.job": "Job",
+  "autocut.job-no-log": "Chưa có log.",
+  "autocut.job-log-error": "Không tải được log của job.",
+  "autocut.no-segment-short": "Chưa có đoạn nào",
+  "autocut.no-project-yet":
+    "Chưa có project con nào - duyệt kế hoạch cắt rồi bấm Cắt & tạo project.",
+  "autocut.no-project-yet-short": "Chưa có project con",
+  "autocut.config-readonly":
+    "Cách cắt và khung hình chốt lúc tạo phiên - muốn đổi thì tạo phiên mới.",
+  "autocut.transcript-file": "Lời thoại",
 
   // ===== Chú thích chức năng (nút i) =====
   "help.aria": "Xem chức năng này dùng để làm gì",

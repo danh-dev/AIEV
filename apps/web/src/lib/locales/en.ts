@@ -422,6 +422,16 @@ export const en: Record<string, string> = {
   "project.sum-main-key": "Main key:",
   "project.sum-related-keys": "Related keys:",
   "project.extra-notes": "Extra notes for this run",
+  // ----- Three-column workspace on the project detail page -----
+  "project.card-action": "Start & actions",
+  "project.card-pipeline": "Build progress",
+  "project.session-count": "{n} AI sessions",
+  "project.scene-count": "{n} scenes",
+  "project.render-count": "{n} render files",
+  "project.no-scenes-short": "No scenes yet",
+  "project.no-job": "No job has run yet.",
+  "project.brief-autosave": "The edit brief saves itself once you stop typing.",
+  "project.brief-save-error": "Could not save the edit brief.",
 
   // ===== Brief (shared) =====
   "brief.edit-request": "Edit request",
@@ -1323,6 +1333,20 @@ export const en: Record<string, string> = {
   "autocut.title-aria": "Title of segment {n}",
   "autocut.score": "Score {score}/10",
   "autocut.open-project": "Open project",
+  // ----- Three-column workspace on the cut-session detail page -----
+  "autocut.card-config": "Session setup",
+  "autocut.card-result": "Child projects",
+  "autocut.card-job": "Job log",
+  "autocut.job": "Job",
+  "autocut.job-no-log": "No log yet.",
+  "autocut.job-log-error": "Could not load the job log.",
+  "autocut.no-segment-short": "No segments yet",
+  "autocut.no-project-yet":
+    "No child projects yet - review the cut plan, then hit Cut & create projects.",
+  "autocut.no-project-yet-short": "No child projects",
+  "autocut.config-readonly":
+    "How to cut and the frame size are fixed when the session is created - create a new session to change them.",
+  "autocut.transcript-file": "Transcript",
 
   // ===== Chú thích chức năng (nút i) =====
   "help.aria": "What this feature does",

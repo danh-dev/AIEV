@@ -1,5 +1,34 @@
 "use client";
 
+/**
+ * Chi tiết một Videos Project - lắp bằng bộ khối workspace 3 cột dùng chung
+ * (`components/Workspace.tsx`), chia theo NHỊP LÀM VIỆC chứ không theo số bước:
+ *
+ * - Cột `source`: video gốc và toàn bộ asset (tải lên, quét QR từ điện thoại,
+ *   chỉnh màu từng file) - thứ mình BẮT ĐẦU TỪ ĐÓ.
+ * - Cột `setup`: kịch bản edit (Brief: màu/font, phong cách dựng, phụ đề, key…),
+ *   hàng nút bắt đầu edit bằng AI, duyệt bản draft và cắt short - "mình muốn ra
+ *   cái gì".
+ * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
+ *   thì hiện thẳng video), rồi mới tới những thứ SINH RA trong lúc chạy: tiến
+ *   trình dựng, scene, file render, QC, báo cáo cắt tự động, thumbnail, gói xuất
+ *   bản.
+ *
+ * Panel AI là SLOT CỦA SHELL: trang chỉ khai báo <ShellRightPanel> và shell lo bề
+ * rộng, chỗ chừa, nút gấp, chế độ drawer. Trước đây trang tự dựng một <aside>
+ * `fixed` rồi chừa chỗ bằng `xl:pr-[452px]` - con số đó sai ngay khi người dùng
+ * gấp panel lại, và mỗi trang lại phải nhớ tự chừa.
+ *
+ * Project xong (status "done") thì các khối khác tự gấp lại còn một dòng tóm tắt,
+ * riêng khối video thành phẩm vẫn mở: lúc đó người dùng vào trang là để XEM video
+ * vừa ra, không phải để sửa brief nữa. Gấp/mở vẫn bấm tay được và ý người dùng
+ * luôn thắng mặc định - xem `useCollapseGroup`.
+ *
+ * Vài card lớn (Nguồn & Asset, QC, Gói xuất bản, Duyệt draft, Cắt short, Cắt tự
+ * động) tự nó ĐÃ LÀ một <Card> hoàn chỉnh nên đứng thẳng trong cột chứ không lồng
+ * thêm một lớp WorkspaceBlock - lồng vào là card trong card, tiêu đề hiện hai lần.
+ */
+
 import {
   ArrowLeft,
   Check,
@@ -12,9 +41,9 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
+  ListVideo,
   MessageSquare,
   Minus,
-  MonitorPlay,
   MoreHorizontal,
   Music,
   Pencil,
@@ -78,11 +107,13 @@ import {
 import { Modal } from "@/components/Modal";
 import { PageHeader } from "@/components/PageHeader";
 import { deriveStage, PipelineTimeline } from "@/components/PipelineTimeline";
+import { ProgressBar } from "@/components/ProgressBar";
+import { ShellRightPanel } from "@/components/Shell";
 import {
+  BriefFields,
   DEFAULT_BRIEF,
-  ProjectBriefCard,
   SFX_MODE_LABEL,
-} from "@/components/ProjectBriefCard";
+} from "@/components/BriefFields";
 import { ProjectAssetsCard } from "@/components/ProjectAssetsCard";
 import { ProjectAutoTrimCard } from "@/components/ProjectAutoTrimCard";
 import { ProjectClipsCard } from "@/components/ProjectClipsCard";
@@ -90,12 +121,41 @@ import { ProjectReviewCard } from "@/components/ProjectReviewCard";
 import { ProjectPublishCard } from "@/components/ProjectPublishCard";
 import { ProjectQcCard } from "@/components/ProjectQcCard";
 import { styleDisplayName, useStyles } from "@/components/StyleSelect";
+import {
+  OutputBlock,
+  useCollapseGroup,
+  Workspace,
+  WorkspaceBlock,
+  WorkspaceColumn,
+  type WorkspaceStatus,
+} from "@/components/Workspace";
 import { formatBytes, formatRelative, isRecentFile } from "@/lib/format";
 import {
   SessionStatusBadge,
   sessionStatusLabel,
 } from "@/components/SessionStatusBadge";
 import { useT } from "@/lib/i18n";
+
+/** Gộp nhiều lần gõ phím thành một PUT brief - không bắn request mỗi ký tự. */
+const BRIEF_DEBOUNCE_MS = 700;
+
+/** Các khối của project - key vừa là id state gấp/mở vừa là id vùng nội dung. */
+const PROJECT_BLOCKS = [
+  "brief",
+  "action",
+  "output",
+  "pipeline",
+  "scenes",
+  "renders",
+  "thumbnail",
+] as const;
+type BlockKey = (typeof PROJECT_BLOCKS)[number];
+
+/**
+ * Khối vẫn MỞ khi project xong: video thành phẩm. Xong việc thì người dùng vào
+ * trang là để xem thành phẩm, không phải để sửa brief nữa.
+ */
+const PROJECT_KEEP_EXPANDED: readonly BlockKey[] = ["output"];
 
 function KindIcon({ kind }: { kind: FileInfo["kind"] }) {
   const cls = "shrink-0 text-[var(--text-muted)]";
@@ -122,7 +182,7 @@ function sceneRenderFile(scene: SceneMeta, renders: FileInfo[]): FileInfo | null
 
 /** Bảng file render - click hàng mở modal preview lớn, nút Mở file reveal trong Explorer */
 function FileTable({ files }: { files: FileInfo[] }) {
-  const { t, tf } = useT();
+  const { t } = useT();
   const [preview, setPreview] = useState<FileInfo | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
 
@@ -134,9 +194,11 @@ function FileTable({ files }: { files: FileInfo[] }) {
   return (
     <>
       {revealError && (
-        <p className="mb-2 text-xs text-[var(--danger)]">{revealError}</p>
+        <p className="mb-2 text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
+          {revealError}
+        </p>
       )}
-      {/* Bảng rộng hơn card trên màn nhỏ → cuộn ngang trong khối, không tràn */}
+      {/* Bảng rộng hơn cột workspace → cuộn ngang TRONG khối, không đẩy cả trang */}
       <div className="overflow-x-auto">
       <table className="table min-w-[420px]">
         <thead>
@@ -188,48 +250,25 @@ function FileTable({ files }: { files: FileInfo[] }) {
 }
 
 /**
- * Card Video output - trạng thái "AI đang tạo video" (phiên running) hiện TRÊN,
- * video đã có (project.output) hiện DƯỚI; chưa có gì thì empty state nhỏ.
- * Kèm khu Thumbnail: ảnh bìa đã tạo + nút "Tạo thumbnail" (POST đồng bộ ~1 phút).
+ * Thân khối Thumbnail: ảnh bìa đã tạo + nút "Tạo thumbnail" (POST đồng bộ ~1 phút).
+ * Tách khỏi khối video thành phẩm để cột kết quả gấp/mở được từng thứ một.
  */
-function VideoOutputCard({
+function ThumbnailBody({
   projectId,
   projectName,
-  output,
   thumbnail,
-  aiRunning,
   version,
   onChanged,
 }: {
   projectId: string;
   projectName?: string;
-  output: string | null | undefined;
   /** "thumbnail.png" nếu đã có - null/undefined = chưa tạo */
   thumbnail?: string | null;
-  aiRunning: boolean;
-  /** updatedAt của project - cache-bust vì file draft ghi đè cùng tên */
+  /** updatedAt của project - cache-bust vì file ghi đè cùng tên */
   version?: string;
-  /** Gọi sau khi tạo thumbnail xong để reload project */
   onChanged: () => void;
 }) {
   const { t, tf } = useT();
-  const fileName = output ? output.split(/[\\/]/).pop() : null;
-  const outputUrl = output
-    ? mediaUrl(output) + (version ? `?v=${encodeURIComponent(version)}` : "")
-    : "";
-  const [zoomed, setZoomed] = useState(false);
-  /** FileInfo tối thiểu cho modal xem video - mtime chỉ dùng cache-bust */
-  const outputFile: FileInfo | null = output
-    ? {
-        name: fileName ?? output,
-        relPath: output,
-        size: 0,
-        mtime: version ?? "",
-        kind: "video",
-      }
-    : null;
-
-  // ---- Thumbnail ----------------------------------------------------------
   const thumbRel = `video-projects/${projectId}/${thumbnail ?? "thumbnail.png"}`;
   const thumbUrl =
     mediaUrl(thumbRel) + (version ? `?v=${encodeURIComponent(version)}` : "");
@@ -242,156 +281,81 @@ function VideoOutputCard({
     kind: "image",
   };
   const [thumbPreview, setThumbPreview] = useState(false);
-  const [thumbRevealError, setThumbRevealError] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
   // Modal "Tạo thumbnail"
-  const [thumbOpen, setThumbOpen] = useState(false);
-  const [thumbTitle, setThumbTitle] = useState("");
-  const [thumbFrameAt, setThumbFrameAt] = useState("1");
-  const [thumbPrompt, setThumbPrompt] = useState("");
-  const [thumbBusy, setThumbBusy] = useState(false);
-  const [thumbError, setThumbError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [frameAt, setFrameAt] = useState("1");
+  const [prompt, setPrompt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function openThumbModal() {
-    setThumbTitle(projectName ?? projectId);
-    setThumbFrameAt("1");
-    setThumbPrompt("");
-    setThumbError(null);
-    setThumbOpen(true);
+  function openModal() {
+    setTitle(projectName ?? projectId);
+    setFrameAt("1");
+    setPrompt("");
+    setError(null);
+    setOpen(true);
   }
 
-  async function onCreateThumb() {
-    const title = thumbTitle.trim();
-    if (!title || thumbBusy) return;
-    setThumbBusy(true);
-    setThumbError(null);
+  async function onCreate() {
+    const name = title.trim();
+    if (!name || busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      const frameAt = Number(thumbFrameAt);
+      const at = Number(frameAt);
       await createThumbnail(projectId, {
-        title,
-        ...(Number.isFinite(frameAt) && frameAt >= 0 ? { frameAt } : {}),
-        ...(thumbPrompt.trim() ? { bgPrompt: thumbPrompt.trim() } : {}),
+        title: name,
+        ...(Number.isFinite(at) && at >= 0 ? { frameAt: at } : {}),
+        ...(prompt.trim() ? { bgPrompt: prompt.trim() } : {}),
       });
-      setThumbOpen(false);
+      setOpen(false);
       onChanged();
     } catch (e) {
-      setThumbError(e instanceof Error ? e.message : String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setThumbBusy(false);
+      setBusy(false);
     }
   }
 
   return (
-    <Card
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          {t("project.video-output")}
-          <InfoHint
-            titleKey="help.video-output.title"
-            bodyKey="help.video-output.body"
-            size={14}
-          />
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="min-w-0 text-xs text-[var(--text-muted)]">
+          {thumbnail ? thumbnail : t("project.no-thumb")}
         </span>
-      }
-    >
-      {aiRunning && (
-        <div
-          className={`flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3 ${
-            output ? "mb-3" : ""
-          }`}
-        >
-          <div className="progress-indeterminate" aria-label={t("project.ai-making")} />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-[var(--text-muted)]">
-              {t("project.ai-making-ellipsis")}
-            </span>
-            <SessionStatusBadge status="running" />
-          </div>
-        </div>
-      )}
-      {output ? (
-        <div className="flex flex-col gap-2">
-          <video
-            controls
-            src={outputUrl}
-            className="mx-auto max-h-[300px] max-w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
-              {fileName}
-            </span>
-            <span className="flex shrink-0 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setZoomed(true)}
-                className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-              >
-                <Maximize2 size={13} strokeWidth={2} />
-                {t("common.zoom")}
-              </button>
-              <a
-                href={outputUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
-              >
-                <ExternalLink size={13} strokeWidth={2} />
-                {t("common.open-file")}
-              </a>
-            </span>
-          </div>
-        </div>
-      ) : !aiRunning ? (
-        <EmptyState icon={MonitorPlay} description={t("project.no-output")} />
-      ) : null}
+        <Button variant="secondary" small onClick={openModal}>
+          <ImageIcon size={13} strokeWidth={2} />
+          {t("project.create-thumb")}
+        </Button>
+      </div>
 
-      {/* Khu Thumbnail - ảnh bìa của video (POST /api/projects/:id/thumbnail) */}
-      {(output || thumbnail) && (
-        <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-medium text-[var(--text-muted)]">
-              Thumbnail
-            </span>
-            {/* (i) đặt NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
-            <span className="flex shrink-0 items-center gap-1.5">
-              <Button variant="secondary" small onClick={openThumbModal}>
-                <ImageIcon size={13} strokeWidth={2} />
-                {t("project.create-thumb")}
-              </Button>
-              <InfoHint
-                titleKey="help.thumbnail.title"
-                bodyKey="help.thumbnail.body"
-              />
-            </span>
-          </div>
-          {thumbRevealError && (
-            <p className="mt-2 text-xs text-[var(--danger)]">{thumbRevealError}</p>
-          )}
-          {thumbnail ? (
-            <div className="mt-2 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setThumbPreview(true)}
-                title={t("project.view-thumb")}
-                className="shrink-0"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumbUrl}
-                  alt={t("project.thumb-alt")}
-                  className="h-24 w-auto rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] object-contain transition-opacity duration-150 hover:opacity-85"
-                />
-              </button>
-              <RevealButton
-                relPath={thumbRel}
-                onError={setThumbRevealError}
-              />
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              {t("project.no-thumb")}
-            </p>
-          )}
+      {revealError && (
+        <p className="text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
+          {revealError}
+        </p>
+      )}
+
+      {thumbnail ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setThumbPreview(true)}
+            title={t("project.view-thumb")}
+            className="min-w-0 shrink"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbUrl}
+              alt={t("project.thumb-alt")}
+              className="h-24 w-auto max-w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] object-contain transition-opacity duration-150 hover:opacity-85"
+            />
+          </button>
+          <RevealButton relPath={thumbRel} onError={setRevealError} />
         </div>
+      ) : (
+        <EmptyState icon={ImageIcon} description={t("project.no-thumb")} />
       )}
 
       {/* Preview thumbnail lớn */}
@@ -403,24 +367,21 @@ function VideoOutputCard({
       {/* Modal "Tạo thumbnail" - chạy đồng bộ ~1 phút */}
       <Modal
         title={t("project.create-thumb")}
-        open={thumbOpen}
+        open={open}
         onClose={() => {
-          if (!thumbBusy) setThumbOpen(false);
+          if (!busy) setOpen(false);
         }}
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => setThumbOpen(false)}
-              disabled={thumbBusy}
+              onClick={() => setOpen(false)}
+              disabled={busy}
             >
               {t("common.cancel")}
             </Button>
-            <Button
-              onClick={onCreateThumb}
-              disabled={thumbBusy || !thumbTitle.trim()}
-            >
-              {thumbBusy ? (
+            <Button onClick={onCreate} disabled={busy || !title.trim()}>
+              {busy ? (
                 <>
                   <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                   {t("project.thumb-creating")}
@@ -439,8 +400,8 @@ function VideoOutputCard({
           {t("project.thumb-title")}
           <input
             className="input"
-            value={thumbTitle}
-            onChange={(e) => setThumbTitle(e.target.value)}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder={t("project.thumb-title-placeholder")}
           />
         </label>
@@ -451,35 +412,29 @@ function VideoOutputCard({
             type="number"
             min={0}
             step={0.5}
-            value={thumbFrameAt}
-            onChange={(e) => setThumbFrameAt(e.target.value)}
+            value={frameAt}
+            onChange={(e) => setFrameAt(e.target.value)}
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           {t("project.thumb-bg-prompt")}
           <input
             className="input"
-            value={thumbPrompt}
-            onChange={(e) => setThumbPrompt(e.target.value)}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
             placeholder={t("project.thumb-bg-placeholder")}
           />
         </label>
         <p className="text-xs text-[var(--text-muted)]">
           {t("project.thumb-desc")}
         </p>
-        {thumbError && (
-          <p className="text-xs text-[var(--danger)]">
-            {tf("project.thumb-error", { error: thumbError })}
+        {error && (
+          <p className="text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
+            {tf("project.thumb-error", { error })}
           </p>
         )}
       </Modal>
-
-      {/* Xem video lớn - cùng modal với mọi chỗ khác trong app */}
-      <MediaPreviewModal
-        file={zoomed ? outputFile : null}
-        onClose={() => setZoomed(false)}
-      />
-    </Card>
+    </div>
   );
 }
 
@@ -542,9 +497,12 @@ export default function ProjectDetailPage() {
   // Modal "Nhân bản project"
   const [cloneOpen, setCloneOpen] = useState(false);
 
-  // Preview file render của scene + lỗi "Mở file" trong card Scenes
+  // Preview file render của scene + lỗi "Mở file" trong khối Scenes
   const [scenePreview, setScenePreview] = useState<FileInfo | null>(null);
   const [sceneRevealError, setSceneRevealError] = useState<string | null>(null);
+
+  // Xem video thành phẩm ở khung lớn (cùng modal với mọi chỗ khác trong app)
+  const [zoomed, setZoomed] = useState(false);
 
   // Modal "Bắt đầu edit bằng AI"
   const [editOpen, setEditOpen] = useState(false);
@@ -554,21 +512,31 @@ export default function ProjectDetailPage() {
   const [editEffort, setEditEffort] = useState<AgentEffort>(DEFAULT_EFFORT);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  // Bản nháp brief đang gõ trong form (chưa cần bấm Lưu) - modal + start edit dùng bản này
-  const [briefDraft, setBriefDraft] = useState<Brief | null>(null);
+
+  // Kịch bản edit: bản nháp phía client, gõ là thấy ngay, PUT đi sau (debounce).
+  // Chỉ nạp từ server MỘT LẦN - các lần load() sau (SSE agent ghi file, job xong)
+  // không được ghi đè chữ người dùng đang gõ.
+  const [brief, setBrief] = useState<Brief | null>(null);
+  const briefRef = useRef<Brief | null>(null);
+  briefRef.current = brief;
+  const briefInitialized = useRef(false);
+  const briefDirty = useRef(false);
+  const briefTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [briefSaveError, setBriefSaveError] = useState<string | null>(null);
+  const [briefSaved, setBriefSaved] = useState(false);
 
   // Style Design - tên style hiển thị trong tóm tắt modal "Bắt đầu edit"
   const { data: stylesData } = useStyles();
 
-  // Panel AI của project (chat đi theo project)
-  const [panelOpen, setPanelOpen] = useState(false);
+  // Panel AI của project (chat đi theo project) - panel là SLOT của shell nên
+  // trang không giữ state gấp/mở, không chừa chỗ, không tự dựng drawer.
   const [chatSessions, setChatSessions] = useState<ChatSession[] | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // Vừa bấm "Bắt đầu edit" thành công → coi là đã started ngay, không chờ reload
   const [startedOverride, setStartedOverride] = useState(false);
 
-  // Dropdown "Xem thêm" trong hàng nút của panel AI
+  // Dropdown "Xem thêm" trong hàng nút thao tác
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -613,7 +581,14 @@ export default function ProjectDetailPage() {
 
   const load = useCallback(async () => {
     try {
-      setProject(await getProject(projectId));
+      const p = await getProject(projectId);
+      setProject(p);
+      // Nạp brief MỘT LẦN: các lần load() sau chạy liên tục theo SSE, ghi đè là
+      // nuốt đúng những chữ người dùng vừa gõ vào form.
+      if (!briefInitialized.current) {
+        briefInitialized.current = true;
+        setBrief({ ...DEFAULT_BRIEF, ...(p.brief ?? {}) });
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -686,6 +661,47 @@ export default function ProjectDetailPage() {
     });
     if (["done", "failed", "canceled"].includes(job.status)) load();
   });
+
+  // ---- Kịch bản edit: gộp nhiều lần gõ rồi PUT một lần ----
+
+  const flushBrief = useCallback(async () => {
+    if (briefTimer.current) {
+      clearTimeout(briefTimer.current);
+      briefTimer.current = null;
+    }
+    if (!briefDirty.current || !briefRef.current) return;
+    briefDirty.current = false;
+    const snapshot = briefRef.current;
+    try {
+      const saved = await updateBrief(projectId, snapshot);
+      setProject((p) => (p ? { ...p, brief: saved } : p));
+      setBriefSaveError(null);
+      setBriefSaved(true);
+    } catch (e) {
+      setBriefSaveError(e instanceof Error ? e.message : String(e));
+    }
+  }, [projectId]);
+
+  // Rời trang khi còn thay đổi chưa gửi → gửi nốt
+  useEffect(() => {
+    return () => {
+      if (briefTimer.current) clearTimeout(briefTimer.current);
+      if (briefDirty.current && briefRef.current) {
+        briefDirty.current = false;
+        updateBrief(projectId, briefRef.current).catch(() => {
+          // trang đã đóng - không còn chỗ hiện lỗi
+        });
+      }
+    };
+  }, [projectId]);
+
+  function patchBrief(p: Partial<Brief>) {
+    setBrief((b) => (b ? { ...b, ...p } : b));
+    briefDirty.current = true;
+    setBriefSaved(false);
+    if (briefTimer.current) clearTimeout(briefTimer.current);
+    briefTimer.current = setTimeout(flushBrief, BRIEF_DEBOUNCE_MS);
+  }
 
   async function submitJob(type: JobType, sceneId?: string) {
     setSubmitting(true);
@@ -832,21 +848,16 @@ export default function ProjectDetailPage() {
     setStarting(true);
     setStartError(null);
     try {
-      // Tự lưu brief đang gõ trước khi bắt đầu - người dùng không cần nhớ bấm "Lưu brief".
-      // CHỈ lưu khi project đã nạp về: trước đó briefDraft (nếu có) chỉ là
-      // DEFAULT_BRIEF + vài phím vừa gõ, PUT lên là ghi đè brief thật bằng default.
-      if (briefDraft && project) {
-        const saved = await updateBrief(projectId, briefDraft);
-        setProject((p) => (p ? { ...p, brief: saved } : p));
-      }
+      // Tự lưu brief đang gõ trước khi bắt đầu - người dùng không phải nhớ chờ
+      // debounce. CHỈ lưu khi brief thật đã nạp về (flushBrief tự bỏ qua nếu chưa).
+      await flushBrief();
       const { sessionId } = await startProjectEdit(projectId, extraNotes, {
         model: editModel,
         effort: editEffort,
       });
-      // Không rời trang - mở panel AI, chọn phiên vừa tạo, log stream ngay tại chỗ
+      // Không rời trang - phiên vừa tạo hiện ngay ở panel AI, log stream tại chỗ
       setEditOpen(false);
       setActiveSessionId(sessionId);
-      setPanelOpen(true);
       setStartedOverride(true);
       loadSessions();
     } catch (e) {
@@ -859,22 +870,35 @@ export default function ProjectDetailPage() {
   const scenes = project?.scenes ?? [];
   const renders = project?.files?.renders ?? [];
   const assets = project?.files?.assets ?? [];
-  // Ưu tiên bản nháp đang gõ; fallback bản đã lưu trong meta.json
-  const brief: Brief = briefDraft ?? { ...DEFAULT_BRIEF, ...(project?.brief ?? {}) };
+  /** Brief dùng cho tóm tắt modal - chưa nạp xong thì tạm dùng mặc định. */
+  const briefView: Brief = brief ?? DEFAULT_BRIEF;
 
   const activeSession =
     chatSessions?.find((s) => s.sessionId === activeSessionId) ?? null;
 
-  // Hai trạng thái layout: chưa started = đang nhập liệu (form to, ẩn card rỗng);
-  // đã started = đang chạy hoặc có kết quả (card compact + output/scenes/renders)
+  // Đã bắt đầu edit lần nào chưa - quyết định nhãn/kích cỡ nút CTA trong khối
+  // thao tác (chưa bắt đầu thì nút to, đã có phiên thì là "mở phiên mới").
   const started =
     startedOverride ||
     (chatSessions?.length ?? 0) > 0 ||
     project?.output != null ||
     renders.length > 0;
 
-  // Phiên AI của project đang chạy → card Video output hiện trạng thái sống
+  // Phiên AI của project đang chạy → khối video thành phẩm hiện trạng thái sống
   const aiRunning = (chatSessions ?? []).some((s) => s.status === "running");
+  const runningJob = jobs.find((j) => j.status === "running") ?? null;
+  const busyNow = aiRunning || runningJob !== null || project?.status === "rendering";
+
+  // Gấp/mở từng khối. Mặc định suy từ "project đã xong chưa" NGAY TRONG LÚC
+  // RENDER, cố tình KHÔNG có useEffect nào đồng bộ trạng thái gấp theo status:
+  // trang này bám SSE job + agent, mỗi dòng log hay mỗi lần job đổi tiến trình là
+  // một lần render mới. Effect kiểu đó sẽ đóng sập đúng cái khối người dùng vừa
+  // mở ra, mà lỗi ấy trông như trang tự nhiên "nhảy" chứ không ai đoán ra là do SSE.
+  const group = useCollapseGroup({
+    keys: PROJECT_BLOCKS,
+    finished: project?.status === "done",
+    keepExpanded: PROJECT_KEEP_EXPANDED,
+  });
 
   // Timeline tự ẩn khi chưa có gì để hiện (deriveStage trả null). Tính trước ở
   // đây để nút (i) đi kèm cũng ẩn theo - không để icon lơ lửng một mình.
@@ -891,10 +915,60 @@ export default function ProjectDetailPage() {
   const showPipeline =
     pipelineInput !== null && deriveStage(pipelineInput) !== null;
 
+  // ---- Khối video thành phẩm ----
+
+  const output = project?.output ?? null;
+  const version = project?.updatedAt;
+  const outputUrl = output
+    ? mediaUrl(output) + (version ? `?v=${encodeURIComponent(version)}` : "")
+    : null;
+  const outputName = output ? output.split(/[\\/]/).pop() : null;
+  /** FileInfo tối thiểu cho modal xem video - mtime chỉ dùng cache-bust */
+  const outputFile: FileInfo | null = output
+    ? {
+        name: outputName ?? output,
+        relPath: output,
+        size: 0,
+        mtime: version ?? "",
+        kind: "video",
+      }
+    : null;
+  // Đã có video thì LUÔN hiện video, kể cả khi đang chạy lượt mới: tiến trình
+  // lượt mới nằm ở dòng chữ ngay dưới, không cần che mất bản đang xem được.
+  const outputStatus: WorkspaceStatus = outputUrl
+    ? "done"
+    : busyNow
+      ? "running"
+      : "idle";
+  const aspect = project ? `${project.width} / ${project.height}` : "16 / 9";
+
+  // ---- Một dòng tóm tắt cho từng khối lúc gấp ----
+
+  const briefSummary =
+    briefView.notes.trim().slice(0, 120) ||
+    briefView.sourceDescription.trim().slice(0, 120) ||
+    t("brief.none");
+  const actionSummary = started
+    ? tf("project.session-count", { n: chatSessions?.length ?? 0 })
+    : t("project.start-edit");
+  const outputSummary = outputName ?? t("project.no-output");
+  const pipelineSummary = runningJob
+    ? `${runningJob.type} · ${runningJob.progress}%`
+    : t("project.no-job");
+  const sceneSummary =
+    scenes.length > 0
+      ? tf("project.scene-count", { n: scenes.length })
+      : t("project.no-scenes-short");
+  const renderSummary =
+    renders.length > 0
+      ? tf("project.render-count", { n: renders.length })
+      : t("project.no-files");
+  const thumbSummary = project?.thumbnail ?? t("project.no-thumb");
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Header chừa chỗ panel AI ghim phải như vùng nội dung - không thì timeline chui xuống dưới panel */}
-      <div className="xl:pr-[452px]">
+      {/* Không còn `xl:pr-[452px]`: chỗ chừa cho panel AI là việc của shell, và
+          con số tay kiểu đó sai ngay khi người dùng gấp panel lại. */}
       <PageHeader
         title={
           nameDraft !== null ? (
@@ -977,604 +1051,687 @@ export default function ProjectDetailPage() {
           ) : undefined
         }
         actions={
-          /* Nút job/Xóa đã chuyển vào panel AI (panel ghim phải che mất chỗ này)
-             - chỉ giữ đường quay lại và nút toggle panel cho màn nhỏ */
           <>
             <Button variant="secondary" onClick={() => router.push("/projects")}>
               <ArrowLeft size={15} strokeWidth={2} />
               {t("project.back")}
             </Button>
-            <Button
-              variant="secondary"
-              className="xl:hidden"
-              onClick={() => setPanelOpen((o) => !o)}
-              aria-expanded={panelOpen}
-            >
-              <MessageSquare size={15} strokeWidth={2} />
-              AI
-              {chatSessions && chatSessions.length > 0 && (
-                <span className="rounded-full bg-[var(--primary-soft)] px-1.5 py-0.5 text-xs font-semibold leading-none text-[var(--primary)]">
-                  {chatSessions.length}
-                </span>
-              )}
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 size={15} strokeWidth={2} />
+              {t("common.delete")}
             </Button>
           </>
         }
       />
-      </div>
 
+      {/* Tóm tắt project - nhìn một dòng biết project này đang ra sao */}
       {project && (
-        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)] xl:pr-[452px]">
-          <ProjectBadge status={project.status} />
-          <span>ID: {project.id}</span>
-          <span
-            className="h-4 w-px bg-[var(--border)]"
-            aria-hidden="true"
-          />
-          {(project.tags ?? []).map((tag) => (
-            <span key={tag} className="chip">
-              {tag}
+        <Card>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+            <ProjectBadge status={project.status} />
+            <span>ID: {project.id}</span>
+            <span className="h-4 w-px bg-[var(--border)]" aria-hidden="true" />
+            {(project.tags ?? []).map((tag) => (
+              <span key={tag} className="chip">
+                {tag}
+                <button
+                  type="button"
+                  aria-label={tf("taginput.remove-aria", { tag })}
+                  className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
+                  onClick={() =>
+                    saveTags((project.tags ?? []).filter((x) => x !== tag))
+                  }
+                >
+                  <X size={12} strokeWidth={2} />
+                </button>
+              </span>
+            ))}
+            {addingTag ? (
+              <input
+                className="input h-7 w-36 rounded-full px-3 text-xs"
+                autoFocus
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  } else if (e.key === "Escape") {
+                    setTagInput("");
+                    setAddingTag(false);
+                  }
+                }}
+                onBlur={addTag}
+                placeholder={t("project.new-tag-placeholder")}
+                aria-label={t("project.add-tag-aria")}
+              />
+            ) : (
               <button
                 type="button"
-                aria-label={tf("taginput.remove-aria", { tag })}
-                className="text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--danger)]"
-                onClick={() =>
-                  saveTags((project.tags ?? []).filter((x) => x !== tag))
-                }
+                className="chip transition-colors duration-150 hover:text-[var(--text)]"
+                onClick={() => setAddingTag(true)}
               >
-                <X size={12} strokeWidth={2} />
+                <Plus size={12} strokeWidth={2} />
+                Tag
               </button>
-            </span>
-          ))}
-          {addingTag ? (
-            <input
-              className="input h-7 w-36 rounded-full px-3 text-xs"
-              autoFocus
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTag();
-                } else if (e.key === "Escape") {
-                  setTagInput("");
-                  setAddingTag(false);
-                }
-              }}
-              onBlur={addTag}
-              placeholder={t("project.new-tag-placeholder")}
-              aria-label={t("project.add-tag-aria")}
-            />
-          ) : (
-            <button
-              type="button"
-              className="chip transition-colors duration-150 hover:text-[var(--text)]"
-              onClick={() => setAddingTag(true)}
-            >
-              <Plus size={12} strokeWidth={2} />
-              Tag
-            </button>
-          )}
-          {tagError && (
-            <span className="text-xs text-[var(--danger)]">
-              {tf("project.tags-error", { error: tagError })}
-            </span>
-          )}
-          {/* (i) luôn nằm NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
-          <span className="ml-auto flex shrink-0 items-center gap-1.5">
-            <Button variant="secondary" small onClick={() => setCloneOpen(true)}>
-              <Copy size={14} strokeWidth={2} />
-              {t("clone.action")}
-            </Button>
-            <InfoHint
-              titleKey="help.clone.title"
-              bodyKey="help.clone.body"
-            />
-          </span>
-          {started && (
-            <span className="flex shrink-0 items-center gap-1.5">
-              <Button
-                variant="secondary"
-                small
-                onClick={() => {
-                  setStartError(null);
-                  setExtraNotes("");
-                  setEditOpen(true);
-                }}
-              >
-                <Sparkles size={14} strokeWidth={2} />
-                {t("project.start-edit-new-session")}
+            )}
+            {tagError && (
+              <span className="min-w-0 text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
+                {tf("project.tags-error", { error: tagError })}
+              </span>
+            )}
+            {project.status === "done" && group.anyCollapsed && (
+              <span className="min-w-0 text-xs">
+                {t("workspace.done-collapsed")}
+              </span>
+            )}
+            {/* (i) luôn nằm NGOÀI nút - lồng button trong button là HTML không hợp lệ */}
+            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+              <Button variant="secondary" small onClick={() => setCloneOpen(true)}>
+                <Copy size={14} strokeWidth={2} />
+                {t("clone.action")}
               </Button>
-              <InfoHint
-                titleKey="help.start-edit.title"
-                bodyKey="help.start-edit.body"
-              />
+              <InfoHint titleKey="help.clone.title" bodyKey="help.clone.body" />
             </span>
-          )}
-        </div>
+          </div>
+        </Card>
       )}
 
       {renameError && (
         <ErrorBanner message={t("project.rename-error")} detail={renameError} />
       )}
 
-      {error && (
-        <ErrorBanner message={t("project.load-error")} detail={error} />
+      {error && <ErrorBanner message={t("project.load-error")} detail={error} />}
+
+      {briefSaveError && (
+        <ErrorBanner
+          message={t("project.brief-save-error")}
+          detail={briefSaveError}
+        />
       )}
 
-      {/* Main content - panel AI ghim cố định bên phải (xl+), nội dung chính
-          chừa chỗ bằng padding-right. Hai trạng thái layout theo `started`. */}
-      <div className="flex flex-col gap-4 xl:pr-[452px]">
-        {!started ? (
-          /* Chưa started: đang nhập liệu - Asset + Brief full, ẩn card rỗng */
-          <>
-            <div className="grid items-start gap-4 xl:grid-cols-5">
-              <div className="flex flex-col gap-4 xl:col-span-2">
-                <ProjectAssetsCard
-                  projectId={projectId}
-                  assets={assets.filter(
-                    (f) => f.kind === "video" || f.kind === "image"
-                  )}
-                  onChanged={load}
-                />
-                {assets.some((f) => f.kind === "audio") && (
-                  <ProjectAssetsCard
-                    title={t("project.sfx-title")}
-                    showUpload={false}
-                    projectId={projectId}
-                    assets={assets.filter((f) => f.kind === "audio")}
-                    onChanged={load}
-                  />
-                )}
-                {assets.some((f) => f.kind === "other") && (
-                  <ProjectAssetsCard
-                    title={t("project.other-title")}
-                    showUpload={false}
-                    projectId={projectId}
-                    assets={assets.filter((f) => f.kind === "other")}
-                    onChanged={load}
-                  />
-                )}
-              </div>
-              <div className="xl:col-span-3">
-                <ProjectBriefCard
-                  projectId={projectId}
-                  brief={project?.brief}
-                  // Project đã xong: Kịch bản edit rất dài mà hiếm khi cần đọc
-                  // lại -> thu gọn thành tóm tắt, bấm "Sửa" để mở đầy đủ.
-                  compact={project?.status === "done"}
-                  onDraftChange={setBriefDraft}
-                  onSaved={(b) =>
-                    setProject((p) => (p ? { ...p, brief: b } : p))
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Nút CTA vẫn kéo hết bề ngang (flex-1), (i) đứng riêng bên cạnh */}
-            <div className="flex items-center gap-2">
-              <Button
-                className="h-12 flex-1 text-[15px]"
-                onClick={() => {
-                  setStartError(null);
-                  setExtraNotes("");
-                  setEditOpen(true);
-                }}
-              >
-                <Sparkles size={18} strokeWidth={2} />
-                {t("project.start-edit")}
-              </Button>
-              <InfoHint
-                titleKey="help.start-edit.title"
-                bodyKey="help.start-edit.body"
-                size={15}
-              />
-            </div>
-          </>
-        ) : (
-          /* Đã started: 3 cột dọc tự xếp - mỗi cột flex-col, card nối nhau
-             lấp kín (Brief/Video output ngắn không để lại khoảng trống chết) */
-          <>
-            <div className="grid items-start gap-4 xl:grid-cols-3">
-              <div className="flex flex-col gap-4">
-                <ProjectAssetsCard
-                  compact
-                  projectId={projectId}
-                  assets={assets.filter(
-                    (f) => f.kind === "video" || f.kind === "image"
-                  )}
-                  onChanged={load}
-                />
-                {assets.some((f) => f.kind === "audio") && (
-                  <ProjectAssetsCard
-                    compact
-                    title={t("project.sfx-title")}
-                    showUpload={false}
-                    projectId={projectId}
-                    assets={assets.filter((f) => f.kind === "audio")}
-                    onChanged={load}
-                  />
-                )}
-                {assets.some((f) => f.kind === "other") && (
-                  <ProjectAssetsCard
-                    compact
-                    title={t("project.other-title")}
-                    showUpload={false}
-                    projectId={projectId}
-                    assets={assets.filter((f) => f.kind === "other")}
-                    onChanged={load}
-                  />
-                )}
-                {/* Đứng ngay dưới Asset vì nói về chính file nguồn ở trên -
-                    tự ẩn khi project chưa chạy cắt tự động lần nào */}
-                <ProjectAutoTrimCard
-                  projectId={projectId}
-                  version={project?.updatedAt}
-                />
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <ProjectBriefCard
-                  projectId={projectId}
-                  brief={project?.brief}
-                  // Project đã xong: Kịch bản edit rất dài mà hiếm khi cần đọc
-                  // lại -> thu gọn thành tóm tắt, bấm "Sửa" để mở đầy đủ.
-                  compact={project?.status === "done"}
-                  onDraftChange={setBriefDraft}
-                  onSaved={(b) =>
-                    setProject((p) => (p ? { ...p, brief: b } : p))
-                  }
-                />
-                {/* Duyệt draft ghim ghi chú theo giây; Cắt short + Tái chế tỉ lệ đẻ project con */}
-                <ProjectReviewCard
-                  projectId={projectId}
-                  output={project?.output}
-                  version={project?.updatedAt}
-                  aiRunning={aiRunning}
-                />
-                <ProjectClipsCard
-                  projectId={projectId}
-                  width={project?.width}
-                  height={project?.height}
-                  onCreated={load}
-                />
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <VideoOutputCard
-                  projectId={projectId}
-                  projectName={project?.name}
-                  output={project?.output}
-                  thumbnail={project?.thumbnail}
-                  aiRunning={aiRunning}
-                  version={project?.updatedAt}
-                  onChanged={load}
-                />
-                {/* QC đo bản draft/final hiện có; Gói xuất bản soạn từ transcript */}
-                <ProjectQcCard projectId={projectId} onChanged={load} />
-                <ProjectPublishCard
-                  projectId={projectId}
-                  version={project?.updatedAt}
-                />
-                <Card title="Renders">
-                  <FileTable files={renders} />
-                </Card>
-                <Card title="Scenes">
-                  {sceneRevealError && (
-                    <p className="mb-2 text-xs text-[var(--danger)]">
-                      {sceneRevealError}
-                    </p>
-                  )}
-                  {scenes.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="table min-w-[560px]">
-                        <thead>
-                          <tr>
-                            <th>Scene</th>
-                            <th>{t("project.col-source")}</th>
-                            <th>Duration (frames)</th>
-                            <th>{t("project.col-rendered")}</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {scenes.map((s) => {
-                            const renderFile = sceneRenderFile(s, renders);
-                            const rendered = renderFile !== null;
-                            return (
-                              <tr key={s.id}>
-                                <td className="font-medium">
-                                  {renderFile ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setScenePreview(renderFile)}
-                                      title={tf("common.preview-aria", { name: renderFile.name })}
-                                      className="font-medium underline-offset-2 transition-colors duration-150 hover:text-[var(--primary)] hover:underline"
-                                    >
-                                      {s.id}
-                                    </button>
-                                  ) : (
-                                    s.id
-                                  )}
-                                </td>
-                                <td className="text-[var(--text-muted)]">
-                                  {s.src ? (
-                                    <span className="chip">
-                                      HyperFrames · {s.src}
-                                    </span>
-                                  ) : s.srcVideo ? (
-                                    <span className="chip">
-                                      Video · {s.srcVideo}
-                                    </span>
-                                  ) : (
-                                    "-"
-                                  )}
-                                </td>
-                                <td className="text-[var(--text-muted)]">
-                                  {s.durationInFrames ?? "-"}
-                                </td>
-                                <td>
-                                  {rendered ? (
-                                    <Check
-                                      size={16}
-                                      strokeWidth={2}
-                                      className="text-[var(--success)]"
-                                    />
-                                  ) : (
-                                    <Minus
-                                      size={16}
-                                      strokeWidth={2}
-                                      className="text-[var(--text-muted)]"
-                                    />
-                                  )}
-                                </td>
-                                <td>
-                                  <span className="flex items-center justify-end gap-2">
-                                    {renderFile && (
-                                      <RevealButton
-                                        relPath={renderFile.relPath}
-                                        onError={setSceneRevealError}
-                                      />
-                                    )}
-                                    {s.src && (
-                                      <Button
-                                        variant="secondary"
-                                        small
-                                        disabled={submitting}
-                                        onClick={() =>
-                                          submitJob("scene-draft", s.id)
-                                        }
-                                      >
-                                        {t("project.draft-this-scene")}
-                                      </Button>
-                                    )}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <EmptyState
-                      icon={Clapperboard}
-                      description={t("project.no-scenes")}
-                    />
-                  )}
-                </Card>
-              </div>
-            </div>
-
-          </>
-        )}
-      </div>
-
-      {/* Panel AI - xl+ luôn hiển thị (fixed, cao hết viewport trừ topbar);
-          màn nhỏ là drawer overlay bật bằng nút AI */}
-      {panelOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-[var(--text)]/40 xl:hidden"
-            onClick={() => setPanelOpen(false)}
-            aria-hidden="true"
+      {/* Ba cột theo nhịp làm việc: nguồn → yêu cầu & thiết lập → tiến trình &
+          kết quả. Số cột do container query trong globals.css lo, trang không tự
+          tính pixel. */}
+      <Workspace>
+        {/* ================= Cột 1: nguồn ================= */}
+        <WorkspaceColumn role="source" title={t("workspace.col.source")}>
+          {/* Các card này TỰ NÓ là một <Card> đầy đủ (tiêu đề + nút riêng) nên
+              đứng thẳng trong cột, không bọc thêm WorkspaceBlock. */}
+          <ProjectAssetsCard
+            compact={started}
+            projectId={projectId}
+            assets={assets.filter((f) => f.kind === "video" || f.kind === "image")}
+            onChanged={load}
           />
-        )}
-        <aside
-          className={`${
-            panelOpen ? "flex" : "hidden xl:flex"
-          } fixed inset-y-0 right-0 z-40 w-full max-w-[440px] flex-col gap-3 border-l border-[var(--border)] bg-[var(--bg)] p-4 xl:top-14 xl:bottom-0 xl:z-20 xl:h-auto xl:w-[440px] xl:max-w-none xl:p-3`}
-          aria-label={t("project.ai-panel-aria")}
-        >
-          {/* Hàng nút chức năng - chuyển từ PageHeader vào (panel che mất chỗ cũ) */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <Button
-                small
-                className="flex-1"
-                disabled={submitting}
-                onClick={() => submitJob("assemble-final")}
-              >
-                <Play size={14} strokeWidth={2} />
-                {t("project.render-final")}
-              </Button>
-              <InfoHint
-                titleKey="help.render-final.title"
-                bodyKey="help.render-final.body"
-              />
-              <Button
-                variant="destructive"
-                small
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 size={14} strokeWidth={2} />
-                {t("common.delete")}
-              </Button>
-              <div ref={moreRef} className="relative">
+          {assets.some((f) => f.kind === "audio") && (
+            <ProjectAssetsCard
+              compact
+              title={t("project.sfx-title")}
+              showUpload={false}
+              projectId={projectId}
+              assets={assets.filter((f) => f.kind === "audio")}
+              onChanged={load}
+            />
+          )}
+          {assets.some((f) => f.kind === "other") && (
+            <ProjectAssetsCard
+              compact
+              title={t("project.other-title")}
+              showUpload={false}
+              projectId={projectId}
+              assets={assets.filter((f) => f.kind === "other")}
+              onChanged={load}
+            />
+          )}
+        </WorkspaceColumn>
+
+        {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
+        <WorkspaceColumn role="setup" title={t("workspace.col.setup")}>
+          {/* Kịch bản edit: màu/font (Style Design), phong cách dựng, phụ đề,
+              key, sound effect, nhạc nền… - "mình muốn ra cái gì" */}
+          <WorkspaceBlock
+            id="project-block-brief"
+            icon={FileText}
+            collapsed={group.isCollapsed("brief")}
+            onToggle={() => group.toggle("brief")}
+            summary={briefSummary}
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                {t("brief.title")}
+                <InfoHint
+                  titleKey="help.brief.title"
+                  bodyKey="help.brief.body"
+                  size={14}
+                />
+              </span>
+            }
+          >
+            {brief ? (
+              <div className="flex flex-col gap-4">
+                <p className="text-xs text-[var(--text-muted)]">
+                  {briefSaved ? t("common.saved") : t("project.brief-autosave")}
+                </p>
+                <BriefFields value={brief} onChange={patchBrief} />
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">
+                {t("common.loading")}
+              </p>
+            )}
+          </WorkspaceBlock>
+
+          {/* Hàng nút: giao việc cho AI + các job chạy tay (render final, draft,
+              dọn file rác). Trước đây nằm trong panel AI tự dựng - panel giờ là
+              slot của shell và chỉ để chat. */}
+          <WorkspaceBlock
+            id="project-block-action"
+            icon={Sparkles}
+            collapsed={group.isCollapsed("action")}
+            onToggle={() => group.toggle("action")}
+            summary={actionSummary}
+            title={t("project.card-action")}
+          >
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="secondary"
-                  small
-                  onClick={() => setMoreOpen((o) => !o)}
-                  aria-expanded={moreOpen}
-                  aria-haspopup="menu"
+                  className={started ? "flex-1" : "h-12 flex-1 text-[15px]"}
+                  onClick={() => {
+                    setStartError(null);
+                    setExtraNotes("");
+                    setEditOpen(true);
+                  }}
                 >
-                  <MoreHorizontal size={14} strokeWidth={2} />
-                  {t("project.more")}
+                  <Sparkles size={started ? 15 : 18} strokeWidth={2} />
+                  {started
+                    ? t("project.start-edit-new-session")
+                    : t("project.start-edit")}
                 </Button>
-                {moreOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 top-full z-50 mt-1 w-52 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-card)]"
+                <InfoHint
+                  titleKey="help.start-edit.title"
+                  bodyKey="help.start-edit.body"
+                  size={15}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  small
+                  disabled={submitting}
+                  onClick={() => submitJob("assemble-final")}
+                >
+                  <Play size={14} strokeWidth={2} />
+                  {t("project.render-final")}
+                </Button>
+                <InfoHint
+                  titleKey="help.render-final.title"
+                  bodyKey="help.render-final.body"
+                />
+                <div ref={moreRef} className="relative">
+                  <Button
+                    variant="secondary"
+                    small
+                    onClick={() => setMoreOpen((o) => !o)}
+                    aria-expanded={moreOpen}
+                    aria-haspopup="menu"
                   >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={submitting}
-                      className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        submitJob("scene-draft");
-                      }}
+                    <MoreHorizontal size={14} strokeWidth={2} />
+                    {t("project.more")}
+                  </Button>
+                  {moreOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full z-50 mt-1 w-52 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-card)]"
                     >
-                      <Clapperboard
-                        size={14}
-                        strokeWidth={2}
-                        className="shrink-0 text-[var(--text-muted)]"
-                      />
-                      {t("project.menu-scene-draft")}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={submitting}
-                      className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
-                      onClick={() => {
-                        setMoreOpen(false);
-                        submitJob("assemble-draft");
-                      }}
-                    >
-                      <Film
-                        size={14}
-                        strokeWidth={2}
-                        className="shrink-0 text-[var(--text-muted)]"
-                      />
-                      {t("project.menu-assemble-draft")}
-                    </button>
-                    {/* (i) là item riêng cạnh menu item - không lồng vào button */}
-                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         role="menuitem"
-                        disabled={cleaning}
-                        className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                        disabled={submitting}
+                        className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
                         onClick={() => {
                           setMoreOpen(false);
-                          onCleanJunk();
+                          submitJob("scene-draft");
                         }}
                       >
-                        <Trash2
+                        <Clapperboard
                           size={14}
                           strokeWidth={2}
                           className="shrink-0 text-[var(--text-muted)]"
                         />
-                        {cleaning ? t("junk.cleaning") : t("junk.clean")}
+                        {t("project.menu-scene-draft")}
                       </button>
-                      <InfoHint
-                        titleKey="help.clean-junk.title"
-                        bodyKey="help.clean-junk.body"
-                        className="mr-1"
-                      />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={submitting}
+                        className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          submitJob("assemble-draft");
+                        }}
+                      >
+                        <Film
+                          size={14}
+                          strokeWidth={2}
+                          className="shrink-0 text-[var(--text-muted)]"
+                        />
+                        {t("project.menu-assemble-draft")}
+                      </button>
+                      {/* (i) là item riêng cạnh menu item - không lồng vào button */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={cleaning}
+                          className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius)] px-2.5 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                          onClick={() => {
+                            setMoreOpen(false);
+                            onCleanJunk();
+                          }}
+                        >
+                          <Trash2
+                            size={14}
+                            strokeWidth={2}
+                            className="shrink-0 text-[var(--text-muted)]"
+                          />
+                          {cleaning ? t("junk.cleaning") : t("junk.clean")}
+                        </button>
+                        <InfoHint
+                          titleKey="help.clean-junk.title"
+                          bodyKey="help.clean-junk.body"
+                          className="mr-1"
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-            {jobNotice && (
-              <p className="text-xs text-[var(--success)]">{jobNotice}</p>
-            )}
-            {jobError && (
-              <p className="text-xs text-[var(--danger)]">{jobError}</p>
-            )}
-          </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-              <MessageSquare
-                size={15}
-                strokeWidth={2}
-                className="shrink-0 text-[var(--text-muted)]"
-              />
-              {t("project.ai-panel")}
-            </h2>
-            <div className="flex shrink-0 items-center gap-2">
-              {activeSession && (
-                <SessionStatusBadge status={activeSession.status} />
+              {/* Thông báo/lỗi job là chuỗi tự do (có cả đường dẫn dài không dấu
+                  cách) - phải cho ngắt ở giữa từ, không thì đẩy toác cả cột. */}
+              {jobNotice && (
+                <p className="text-xs text-[var(--success)] [overflow-wrap:anywhere]">
+                  {jobNotice}
+                </p>
               )}
-              <button
-                type="button"
-                onClick={() => setPanelOpen(false)}
-                aria-label={t("project.close-panel")}
-                className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] xl:hidden"
-              >
-                <X size={16} strokeWidth={2} />
-              </button>
+              {jobError && (
+                <p className="text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
+                  {jobError}
+                </p>
+              )}
             </div>
-          </div>
+          </WorkspaceBlock>
 
-          {chatSessions && chatSessions.length > 0 && (
-            <select
-              className="input"
-              value={activeSessionId ?? ""}
-              onChange={(e) => setActiveSessionId(e.target.value || null)}
-              aria-label={t("project.select-session")}
-            >
-              {chatSessions.map((s) => (
-                <option key={s.sessionId} value={s.sessionId}>
-                  {s.title} · {sessionStatusLabel(s.status, t)} ·{" "}
-                  {formatRelative(s.updatedAt)}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* Duyệt draft ghim ghi chú theo giây - ghi chú là ĐẦU VÀO cho lượt
+              edit sau, nên thuộc cột yêu cầu chứ không phải cột kết quả */}
+          <ProjectReviewCard
+            projectId={projectId}
+            output={project?.output}
+            version={project?.updatedAt}
+            aiRunning={aiRunning}
+          />
+          {/* Cắt short + tái chế tỉ lệ: cũng là một yêu cầu "làm cho tôi cái này" */}
+          <ProjectClipsCard
+            projectId={projectId}
+            width={project?.width}
+            height={project?.height}
+            onCreated={load}
+          />
+        </WorkspaceColumn>
 
-          {chatSessions !== null &&
-          chatSessions.length === 0 &&
-          !activeSessionId ? (
-            <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
-              <EmptyState
-                icon={Sparkles}
-                description={t("project.no-sessions")}
-                action={
-                  <Button
-                    small
-                    onClick={() => {
-                      setStartError(null);
-                      setExtraNotes("");
-                      setEditOpen(true);
-                    }}
+        {/* ============ Cột 3: tiến trình & kết quả ============ */}
+        <WorkspaceColumn role="output" title={t("workspace.col.output")}>
+          {/* Khối ĐẦU TIÊN của cột: đang dựng thì nhấp nháy chờ, xong thì hiện
+              thẳng video. Liếc một chỗ là biết project đang ở đâu. */}
+          <OutputBlock
+            id="project-block-output"
+            status={outputStatus}
+            videoUrl={outputUrl}
+            progress={runningJob ? runningJob.progress : null}
+            step={runningJob?.step}
+            aspect={aspect}
+            collapsed={group.isCollapsed("output")}
+            onToggle={() => group.toggle("output")}
+            summary={outputSummary}
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                {t("project.video-output")}
+                <InfoHint
+                  titleKey="help.video-output.title"
+                  bodyKey="help.video-output.body"
+                  size={14}
+                />
+              </span>
+            }
+          >
+            {aiRunning && (
+              <div className="flex flex-col gap-1.5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
+                <div
+                  className="progress-indeterminate"
+                  aria-label={t("project.ai-making")}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {t("project.ai-making-ellipsis")}
+                  </span>
+                  <SessionStatusBadge status="running" />
+                </div>
+              </div>
+            )}
+
+            {outputUrl ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
+                  {outputName}
+                </span>
+                <span className="flex shrink-0 items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setZoomed(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
                   >
-                    <Sparkles size={14} strokeWidth={2} />
-                    {t("project.start-edit")}
-                  </Button>
-                }
-              />
-            </div>
-          ) : (
-            <ChatThread
-              compact
-              providersEnabled
-              sessionId={activeSessionId}
-              projectId={projectId}
-              initialStatus={activeSession?.status}
-              session={activeSession}
-              onSessionCreated={(id) => {
-                setActiveSessionId(id);
-                loadSessions();
-              }}
-            />
-          )}
-        </aside>
+                    <Maximize2 size={13} strokeWidth={2} />
+                    {t("common.zoom")}
+                  </button>
+                  <a
+                    href={outputUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-xs font-medium text-[var(--primary)] transition-colors duration-150 hover:text-[var(--primary-hover)]"
+                  >
+                    <ExternalLink size={13} strokeWidth={2} />
+                    {t("common.open-file")}
+                  </a>
+                </span>
+              </div>
+            ) : !busyNow ? (
+              <p className="text-xs text-[var(--text-muted)]">
+                {t("project.no-output")}
+              </p>
+            ) : null}
+          </OutputBlock>
 
-      {/* Preview file render của scene (card Scenes) */}
+          {/* Tiến trình dựng: 6 giai đoạn + job đang chạy. Cùng dữ liệu với thanh
+              bước ở header, nhưng ở đây kèm % và tên bước của job. */}
+          <WorkspaceBlock
+            id="project-block-pipeline"
+            icon={ListVideo}
+            collapsed={group.isCollapsed("pipeline")}
+            onToggle={() => group.toggle("pipeline")}
+            summary={pipelineSummary}
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                {t("project.card-pipeline")}
+                <InfoHint
+                  titleKey="help.pipeline.title"
+                  bodyKey="help.pipeline.body"
+                  size={14}
+                />
+              </span>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {pipelineInput && showPipeline ? (
+                <PipelineTimeline {...pipelineInput} />
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {t("project.no-job")}
+                </p>
+              )}
+              {runningJob && (
+                <>
+                  <ProgressBar
+                    progress={runningJob.progress}
+                    step={runningJob.step}
+                  />
+                  <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                    <Loader2
+                      size={12}
+                      strokeWidth={2}
+                      className="shrink-0 animate-spin"
+                    />
+                    <span className="min-w-0 truncate">{runningJob.type}</span>
+                  </p>
+                </>
+              )}
+            </div>
+          </WorkspaceBlock>
+
+          {/* Scene do AI dựng - sản phẩm của lượt edit, không phải ô nhập */}
+          <WorkspaceBlock
+            id="project-block-scenes"
+            icon={Clapperboard}
+            collapsed={group.isCollapsed("scenes")}
+            onToggle={() => group.toggle("scenes")}
+            summary={sceneSummary}
+            title="Scenes"
+          >
+            {sceneRevealError && (
+              <p className="mb-2 text-xs text-[var(--danger)] [overflow-wrap:anywhere]">
+                {sceneRevealError}
+              </p>
+            )}
+            {scenes.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="table min-w-[560px]">
+                  <thead>
+                    <tr>
+                      <th>Scene</th>
+                      <th>{t("project.col-source")}</th>
+                      <th>Duration (frames)</th>
+                      <th>{t("project.col-rendered")}</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scenes.map((s) => {
+                      const renderFile = sceneRenderFile(s, renders);
+                      const rendered = renderFile !== null;
+                      return (
+                        <tr key={s.id}>
+                          <td className="font-medium">
+                            {renderFile ? (
+                              <button
+                                type="button"
+                                onClick={() => setScenePreview(renderFile)}
+                                title={tf("common.preview-aria", {
+                                  name: renderFile.name,
+                                })}
+                                className="font-medium underline-offset-2 transition-colors duration-150 hover:text-[var(--primary)] hover:underline"
+                              >
+                                {s.id}
+                              </button>
+                            ) : (
+                              s.id
+                            )}
+                          </td>
+                          <td className="text-[var(--text-muted)]">
+                            {s.src ? (
+                              <span className="chip">HyperFrames · {s.src}</span>
+                            ) : s.srcVideo ? (
+                              <span className="chip">Video · {s.srcVideo}</span>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="text-[var(--text-muted)]">
+                            {s.durationInFrames ?? "-"}
+                          </td>
+                          <td>
+                            {rendered ? (
+                              <Check
+                                size={16}
+                                strokeWidth={2}
+                                className="text-[var(--success)]"
+                              />
+                            ) : (
+                              <Minus
+                                size={16}
+                                strokeWidth={2}
+                                className="text-[var(--text-muted)]"
+                              />
+                            )}
+                          </td>
+                          <td>
+                            <span className="flex items-center justify-end gap-2">
+                              {renderFile && (
+                                <RevealButton
+                                  relPath={renderFile.relPath}
+                                  onError={setSceneRevealError}
+                                />
+                              )}
+                              {s.src && (
+                                <Button
+                                  variant="secondary"
+                                  small
+                                  disabled={submitting}
+                                  onClick={() => submitJob("scene-draft", s.id)}
+                                >
+                                  {t("project.draft-this-scene")}
+                                </Button>
+                              )}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                icon={Clapperboard}
+                description={t("project.no-scenes")}
+              />
+            )}
+          </WorkspaceBlock>
+
+          {/* File render sinh ra trong lúc chạy */}
+          <WorkspaceBlock
+            id="project-block-renders"
+            icon={Film}
+            collapsed={group.isCollapsed("renders")}
+            onToggle={() => group.toggle("renders")}
+            summary={renderSummary}
+            title="Renders"
+          >
+            <FileTable files={renders} />
+          </WorkspaceBlock>
+
+          {/* QC đo bản draft/final hiện có - card tự đủ, đứng thẳng trong cột */}
+          <ProjectQcCard projectId={projectId} onChanged={load} />
+
+          {/* Báo cáo cắt tự động - tự ẩn khi project chưa chạy cắt lần nào */}
+          <ProjectAutoTrimCard
+            projectId={projectId}
+            version={project?.updatedAt}
+          />
+
+          {/* Ảnh bìa của video - cũng là thứ sinh ra sau khi có thành phẩm */}
+          <WorkspaceBlock
+            id="project-block-thumbnail"
+            icon={ImageIcon}
+            collapsed={group.isCollapsed("thumbnail")}
+            onToggle={() => group.toggle("thumbnail")}
+            summary={thumbSummary}
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                Thumbnail
+                <InfoHint
+                  titleKey="help.thumbnail.title"
+                  bodyKey="help.thumbnail.body"
+                  size={14}
+                />
+              </span>
+            }
+          >
+            <ThumbnailBody
+              projectId={projectId}
+              projectName={project?.name}
+              thumbnail={project?.thumbnail}
+              version={project?.updatedAt}
+              onChanged={load}
+            />
+          </WorkspaceBlock>
+
+          {/* Gói xuất bản soạn từ transcript - card tự đủ */}
+          <ProjectPublishCard
+            projectId={projectId}
+            version={project?.updatedAt}
+          />
+        </WorkspaceColumn>
+      </Workspace>
+
+      {/* Panel AI: chỉ KHAI BÁO nội dung, shell lo bề rộng/gấp/drawer. Cây React
+          vẫn nằm ở trang này nên state và SSE của ChatThread giữ nguyên. */}
+      <ShellRightPanel title={t("project.ai-panel")}>
+        {activeSession && (
+          <div className="flex shrink-0 justify-end">
+            <SessionStatusBadge status={activeSession.status} />
+          </div>
+        )}
+
+        {chatSessions && chatSessions.length > 0 && (
+          <select
+            className="input shrink-0"
+            value={activeSessionId ?? ""}
+            onChange={(e) => setActiveSessionId(e.target.value || null)}
+            aria-label={t("project.select-session")}
+          >
+            {chatSessions.map((s) => (
+              <option key={s.sessionId} value={s.sessionId}>
+                {s.title} · {sessionStatusLabel(s.status, t)} ·{" "}
+                {formatRelative(s.updatedAt)}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {chatSessions !== null &&
+        chatSessions.length === 0 &&
+        !activeSessionId ? (
+          <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
+            <EmptyState
+              icon={MessageSquare}
+              description={t("project.no-sessions")}
+              action={
+                <Button
+                  small
+                  onClick={() => {
+                    setStartError(null);
+                    setExtraNotes("");
+                    setEditOpen(true);
+                  }}
+                >
+                  <Sparkles size={14} strokeWidth={2} />
+                  {t("project.start-edit")}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <ChatThread
+            compact
+            providersEnabled
+            sessionId={activeSessionId}
+            projectId={projectId}
+            initialStatus={activeSession?.status}
+            session={activeSession}
+            onSessionCreated={(id) => {
+              setActiveSessionId(id);
+              loadSessions();
+            }}
+          />
+        )}
+      </ShellRightPanel>
+
+      {/* Xem video thành phẩm ở khung lớn */}
+      <MediaPreviewModal
+        file={zoomed ? outputFile : null}
+        onClose={() => setZoomed(false)}
+      />
+
+      {/* Preview file render của scene (khối Scenes) */}
       <MediaPreviewModal
         file={scenePreview}
         onClose={() => setScenePreview(null)}
@@ -1604,9 +1761,7 @@ export default function ProjectDetailPage() {
       {/* Modal nhân bản project - thành công thì chuyển thẳng sang project mới */}
       <CloneProjectModal
         source={
-          cloneOpen
-            ? { id: projectId, name: project?.name ?? projectId }
-            : null
+          cloneOpen ? { id: projectId, name: project?.name ?? projectId } : null
         }
         onClose={() => setCloneOpen(false)}
         onCloned={(p) => {
@@ -1638,53 +1793,57 @@ export default function ProjectDetailPage() {
         }
       >
         {startError && (
-          <ErrorBanner
-            message={t("project.start-error")}
-            detail={startError}
-          />
+          <ErrorBanner message={t("project.start-error")} detail={startError} />
         )}
         <p className="text-sm text-[var(--text-muted)]">
           {t("project.edit-modal-desc")}
         </p>
         <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
           <BriefSummaryRow label={t("project.sum-source")}>
-            {brief.sourceDescription.trim() || (
-              <span className="text-[var(--text-muted)]">{t("brief.not-described")}</span>
+            {briefView.sourceDescription.trim() || (
+              <span className="text-[var(--text-muted)]">
+                {t("brief.not-described")}
+              </span>
             )}
           </BriefSummaryRow>
           <BriefSummaryRow label={t("brief.edit-request")}>
-            {brief.notes.trim() ? (
+            {briefView.notes.trim() ? (
               <span className="line-clamp-3 whitespace-pre-line">
-                {brief.notes}
+                {briefView.notes}
               </span>
             ) : (
               <span className="text-[var(--text-muted)]">{t("brief.none")}</span>
             )}
           </BriefSummaryRow>
           <BriefSummaryRow label={t("project.sum-autocut")}>
-            <YesNo value={brief.autoCut} />
+            <YesNo value={briefView.autoCut} />
           </BriefSummaryRow>
           <BriefSummaryRow label={t("brief.subtitles")}>
-            <YesNo value={brief.subtitles} />
+            <YesNo value={briefView.subtitles} />
           </BriefSummaryRow>
           <BriefSummaryRow label={t("brief.highlight")}>
-            <YesNo value={brief.highlightEnabled} />
-            {brief.highlightEnabled && brief.highlightKeywords.length > 0 && (
-              <span className="ml-1 text-[var(--text-muted)]">
-                · {t("project.sum-keywords")} {brief.highlightKeywords.join(", ")}
-              </span>
-            )}
+            <YesNo value={briefView.highlightEnabled} />
+            {briefView.highlightEnabled &&
+              briefView.highlightKeywords.length > 0 && (
+                <span className="ml-1 text-[var(--text-muted)]">
+                  · {t("project.sum-keywords")}{" "}
+                  {briefView.highlightKeywords.join(", ")}
+                </span>
+              )}
           </BriefSummaryRow>
           <BriefSummaryRow label={t("brief.key-layout")}>
-            {brief.keyLayoutEnabled ? (
+            {briefView.keyLayoutEnabled ? (
               <>
                 {t("project.sum-main-key")}{" "}
-                {brief.mainKey.trim() || (
-                  <span className="text-[var(--text-muted)]">{t("brief.ai-choose")}</span>
+                {briefView.mainKey.trim() || (
+                  <span className="text-[var(--text-muted)]">
+                    {t("brief.ai-choose")}
+                  </span>
                 )}
-                {brief.relatedKeys.length > 0 && (
+                {briefView.relatedKeys.length > 0 && (
                   <span className="ml-1 text-[var(--text-muted)]">
-                    · {t("project.sum-related-keys")} {brief.relatedKeys.join(", ")}
+                    · {t("project.sum-related-keys")}{" "}
+                    {briefView.relatedKeys.join(", ")}
                   </span>
                 )}
               </>
@@ -1693,21 +1852,21 @@ export default function ProjectDetailPage() {
             )}
           </BriefSummaryRow>
           <BriefSummaryRow label={t("brief.illustrations")}>
-            <YesNo value={brief.autoIllustrations} />
-            {brief.autoIllustrations && brief.illustrationModel && (
+            <YesNo value={briefView.autoIllustrations} />
+            {briefView.autoIllustrations && briefView.illustrationModel && (
               <span className="ml-1 text-[var(--text-muted)]">
-                · model: {brief.illustrationModel}
+                · model: {briefView.illustrationModel}
               </span>
             )}
           </BriefSummaryRow>
           <BriefSummaryRow label="Style Design">
-            {styleDisplayName(stylesData, brief.styleId, t)}
+            {styleDisplayName(stylesData, briefView.styleId, t)}
           </BriefSummaryRow>
           <BriefSummaryRow label="Skill">
-            {brief.skill ?? t("brief.ai-pick-skill")}
+            {briefView.skill ?? t("brief.ai-pick-skill")}
           </BriefSummaryRow>
           <BriefSummaryRow label="Sound effect">
-            {t(SFX_MODE_LABEL[brief.sfxMode])}
+            {t(SFX_MODE_LABEL[briefView.sfxMode])}
           </BriefSummaryRow>
         </div>
         <AiModelBlock
