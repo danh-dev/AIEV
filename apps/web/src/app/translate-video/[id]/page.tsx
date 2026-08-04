@@ -1,34 +1,41 @@
 "use client";
 
 /**
- * Chi tiết một phiên "Dịch video" - dựng theo đúng bố cục trang Text to video:
- * lưới hai cột, cột trái là nội dung dài (video nguồn, lời thoại, bản dịch), cột
- * phải là thiết lập ngắn (kiểu phụ đề, kết quả). Hẹp hơn xl thì xẹp về một cột
- * theo đúng thứ tự 1→5.
+ * Chi tiết một phiên "Dịch video" - lắp bằng bộ khối workspace 3 cột dùng chung
+ * (`components/Workspace.tsx`), chia theo NHỊP LÀM VIỆC chứ không theo số bước:
+ *
+ * - Cột `source`: video gốc (tải lên, xem trước) và ngôn ngữ nguồn - thứ mình
+ *   BẮT ĐẦU TỪ ĐÓ.
+ * - Cột `setup`: ngôn ngữ đích, chế độ, danh sách câu thoại sửa tay được, và
+ *   kiểu phụ đề kèm ô xem trước - toàn bộ phần "mình muốn ra cái gì".
+ * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
+ *   thì hiện thẳng video), rồi mới tới những thứ sinh ra trong lúc chạy: log bóc
+ *   lời thoại, tiến trình dịch.
+ *
+ * Bề rộng cột do container query trong globals.css quyết định - trang KHÔNG tự
+ * tính pixel, vì bề rộng thật còn phụ thuộc rail trái và panel phải đang gấp hay mở.
  *
  * Thanh bước dùng chung StepperBar với Videos Project - không tự vẽ thanh thứ hai.
  *
- * Phiên render xong (status "done") thì bốn khối nhập liệu tự gấp lại còn một
- * dòng tóm tắt, khối kết quả mở ra. Gấp/mở vẫn bấm tay được và ý người dùng luôn
- * thắng mặc định - xem `sectionOverride`.
+ * Phiên render xong (status "done") thì các khối khác tự gấp lại còn một dòng tóm
+ * tắt, riêng khối video thành phẩm vẫn mở. Gấp/mở vẫn bấm tay được và ý người dùng
+ * luôn thắng mặc định - xem `useCollapseGroup`.
  */
 
 import {
   ArrowLeft,
-  ChevronDown,
-  ChevronRight,
-  Download,
   FileVideo,
   Film,
   Languages,
   Loader2,
   Subtitles,
   Trash2,
+  Type,
   Upload,
   Wand2,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteTranslateVideo,
   getJob,
@@ -71,6 +78,14 @@ import { InfoHint } from "@/components/InfoHint";
 import { PageHeader } from "@/components/PageHeader";
 import { StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
+import {
+  OutputBlock,
+  useCollapseGroup,
+  Workspace,
+  WorkspaceBlock,
+  WorkspaceColumn,
+  type WorkspaceStatus,
+} from "@/components/Workspace";
 // clock() (giây → mm:ss) đã có sẵn ở đây, lib/format.ts chưa có helper tương đương
 import { clock } from "@/components/AutoCutCommon";
 import { formatDateTime } from "@/lib/format";
@@ -94,19 +109,22 @@ const FONT_STACK: Record<SubtitleFontId, string> = {
   mono: "'JetBrains Mono', 'Consolas', ui-monospace, monospace",
 };
 
-/** Năm khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
-type SectionKey = "source" | "transcript" | "translation" | "subtitle" | "result";
-
-/**
- * Các khối NHẬP LIỆU - phiên xong rồi thì không ai sửa nữa nên gấp mặc định.
- * Khối "result" cố tình không nằm ở đây: nó chứa video thành phẩm, luôn mở.
- */
-const SETUP_SECTIONS: SectionKey[] = [
+/** Các khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
+const TV_BLOCKS = [
   "source",
-  "transcript",
   "translation",
   "subtitle",
-];
+  "result",
+  "transcript",
+  "progress",
+] as const;
+type BlockKey = (typeof TV_BLOCKS)[number];
+
+/**
+ * Khối vẫn MỞ khi phiên xong: video thành phẩm. Xong việc thì người dùng vào
+ * trang là để xem thành phẩm, không phải để sửa ô nhập nữa.
+ */
+const TV_KEEP_EXPANDED: readonly BlockKey[] = ["result"];
 
 // Giá trị là KEY dictionary - StepperBar tự dịch bằng t() lúc render.
 const STAGE_LABELS = [
@@ -116,6 +134,20 @@ const STAGE_LABELS = [
   "tv.stage.subtitle",
   "tv.stage.result",
 ] as const;
+
+/** Độ dài tối đa của lỗi hiện trong khối kết quả - xem `shortError`. */
+const ERROR_PREVIEW_MAX = 240;
+
+/**
+ * Rút gọn lỗi cho khối kết quả. Lỗi thật (traceback faster-whisper, log ffmpeg)
+ * dài hàng chục dòng, đổ nguyên vào khung video là đẩy mọi thứ khác xuống dưới
+ * màn hình - bản đầy đủ vẫn nằm ở banner lỗi phía trên trang.
+ */
+function shortError(e: string | null | undefined): string | null {
+  if (!e) return null;
+  const s = e.replace(/\s+/g, " ").trim();
+  return s.length > ERROR_PREVIEW_MAX ? `${s.slice(0, ERROR_PREVIEW_MAX)}…` : s;
+}
 
 /** Thay đổi đang chờ gửi - luôn gửi trọn từng khối con để server khỏi phải merge. */
 interface Patch {
@@ -148,72 +180,6 @@ function deriveTvStage(m: TranslateVideoMeta): {
   }
   if (m.transcriptFile) return { stage: 3, active: false, complete: false };
   return { stage: m.source.relPath ? 2 : 1, active: false, complete: false };
-}
-
-/**
- * Card gấp lại được - dùng cho cả năm khối của phiên.
- *
- * Gấp rồi vẫn phải biết bên trong đang chứa gì, nên chỗ thân card đổi thành MỘT
- * DÒNG tóm tắt. Thân card giữ nguyên trong DOM và chỉ bị `hidden`, KHÔNG tháo ra:
- * bên trong có thẻ <video> đang phát, tháo ra lắp lại là bắt tải lại từ đầu mỗi
- * lần bấm gấp/mở.
- */
-function CollapsibleCard({
-  id,
-  title,
-  summary,
-  collapsed,
-  onToggle,
-  actions,
-  children,
-}: {
-  /** id vùng nội dung - nút gấp/mở trỏ vào đây bằng aria-controls */
-  id: string;
-  title: ReactNode;
-  /** Một dòng cho biết bên trong có gì - chỉ hiện lúc đang gấp */
-  summary: ReactNode;
-  collapsed: boolean;
-  onToggle: () => void;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  const { t } = useT();
-  const label = collapsed ? t("tv.section.expand") : t("tv.section.collapse");
-  return (
-    <Card
-      title={title}
-      actions={
-        // min-w-0 + flex-wrap: cột hẹp thì nút hành động xuống hàng chứ không đẩy
-        // nút gấp/mở tràn ra khỏi card
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          {/* Gấp rồi thì giấu nút hành động: bấm "Dịch lại" trong khi không nhìn
-              thấy bản dịch cũ là ghi đè bản đang có mà không kịp biết mình mất gì */}
-          {!collapsed && actions}
-          <Button
-            variant="secondary"
-            small
-            onClick={onToggle}
-            aria-expanded={!collapsed}
-            aria-controls={id}
-          >
-            {collapsed ? (
-              <ChevronRight size={14} strokeWidth={2} />
-            ) : (
-              <ChevronDown size={14} strokeWidth={2} />
-            )}
-            {label}
-          </Button>
-        </div>
-      }
-    >
-      {collapsed && (
-        <p className="truncate text-xs text-[var(--text-muted)]">{summary}</p>
-      )}
-      <div id={id} hidden={collapsed}>
-        {children}
-      </div>
-    </Card>
-  );
 }
 
 /**
@@ -371,16 +337,19 @@ export default function TranslateVideoDetailPage() {
   const [jobPhase, setJobPhase] = useState<"transcribe" | "render" | null>(null);
   const currentJobId = useRef<string | null>(null);
 
-  // Khối nào người dùng đã TỰ TAY gấp/mở - chỉ ghi khi có click, khối chưa bấm
-  // thì vắng mặt ở đây và chạy theo mặc định suy từ status.
-  //
-  // Cố tình KHÔNG có useEffect nào đồng bộ trạng thái gấp theo status: trang này
+  // Gấp/mở từng khối. Mặc định suy từ "phiên đã xong chưa" NGAY TRONG LÚC RENDER,
+  // cố tình KHÔNG có useEffect nào đồng bộ trạng thái gấp theo status: trang này
   // bám SSE job, mỗi dòng log hay mỗi lần job đổi tiến trình là một lần render
   // mới. Effect kiểu đó sẽ đóng sập đúng cái khối người dùng vừa mở ra, mà lỗi
   // ấy trông như trang tự nhiên "nhảy" chứ không ai đoán ra là do SSE.
-  const [sectionOverride, setSectionOverride] = useState<
-    Partial<Record<SectionKey, boolean>>
-  >({});
+  //
+  // Gọi trước mọi lối thoát sớm (loading/lỗi) - thứ tự hook phải giống nhau ở
+  // mọi lần render.
+  const group = useCollapseGroup({
+    keys: TV_BLOCKS,
+    finished: session?.status === "done",
+    keepExpanded: TV_KEEP_EXPANDED,
+  });
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -627,35 +596,30 @@ export default function TranslateVideoDetailPage() {
       ? "render"
       : "transcribe");
 
-  // ---- Gấp/mở từng khối ----
+  // ---- Khối video thành phẩm ----
 
   const done = session.status === "done";
 
-  /**
-   * Mặc định KHI CHƯA AI BẤM: phiên xong thì gấp mấy khối nhập liệu lại cho gọn
-   * màn hình, khối kết quả vẫn mở để thấy ngay video vừa ra.
-   */
-  function defaultCollapsed(key: SectionKey): boolean {
-    return done && key !== "result";
-  }
+  /** Job của bước ĐÓNG PHỤ ĐỀ - nguồn % và tên bước cho khối video thành phẩm. */
+  const renderJob = job && phase === "render" ? job : null;
 
-  /** Đã bấm tay thì lấy đúng ý người dùng, chưa bấm mới rơi xuống mặc định. */
-  function sectionCollapsed(key: SectionKey): boolean {
-    return sectionOverride[key] ?? defaultCollapsed(key);
-  }
+  // Hỏng ở bước bóc lời thoại KHÔNG phải là "dựng video thất bại": khối kết quả
+  // giữ nguyên trạng thái "chưa có video", còn lỗi đã có banner riêng phía trên.
+  const renderFailed = session.status === "failed" && phase === "render";
 
-  function toggleSection(key: SectionKey) {
-    // Đảo dựa trên state trong updater chứ không trên biến của lần render này -
-    // giữa lúc bấm vẫn có thể có sự kiện SSE chen vào làm render lại.
-    setSectionOverride((o) => ({
-      ...o,
-      [key]: !(o[key] ?? defaultCollapsed(key)),
-    }));
-  }
+  const outputStatus: WorkspaceStatus =
+    session.status === "rendering"
+      ? "running"
+      : renderFailed
+        ? "failed"
+        : session.outputFile
+          ? "done"
+          : "idle";
 
-  // Còn khối nhập liệu nào đang gấp thì nói cho người dùng biết vì sao trang gọn
-  // hẳn lại. Mở hết ra rồi thì dòng này tự biến mất, không nhắc thừa.
-  const anyCollapsed = SETUP_SECTIONS.some((k) => sectionCollapsed(k));
+  // Tỉ lệ khung hình lấy từ chính video nguồn (phụ đề đóng lên video gốc nên hai
+  // bên luôn cùng khung hình); chưa có nguồn thì tạm dùng ngang 16/9.
+  const aspect =
+    src.width && src.height ? `${src.width} / ${src.height}` : "16 / 9";
 
   // ---- Một dòng tóm tắt cho từng khối lúc gấp ----
 
@@ -753,7 +717,7 @@ export default function TranslateVideoDetailPage() {
           {cues.length > 0 && (
             <span className="chip">{tf("tv.cue-count", { n: cues.length })}</span>
           )}
-          {done && anyCollapsed && (
+          {done && group.anyCollapsed && (
             <span className="min-w-0">{t("tv.section.done-collapsed")}</span>
           )}
           <span className="ml-auto">
@@ -769,16 +733,17 @@ export default function TranslateVideoDetailPage() {
         <ErrorBanner message={t("tv.failed")} detail={session.error ?? undefined} />
       )}
 
-      {/* Lưới hai cột: trái = nội dung dài (video, lời thoại, bản dịch), phải =
-          thiết lập ngắn (kiểu phụ đề, kết quả). Dưới xl xẹp về một cột 1→5. */}
-      <div className="grid items-start gap-4 xl:grid-cols-2">
-        {/* ================= Cột trái: nội dung ================= */}
-        <div className="flex flex-col gap-4">
-          {/* ---- 1. Nguồn ---- */}
-          <CollapsibleCard
-            id="tv-section-source"
-            collapsed={sectionCollapsed("source")}
-            onToggle={() => toggleSection("source")}
+      {/* Ba cột theo nhịp làm việc: nguồn → yêu cầu & thiết lập → tiến trình &
+          kết quả. Số cột do container query trong globals.css lo, trang không tự
+          tính pixel. */}
+      <Workspace>
+        {/* ================= Cột 1: nguồn ================= */}
+        <WorkspaceColumn role="source" title={t("workspace.col.source")}>
+          <WorkspaceBlock
+            id="tv-block-source"
+            icon={FileVideo}
+            collapsed={group.isCollapsed("source")}
+            onToggle={() => group.toggle("source")}
             summary={sourceSummary}
             title={
               <span className="inline-flex items-center gap-1.5">
@@ -902,69 +867,18 @@ export default function TranslateVideoDetailPage() {
                 </select>
               </div>
             </div>
-          </CollapsibleCard>
+          </WorkspaceBlock>
+        </WorkspaceColumn>
 
-          {/* ---- 2. Lời thoại ---- */}
-          <CollapsibleCard
-            id="tv-section-transcript"
-            collapsed={sectionCollapsed("transcript")}
-            onToggle={() => toggleSection("transcript")}
-            summary={transcriptSummary}
-            title={
-              <span className="inline-flex items-center gap-1.5">
-                {t("tv.card-transcript")}
-                <InfoHint
-                  titleKey="help.tv-transcript.title"
-                  bodyKey="help.tv-transcript.body"
-                  size={14}
-                />
-              </span>
-            }
-            actions={
-              <Button
-                small
-                disabled={!canTranscribe || busy !== null}
-                onClick={() => run("transcribe")}
-              >
-                {busy === "transcribe" ? (
-                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-                ) : (
-                  <Subtitles size={14} strokeWidth={2} />
-                )}
-                {cues.length > 0 ? t("tv.re-transcribe") : t("tv.transcribe")}
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              {session.status === "transcribing" && (
-                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                  {t("tv.transcribing-hint")}
-                </p>
-              )}
-
-              {job && phase === "transcribe" ? (
-                <JobLogBlock job={job} />
-              ) : cues.length === 0 ? (
-                <EmptyState
-                  icon={Subtitles}
-                  description={hasSource ? t("tv.no-transcript") : t("tv.no-source-yet")}
-                />
-              ) : null}
-
-              {session.transcriptFile && (
-                <span className="chip w-fit">
-                  {t("tv.transcript-file")}: {session.transcriptFile}
-                </span>
-              )}
-            </div>
-          </CollapsibleCard>
-
-          {/* ---- 3. Bản dịch ---- */}
-          <CollapsibleCard
-            id="tv-section-translation"
-            collapsed={sectionCollapsed("translation")}
-            onToggle={() => toggleSection("translation")}
+        {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
+        <WorkspaceColumn role="setup" title={t("workspace.col.setup")}>
+          {/* Ngôn ngữ đích + chế độ + sửa tay từng câu thoại - đây mới là chỗ
+              người dùng nói "tôi muốn ra cái gì" */}
+          <WorkspaceBlock
+            id="tv-block-translation"
+            icon={Languages}
+            collapsed={group.isCollapsed("translation")}
+            onToggle={() => group.toggle("translation")}
             summary={translationSummary}
             title={
               <span className="inline-flex items-center gap-1.5">
@@ -1104,16 +1018,14 @@ export default function TranslateVideoDetailPage() {
                 </>
               )}
             </div>
-          </CollapsibleCard>
-        </div>
+          </WorkspaceBlock>
 
-        {/* ================= Cột phải: thiết lập ================= */}
-        <div className="flex flex-col gap-4">
-          {/* ---- 4. Phụ đề ---- */}
-          <CollapsibleCard
-            id="tv-section-subtitle"
-            collapsed={sectionCollapsed("subtitle")}
-            onToggle={() => toggleSection("subtitle")}
+          {/* Kiểu phụ đề + ô xem trước - vẫn là "muốn ra cái gì", nên ở cột 2 */}
+          <WorkspaceBlock
+            id="tv-block-subtitle"
+            icon={Type}
+            collapsed={group.isCollapsed("subtitle")}
+            onToggle={() => group.toggle("subtitle")}
             summary={subtitleSummary}
             title={
               <span className="inline-flex items-center gap-1.5">
@@ -1312,13 +1224,23 @@ export default function TranslateVideoDetailPage() {
                 {locked ? t("tv.style-locked") : t("tv.style-autosave")}
               </p>
             </div>
-          </CollapsibleCard>
+          </WorkspaceBlock>
+        </WorkspaceColumn>
 
-          {/* ---- 5. Kết quả ---- */}
-          <CollapsibleCard
-            id="tv-section-result"
-            collapsed={sectionCollapsed("result")}
-            onToggle={() => toggleSection("result")}
+        {/* ============ Cột 3: tiến trình & kết quả ============ */}
+        <WorkspaceColumn role="output" title={t("workspace.col.output")}>
+          {/* Khối ĐẦU TIÊN của cột: đang đóng phụ đề thì nhấp nháy chờ, xong thì
+              hiện thẳng video. Liếc một chỗ là biết phiên đang ở đâu. */}
+          <OutputBlock
+            id="tv-block-result"
+            status={outputStatus}
+            videoUrl={outputUrl}
+            progress={renderJob ? renderJob.progress : null}
+            step={renderJob?.step}
+            aspect={aspect}
+            error={renderFailed ? shortError(session.error) : null}
+            collapsed={group.isCollapsed("result")}
+            onToggle={() => group.toggle("result")}
             summary={resultSummary}
             title={
               <span className="inline-flex items-center gap-1.5">
@@ -1344,46 +1266,123 @@ export default function TranslateVideoDetailPage() {
               </Button>
             }
           >
+            {session.status === "rendering" && (
+              <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                {t("tv.rendering-hint")}
+              </p>
+            )}
+
+            {/* Log của bước đóng phụ đề - thứ SINH RA trong lúc chạy, đúng chỗ */}
+            {renderJob && <JobLogBlock job={renderJob} />}
+
+            {outputUrl ? (
+              <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
+                {session.outputFile}
+              </span>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">
+                {canRender
+                  ? t("tv.render-hint")
+                  : cues.length === 0
+                    ? t("tv.render-need-transcript")
+                    : t("tv.render-need-translation")}
+              </p>
+            )}
+          </OutputBlock>
+
+          {/* Lời thoại bóc ra được - sản phẩm của bước 2, không phải ô nhập */}
+          <WorkspaceBlock
+            id="tv-block-transcript"
+            icon={Subtitles}
+            collapsed={group.isCollapsed("transcript")}
+            onToggle={() => group.toggle("transcript")}
+            summary={transcriptSummary}
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                {t("tv.card-transcript")}
+                <InfoHint
+                  titleKey="help.tv-transcript.title"
+                  bodyKey="help.tv-transcript.body"
+                  size={14}
+                />
+              </span>
+            }
+            actions={
+              <Button
+                small
+                disabled={!canTranscribe || busy !== null}
+                onClick={() => run("transcribe")}
+              >
+                {busy === "transcribe" ? (
+                  <Loader2 size={14} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Subtitles size={14} strokeWidth={2} />
+                )}
+                {cues.length > 0 ? t("tv.re-transcribe") : t("tv.transcribe")}
+              </Button>
+            }
+          >
             <div className="flex flex-col gap-3">
-              {session.status === "rendering" && (
+              {session.status === "transcribing" && (
                 <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                   <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                  {t("tv.rendering-hint")}
+                  {t("tv.transcribing-hint")}
                 </p>
               )}
 
-              {job && phase === "render" && <JobLogBlock job={job} />}
+              {job && phase === "transcribe" ? (
+                <JobLogBlock job={job} />
+              ) : cues.length === 0 ? (
+                <EmptyState
+                  icon={Subtitles}
+                  description={hasSource ? t("tv.no-transcript") : t("tv.no-source-yet")}
+                />
+              ) : null}
 
-              {outputUrl ? (
-                <>
-                  <video
-                    controls
-                    src={outputUrl}
-                    className="max-h-[420px] w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
-                  />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <a href={outputUrl} download className="btn btn-primary btn-sm">
-                      <Download size={14} strokeWidth={2} />
-                      {t("tv.download")}
-                    </a>
-                    <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
-                      {session.outputFile}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {canRender
-                    ? t("tv.render-hint")
-                    : cues.length === 0
-                      ? t("tv.render-need-transcript")
-                      : t("tv.render-need-translation")}
-                </p>
+              {session.transcriptFile && (
+                <span className="chip w-fit">
+                  {t("tv.transcript-file")}: {session.transcriptFile}
+                </span>
               )}
             </div>
-          </CollapsibleCard>
-        </div>
-      </div>
+          </WorkspaceBlock>
+
+          {/* Dịch tới đâu rồi - đếm trên chính danh sách câu đang sửa ở cột 2 */}
+          <WorkspaceBlock
+            id="tv-block-progress"
+            icon={Wand2}
+            collapsed={group.isCollapsed("progress")}
+            onToggle={() => group.toggle("progress")}
+            summary={translationSummary}
+            title={t("tv.card-translation-status")}
+          >
+            <div className="flex flex-col gap-2">
+              {session.status === "translating" ? (
+                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                  {t("tv.translating-hint")}
+                </p>
+              ) : cues.length === 0 ? (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {t("tv.no-transcript")}
+                </p>
+              ) : (
+                <>
+                  <ProgressBar
+                    progress={(translatedCount / cues.length) * 100}
+                  />
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {langLabel(sourceLang)} → {langLabel(targetLang)} ·{" "}
+                    {tf("tv.translated-count", { n: translatedCount })} /{" "}
+                    {tf("tv.cue-count", { n: cues.length })}
+                  </p>
+                </>
+              )}
+            </div>
+          </WorkspaceBlock>
+        </WorkspaceColumn>
+      </Workspace>
 
       <ConfirmDeleteModal
         open={deleteOpen}

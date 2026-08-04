@@ -1595,7 +1595,7 @@ export const en: Record<string, string> = {
   "ttv.stage.build": "Build",
   "ttv.stage-aria": "Step {stage} of 5: {label}",
 
-  "ttv.card-source": "1. Source",
+  "ttv.card-source": "Source article",
   "ttv.extract": "Extract content",
   "ttv.re-extract": "Extract again",
   "ttv.extracting-hint": "Opening the link and extracting the main content…",
@@ -1605,7 +1605,7 @@ export const en: Record<string, string> = {
   "ttv.content-hint":
     "Edit freely before writing the script - the AI only reads what is in this box.",
 
-  "ttv.card-script": "2. Narration script",
+  "ttv.card-script": "Narration script",
   "ttv.write-script": "Let AI write it",
   "ttv.rewrite-script": "Rewrite",
   "ttv.target-seconds": "Length (sec)",
@@ -1631,7 +1631,7 @@ export const en: Record<string, string> = {
   "ttv.estimate-warning":
     "These durations are only estimated from the character count. The real duration is known only after synthesis: for identical input, TTS output varies by up to 28%.",
 
-  "ttv.card-voice": "3. Voice",
+  "ttv.card-voice": "Voice",
   "ttv.voice-not-chosen": "No voice yet",
   "ttv.voice.selected": "Selected voice:",
   "ttv.voice.none-selected": "None yet - pick a voice from the list below.",
@@ -1678,7 +1678,7 @@ export const en: Record<string, string> = {
   "ttv.voice.style-warning":
     "Changing the reading style re-times everything: with the same script, a different style can change the duration by up to 2.6x.",
 
-  "ttv.card-config": "4. Video settings",
+  "ttv.card-config": "Video settings",
   "ttv.aspect": "Aspect ratio",
   "ttv.fps": "FPS",
   "ttv.custom-size": "Custom size in use: {size}.",
@@ -1688,7 +1688,8 @@ export const en: Record<string, string> = {
   "ttv.brief-locked":
     "The session is running - you can edit the settings once this step finishes.",
 
-  "ttv.card-build": "5. Build",
+  "ttv.card-build": "Output video",
+  "ttv.card-job": "Build log",
   "ttv.build": "Build video",
   "ttv.build-hint":
     "Press Build video: the system synthesises the narration, generates a transcript, then creates a Videos Project and starts the AI edit on it.",
@@ -2093,7 +2094,7 @@ export const en: Record<string, string> = {
   "tv.cue-count": "{n} lines",
   "tv.translated-count": "{n} lines translated",
 
-  "tv.card-source": "1. Source",
+  "tv.card-source": "Source video",
   "tv.upload-video": "Upload video",
   "tv.replace-video": "Replace video",
   "tv.uploading": "Uploading the video…",
@@ -2102,7 +2103,7 @@ export const en: Record<string, string> = {
   "tv.no-source-yet": "No source video yet.",
   "tv.source-lang": "Language spoken in the video",
 
-  "tv.card-transcript": "2. Dialogue",
+  "tv.card-transcript": "Dialogue",
   "tv.transcribe": "Pull dialogue",
   "tv.re-transcribe": "Pull again",
   "tv.transcribing-hint":
@@ -2113,7 +2114,8 @@ export const en: Record<string, string> = {
   "tv.job-no-log": "No log lines yet.",
   "tv.job-log-error": "Could not read the job log.",
 
-  "tv.card-translation": "3. Translation",
+  "tv.card-translation": "Translation",
+  "tv.card-translation-status": "Translation progress",
   "tv.translate": "AI translate",
   "tv.re-translate": "Translate again",
   "tv.target-lang": "Translate into",
@@ -2124,7 +2126,7 @@ export const en: Record<string, string> = {
   "tv.cue-aria": "Translation of line {n}",
   "tv.cue-hint": "Edit any line by hand - changes save themselves.",
 
-  "tv.card-subtitle": "4. Subtitles",
+  "tv.card-subtitle": "Subtitles",
   "tv.preview": "Preview",
   "tv.preview-text": "This is a sample subtitle line",
   "tv.preview-hint":
@@ -2147,7 +2149,7 @@ export const en: Record<string, string> = {
   "tv.style-locked":
     "The session is running - the subtitle style unlocks when this step finishes.",
 
-  "tv.card-result": "5. Result",
+  "tv.card-result": "Output video",
   "tv.render": "Burn subtitles",
   "tv.re-render": "Burn again",
   "tv.rendering-hint": "Burning the translated subtitles onto the video…",

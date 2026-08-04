@@ -1592,7 +1592,7 @@ export const vi: Record<string, string> = {
   "ttv.stage.build": "Dựng video",
   "ttv.stage-aria": "Bước {stage}/5: {label}",
 
-  "ttv.card-source": "1. Nguồn",
+  "ttv.card-source": "Bài viết nguồn",
   "ttv.extract": "Trích xuất nội dung",
   "ttv.re-extract": "Trích xuất lại",
   "ttv.extracting-hint": "Đang mở link và bóc lấy nội dung chính của bài…",
@@ -1602,7 +1602,7 @@ export const vi: Record<string, string> = {
   "ttv.content-hint":
     "Sửa thoải mái trước khi viết kịch bản - AI chỉ đọc đúng phần chữ trong ô này.",
 
-  "ttv.card-script": "2. Kịch bản đọc",
+  "ttv.card-script": "Kịch bản đọc",
   "ttv.write-script": "AI viết kịch bản",
   "ttv.rewrite-script": "Viết lại",
   "ttv.target-seconds": "Độ dài (giây)",
@@ -1628,7 +1628,7 @@ export const vi: Record<string, string> = {
   "ttv.estimate-warning":
     "Thời lượng ở đây chỉ là ước tính theo số ký tự. Thời lượng thật chỉ biết sau khi tổng hợp giọng: cùng một câu, TTS đọc lệch nhau tới 28%.",
 
-  "ttv.card-voice": "3. Giọng đọc",
+  "ttv.card-voice": "Giọng đọc",
   "ttv.voice-not-chosen": "Chưa chọn giọng",
   "ttv.voice.selected": "Giọng đang chọn:",
   "ttv.voice.none-selected": "Chưa chọn - bấm một giọng trong danh sách bên dưới.",
@@ -1675,7 +1675,7 @@ export const vi: Record<string, string> = {
   "ttv.voice.style-warning":
     "Đổi cách đọc là toàn bộ thời lượng phải tính lại: cùng một kịch bản, cách đọc khác nhau làm thời lượng chênh tới 2,6 lần.",
 
-  "ttv.card-config": "4. Cấu hình video",
+  "ttv.card-config": "Cấu hình video",
   "ttv.aspect": "Tỉ lệ khung hình",
   "ttv.fps": "FPS",
   "ttv.custom-size": "Kích thước đang đặt riêng: {size}.",
@@ -1684,7 +1684,8 @@ export const vi: Record<string, string> = {
   "ttv.brief-autosave": "Thay đổi tự lưu.",
   "ttv.brief-locked": "Phiên đang chạy - sửa được cấu hình khi bước này xong.",
 
-  "ttv.card-build": "5. Dựng video",
+  "ttv.card-build": "Video thành phẩm",
+  "ttv.card-job": "Nhật ký dựng video",
   "ttv.build": "Dựng video",
   "ttv.build-hint":
     "Bấm Dựng video: hệ thống đọc kịch bản thành giọng, tạo transcript, rồi đẻ một Videos Project và chạy AI edit.",
@@ -2089,7 +2090,7 @@ export const vi: Record<string, string> = {
   "tv.cue-count": "{n} câu",
   "tv.translated-count": "{n} câu đã dịch",
 
-  "tv.card-source": "1. Nguồn",
+  "tv.card-source": "Video nguồn",
   "tv.upload-video": "Tải video lên",
   "tv.replace-video": "Đổi video khác",
   "tv.uploading": "Đang tải video lên…",
@@ -2098,7 +2099,7 @@ export const vi: Record<string, string> = {
   "tv.no-source-yet": "Chưa có video nguồn.",
   "tv.source-lang": "Ngôn ngữ trong video",
 
-  "tv.card-transcript": "2. Lời thoại",
+  "tv.card-transcript": "Lời thoại",
   "tv.transcribe": "Bóc lời thoại",
   "tv.re-transcribe": "Bóc lại",
   "tv.transcribing-hint":
@@ -2109,7 +2110,8 @@ export const vi: Record<string, string> = {
   "tv.job-no-log": "Chưa có dòng log nào.",
   "tv.job-log-error": "Không đọc được log của job.",
 
-  "tv.card-translation": "3. Bản dịch",
+  "tv.card-translation": "Bản dịch",
+  "tv.card-translation-status": "Tiến trình dịch",
   "tv.translate": "AI dịch",
   "tv.re-translate": "Dịch lại",
   "tv.target-lang": "Dịch sang",
@@ -2119,7 +2121,7 @@ export const vi: Record<string, string> = {
   "tv.cue-aria": "Lời dịch câu {n}",
   "tv.cue-hint": "Sửa tay câu nào cũng được, thay đổi tự lưu.",
 
-  "tv.card-subtitle": "4. Phụ đề",
+  "tv.card-subtitle": "Phụ đề",
   "tv.preview": "Xem trước",
   "tv.preview-text": "Đây là dòng phụ đề xem thử",
   "tv.preview-hint":
@@ -2141,7 +2143,7 @@ export const vi: Record<string, string> = {
   "tv.style-autosave": "Thay đổi tự lưu.",
   "tv.style-locked": "Phiên đang chạy - sửa được kiểu phụ đề khi bước này xong.",
 
-  "tv.card-result": "5. Kết quả",
+  "tv.card-result": "Video thành phẩm",
   "tv.render": "Đóng phụ đề",
   "tv.re-render": "Đóng lại",
   "tv.rendering-hint": "Đang đóng phụ đề đã dịch lên video…",

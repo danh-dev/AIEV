@@ -1,38 +1,40 @@
 "use client";
 
 /**
- * Chi tiết một phiên "Text to video" - dựng theo đúng bố cục của Videos Project:
- * lưới nhiều cột + panel AI ghim phải, thay vì một cột dài phải cuộn mãi.
+ * Chi tiết một phiên "Text to video" - lắp bằng bộ khối workspace 3 cột dùng chung
+ * (`components/Workspace.tsx`), chia theo NHỊP LÀM VIỆC chứ không theo số bước:
  *
- * Chia cột theo NHỊP LÀM VIỆC chứ không theo số thứ tự bước:
- * - Cột trái "nội dung dài": Nguồn → Kịch bản đọc. Hai thứ này là văn bản, người
- *   dùng đọc và sửa tay rất nhiều, và kịch bản sinh ra TỪ nguồn nên đặt liền
- *   nhau để so đối chiếu mà không phải cuộn qua lại.
- * - Cột phải "thiết lập ngắn": Giọng đọc → Cấu hình video → Dựng video. Toàn nút
- *   bấm và ô chọn, cao vừa phải; nút Dựng nằm cuối vì nó tiêu thụ mọi thiết lập
- *   ở trên.
- * Hẹp hơn xl thì lưới xẹp về một cột theo đúng thứ tự 1→5 như cũ.
+ * - Cột `source`: bài viết/văn bản nguồn - thứ mình BẮT ĐẦU TỪ ĐÓ.
+ * - Cột `setup`: kịch bản đọc, giọng đọc, cấu hình video - "mình muốn ra cái gì".
+ * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
+ *   thì hiện thẳng video), rồi nhật ký job dựng và tiến trình của project con.
+ *
+ * Panel AI là SLOT CỦA SHELL: trang chỉ khai báo <ShellRightPanel> và shell lo bề
+ * rộng, chỗ chừa, nút gấp, chế độ drawer. Trước đây trang tự dựng một <aside>
+ * `fixed` rồi chừa chỗ bằng `xl:pr-[452px]` - con số đó sai ngay khi người dùng
+ * gấp panel lại, và mỗi trang lại phải nhớ tự chừa.
  *
  * Thanh bước dùng chung StepperBar với Videos Project - không tự vẽ thanh thứ hai.
  *
- * Phiên dựng xong (status "done") thì bốn khối nhập liệu tự gấp lại còn một dòng
- * tóm tắt, khối kết quả mở ra: lúc đó người dùng vào trang là để XEM video vừa
- * ra, không phải để sửa nguồn hay kịch bản nữa. Gấp/mở vẫn bấm tay được và ý
- * người dùng luôn thắng mặc định - xem `sectionOverride`.
+ * Phiên dựng xong (status "done") thì các khối khác tự gấp lại còn một dòng tóm
+ * tắt, riêng khối video thành phẩm vẫn mở: lúc đó người dùng vào trang là để XEM
+ * video vừa ra, không phải để sửa nguồn hay kịch bản nữa. Gấp/mở vẫn bấm tay được
+ * và ý người dùng luôn thắng mặc định - xem `useCollapseGroup`.
  */
 
 import {
   ArrowLeft,
-  ChevronDown,
-  ChevronRight,
   ExternalLink,
   FileText,
   Link2,
-  Download,
+  ListVideo,
   Loader2,
   MessageSquare,
+  Mic,
   Plus,
   RefreshCw,
+  ScrollText,
+  Settings2,
   Sparkles,
   Trash2,
   Type,
@@ -41,7 +43,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildTextToVideo,
   deleteTextToVideo,
@@ -94,7 +96,16 @@ import { PageHeader } from "@/components/PageHeader";
 import { deriveStage, PipelineTimeline, StepperBar } from "@/components/PipelineTimeline";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
+import { ShellRightPanel } from "@/components/Shell";
 import { StyleSelect, styleDisplayName, useStyles } from "@/components/StyleSelect";
+import {
+  OutputBlock,
+  useCollapseGroup,
+  Workspace,
+  WorkspaceBlock,
+  WorkspaceColumn,
+  type WorkspaceStatus,
+} from "@/components/Workspace";
 import { VoicePicker } from "@/components/VoicePicker";
 import { BriefFields, DEFAULT_BRIEF } from "@/components/BriefFields";
 // clock() (giây → mm:ss) đã có sẵn ở đây, lib/format.ts chưa có helper tương đương
@@ -114,6 +125,20 @@ const RUNNING_STATUS = ["extracting", "scripting", "voicing", "building"];
 const TARGET_SECONDS_MIN = 15;
 const TARGET_SECONDS_MAX = 600;
 
+/** Độ dài tối đa của lỗi hiện trong khối kết quả - xem `shortError`. */
+const ERROR_PREVIEW_MAX = 240;
+
+/**
+ * Rút gọn lỗi cho khối kết quả. Lỗi thật (log render, traceback python) dài hàng
+ * chục dòng, đổ nguyên vào khung video là đẩy mọi thứ khác xuống dưới màn hình -
+ * bản đầy đủ vẫn nằm ở banner lỗi phía trên trang.
+ */
+function shortError(e: string | null | undefined): string | null {
+  if (!e) return null;
+  const s = e.replace(/\s+/g, " ").trim();
+  return s.length > ERROR_PREVIEW_MAX ? `${s.slice(0, ERROR_PREVIEW_MAX)}…` : s;
+}
+
 /** Thay đổi đang chờ gửi - luôn gửi trọn từng khối con để server khỏi phải merge. */
 interface Patch {
   name?: string;
@@ -125,14 +150,23 @@ interface Patch {
   scriptModel?: string | null;
 }
 
-/** Năm khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
-type SectionKey = "source" | "script" | "voice" | "config" | "build";
+/** Các khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
+const TTV_BLOCKS = [
+  "source",
+  "script",
+  "voice",
+  "config",
+  "build",
+  "log",
+  "child",
+] as const;
+type BlockKey = (typeof TTV_BLOCKS)[number];
 
 /**
- * Các khối NHẬP LIỆU - phiên xong rồi thì không ai sửa nữa nên gấp mặc định.
- * Khối "build" cố tình không nằm ở đây: nó chứa video thành phẩm, luôn mở.
+ * Khối vẫn MỞ khi phiên xong: video thành phẩm. Xong việc thì người dùng vào
+ * trang là để xem thành phẩm, không phải để sửa ô nhập nữa.
  */
-const SETUP_SECTIONS: SectionKey[] = ["source", "script", "voice", "config"];
+const TTV_KEEP_EXPANDED: readonly BlockKey[] = ["build"];
 
 // Giá trị là KEY dictionary - StepperBar tự dịch bằng t() lúc render.
 const STAGE_LABELS = [
@@ -171,86 +205,30 @@ function deriveTtvStage(m: TextToVideoMeta): {
   return { stage: hasSource ? 2 : 1, active: false, complete: false };
 }
 
-/**
- * Card gấp lại được - dùng cho cả năm khối của phiên.
- *
- * Gấp rồi vẫn phải biết bên trong đang chứa gì, nên chỗ thân card đổi thành MỘT
- * DÒNG tóm tắt. Một thanh trắng chỉ có tiêu đề "1. Nguồn" thì người dùng phải mở
- * từng khối ra mới nhớ nổi phiên này lấy nguồn từ đâu - gấp kiểu đó chỉ giấu đi
- * chứ không giúp gì.
- *
- * Thân card giữ nguyên trong DOM và chỉ bị `hidden`, KHÔNG tháo ra: bên trong có
- * VoicePicker, StyleSelect và ResultBlock tự đi lấy dữ liệu, tháo ra lắp lại là
- * bắt chúng fetch lại từ đầu mỗi lần bấm gấp/mở.
- */
-function CollapsibleCard({
-  id,
-  title,
-  summary,
-  collapsed,
-  onToggle,
-  actions,
-  children,
-}: {
-  /** id vùng nội dung - nút gấp/mở trỏ vào đây bằng aria-controls */
-  id: string;
-  title: ReactNode;
-  /** Một dòng cho biết bên trong có gì - chỉ hiện lúc đang gấp */
-  summary: ReactNode;
-  collapsed: boolean;
-  onToggle: () => void;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  const { t } = useT();
-  const label = collapsed ? t("ttv.section.expand") : t("ttv.section.collapse");
-  return (
-    <Card
-      title={title}
-      actions={
-        // min-w-0 + flex-wrap: cột hẹp thì nút hành động xuống hàng chứ không đẩy
-        // nút gấp/mở tràn ra khỏi card
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          {/* Gấp rồi thì giấu nút hành động: bấm "Viết lại" trong khi không nhìn
-              thấy kịch bản cũ là ghi đè bản đang có mà không kịp biết mình mất gì */}
-          {!collapsed && actions}
-          <Button
-            variant="secondary"
-            small
-            onClick={onToggle}
-            aria-expanded={!collapsed}
-            aria-controls={id}
-          >
-            {collapsed ? (
-              <ChevronRight size={14} strokeWidth={2} />
-            ) : (
-              <ChevronDown size={14} strokeWidth={2} />
-            )}
-            {label}
-          </Button>
-        </div>
-      }
-    >
-      {collapsed && (
-        <p className="truncate text-xs text-[var(--text-muted)]">{summary}</p>
-      )}
-      <div id={id} hidden={collapsed}>
-        {children}
-      </div>
-    </Card>
-  );
+/** Những gì trang biết về project con mà phiên đẻ ra - xem `useChildProject`. */
+interface ChildProject {
+  /** Video thành phẩm của project con (đã kèm ?v= để không dính cache cũ) */
+  url: string | null;
+  /** Đường dẫn tương đối của file output - hiện dưới video */
+  output: string | null;
+  /** Job đang chạy của project con - tiến trình THẬT của việc dựng */
+  runningJob: Job | null;
+  /** Đầu vào cho PipelineTimeline; null khi chưa đọc được project */
+  pipelineInput: Parameters<typeof PipelineTimeline>[0] | null;
+  error: string | null;
 }
 
 /**
- * Kết quả của phiên: video xem và tải ngay tại chỗ.
+ * Theo dõi project con mà phiên đẻ ra: meta, job, phiên chat AI.
  *
- * Phiên vẫn sinh ra một Videos Project thật (pipeline dựng video nằm ở đó), NHƯNG
- * người dùng không phải sang bên ấy mới xem được thành phẩm. Đường link sang
- * project giữ lại ở dạng phụ, cho ai cần các thao tác nâng cao (render lại, QC,
- * cắt short, xuất phụ đề).
+ * Là HOOK chứ không phải component vì kết quả bị tách ra hai khối nằm ở hai chỗ
+ * khác nhau của cột kết quả (video thành phẩm đứng đầu, tiến trình dựng ở dưới) -
+ * component thì không chia đôi state của mình ra hai chỗ được.
+ *
+ * `projectId` null (chưa dựng) thì hook nằm im, không gọi API nào - nhưng vẫn
+ * phải được gọi ở mọi lần render, nên trang gọi nó vô điều kiện.
  */
-function ResultBlock({ projectId }: { projectId: string }) {
-  const { t, tf } = useT();
+function useChildProject(projectId: string | null): ChildProject {
   // SSE đứt rồi nối lại → refetch dữ liệu seed để không kẹt trạng thái cũ
   const { resyncTick } = useEvents();
   const [project, setProject] = useState<ProjectDetail | null>(null);
@@ -262,6 +240,10 @@ function ResultBlock({ projectId }: { projectId: string }) {
   const [aiRunning, setAiRunning] = useState(false);
 
   const reload = useCallback(() => {
+    if (!projectId) {
+      setProject(null);
+      return;
+    }
     getProject(projectId)
       .then((p) => {
         setProject(p);
@@ -273,6 +255,7 @@ function ResultBlock({ projectId }: { projectId: string }) {
   useEffect(reload, [reload, resyncTick]);
 
   const loadSessions = useCallback(() => {
+    if (!projectId) return;
     getChatSessions(projectId)
       .then((list) => setAiRunning(list.some((s) => s.status === "running")))
       .catch(() => {
@@ -288,6 +271,10 @@ function ResultBlock({ projectId }: { projectId: string }) {
   // Không có nó thì trang này chỉ biết "đã bàn giao" rồi im lặng hàng chục phút.
   // Lọc projectId phía server - queue bận không đẩy job của project ra khỏi cửa sổ.
   useEffect(() => {
+    if (!projectId) {
+      setJobs([]);
+      return;
+    }
     let alive = true;
     getJobs(50, projectId)
       .then((list) => {
@@ -304,7 +291,7 @@ function ResultBlock({ projectId }: { projectId: string }) {
   // AI dựng xong thì meta.output mới có - bám cả job lẫn phiên agent để video
   // tự hiện ra, không bắt người dùng F5 đoán lúc nào xong
   useJobEvents((e) => {
-    if (e.projectId !== projectId) return;
+    if (!projectId || e.projectId !== projectId) return;
     setJobs((prev) => {
       const i = prev.findIndex((j) => j.id === e.id);
       if (i < 0) return [...prev, e];
@@ -315,6 +302,7 @@ function ResultBlock({ projectId }: { projectId: string }) {
     reload();
   });
   useAgentEvents((e) => {
+    if (!projectId) return;
     if (e.kind === "done" || e.kind === "result") {
       reload();
       loadSessions();
@@ -322,86 +310,26 @@ function ResultBlock({ projectId }: { projectId: string }) {
   });
 
   const output = project?.output ?? null;
-  const url = output
-    ? `${mediaUrl(output)}?v=${encodeURIComponent(project?.updatedAt ?? "")}`
-    : null;
 
-  const running = jobs.find((j) => j.status === "running") ?? null;
-  const pipelineInput = project
-    ? {
-        metaStatus: project.status,
-        hasOutput: project.output != null,
-        scenes: project.scenes ?? [],
-        renders: project.files?.renders ?? [],
-        jobs,
-        // Trạng thái THẬT của phiên chat AI - lấy từ API sessions, không suy từ job
-        sessionRunning: aiRunning,
-      }
-    : null;
-
-  return (
-    <div className="flex flex-col gap-3">
-      {err && <p className="text-xs text-[var(--danger)]">{err}</p>}
-
-      {/* Tiến trình THẬT của project con - thứ mà trước đây không nhìn thấy được */}
-      {pipelineInput && deriveStage(pipelineInput) !== null && (
-        <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-3">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-xs font-semibold text-[var(--text)]">
-              {t("ttv.build.child-title")}
-            </span>
-            <Link
-              href={`/projects/${projectId}`}
-              className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
-            >
-              <ExternalLink size={12} strokeWidth={2} />
-              {t("ttv.build.open-project")}
-            </Link>
-          </div>
-          <PipelineTimeline {...pipelineInput} />
-          {running ? (
-            <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-              <Loader2 size={12} strokeWidth={2} className="animate-spin shrink-0" />
-              {tf("ttv.build.running-job", { label: running.type })}
-              {running.progress > 0 ? ` · ${running.progress}%` : ""}
-            </p>
-          ) : (
-            !url && (
-              <p className="text-xs text-[var(--text-muted)]">{t("ttv.build.long-warning")}</p>
-            )
-          )}
-        </div>
-      )}
-      {url ? (
-        <>
-          <video
-            controls
-            src={url}
-            className="max-h-[420px] w-full rounded-[var(--radius)] bg-[var(--bg-subtle)]"
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <a href={url} download className="btn btn-primary btn-sm">
-              <Download size={14} strokeWidth={2} />
-              {t("ttv.download")}
-            </a>
-            <span className="text-xs text-[var(--text-muted)]">{output}</span>
-          </div>
-        </>
-      ) : (
-        <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-          <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-          {t("ttv.result-waiting")}
-        </p>
-      )}
-      <Link
-        href={`/projects/${projectId}`}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--primary)]"
-      >
-        <ExternalLink size={13} strokeWidth={2} />
-        {t("ttv.open-project-advanced")}
-      </Link>
-    </div>
-  );
+  return {
+    output,
+    url: output
+      ? `${mediaUrl(output)}?v=${encodeURIComponent(project?.updatedAt ?? "")}`
+      : null,
+    runningJob: jobs.find((j) => j.status === "running") ?? null,
+    pipelineInput: project
+      ? {
+          metaStatus: project.status,
+          hasOutput: project.output != null,
+          scenes: project.scenes ?? [],
+          renders: project.files?.renders ?? [],
+          jobs,
+          // Trạng thái THẬT của phiên chat AI - lấy từ API sessions, không suy từ job
+          sessionRunning: aiRunning,
+        }
+      : null,
+    error: err,
+  };
 }
 
 /**
@@ -594,23 +522,26 @@ export default function TextToVideoDetailPage() {
   const [job, setJob] = useState<Job | null>(null);
   const buildJobId = useRef<string | null>(null);
 
-  // Khối nào người dùng đã TỰ TAY gấp/mở - chỉ ghi khi có click, khối chưa bấm
-  // thì vắng mặt ở đây và chạy theo mặc định suy từ status.
-  //
-  // Cố tình KHÔNG có useEffect nào đồng bộ trạng thái gấp theo status: trang này
+  // Gấp/mở từng khối. Mặc định suy từ "phiên đã xong chưa" NGAY TRONG LÚC RENDER,
+  // cố tình KHÔNG có useEffect nào đồng bộ trạng thái gấp theo status: trang này
   // bám SSE job + agent, mỗi dòng log hay mỗi lần job đổi tiến trình là một lần
   // render mới. Effect kiểu đó sẽ đóng sập đúng cái khối người dùng vừa mở ra,
   // mà lỗi ấy trông như trang tự nhiên "nhảy" chứ không ai đoán ra là do SSE.
-  const [sectionOverride, setSectionOverride] = useState<
-    Partial<Record<SectionKey, boolean>>
-  >({});
+  //
+  // Gọi trước mọi lối thoát sớm (loading/lỗi) - thứ tự hook phải giống nhau ở
+  // mọi lần render.
+  const group = useCollapseGroup({
+    keys: TTV_BLOCKS,
+    finished: session?.status === "done",
+    keepExpanded: TTV_KEEP_EXPANDED,
+  });
 
   // Tên Style Design cho dòng tóm tắt của khối Cấu hình. Dùng chung cache
   // module-level với StyleSelect ngay trong khối đó - không thêm request nào.
   const { data: stylesData } = useStyles();
 
-  // Panel AI ghim phải - giống Videos Project. Dưới xl là drawer bật/tắt.
-  const [panelOpen, setPanelOpen] = useState(false);
+  // Panel AI là slot của shell (ShellRightPanel) - trang KHÔNG giữ state gấp/mở,
+  // không chừa chỗ, không tự dựng drawer. Shell lo hết.
   const [chatSessions, setChatSessions] = useState<ChatSession[] | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
@@ -673,6 +604,10 @@ export default function TextToVideoDetailPage() {
   // Tìm y như trang Videos Project: /api/chat/sessions lọc theo projectId, lấy
   // phiên mới nhất. Chưa dựng xong thì projectId còn null → chưa có gì để tìm.
   const projectId = session?.projectId ?? null;
+
+  // Project con: video thành phẩm + job + timeline. Gọi vô điều kiện (hook), tự
+  // nằm im khi phiên chưa dựng ra project nào.
+  const child = useChildProject(projectId);
 
   const loadChatSessions = useCallback(async () => {
     if (!projectId) return;
@@ -849,8 +784,6 @@ export default function TextToVideoDetailPage() {
       } else {
         const { jobId } = await buildTextToVideo(sessionId);
         buildJobId.current = jobId;
-        // Job vừa chạy → mở panel để người dùng nhìn thấy log ngay, khỏi phải tìm
-        setPanelOpen(true);
         await load();
       }
     } catch (e) {
@@ -914,36 +847,27 @@ export default function TextToVideoDetailPage() {
     ? t(TEXT_TO_VIDEO_STATUS_LABEL[session.status])
     : String(session.status);
 
-  // ---- Gấp/mở từng khối ----
+  // ---- Khối video thành phẩm ----
 
   const done = session.status === "done";
 
   /**
-   * Mặc định KHI CHƯA AI BẤM: phiên xong thì gấp mấy khối nhập liệu lại cho gọn
-   * màn hình, khối kết quả vẫn mở để thấy ngay video vừa ra. Chưa xong thì mở
-   * hết như cũ - gấp cái ô người dùng đang gõ dở là phá đám.
+   * Job để đo tiến trình: ƯU TIÊN job của project con - job "text-to-video" chỉ
+   * chạy tới lúc bàn giao cho AI, còn việc dựng thật nằm ở project con.
    */
-  function defaultCollapsed(key: SectionKey): boolean {
-    return done && key !== "build";
-  }
+  const activeJob =
+    child.runningJob ?? (job && job.status === "running" ? job : null);
 
-  /** Đã bấm tay thì lấy đúng ý người dùng, chưa bấm mới rơi xuống mặc định. */
-  function sectionCollapsed(key: SectionKey): boolean {
-    return sectionOverride[key] ?? defaultCollapsed(key);
-  }
+  const outputStatus: WorkspaceStatus =
+    session.status === "failed"
+      ? "failed"
+      : child.url
+        ? "done"
+        : running || session.projectId
+          ? "running"
+          : "idle";
 
-  function toggleSection(key: SectionKey) {
-    // Đảo dựa trên state trong updater chứ không trên biến của lần render này -
-    // giữa lúc bấm vẫn có thể có sự kiện SSE chen vào làm render lại.
-    setSectionOverride((o) => ({
-      ...o,
-      [key]: !(o[key] ?? defaultCollapsed(key)),
-    }));
-  }
-
-  // Còn khối nhập liệu nào đang gấp thì nói cho người dùng biết vì sao trang gọn
-  // hẳn lại. Mở hết ra rồi thì dòng này tự biến mất, không nhắc thừa.
-  const anyCollapsed = SETUP_SECTIONS.some((k) => sectionCollapsed(k));
+  const aspect = `${output.width} / ${output.height}`;
 
   // ---- Một dòng tóm tắt cho từng khối lúc gấp ----
 
@@ -975,66 +899,55 @@ export default function TextToVideoDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header chừa chỗ panel AI ghim phải như vùng nội dung - không thì thanh
-          bước chui xuống dưới panel */}
-      <div className="xl:pr-[452px]">
-        <PageHeader
-          title={session.name}
-          subtitle={`${output.width}x${output.height} · ${output.fps}fps`}
-          center={
-            <div className="flex items-start gap-1.5">
-              <div className="min-w-0 flex-1">
-                <StepperBar
-                  steps={STAGE_LABELS}
-                  stage={stage.stage}
-                  active={stage.active}
-                  done={stage.complete}
-                  ariaLabel={tf("ttv.stage-aria", {
-                    stage: stage.stage,
-                    label: t(STAGE_LABELS[stage.stage - 1]),
-                  })}
-                />
-              </div>
-              <InfoHint
-                titleKey="help.ttv.title"
-                bodyKey="help.ttv.body"
-                className="mt-px"
+      {/* Không còn `xl:pr-[452px]`: chỗ chừa cho panel AI là việc của shell, và
+          con số tay kiểu đó sai ngay khi người dùng gấp panel lại. */}
+      <PageHeader
+        title={session.name}
+        subtitle={`${output.width}x${output.height} · ${output.fps}fps`}
+        center={
+          <div className="flex items-start gap-1.5">
+            <div className="min-w-0 flex-1">
+              <StepperBar
+                steps={STAGE_LABELS}
+                stage={stage.stage}
+                active={stage.active}
+                done={stage.complete}
+                ariaLabel={tf("ttv.stage-aria", {
+                  stage: stage.stage,
+                  label: t(STAGE_LABELS[stage.stage - 1]),
+                })}
               />
             </div>
-          }
-          actions={
-            <>
-              <Button
-                variant="secondary"
-                className="xl:hidden"
-                onClick={() => setPanelOpen((o) => !o)}
-                aria-expanded={panelOpen}
-              >
-                <MessageSquare size={15} strokeWidth={2} />
-                AI
-              </Button>
-              <Button variant="secondary" onClick={() => router.push("/text-to-video")}>
-                <ArrowLeft size={15} strokeWidth={2} />
-                {t("ttv.back")}
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={running}
-                onClick={() => {
-                  setDeleteError(null);
-                  setDeleteOpen(true);
-                }}
-              >
-                <Trash2 size={15} strokeWidth={2} />
-                {t("common.delete")}
-              </Button>
-            </>
-          }
-        />
-      </div>
+            <InfoHint
+              titleKey="help.ttv.title"
+              bodyKey="help.ttv.body"
+              className="mt-px"
+            />
+          </div>
+        }
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => router.push("/text-to-video")}>
+              <ArrowLeft size={15} strokeWidth={2} />
+              {t("ttv.back")}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={running}
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+            >
+              <Trash2 size={15} strokeWidth={2} />
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      />
 
       {/* Tóm tắt phiên - nhìn một dòng biết phiên này đang ra sao */}
-      <div className="flex flex-col gap-4 xl:pr-[452px]">
+      <div className="flex flex-col gap-4">
         <Card>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <Badge
@@ -1053,7 +966,7 @@ export default function TextToVideoDetailPage() {
                 {tf("ttv.real-duration", { time: clock(session.voiceDurationSec) })}
               </span>
             )}
-            {done && anyCollapsed && (
+            {done && group.anyCollapsed && (
               <span className="min-w-0">{t("ttv.section.done-collapsed")}</span>
             )}
             <span className="ml-auto">
@@ -1072,16 +985,17 @@ export default function TextToVideoDetailPage() {
           <ErrorBanner message={t("ttv.failed")} detail={session.error ?? undefined} />
         )}
 
-        {/* Lưới hai cột: trái = văn bản dài (Nguồn, Kịch bản), phải = thiết lập
-            ngắn (Giọng, Cấu hình, Dựng). Dưới xl xẹp về một cột 1→5. */}
-        <div className="grid items-start gap-4 xl:grid-cols-2">
-          {/* ================= Cột trái: nội dung ================= */}
-          <div className="flex flex-col gap-4">
-            {/* ---- 1. Nguồn ---- */}
-            <CollapsibleCard
-              id="ttv-section-source"
-              collapsed={sectionCollapsed("source")}
-              onToggle={() => toggleSection("source")}
+        {/* Ba cột theo nhịp làm việc: nguồn → yêu cầu & thiết lập → tiến trình &
+            kết quả. Số cột do container query trong globals.css lo, trang không
+            tự tính pixel. */}
+        <Workspace>
+          {/* ================= Cột 1: nguồn ================= */}
+          <WorkspaceColumn role="source" title={t("workspace.col.source")}>
+            <WorkspaceBlock
+              id="ttv-block-source"
+              icon={FileText}
+              collapsed={group.isCollapsed("source")}
+              onToggle={() => group.toggle("source")}
               summary={sourceSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
@@ -1224,13 +1138,18 @@ export default function TextToVideoDetailPage() {
                   </p>
                 </div>
               </div>
-            </CollapsibleCard>
+            </WorkspaceBlock>
+          </WorkspaceColumn>
 
-            {/* ---- 2. Kịch bản đọc ---- */}
-            <CollapsibleCard
-              id="ttv-section-script"
-              collapsed={sectionCollapsed("script")}
-              onToggle={() => toggleSection("script")}
+          {/* ============ Cột 2: yêu cầu & thiết lập ============ */}
+          <WorkspaceColumn role="setup" title={t("workspace.col.setup")}>
+            {/* Kịch bản đọc đứng đầu cột: nó sinh ra TỪ nguồn ở cột bên trái, để
+                cạnh nhau thì đối chiếu được mà không phải cuộn qua lại */}
+            <WorkspaceBlock
+              id="ttv-block-script"
+              icon={Sparkles}
+              collapsed={group.isCollapsed("script")}
+              onToggle={() => group.toggle("script")}
               summary={scriptSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
@@ -1375,16 +1294,14 @@ export default function TextToVideoDetailPage() {
                   </div>
                 )}
               </div>
-            </CollapsibleCard>
-          </div>
+            </WorkspaceBlock>
 
-          {/* ================= Cột phải: thiết lập ================= */}
-          <div className="flex flex-col gap-4">
-            {/* ---- 3. Giọng đọc ---- */}
-            <CollapsibleCard
-              id="ttv-section-voice"
-              collapsed={sectionCollapsed("voice")}
-              onToggle={() => toggleSection("voice")}
+            {/* ---- Giọng đọc ---- */}
+            <WorkspaceBlock
+              id="ttv-block-voice"
+              icon={Mic}
+              collapsed={group.isCollapsed("voice")}
+              onToggle={() => group.toggle("voice")}
               summary={voiceSummary}
               title={
                 <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
@@ -1411,13 +1328,14 @@ export default function TextToVideoDetailPage() {
                 onChange={patchVoice}
                 disabled={locked}
               />
-            </CollapsibleCard>
+            </WorkspaceBlock>
 
-            {/* ---- 4. Cấu hình video ---- */}
-            <CollapsibleCard
-              id="ttv-section-config"
-              collapsed={sectionCollapsed("config")}
-              onToggle={() => toggleSection("config")}
+            {/* ---- Cấu hình video ---- */}
+            <WorkspaceBlock
+              id="ttv-block-config"
+              icon={Settings2}
+              collapsed={group.isCollapsed("config")}
+              onToggle={() => group.toggle("config")}
               summary={configSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
@@ -1518,13 +1436,23 @@ export default function TextToVideoDetailPage() {
                   />
                 </div>
               </div>
-            </CollapsibleCard>
+            </WorkspaceBlock>
+          </WorkspaceColumn>
 
-            {/* ---- 5. Dựng video ---- */}
-            <CollapsibleCard
-              id="ttv-section-build"
-              collapsed={sectionCollapsed("build")}
-              onToggle={() => toggleSection("build")}
+          {/* ============ Cột 3: tiến trình & kết quả ============ */}
+          <WorkspaceColumn role="output" title={t("workspace.col.output")}>
+            {/* Khối ĐẦU TIÊN của cột: đang dựng thì nhấp nháy chờ, xong thì hiện
+                thẳng video. Liếc một chỗ là biết phiên đang ở đâu. */}
+            <OutputBlock
+              id="ttv-block-build"
+              status={outputStatus}
+              videoUrl={child.url}
+              progress={activeJob ? activeJob.progress : null}
+              step={activeJob?.step}
+              aspect={aspect}
+              error={shortError(session.error)}
+              collapsed={group.isCollapsed("build")}
+              onToggle={() => group.toggle("build")}
               summary={buildSummary}
               title={
                 <span className="inline-flex items-center gap-1.5">
@@ -1549,92 +1477,146 @@ export default function TextToVideoDetailPage() {
                 )
               }
             >
-              <div className="flex flex-col gap-3">
-                {running ? (
-                  <>
-                    <ProgressBar progress={job?.progress ?? 0} step={job?.step} />
-                    <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                      <Loader2 size={13} strokeWidth={2} className="animate-spin" />
-                      {session.status === "voicing"
-                        ? t("ttv.voicing-hint")
-                        : t("ttv.building-hint")}
-                    </p>
-                  </>
-                ) : session.projectId ? (
-                  // Video xem và tải NGAY TẠI ĐÂY. Trước đây chỗ này chỉ có một
-                  // đường link sang Videos Project, nên xong một phiên là người
-                  // dùng bị đá sang tab khác rồi phải tự mò lại project nào là
-                  // của phiên nào.
-                  <ResultBlock projectId={session.projectId} />
-                ) : (
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {canBuild
-                      ? t("ttv.build-hint")
-                      : script.length === 0
-                        ? t("ttv.build-need-script")
-                        : t("ttv.build-need-voice")}
-                  </p>
-                )}
+              {child.error && (
+                <p className="text-xs text-[var(--danger)]">{child.error}</p>
+              )}
 
-                {(session.voiceFile || session.transcriptFile) && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {session.voiceFile && (
-                      <span className="chip">
-                        {t("ttv.voice-file")}: {session.voiceFile}
-                      </span>
-                    )}
-                    {session.transcriptFile && (
-                      <span className="chip">
-                        {t("ttv.transcript-file")}: {session.transcriptFile}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CollapsibleCard>
-          </div>
-        </div>
+              {running ? (
+                <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                  <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                  {session.status === "voicing"
+                    ? t("ttv.voicing-hint")
+                    : t("ttv.building-hint")}
+                </p>
+              ) : session.projectId ? (
+                !child.url && (
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {t("ttv.result-waiting")}
+                  </p>
+                )
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {canBuild
+                    ? t("ttv.build-hint")
+                    : script.length === 0
+                      ? t("ttv.build-need-script")
+                      : t("ttv.build-need-voice")}
+                </p>
+              )}
+
+              {child.output && (
+                <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
+                  {child.output}
+                </span>
+              )}
+
+              {(session.voiceFile || session.transcriptFile) && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {session.voiceFile && (
+                    <span className="chip">
+                      {t("ttv.voice-file")}: {session.voiceFile}
+                    </span>
+                  )}
+                  {session.transcriptFile && (
+                    <span className="chip">
+                      {t("ttv.transcript-file")}: {session.transcriptFile}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Link sang project con cho các thao tác nâng cao (render lại, QC,
+                  cắt short) - vẫn là đường phụ, không phải chỗ xem thành phẩm */}
+              {session.projectId && (
+                <Link
+                  href={`/projects/${session.projectId}`}
+                  className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--primary)]"
+                >
+                  <ExternalLink size={13} strokeWidth={2} />
+                  {t("ttv.open-project-advanced")}
+                </Link>
+              )}
+            </OutputBlock>
+
+            {/* Job dựng: tiến trình + log từng dòng, đúng thứ trang Render Queue hiện */}
+            <WorkspaceBlock
+              id="ttv-block-log"
+              icon={ScrollText}
+              collapsed={group.isCollapsed("log")}
+              onToggle={() => group.toggle("log")}
+              summary={job ? `${job.type} · ${job.status}` : t("ttv.panel-no-log")}
+              title={t("ttv.card-job")}
+            >
+              {job ? (
+                <JobLogBlock job={job} />
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {t("ttv.panel-no-log")}
+                </p>
+              )}
+            </WorkspaceBlock>
+
+            {/* Tiến trình THẬT của project con - thứ mà trước đây không nhìn thấy được */}
+            <WorkspaceBlock
+              id="ttv-block-child"
+              icon={ListVideo}
+              collapsed={group.isCollapsed("child")}
+              onToggle={() => group.toggle("child")}
+              summary={session.projectId ?? t("ttv.build.no-project")}
+              title={t("ttv.build.child-title")}
+            >
+              {!session.projectId ? (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {t("ttv.build.no-project")}
+                </p>
+              ) : child.pipelineInput && deriveStage(child.pipelineInput) !== null ? (
+                <div className="flex flex-col gap-2">
+                  <PipelineTimeline {...child.pipelineInput} />
+                  {child.runningJob ? (
+                    <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                      <Loader2
+                        size={12}
+                        strokeWidth={2}
+                        className="animate-spin shrink-0"
+                      />
+                      {tf("ttv.build.running-job", { label: child.runningJob.type })}
+                      {child.runningJob.progress > 0
+                        ? ` · ${child.runningJob.progress}%`
+                        : ""}
+                    </p>
+                  ) : (
+                    !child.url && (
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {t("ttv.build.long-warning")}
+                      </p>
+                    )
+                  )}
+                  <Link
+                    href={`/projects/${session.projectId}`}
+                    className="inline-flex w-fit items-center gap-1 text-xs font-medium text-[var(--primary)] hover:underline"
+                  >
+                    <ExternalLink size={12} strokeWidth={2} />
+                    {t("ttv.build.open-project")}
+                  </Link>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {t("ttv.build.waiting")}
+                </p>
+              )}
+            </WorkspaceBlock>
+          </WorkspaceColumn>
+        </Workspace>
       </div>
 
-      {/* Panel nhật ký AI - xl+ luôn hiển thị (fixed, cao hết viewport trừ topbar);
-          màn nhỏ là drawer overlay bật bằng nút AI */}
-      {panelOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-[var(--text)]/40 xl:hidden"
-          onClick={() => setPanelOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-      <aside
-        className={`${
-          panelOpen ? "flex" : "hidden xl:flex"
-        } fixed inset-y-0 right-0 z-40 w-full max-w-[440px] flex-col gap-3 border-l border-[var(--border)] bg-[var(--bg)] p-4 xl:top-14 xl:bottom-0 xl:z-20 xl:h-auto xl:w-[440px] xl:max-w-none xl:p-3`}
-        aria-label={t("ttv.ai-panel-aria")}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-            <MessageSquare
-              size={15}
-              strokeWidth={2}
-              className="shrink-0 text-[var(--text-muted)]"
-            />
-            {t("ttv.ai-panel")}
-          </h2>
-          <div className="flex shrink-0 items-center gap-2">
-            {activeSession && <SessionStatusBadge status={activeSession.status} />}
-            <button
-              type="button"
-              onClick={() => setPanelOpen(false)}
-              aria-label={t("ttv.close-panel")}
-              className="rounded-[var(--radius)] p-1 text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--bg-subtle)] hover:text-[var(--text)] xl:hidden"
-            >
-              <X size={16} strokeWidth={2} />
-            </button>
+      {/* Panel AI: chỉ KHAI BÁO nội dung, shell lo bề rộng/gấp/drawer. Cây React
+          vẫn nằm ở trang này nên state và SSE của ChatThread giữ nguyên. */}
+      <ShellRightPanel title={t("ttv.ai-panel")}>
+        {activeSession && (
+          <div className="flex shrink-0 justify-end">
+            <SessionStatusBadge status={activeSession.status} />
           </div>
-        </div>
-
-        {/* Job dựng: tiến trình + log từng dòng, đúng thứ trang Render Queue hiện */}
-        {job && <JobLogBlock job={job} />}
+        )}
 
         {session.projectId ? (
           activeSessionId || (chatSessions !== null && chatSessions.length > 0) ? (
@@ -1661,12 +1643,14 @@ export default function TextToVideoDetailPage() {
               />
             </div>
           )
-        ) : job ? null : (
+        ) : (
+          // Nhật ký job đã chuyển sang cột kết quả, nên panel lúc chưa dựng chỉ
+          // còn một lời giải thích - không để trống trơn.
           <div className="card flex min-h-0 flex-1 flex-col items-center justify-center">
             <EmptyState icon={MessageSquare} description={t("ttv.panel-empty")} />
           </div>
         )}
-      </aside>
+      </ShellRightPanel>
 
       <ConfirmDeleteModal
         open={deleteOpen}
