@@ -488,14 +488,26 @@ async function checkDeadAir(input: {
         value: v.totalSilenceSec,
       };
     }
+    // CỐ Ý "warn" chứ không "fail", dù brief có bật cắt.
+    //
+    // QC đo trên video ĐÃ LẮP RÁP, còn transcript lại theo dòng thời gian của
+    // footage đã cắt. Bản lắp ráp chèn thêm scene intro/cutaway là hai mốc lệch
+    // nhau, và khi đó hàng rào chữ soi nhầm chỗ -> trượt oan -> CHẶN final
+    // render của người dùng vì một phép đo sai. Cảnh báo thì vẫn hiện đủ số để
+    // người dùng biết, mà không khoá cửa dựa trên một giả định chưa kiểm chứng.
+    //
+    // Nâng lên "fail" khi nào chứng minh được transcript dùng ở đây luôn cùng
+    // dòng thời gian với file đang đo (vd pipeline ghi transcript theo timeline
+    // bản lắp ráp, hoặc check tự dò độ lệch trước khi chấm).
     return {
       id: "dead-air",
       label,
-      status: "fail",
+      status: "warn",
       detail:
-        `${base}. ${v.reason ?? ""} Brief BẬT tự động cắt nên đây là lỗi: gọi ` +
+        `${base}. ${v.reason ?? ""} Brief BẬT tự động cắt nên chỗ này nên cắt thêm: gọi ` +
         `POST /api/projects/${input.projectId}/auto-trim/analyze rồi .../apply để cắt bằng ngưỡng đã đo, ` +
-        "đừng tự gõ ffmpeg silencedetect.",
+        "đừng tự gõ ffmpeg silencedetect. (Cảnh báo, không chặn final: phép đo này " +
+        "đối chiếu transcript của bản đã cắt lên video đã lắp ráp nên có thể lệch mốc.)",
       value: v.totalSilenceSec,
     };
   } catch (err) {

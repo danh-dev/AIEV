@@ -540,12 +540,16 @@ Các phép đo: `resolution` (so meta), `loudness` (loudnorm, mục tiêu -14 LU
 `freeze`, `tail-silence`, `dead-air`, `av-duration`, `duration`, và `safe-area`.
 
 **`dead-air`** đo chỗ chết trên CẢ BÀI (khác `tail-silence` chỉ soi 4s cuối), dùng chính bộ đo của
-auto-trim và có đối chiếu transcript của project (`readProjectTranscript`, tức bản `final/cut` nếu
-có - đúng hệ thời gian của bản đã dựng). Ngưỡng đậu/trượt lấy từ profile của `brief.autoCutLevel`,
-không phát minh ngưỡng thứ hai. Chỉ **FAIL khi `brief.autoCut` bật** - người dùng không yêu cầu cắt
-thì khoảng lặng là nhịp có chủ ý, khi đó check vẫn `pass` và chỉ ghi nhận số đo. Thiếu transcript,
+auto-trim và có đối chiếu transcript của project (`readProjectTranscript`, tức bản `final/cut` nếu có).
+Ngưỡng lấy từ profile của `brief.autoCutLevel`, không phát minh ngưỡng thứ hai. Thiếu transcript,
 thiếu audio hay ffmpeg lỗi đều xuống `warn` ("không đo được"), không bao giờ ném lỗi: đo bằng mức âm
 thanh một mình là đoán mò (đã đo được ca báo trượt oan 4,56s trong khi có transcript đo ra 0,00s).
+
+> **Check này KHÔNG chặn final render** (tối đa là `warn`, kể cả khi `brief.autoCut` bật). QC đo trên
+> video ĐÃ LẮP RÁP còn transcript theo dòng thời gian của footage ĐÃ CẮT; bản lắp ráp chèn thêm scene
+> intro/cutaway là hai mốc lệch nhau và hàng rào chữ soi nhầm chỗ, khi đó một phép đo sai sẽ khoá cửa
+> final của người dùng. Chỉ nâng lên `fail` sau khi chứng minh được transcript luôn cùng hệ thời gian
+> với file đang đo, hoặc sau khi check tự dò được độ lệch trước khi chấm.
 
 **`safe-area` không tự kết luận.** Đã đo và xác nhận: mật độ biên (edgedetect + signalstats) của chữ
 và của cảnh quay là như nhau (dải trên 2.99 tại giây 3 hóa ra là lá cây, không phải chữ), nên mọi
