@@ -396,6 +396,90 @@ function ColorField({
   );
 }
 
+/**
+ * ĐỘ ĐẶC (alpha) của màu nền chữ, tách thành thanh kéo riêng.
+ *
+ * Lỗi đã sửa: alpha vốn chỉ sửa được bằng cách GÕ TAY nguyên chuỗi
+ * "rgba(10,16,32,0.52)" vào ô màu. Ô chọn màu bên cạnh là `input type="color"`,
+ * mà thẻ đó chỉ hiểu #rrggbb - bấm nó một cái là alpha bị ghi đè mất, nên mọi
+ * cách chỉnh bằng chuột đều KHÔNG đổi được độ mờ. Người dùng kéo/bấm kiểu gì
+ * cũng thấy nền y hệt và tưởng tính năng hỏng.
+ */
+
+/** Alpha 0..1 của một màu CSS; màu không mang alpha thì coi như đặc hoàn toàn */
+function alphaOf(color: string): number {
+  const rgba = color.match(/^rgba?\(([^)]+)\)$/i);
+  if (rgba) {
+    const parts = rgba[1].split(",").map((x) => Number(x.trim()));
+    return parts.length >= 4 && Number.isFinite(parts[3])
+      ? Math.min(1, Math.max(0, parts[3]))
+      : 1;
+  }
+  // #rrggbbaa - hai ký tự cuối là alpha
+  const hex8 = color.match(/^#([0-9a-f]{6})([0-9a-f]{2})$/i);
+  if (hex8) return parseInt(hex8[2], 16) / 255;
+  return 1;
+}
+
+/** Ghi alpha mới, GIỮ NGUYÊN phần màu. Luôn trả rgba() - dạng server nhận. */
+function withAlpha(color: string, alpha: number): string {
+  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 100) / 100;
+  const rgba = color.match(/^rgba?\(([^)]+)\)$/i);
+  if (rgba) {
+    const [r, g, b] = rgba[1].split(",").map((x) => Number(x.trim()));
+    return `rgba(${r || 0},${g || 0},${b || 0},${a})`;
+  }
+  const hex = color.match(/^#([0-9a-f]{6})/i);
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+  // Màu lạ (tên màu CSS…) - không đoán mò, trả nguyên để không phá giá trị cũ
+  return color;
+}
+
+/** Thanh kéo độ đặc, kèm số phần trăm để biết mình đang ở đâu */
+function OpacityField({
+  id,
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  /** Màu ĐẦY ĐỦ (kèm alpha) - thanh kéo chỉ sửa phần alpha */
+  value: string;
+  disabled: boolean;
+  onChange: (v: string) => void;
+}) {
+  const pct = Math.round(alphaOf(value) * 100);
+  return (
+    <div>
+      <label className="label" htmlFor={id}>
+        {label}
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          id={id}
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={pct}
+          disabled={disabled}
+          className="min-w-0 flex-1 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-45"
+          onChange={(e) => onChange(withAlpha(value, Number(e.target.value) / 100))}
+        />
+        {/* tabular-nums: số không nhảy ngang khi kéo qua 9 -> 10 -> 100 */}
+        <span className="w-10 shrink-0 text-right text-xs tabular-nums text-[var(--text-muted)]">
+          {pct}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- Lồng tiếng
 
 /** Nhóm giọng trong <select> - dùng lại đúng nhãn của trang Text to video. */
@@ -1238,11 +1322,19 @@ export default function TranslateVideoDetailPage() {
   }
 
   /** Nhãn model dịch - id lạ (server đổi trước web) hiện thẳng id. */
+  /**
+   * Nhãn model = TÊN THẬT + mô tả ngắn, vd "gemini-2.5-flash - Flash (khuyên
+   * dùng, nhanh + rẻ)".
+   *
+   * Vì sao phải có tên thật: "Flash (khuyên dùng)" không nói được đây là bản
+   * 2.5 hay 3.0, mà đó chính là thứ người ta cần biết để chọn. Các ô chọn model
+   * khác trong hệ thống (ModelPicker) đều hiện tên model, ô này phải giống.
+   */
   function modelLabel(id: string): string {
     const hit = TRANSLATE_MODELS.find((m) => m.id === id);
     if (!hit) return id;
     const label = t(hit.labelKey);
-    return label === hit.labelKey ? hit.id : label;
+    return label === hit.labelKey ? hit.id : `${hit.id} - ${label}`;
   }
 
   if (!session || !subtitleStyle || !dub) {
@@ -1831,7 +1923,9 @@ export default function TranslateVideoDetailPage() {
                     câu dịch lạ, nên nó phải nằm ngay cạnh nút Dịch chứ không
                     nằm trong tài liệu. Danh sách model là gương của
                     apps/server/src/translate.ts (xem TRANSLATE_MODELS). */}
-                <div>
+                {/* Tràn hết bề ngang khối: ô này đứng một mình ở hàng cuối, để
+                    nửa khung thì nửa còn lại trống trơ mà tên model lại bị cắt. */}
+                <div className="sm:col-span-2">
                   <label className="label" htmlFor="tv-model">
                     {t("tv.model")}
                     <InfoHint
@@ -2165,6 +2259,26 @@ export default function TranslateVideoDetailPage() {
                   <ColorField
                     id="tv-backdrop-color"
                     label={t("tv.backdrop-color")}
+                    value={subtitleStyle.backdropColor}
+                    disabled={locked}
+                    // Giữ nguyên độ đặc đang đặt khi đổi MÀU: ô chọn màu trả về
+                    // #rrggbb (không mang alpha), nhận thẳng là mỗi lần đổi màu
+                    // lại đá nền về đặc 100%
+                    onChange={(v) =>
+                      patchStyle(
+                        {
+                          backdropColor: withAlpha(
+                            v,
+                            alphaOf(subtitleStyle.backdropColor)
+                          ),
+                        },
+                        true
+                      )
+                    }
+                  />
+                  <OpacityField
+                    id="tv-backdrop-opacity"
+                    label={t("tv.backdrop-opacity")}
                     value={subtitleStyle.backdropColor}
                     disabled={locked}
                     onChange={(v) => patchStyle({ backdropColor: v }, true)}

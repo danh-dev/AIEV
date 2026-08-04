@@ -183,7 +183,7 @@ export function ProjectQcCard({
       ) : (
         <div className="flex flex-col gap-3">
           {stale && (
-            <p className="rounded-[var(--radius)] border-l-[3px] border-[var(--danger)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+            <p className="rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
               {t("qc.stale")}
             </p>
           )}

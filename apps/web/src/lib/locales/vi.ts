@@ -2287,6 +2287,7 @@ export const vi: Record<string, string> = {
   "tv.backdrop.solid": "Màu đặc",
   "tv.backdrop.none": "Không nền",
   "tv.backdrop-color": "Màu nền",
+  "tv.backdrop-opacity": "Độ đặc của nền chữ",
   "tv.blur": "Độ mờ (px)",
   "tv.bottom": "Cách đáy (px)",
   "tv.style-autosave": "Thay đổi tự lưu.",

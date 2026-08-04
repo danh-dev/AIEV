@@ -2292,6 +2292,7 @@ export const en: Record<string, string> = {
   "tv.backdrop.solid": "Solid",
   "tv.backdrop.none": "None",
   "tv.backdrop-color": "Backdrop colour",
+  "tv.backdrop-opacity": "Text background opacity",
   "tv.blur": "Blur amount (px)",
   "tv.bottom": "Distance from bottom (px)",
   "tv.style-autosave": "Changes save themselves.",

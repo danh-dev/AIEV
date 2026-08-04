@@ -120,7 +120,7 @@ export function ProjectAutoTrimCard({
         />
 
         {!pass && (
-          <p className="mt-1 rounded-[var(--radius)] border-l-[3px] border-[var(--danger)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+          <p className="mt-1 rounded-[var(--radius)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
             {/* reason do server soạn sẵn bằng tiếng Việt - hiện nguyên văn */}
             {report.verification.reason ?? t("autotrim.fail-no-reason")}
           </p>

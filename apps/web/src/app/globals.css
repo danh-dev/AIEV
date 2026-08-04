@@ -336,9 +336,10 @@ html[data-panel="collapsed"] {
   cursor: pointer;
 }
 
+/* KHÔNG có vạch màu bên trái: nền đã đủ tách khối thông báo khỏi trang, thêm
+   một vạch dày 3px nữa chỉ làm mép trái lởm chởm khi nhiều banner xếp chồng. */
 .banner-danger {
   background: var(--danger-bg);
-  border-left: 3px solid var(--danger);
   border-radius: var(--radius);
   padding: 12px 16px;
   font-size: 14px;
