@@ -206,6 +206,7 @@ export const en: Record<string, string> = {
   "dash.job.auto-cut": "Auto cut",
   "dash.job.auto-trim": "Auto-trim",
   "dash.job.text-to-video": "Text to video",
+  "dash.job.translate-video": "Translate video",
   "dash.health.ffmpeg": "FFmpeg is not on PATH - renders will fail.",
   "dash.health.claude": "No Claude authentication - sign in to Claude Code on this machine (VSCode) or set ANTHROPIC_API_KEY in .env.",
   "dash.health.hyperframes": "HyperFrames is not installed - scenes cannot be rendered.",
@@ -262,6 +263,7 @@ export const en: Record<string, string> = {
   "queue.type.auto-cut": "Auto cut",
   "queue.type.auto-trim": "Auto-trim",
   "queue.type.text-to-video": "Text to video",
+  "queue.type.translate-video": "Translate video",
   "queue.log-title": "Log - {id}",
   "queue.close-log": "Close log",
   "queue.log-error": "Could not load the job log.",
@@ -2015,4 +2017,171 @@ export const en: Record<string, string> = {
     "Applied after synthesis, so the voice does NOT go squeaky. x1.1-x1.2 sounds noticeably more awake while staying natural.",
   "ttv.voice.speed-preview-note":
     "The preview already plays at this speed - what you hear is what you get.",
+
+  // ===== Translate video =====
+  "nav.translate-video": "Translate video",
+
+  "tv.subtitle":
+    "Drop a video in: the system pulls the dialogue, the AI translates it, then the translated subtitles are burned onto the video.",
+  "tv.new": "New video",
+  "tv.empty":
+    "No sessions yet. Upload a video - the system pulls the dialogue, translates it into the language you pick, then burns the translated subtitles onto that same video.",
+  "tv.load-error": "Could not load the session list.",
+  "tv.col-langs": "Languages",
+  "tv.col-mode": "Output",
+  "tv.delete-aria": "Delete session {name}",
+  "tv.delete-title": "Delete translate-video session",
+  "tv.delete-desc":
+    "Deleting this session also deletes the uploaded source video, the dialogue, the translation and the subtitled video. This cannot be undone.",
+
+  "tv.status.draft": "Draft",
+  "tv.status.transcribing": "Pulling dialogue",
+  "tv.status.transcribed": "Dialogue ready",
+  "tv.status.translating": "Translating",
+  "tv.status.translated": "Translated",
+  "tv.status.rendering": "Burning subtitles",
+  "tv.status.done": "Done",
+  "tv.status.failed": "Failed",
+
+  "tv.create-title": "New video",
+  "tv.create": "Create session",
+  "tv.creating": "Creating…",
+  "tv.create-error": "Could not create the session.",
+  "tv.create-hint":
+    "The session is created first, then you upload the video - that way big files have somewhere to go and you can watch the progress.",
+  "tv.name": "Session name (optional)",
+  "tv.name-placeholder": "Leave empty to name it after the video file",
+
+  "tv.mode.subtitle": "Subtitles",
+  "tv.mode.dub": "Dubbing",
+  "tv.mode.soon": "Dubbing is still being built - subtitles only for now.",
+  "tv.mode.soon-short": "coming soon",
+
+  "tv.lang.auto": "Auto-detect",
+  "tv.lang.vi": "Vietnamese",
+  "tv.lang.en": "English",
+  "tv.lang.zh": "Chinese",
+  "tv.lang.ja": "Japanese",
+  "tv.lang.ko": "Korean",
+  "tv.lang.fr": "French",
+  "tv.lang.de": "German",
+  "tv.lang.es": "Spanish",
+  "tv.lang.pt": "Portuguese",
+  "tv.lang.ru": "Russian",
+  "tv.lang.th": "Thai",
+  "tv.lang.id": "Indonesian",
+  "tv.lang.hi": "Hindi",
+  "tv.lang.ar": "Arabic",
+  "tv.lang.it": "Italian",
+
+  "tv.stage.source": "Source",
+  "tv.stage.transcript": "Dialogue",
+  "tv.stage.translation": "Translation",
+  "tv.stage.subtitle": "Subtitles",
+  "tv.stage.result": "Result",
+  "tv.stage-aria": "Step {stage}/5: {label}",
+
+  "tv.back": "Session list",
+  "tv.not-found": "This session was not found.",
+  "tv.action-error": "Could not run this step.",
+  "tv.save-error": "Could not save the session changes.",
+  "tv.failed": "The session failed.",
+  "tv.section.expand": "Expand",
+  "tv.section.collapse": "Collapse",
+  "tv.section.done-collapsed":
+    "The session is finished, so the setup cards are collapsed - press Expand to review or edit.",
+  "tv.cue-count": "{n} lines",
+  "tv.translated-count": "{n} lines translated",
+
+  "tv.card-source": "1. Source",
+  "tv.upload-video": "Upload video",
+  "tv.replace-video": "Replace video",
+  "tv.uploading": "Uploading the video…",
+  "tv.upload-error": "Could not upload the video.",
+  "tv.drop-hint": "Drag a video file here, or press Upload video.",
+  "tv.no-source-yet": "No source video yet.",
+  "tv.source-lang": "Language spoken in the video",
+
+  "tv.card-transcript": "2. Dialogue",
+  "tv.transcribe": "Pull dialogue",
+  "tv.re-transcribe": "Pull again",
+  "tv.transcribing-hint":
+    "Listening through the video and writing down every line with its timecode…",
+  "tv.no-transcript": "No dialogue yet - press Pull dialogue to start.",
+  "tv.transcript-file": "Dialogue file",
+  "tv.job": "Running job",
+  "tv.job-no-log": "No log lines yet.",
+  "tv.job-log-error": "Could not read the job log.",
+
+  "tv.card-translation": "3. Translation",
+  "tv.translate": "AI translate",
+  "tv.re-translate": "Translate again",
+  "tv.target-lang": "Translate into",
+  "tv.mode": "Output",
+  "tv.translating-hint":
+    "The AI is translating line by line, keeping the timecodes intact…",
+  "tv.no-translation": "not translated",
+  "tv.cue-aria": "Translation of line {n}",
+  "tv.cue-hint": "Edit any line by hand - changes save themselves.",
+
+  "tv.card-subtitle": "4. Subtitles",
+  "tv.preview": "Preview",
+  "tv.preview-text": "This is a sample subtitle line",
+  "tv.preview-hint":
+    "This box is a simulation - font size and bottom offset are scaled down from the real frame.",
+  "tv.font": "Font",
+  "tv.font.vietnamese": "Vietnamese-ready (recommended)",
+  "tv.font.sans": "Sans serif",
+  "tv.font.serif": "Serif",
+  "tv.font.mono": "Monospace",
+  "tv.font-size": "Font size (px)",
+  "tv.color": "Text colour",
+  "tv.backdrop": "Backdrop",
+  "tv.backdrop.blur": "Blur",
+  "tv.backdrop.solid": "Solid",
+  "tv.backdrop.none": "None",
+  "tv.backdrop-color": "Backdrop colour",
+  "tv.blur": "Blur amount (px)",
+  "tv.bottom": "Distance from bottom (px)",
+  "tv.style-autosave": "Changes save themselves.",
+  "tv.style-locked":
+    "The session is running - the subtitle style unlocks when this step finishes.",
+
+  "tv.card-result": "5. Result",
+  "tv.render": "Burn subtitles",
+  "tv.re-render": "Burn again",
+  "tv.rendering-hint": "Burning the translated subtitles onto the video…",
+  "tv.render-hint":
+    "Press Burn subtitles: the translated lines are written straight onto the picture using the style from step 4.",
+  "tv.render-need-transcript": "Not ready: pull the dialogue in step 2 first.",
+  "tv.render-need-translation": "Not ready: translate the dialogue in step 3 first.",
+  "tv.download": "Download video",
+
+  "help.tv.title": "What is Translate video?",
+  "help.tv.body":
+    "Drop a video in: the system pulls the dialogue with timecodes, the AI translates it into the language you pick, then the translated subtitles are burned onto that same video.\nEvery session goes through 5 steps: Source, Dialogue, Translation, Subtitles, Result. Each step can be edited and re-run.\nFor now the output is subtitles only; dubbing comes later.",
+  "help.tv-source.title": "What kind of source file works?",
+  "help.tv-source.body":
+    "Any video file the machine can read (MP4, MOV, MKV…). Once uploaded the system measures duration, resolution and fps itself.\nBig files go straight to the backend instead of through the proxy, so leave the page alone until the upload finishes.\nReplacing the video makes the old dialogue and translation useless - pull the dialogue again.",
+  "help.tv-lang.title": "What is the source language for?",
+  "help.tv-lang.body":
+    "It is the language SPOKEN in the video, used when pulling the dialogue - getting it right cuts the spelling mistakes a lot.\n\"Auto-detect\" lets the machine guess, which is right most of the time. Set it by hand only when the video mixes languages or has loud background noise.\nThis is NOT the target language - what you translate into is a separate field in step 3.",
+  "help.tv-transcript.title": "What does pulling the dialogue do?",
+  "help.tv-transcript.body":
+    "The machine listens through the whole video and writes down every line with its start and end time. That is the timing skeleton of the subtitles, so it has to happen before translating.\nThe step runs through the render queue, so it keeps going if you close the page; the log shows up right here.\nPulling again overwrites the whole dialogue and translation.",
+  "help.tv-translation.title": "Can I fix the AI translation by hand?",
+  "help.tv-translation.body":
+    "Yes, and you should. Each line shows the original above and the translation below - editing a box saves it, no Save button.\nTimecodes stay exactly as the original, so editing the words never shifts the subtitles.\nTranslating again overwrites every hand edit - think before pressing it.",
+  "help.tv-mode.title": "Subtitles or dubbing?",
+  "help.tv-mode.body":
+    "Subtitles: the translation is written onto the picture as text, the original audio stays. This is what runs today.\nDubbing: the translation is read out as a voice replacing the original audio - still being built, not selectable yet.",
+  "help.tv-subtitle.title": "What can the subtitle style change?",
+  "help.tv-subtitle.body":
+    "Font, size, text colour, the backdrop behind the text and the distance from the bottom of the frame.\nThe preview box shows the result immediately, so you do not need a render to judge it - a render takes minutes.\nThe numbers are measured on the REAL frame, so a 4K video needs a bigger font size than a 1080p one.",
+  "help.tv-font.title": "Why only a few fonts?",
+  "help.tv-font.body":
+    "Because this is the list verified to render Vietnamese text correctly. An unregistered font is silently swapped for another one, and Vietnamese diacritics are always the first thing to break: dropped marks, or marks stacking on top of each other.\nThat only shows up after the render is done, so a fixed list is the cheapest way to block it.\nNeed another font? Add it in Style Design instead of typing it here.",
+  "help.tv-result.title": "What happens when I burn subtitles?",
+  "help.tv-result.body":
+    "A job runs through the render queue: the translated lines are written onto the picture with the style from step 4, then a new video is written out.\nProgress and log show up right here; when it finishes you watch and download the video in this same card.\nYou can burn as many times as you like - each run overwrites the previous result.",
 };

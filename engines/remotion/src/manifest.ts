@@ -103,6 +103,37 @@ export const captionCueSchema = z.looseObject({
   words: z.array(captionWordSchema).min(1),
 });
 
+/**
+ * Một câu phụ đề THƯỜNG (tính năng "Dịch video") - khác `captionCueSchema`:
+ * không karaoke theo từ, chỉ một khối chữ hiện trong khoảng thời gian của nó.
+ * `from`/`durationInFrames` theo FRAME TUYỆT ĐỐI trên timeline composition,
+ * cùng hệ quy chiếu với captions[] và sfx[].atFrame.
+ */
+export const subtitleCueSchema = z.looseObject({
+  from: z.number().int().min(0),
+  durationInFrames: z.number().int().positive(),
+  /** Đã xuống dòng sẵn bằng "\n" - SubtitleTrack render với white-space: pre-line */
+  text: z.string().min(1),
+});
+
+/**
+ * Kiểu dáng phụ đề dịch - mọi trường bỏ trống thì SubtitleTrack lấy đúng giá
+ * trị đang dùng của CaptionTrack (xem components/SubtitleTrack.tsx), nên
+ * manifest không khai subtitleStyle vẫn ra hình giống hệt phụ đề hiện tại.
+ * fontSizePx/bottomPx tính theo canvas gốc 1080x1920 rồi nhân đơn vị tỉ lệ `u`.
+ */
+export const subtitleStyleSchema = z.looseObject({
+  /** Id trong bảng font cho phép của SubtitleTrack - id lạ rơi về font tiếng Việt */
+  fontFamily: z.string().optional(),
+  fontSizePx: z.number().positive().optional(),
+  color: z.string().optional(),
+  /** "none" vẫn đọc được nhờ text-shadow (không bao giờ để chữ trần trên footage sáng) */
+  backdrop: z.enum(["blur", "solid", "none"]).default("blur"),
+  backdropColor: z.string().optional(),
+  blurPx: z.number().min(0).default(20),
+  bottomPx: z.number().min(0).optional(),
+});
+
 /** Một mẩu chữ trong thẻ highlight; `hi` = tô màu accent (key được nhấn). */
 export const highlightPartSchema = z.looseObject({
   t: z.string().min(1),
@@ -194,6 +225,13 @@ export const manifestSchema = z.looseObject({
    */
   captions: z.array(captionCueSchema).default([]),
   /**
+   * Phụ đề THƯỜNG của tính năng "Dịch video" (bản dịch, không karaoke).
+   * Rỗng = không có. Chạy song song được với captions[] - xem Assemble.tsx.
+   */
+  subtitles: z.array(subtitleCueSchema).default([]),
+  /** Kiểu dáng phụ đề dịch - bỏ trống = mặc định giống CaptionTrack */
+  subtitleStyle: subtitleStyleSchema.optional(),
+  /**
    * Thẻ "làm nổi bật key chính" overlay trên footage — dùng khi brief tắt phụ
    * đề nhưng vẫn cần key nổi bật lúc video chạy (skill noti-tiktok-vn).
    * Rỗng = không overlay.
@@ -209,6 +247,8 @@ export type Music = z.infer<typeof musicSchema>;
 export type Zoom = z.infer<typeof zoomSchema>;
 export type CaptionWord = z.infer<typeof captionWordSchema>;
 export type CaptionCue = z.infer<typeof captionCueSchema>;
+export type SubtitleCue = z.infer<typeof subtitleCueSchema>;
+export type SubtitleStyle = z.infer<typeof subtitleStyleSchema>;
 export type HighlightCue = z.infer<typeof highlightCueSchema>;
 export type Watermark = z.infer<typeof watermarkSchema>;
 export type Scene = z.infer<typeof sceneSchema>;

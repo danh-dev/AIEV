@@ -30,6 +30,7 @@ const TYPE_LABEL: Record<Job["type"], string> = {
   "auto-cut": "queue.type.auto-cut",
   "auto-trim": "queue.type.auto-trim",
   "text-to-video": "queue.type.text-to-video",
+  "translate-video": "queue.type.translate-video",
 };
 
 function LogPanel({

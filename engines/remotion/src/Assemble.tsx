@@ -9,6 +9,7 @@ import { HighlightTrack } from "./components/HighlightTrack";
 import { MusicTrack } from "./components/MusicTrack";
 import { SceneClip } from "./components/SceneClip";
 import { SfxTrack } from "./components/SfxTrack";
+import { SubtitleTrack } from "./components/SubtitleTrack";
 import { Transition } from "./components/Transition";
 
 /**
@@ -21,7 +22,8 @@ import { Transition } from "./components/Transition";
  * crossfade do <Transition> xử lý bằng opacity.
  */
 export const Assemble: React.FC<Manifest> = (manifest) => {
-  const { scenes, audio, fps, captions, overlays, watermark } = manifest;
+  const { scenes, audio, fps, captions, overlays, watermark, subtitles, subtitleStyle } =
+    manifest;
 
   let from = 0;
   const sequences = scenes.map((scene, index) => {
@@ -47,9 +49,27 @@ export const Assemble: React.FC<Manifest> = (manifest) => {
 
       {/* Thẻ làm nổi bật key — trên footage, dưới phụ đề (nếu có cả hai thì
           phụ đề là lớp trên cùng vì nó đọc liên tục). Có phụ đề → `raised`
-          đẩy band tier "sub" lên trên vùng caption để hai lớp không đè nhau. */}
+          đẩy band tier "sub" lên trên vùng caption để hai lớp không đè nhau.
+          Phụ đề dịch cũng chiếm đúng band đáy đó nên tính vào `raised` luôn. */}
       {overlays.length > 0 ? (
-        <HighlightTrack overlays={overlays} raised={captions.length > 0} />
+        <HighlightTrack
+          overlays={overlays}
+          raised={captions.length > 0 || subtitles.length > 0}
+        />
+      ) : null}
+
+      {/* Phụ đề dịch ("Dịch video"). Cùng neo đáy với phụ đề karaoke nên PHẢI
+          tránh nhau: chọn cách đã có sẵn trong file này (HighlightTrack) - có
+          karaoke thì `raised` đẩy khối phụ đề dịch lên TRÊN khối caption
+          (700 dọc / 470 ngang, đúng con số đo trên thẻ caption 3 dòng), không
+          karaoke thì nó ngồi đúng band đáy quen thuộc. Không sửa CaptionTrack:
+          karaoke luôn là lớp dưới cùng, bản dịch xếp chồng lên trên. */}
+      {subtitles.length > 0 ? (
+        <SubtitleTrack
+          subtitles={subtitles}
+          style={subtitleStyle}
+          raised={captions.length > 0}
+        />
       ) : null}
 
       {/* Phụ đề karaoke nằm TRÊN mọi scene, dưới không có gì — overlay cuối cùng */}

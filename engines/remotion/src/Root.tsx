@@ -38,6 +38,9 @@ const demoManifest: Manifest = {
   audio: { sfx: [], music: null },
   captions: [],
   overlays: [],
+  // Demo không có phụ đề dịch - `subtitles` có default [] khi parse, nhưng
+  // literal này khai theo KIỂU ĐÃ PARSE nên phải ghi đủ trường.
+  subtitles: [],
   // Studio demo không có file logo trong public/ - để null, còn render thật thì
   // server tự chèn từ Style Design (xem jobs/assemble.ts)
   watermark: null,

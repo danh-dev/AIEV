@@ -206,6 +206,7 @@ export const vi: Record<string, string> = {
   "dash.job.auto-cut": "Cắt tự động",
   "dash.job.auto-trim": "Cắt tự động (đo)",
   "dash.job.text-to-video": "Text to video",
+  "dash.job.translate-video": "Dịch video",
   "dash.health.ffmpeg": "FFmpeg không có trên PATH - render sẽ thất bại.",
   "dash.health.claude": "Chưa có xác thực Claude - đăng nhập Claude Code trên máy này (VSCode) hoặc điền ANTHROPIC_API_KEY vào .env.",
   "dash.health.hyperframes": "HyperFrames chưa cài - không render được scene.",
@@ -262,6 +263,7 @@ export const vi: Record<string, string> = {
   "queue.type.auto-cut": "Cắt tự động",
   "queue.type.auto-trim": "Cắt tự động (đo)",
   "queue.type.text-to-video": "Text to video",
+  "queue.type.translate-video": "Dịch video",
   "queue.log-title": "Log - {id}",
   "queue.close-log": "Đóng log",
   "queue.log-error": "Không tải được log job.",
@@ -2011,4 +2013,169 @@ export const vi: Record<string, string> = {
     "Tăng tốc sau khi tổng hợp nên giọng KHÔNG bị the. x1.1-x1.2 nghe tỉnh hơn hẳn mà vẫn tự nhiên.",
   "ttv.voice.speed-preview-note":
     "Nghe thử đã áp đúng tốc độ này - nghe sao thì lúc dựng ra vậy.",
+
+  // ===== Dịch video =====
+  "nav.translate-video": "Dịch video",
+
+  "tv.subtitle":
+    "Đưa video vào, hệ thống bóc lời thoại, AI dịch sang ngôn ngữ khác rồi đóng phụ đề lên video.",
+  "tv.new": "Video mới",
+  "tv.empty":
+    "Chưa có phiên nào. Tải một video lên, hệ thống bóc lời thoại, dịch sang ngôn ngữ bạn chọn rồi đóng phụ đề đã dịch lên chính video đó.",
+  "tv.load-error": "Không tải được danh sách phiên.",
+  "tv.col-langs": "Ngôn ngữ",
+  "tv.col-mode": "Cách trả kết quả",
+  "tv.delete-aria": "Xóa phiên {name}",
+  "tv.delete-title": "Xóa phiên dịch video",
+  "tv.delete-desc":
+    "Xóa phiên này là xóa luôn video nguồn đã tải lên, lời thoại, bản dịch và video đã đóng phụ đề của phiên. Không khôi phục lại được.",
+
+  "tv.status.draft": "Nháp",
+  "tv.status.transcribing": "Đang bóc lời",
+  "tv.status.transcribed": "Đã có lời thoại",
+  "tv.status.translating": "Đang dịch",
+  "tv.status.translated": "Đã dịch xong",
+  "tv.status.rendering": "Đang đóng phụ đề",
+  "tv.status.done": "Xong",
+  "tv.status.failed": "Lỗi",
+
+  "tv.create-title": "Video mới",
+  "tv.create": "Tạo phiên",
+  "tv.creating": "Đang tạo…",
+  "tv.create-error": "Không tạo được phiên.",
+  "tv.create-hint":
+    "Tạo phiên xong mới tải video lên - làm vậy file lớn có chỗ để đi và bạn thấy được tiến trình.",
+  "tv.name": "Tên phiên (tùy chọn)",
+  "tv.name-placeholder": "Bỏ trống để lấy theo tên file video",
+
+  "tv.mode.subtitle": "Phụ đề",
+  "tv.mode.dub": "Lồng tiếng",
+  "tv.mode.soon": "Lồng tiếng đang làm - hiện tại chỉ đóng phụ đề.",
+  "tv.mode.soon-short": "sắp có",
+
+  "tv.lang.auto": "Tự nhận",
+  "tv.lang.vi": "Tiếng Việt",
+  "tv.lang.en": "Tiếng Anh",
+  "tv.lang.zh": "Tiếng Trung",
+  "tv.lang.ja": "Tiếng Nhật",
+  "tv.lang.ko": "Tiếng Hàn",
+  "tv.lang.fr": "Tiếng Pháp",
+  "tv.lang.de": "Tiếng Đức",
+  "tv.lang.es": "Tiếng Tây Ban Nha",
+  "tv.lang.pt": "Tiếng Bồ Đào Nha",
+  "tv.lang.ru": "Tiếng Nga",
+  "tv.lang.th": "Tiếng Thái",
+  "tv.lang.id": "Tiếng Indonesia",
+  "tv.lang.hi": "Tiếng Hindi",
+  "tv.lang.ar": "Tiếng Ả Rập",
+  "tv.lang.it": "Tiếng Ý",
+
+  "tv.stage.source": "Nguồn",
+  "tv.stage.transcript": "Lời thoại",
+  "tv.stage.translation": "Bản dịch",
+  "tv.stage.subtitle": "Phụ đề",
+  "tv.stage.result": "Kết quả",
+  "tv.stage-aria": "Bước {stage}/5: {label}",
+
+  "tv.back": "Danh sách phiên",
+  "tv.not-found": "Không tìm thấy phiên này.",
+  "tv.action-error": "Không chạy được bước này.",
+  "tv.save-error": "Không lưu được thay đổi của phiên.",
+  "tv.failed": "Phiên gặp lỗi.",
+  "tv.section.expand": "Mở",
+  "tv.section.collapse": "Gấp",
+  "tv.section.done-collapsed":
+    "Phiên đã xong nên các khối thiết lập được gấp lại - bấm Mở để xem hoặc sửa.",
+  "tv.cue-count": "{n} câu",
+  "tv.translated-count": "{n} câu đã dịch",
+
+  "tv.card-source": "1. Nguồn",
+  "tv.upload-video": "Tải video lên",
+  "tv.replace-video": "Đổi video khác",
+  "tv.uploading": "Đang tải video lên…",
+  "tv.upload-error": "Không tải được video lên.",
+  "tv.drop-hint": "Kéo thả file video vào đây, hoặc bấm nút Tải video lên.",
+  "tv.no-source-yet": "Chưa có video nguồn.",
+  "tv.source-lang": "Ngôn ngữ trong video",
+
+  "tv.card-transcript": "2. Lời thoại",
+  "tv.transcribe": "Bóc lời thoại",
+  "tv.re-transcribe": "Bóc lại",
+  "tv.transcribing-hint":
+    "Đang nghe video và ghi lại từng câu kèm mốc thời gian…",
+  "tv.no-transcript": "Chưa có lời thoại - bấm Bóc lời thoại để bắt đầu.",
+  "tv.transcript-file": "File lời thoại",
+  "tv.job": "Job đang chạy",
+  "tv.job-no-log": "Chưa có dòng log nào.",
+  "tv.job-log-error": "Không đọc được log của job.",
+
+  "tv.card-translation": "3. Bản dịch",
+  "tv.translate": "AI dịch",
+  "tv.re-translate": "Dịch lại",
+  "tv.target-lang": "Dịch sang",
+  "tv.mode": "Cách trả kết quả",
+  "tv.translating-hint": "AI đang dịch từng câu, giữ nguyên mốc thời gian…",
+  "tv.no-translation": "chưa dịch",
+  "tv.cue-aria": "Lời dịch câu {n}",
+  "tv.cue-hint": "Sửa tay câu nào cũng được, thay đổi tự lưu.",
+
+  "tv.card-subtitle": "4. Phụ đề",
+  "tv.preview": "Xem trước",
+  "tv.preview-text": "Đây là dòng phụ đề xem thử",
+  "tv.preview-hint":
+    "Ô này chỉ mô phỏng - cỡ chữ và khoảng cách đáy đã thu nhỏ theo tỉ lệ khung hình thật.",
+  "tv.font": "Font chữ",
+  "tv.font.vietnamese": "Việt hóa (khuyên dùng)",
+  "tv.font.sans": "Không chân",
+  "tv.font.serif": "Có chân",
+  "tv.font.mono": "Đều nét",
+  "tv.font-size": "Cỡ chữ (px)",
+  "tv.color": "Màu chữ",
+  "tv.backdrop": "Nền sau chữ",
+  "tv.backdrop.blur": "Làm mờ",
+  "tv.backdrop.solid": "Màu đặc",
+  "tv.backdrop.none": "Không nền",
+  "tv.backdrop-color": "Màu nền",
+  "tv.blur": "Độ mờ (px)",
+  "tv.bottom": "Cách đáy (px)",
+  "tv.style-autosave": "Thay đổi tự lưu.",
+  "tv.style-locked": "Phiên đang chạy - sửa được kiểu phụ đề khi bước này xong.",
+
+  "tv.card-result": "5. Kết quả",
+  "tv.render": "Đóng phụ đề",
+  "tv.re-render": "Đóng lại",
+  "tv.rendering-hint": "Đang đóng phụ đề đã dịch lên video…",
+  "tv.render-hint":
+    "Bấm Đóng phụ đề: hệ thống ghi phụ đề đã dịch thẳng lên hình theo đúng kiểu bạn chọn ở bước 4.",
+  "tv.render-need-transcript": "Chưa đóng được: bóc lời thoại ở bước 2 trước.",
+  "tv.render-need-translation": "Chưa đóng được: dịch lời thoại ở bước 3 trước.",
+  "tv.download": "Tải video về",
+
+  "help.tv.title": "Dịch video là gì?",
+  "help.tv.body":
+    "Đưa một video vào, hệ thống bóc lời thoại kèm mốc thời gian, AI dịch sang ngôn ngữ bạn chọn, rồi đóng phụ đề đã dịch lên chính video đó.\nMỗi phiên đi qua 5 bước: Nguồn, Lời thoại, Bản dịch, Phụ đề, Kết quả. Bước nào cũng sửa lại và chạy lại được.\nHiện tại chỉ trả kết quả bằng phụ đề; lồng tiếng là giai đoạn sau.",
+  "help.tv-source.title": "Video nguồn nên là file thế nào?",
+  "help.tv-source.body":
+    "Bất kỳ file video nào máy đọc được (MP4, MOV, MKV…). Tải lên xong hệ thống tự đo độ dài, kích thước và fps.\nFile lớn đi thẳng vào backend chứ không qua proxy, nên cứ để yên trang cho tới khi tải xong.\nĐổi video khác thì lời thoại và bản dịch cũ không còn khớp - bóc lại từ đầu.",
+  "help.tv-lang.title": "Chọn ngôn ngữ trong video để làm gì?",
+  "help.tv-lang.body":
+    "Là ngôn ngữ ĐANG NÓI trong video, dùng cho bước bóc lời thoại - chọn đúng thì ít sai chính tả hơn hẳn.\n\"Tự nhận\" để máy tự đoán, đúng trong phần lớn trường hợp. Chỉ đặt tay khi video pha nhiều thứ tiếng hoặc tiếng nền lớn.\nĐây KHÔNG phải ngôn ngữ đích - chọn dịch sang đâu là ô riêng ở bước 3.",
+  "help.tv-transcript.title": "Bóc lời thoại là gì?",
+  "help.tv-transcript.body":
+    "Máy nghe hết video và ghi lại từng câu kèm mốc bắt đầu - kết thúc. Đây là bộ khung thời gian của phụ đề, nên bóc xong mới dịch được.\nBước này chạy qua render queue nên đóng trang vẫn chạy tiếp; log hiện ngay tại đây.\nBóc lại là ghi đè toàn bộ lời thoại và bản dịch đang có.",
+  "help.tv-translation.title": "AI dịch rồi có sửa tay được không?",
+  "help.tv-translation.body":
+    "Được, và nên sửa. Mỗi câu hiện lời gốc ở trên, lời dịch ở dưới - sửa ô nào là lưu ô đó, không cần bấm Lưu.\nMốc thời gian giữ nguyên của lời gốc, nên sửa chữ không làm lệch phụ đề.\nDịch lại là ghi đè mọi chỗ bạn đã sửa tay - cân nhắc trước khi bấm.",
+  "help.tv-mode.title": "Phụ đề và lồng tiếng khác gì nhau?",
+  "help.tv-mode.body":
+    "Phụ đề: ghi lời dịch thành chữ lên hình, giữ nguyên tiếng gốc. Đây là cách đang chạy.\nLồng tiếng: đọc lời dịch thành giọng và thay tiếng gốc - đang làm, chưa bấm được.",
+  "help.tv-subtitle.title": "Kiểu phụ đề chỉnh được những gì?",
+  "help.tv-subtitle.body":
+    "Font, cỡ chữ, màu chữ, nền sau chữ và khoảng cách tới đáy khung hình.\nÔ xem trước cho thấy kết quả ngay, khỏi phải render mới biết đẹp xấu - render một lần mất hàng phút.\nSố đo tính trên khung hình THẬT của video, nên video 4K cần cỡ chữ lớn hơn video 1080p.",
+  "help.tv-font.title": "Vì sao font chỉ có mấy lựa chọn?",
+  "help.tv-font.body":
+    "Vì đây là danh sách font đã kiểm chứng là dựng đúng chữ tiếng Việt. Font ngoài danh sách thì trình duyệt lặng lẽ thay bằng font khác, và thứ vỡ đầu tiên luôn là dấu tiếng Việt: mất dấu hoặc dấu chồng lên nhau.\nLỗi đó chỉ lộ ra khi đã render xong, nên chặn từ đầu bằng danh sách cố định là rẻ nhất.\nMuốn font khác thì thêm vào Style Design chứ không gõ tay ở đây.",
+  "help.tv-result.title": "Bấm Đóng phụ đề thì chuyện gì xảy ra?",
+  "help.tv-result.body":
+    "Một job chạy qua render queue: ghi phụ đề đã dịch thẳng lên hình theo đúng kiểu ở bước 4, rồi xuất ra video mới.\nTiến trình và log hiện ngay tại đây; xong thì xem và tải video ngay trong khối này.\nĐóng lại được bao nhiêu lần tùy ý - mỗi lần ghi đè video kết quả trước đó.",
 };

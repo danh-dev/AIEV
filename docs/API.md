@@ -401,6 +401,70 @@ POST   /api/text-to-video/:id/build   -> 202 { jobId } - job type "text-to-video
                                      + chạy edit AI); 409 ALREADY_BUILT / JOB_RUNNING
 ```
 
+## Dịch video (bóc lời -> dịch -> ghép phụ đề) - translate-video/<id>/
+
+Bốn hành động tách riêng CÓ CHỦ Ý - mỗi bước cần người duyệt trước khi tốn thời gian/tiền cho bước sau:
+`/source` (upload + ffprobe) -> `/transcribe` (whisper, vào queue) -> `/translate` (AI dịch, ĐỒNG BỘ,
+tốn token) -> `/render` (Remotion ghép phụ đề, vào queue). Thư mục phiên chứa `meta.json`, `source.<ext>`,
+`transcript.json`, `props.resolved.json`, `output.mp4`.
+
+```
+TranslateVideoMeta = { id, name, autoNamed: boolean,
+  source: { relPath: string|null, durationSec, width, height, fps },   // đo bằng ffprobe, đã áp cờ xoay
+  sourceLang: string,                 // "auto" hoặc mã whisper ("vi","en"...)
+  targetLang: string,                 // "vi" | "en" | ...
+  mode: "subtitle"|"dub",             // "dub" (lồng tiếng) là giai đoạn sau - /render trả 501
+  transcriptFile: string|null,        // transcript GỐC (relPath repo)
+  cues: [{ start, end, text, original?, speaker? }],  // GIÂY trong video nguồn; text đã xuống dòng "\n"
+  subtitleStyle: { fontFamily, fontSizePx, color, backdrop: "blur"|"solid"|"none",
+                   backdropColor, blurPx, bottomPx },
+                                      // fontFamily: "vietnamese"|"sans"|"serif"|"mono" (GET /fonts)
+                                      // px đo theo đơn vị của SubtitleTrack: video DỌC chuẩn hóa
+                                      // theo cao 1920, video NGANG theo cao 1080 - nên bottomPx mặc
+                                      // định là 320 (dọc) / 130 (ngang), tự chọn lúc upload nguồn
+  outputFile: string|null,
+  status: "draft"|"transcribing"|"transcribed"|"translating"|"translated"|"rendering"|"done"|"failed",
+  error: string|null, createdAt, updatedAt }
+
+GET    /api/translate-video/fonts  -> [{ id, label, cssStack }] - DANH SÁCH CHO PHÉP của
+                                      subtitleStyle.fontFamily (đặt trước /:id)
+GET    /api/translate-video        -> TranslateVideoMeta[] (mới cập nhật trước)
+POST   /api/translate-video        { name?, sourceLang?, targetLang?, mode? } -> 201
+                                      name bỏ trống được: đặt tên tạm (autoNamed=true) rồi thay
+                                      bằng tên file khi upload nguồn
+GET    /api/translate-video/:id    -> TranslateVideoMeta
+PATCH  /api/translate-video/:id    { name?, sourceLang?, targetLang?, mode?, subtitleStyle?, cues? }
+                                      - đổi sourceLang -> xóa transcript + cues, về "draft"
+                                      - đổi targetLang -> trả text về `original`, về "transcribed"
+                                      - sửa cues/đổi ngôn ngữ khi đang chạy job -> 409 BUSY
+DELETE /api/translate-video/:id    -> 204 (xóa cả thư mục phiên + staging)
+
+POST   /api/translate-video/:id/source     multipart: file -> TranslateVideoMeta
+                                      chỉ nhận mp4/mov/webm/mkv/avi/m4v; đo ffprobe ngay
+                                      (400 INVALID_SOURCE / PROBE_FAILED); nguồn mới xóa
+                                      transcript + cues + output cũ
+POST   /api/translate-video/:id/transcribe -> 202 { jobId } - job "translate-video" step "transcribe"
+POST   /api/translate-video/:id/translate  { model? } -> TranslateVideoMeta (ĐỒNG BỘ)
+                                      đầu vào lấy từ transcript GỐC, không dịch chồng lên bản dịch cũ
+                                      (400 NO_TRANSCRIPT, 502 TRANSLATE_EMPTY)
+POST   /api/translate-video/:id/render     -> 202 { jobId } - job step "render"
+                                      (400 NO_CUES, 501 MODE_NOT_IMPLEMENTED nếu mode="dub")
+```
+
+⚠ **`sourceLang: "auto"`**: `transcribe.ts` luôn truyền một mã ngôn ngữ cụ thể xuống faster-whisper
+nên chưa tự dò được - "auto" chạy bằng mặc định tiếng Việt, ghi rõ một dòng trong log job, và
+`sourceLang` được ghi lại bằng ngôn ngữ đã dùng sau khi bóc xong.
+
+⚠ **font phụ đề là ID trong danh sách cho phép**, không phải tên family tự do: family lạ thì DOM render
+im lặng rơi về font mặc định và thứ hỏng đầu tiên là DẤU TIẾNG VIỆT - mà chỉ lộ ra sau khi render xong.
+Bảng id ở server (`translateVideoMeta.ts`) phải TRÙNG bảng của `SubtitleTrack.tsx`, nếu không lựa chọn
+của người dùng bị bên render nuốt mất mà không ai báo.
+
+Bước render sinh `props.resolved.json` cho composition `Assemble`: đúng một scene `srcVideo` (nguồn đã
+stage vào `public/staging/tvd-<id>/`, `muted: false` để giữ tiếng gốc), `audio`/`captions`/`overlays`
+rỗng, `watermark: null`, cộng hai field mới `subtitles` + `subtitleStyle`. Mốc trong `subtitles` là
+FRAME TUYỆT ĐỐI (`round(sec * fps)`) - cùng hệ quy chiếu với `audio.sfx[].atFrame`.
+
 ## TTS (giọng đọc - màn chọn giọng của Text to video)
 
 ```

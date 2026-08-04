@@ -303,7 +303,9 @@ export type JobType =
   /** Cắt khoảng lặng + mỡ thừa ĐÃ DUYỆT của một video project - `sceneId` = mức mạnh tay. */
   | "auto-trim"
   /** Phiên dựng video từ bài viết - `projectId` = id phiên. */
-  | "text-to-video";
+  | "text-to-video"
+  /** Phiên dịch video (bóc lời + đóng phụ đề) - `projectId` = id phiên. */
+  | "translate-video";
 
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
@@ -3009,3 +3011,244 @@ export async function previewClonedVoice(input: {
   }
   return res.blob();
 }
+
+// ============ Dịch video ============
+// Đưa một video vào → bóc lời thoại → AI dịch sang ngôn ngữ khác → đóng phụ đề
+// đã dịch lên video. Hợp đồng: mục "Dịch video" trong docs/API.md.
+
+/**
+ * Cách trả kết quả:
+ * - "subtitle": đóng phụ đề đã dịch lên chính video gốc (đang chạy).
+ * - "dub": lồng tiếng bằng giọng đọc - GIAI ĐOẠN 2, chưa dựng, UI khóa lại.
+ */
+export type TranslateMode = "subtitle" | "dub";
+
+export type TranslateStatus =
+  | "draft"
+  | "transcribing"
+  | "transcribed"
+  | "translating"
+  | "translated"
+  | "rendering"
+  | "done"
+  | "failed";
+
+/**
+ * Font chọn được cho phụ đề - ALLOWLIST, không phải ô gõ tự do. Font lạ thì
+ * trình duyệt render lặng lẽ bằng font thay thế, và chữ tiếng Việt là thứ vỡ
+ * đầu tiên (mất dấu, dấu chồng lên nhau) mà chỉ phát hiện ra lúc đã render xong.
+ */
+export const SUBTITLE_FONTS = ["vietnamese", "sans", "serif", "mono"] as const;
+
+export type SubtitleFontId = (typeof SUBTITLE_FONTS)[number];
+
+/** Nền sau chữ phụ đề - "blur" làm mờ hình phía sau, "solid" là màu đặc. */
+export type SubtitleBackdrop = "blur" | "solid" | "none";
+
+export interface SubtitleStyle {
+  /** id trong allowlist SUBTITLE_FONTS - server từ chối giá trị ngoài danh sách. */
+  fontFamily: string;
+  fontSizePx: number;
+  color: string;
+  backdrop: SubtitleBackdrop;
+  backdropColor: string;
+  blurPx: number;
+  /** Khoảng cách từ đáy khung hình tới đáy dòng phụ đề. */
+  bottomPx: number;
+}
+
+/** Một câu phụ đề đã dịch - `text` đã xuống dòng sẵn bằng "\n". */
+export interface TranslatedCue {
+  /** giây */
+  start: number;
+  /** giây */
+  end: number;
+  text: string;
+  /** Lời gốc trước khi dịch - để đối chiếu lúc sửa tay. */
+  original?: string;
+  speaker?: string;
+}
+
+export interface TranslateVideoSource {
+  /** Đường dẫn tương đối tới video nguồn - null = chưa tải lên. */
+  relPath: string | null;
+  durationSec: number | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+}
+
+export interface TranslateVideoMeta {
+  id: string;
+  name: string;
+  /** true = tên do server tự đặt theo file nguồn, người dùng chưa đặt tên. */
+  autoNamed: boolean;
+  source: TranslateVideoSource;
+  /** "auto" = để máy tự nhận ngôn ngữ của video. */
+  sourceLang: string;
+  targetLang: string;
+  mode: TranslateMode;
+  transcriptFile: string | null;
+  cues: TranslatedCue[];
+  subtitleStyle: SubtitleStyle;
+  /** Video đã đóng phụ đề - null = chưa render. */
+  outputFile: string | null;
+  status: TranslateStatus;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Nhãn + tông màu badge cho từng trạng thái phiên dịch. Để ở đây (không phải
+ * trong component) vì cả trang danh sách lẫn trang chi tiết đều cần, mà hai
+ * trang lệch nhau một chữ là người dùng tưởng hai thứ khác nhau.
+ * Giá trị nhãn là KEY dictionary - dịch bằng t() lúc render.
+ */
+export const TRANSLATE_VIDEO_STATUS_LABEL: Record<TranslateStatus, string> = {
+  draft: "tv.status.draft",
+  transcribing: "tv.status.transcribing",
+  transcribed: "tv.status.transcribed",
+  translating: "tv.status.translating",
+  translated: "tv.status.translated",
+  rendering: "tv.status.rendering",
+  done: "tv.status.done",
+  failed: "tv.status.failed",
+};
+
+export const TRANSLATE_VIDEO_STATUS_TONE: Record<
+  TranslateStatus,
+  "success" | "running" | "danger" | "muted"
+> = {
+  draft: "muted",
+  transcribing: "running",
+  transcribed: "muted",
+  translating: "running",
+  translated: "muted",
+  rendering: "running",
+  done: "success",
+  failed: "danger",
+};
+
+/** Nhãn chế độ trả kết quả - giá trị là KEY dictionary. */
+export const TRANSLATE_MODE_LABEL: Record<TranslateMode, string> = {
+  subtitle: "tv.mode.subtitle",
+  dub: "tv.mode.dub",
+};
+
+/**
+ * Ngôn ngữ nguồn chọn được. "auto" đứng đầu: để máy tự nhận là lựa chọn đúng
+ * trong hầu hết trường hợp, chỉ đặt tay khi video pha nhiều thứ tiếng.
+ * Nhãn dịch bằng key "tv.lang.<code>".
+ */
+export const TRANSLATE_SOURCE_LANGS = [
+  "auto",
+  "vi",
+  "en",
+  "zh",
+  "ja",
+  "ko",
+  "fr",
+  "de",
+  "es",
+  "pt",
+  "ru",
+  "th",
+  "id",
+  "hi",
+  "ar",
+  "it",
+] as const;
+
+/** Ngôn ngữ đích - y hệt danh sách nguồn nhưng bỏ "auto" (dịch sang đâu phải nói rõ). */
+export const TRANSLATE_TARGET_LANGS = TRANSLATE_SOURCE_LANGS.filter(
+  (code) => code !== "auto"
+);
+
+/** Mặc định của phụ đề - khớp mặc định server, dùng để lấp field còn thiếu. */
+export const TRANSLATE_DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
+  fontFamily: "vietnamese",
+  fontSizePx: 48,
+  color: "#ffffff",
+  backdrop: "blur",
+  backdropColor: "#000000",
+  blurPx: 12,
+  bottomPx: 120,
+};
+
+/** Giới hạn các ô số của phụ đề - chặn sớm ở web thay vì để server trả 400. */
+export const SUBTITLE_FONT_SIZE_MIN = 16;
+export const SUBTITLE_FONT_SIZE_MAX = 160;
+export const SUBTITLE_BLUR_MAX = 40;
+export const SUBTITLE_BOTTOM_MAX = 600;
+
+/** Job của phiên dịch: `type` = "translate-video", `projectId` = id phiên. */
+export function isTranslateVideoJob(job: Job, sessionId?: string): boolean {
+  if (job.type !== "translate-video") return false;
+  return sessionId === undefined || job.projectId === sessionId;
+}
+
+export const getTranslateVideos = () =>
+  request<TranslateVideoMeta[]>("/api/translate-video");
+
+export const getTranslateVideo = (id: string) =>
+  request<TranslateVideoMeta>(`/api/translate-video/${encodeURIComponent(id)}`);
+
+/** 201 - bỏ trống `name` thì server tự đặt (autoNamed = true) theo file nguồn. */
+export const createTranslateVideo = (input?: { name?: string }) =>
+  post<TranslateVideoMeta>("/api/translate-video", input);
+
+/** PATCH partial - field không gửi thì server giữ nguyên. */
+export const updateTranslateVideo = (
+  id: string,
+  patch: {
+    name?: string;
+    sourceLang?: string;
+    targetLang?: string;
+    mode?: TranslateMode;
+    cues?: TranslatedCue[];
+    subtitleStyle?: SubtitleStyle;
+  }
+) =>
+  jsonBody<TranslateVideoMeta>(
+    `/api/translate-video/${encodeURIComponent(id)}`,
+    "PATCH",
+    patch
+  );
+
+export const deleteTranslateVideo = (id: string) =>
+  request<void>(`/api/translate-video/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+
+/**
+ * Tải video nguồn lên (multipart). Gọi THẲNG backend như uploadAsset: file video
+ * lớn đi qua rewrite proxy của Next là dính timeout.
+ */
+export const uploadTranslateVideoSource = (id: string, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return request<TranslateVideoMeta>(
+    `${serverOrigin()}/api/translate-video/${encodeURIComponent(id)}/source`,
+    { method: "POST", body: form }
+  );
+};
+
+/** 202 - job dài: bóc lời thoại từ video nguồn. */
+export const transcribeTranslateVideo = (id: string) =>
+  post<{ jobId: string }>(
+    `/api/translate-video/${encodeURIComponent(id)}/transcribe`
+  );
+
+/** Đồng bộ - AI dịch toàn bộ lời thoại, chờ vài chục giây rồi trả meta mới. */
+export const translateTranslateVideo = (id: string, input?: { model?: string }) =>
+  post<TranslateVideoMeta>(
+    `/api/translate-video/${encodeURIComponent(id)}/translate`,
+    input && input.model !== undefined ? input : undefined
+  );
+
+/** 202 - job dài: đóng phụ đề đã dịch lên video. */
+export const renderTranslateVideo = (id: string) =>
+  post<{ jobId: string }>(
+    `/api/translate-video/${encodeURIComponent(id)}/render`
+  );

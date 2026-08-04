@@ -4,7 +4,8 @@ import { paths } from "../config.js";
 
 /**
  * GET /media/<relPath> - phát file tĩnh (video/audio seek được nhờ Range).
- * Chỉ phục vụ dưới whitelist: video-projects/, image-projects/, assets/, outputs/, imports/.
+ * Chỉ phục vụ dưới whitelist: video-projects/, image-projects/, translate-video/,
+ * assets/, outputs/, imports/.
  * express.static (serve-static) tự chặn `..`/path traversal và hỗ trợ Range.
  */
 const router = Router();
@@ -12,6 +13,10 @@ const router = Router();
 const whitelist: Record<string, string> = {
   "video-projects": paths.videoProjectsDir,
   "image-projects": paths.imageProjectsDir,
+  // Dịch video: web UI xem trước và tải video đã ghép phụ đề từ
+  // translate-video/<id>/output.mp4. Thiếu dòng này thì render xong nhưng
+  // người dùng không xem được - đúng nghĩa tính năng chạy mà vô dụng.
+  "translate-video": paths.translateVideoDir,
   assets: paths.assetsDir,
   outputs: paths.outputsDir,
   imports: paths.importsDir,

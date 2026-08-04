@@ -44,6 +44,7 @@ import reviewRouter from "./routes/review.js";
 import autoCutRouter from "./routes/autoCut.js";
 import autoTrimRouter from "./routes/autoTrim.js";
 import textToVideoRouter from "./routes/textToVideo.js";
+import translateVideoRouter from "./routes/translateVideo.js";
 import ttsRouter from "./routes/tts.js";
 import voicesRouter from "./routes/voices.js";
 import videoStylesRouter from "./routes/videoStyles.js";
@@ -190,6 +191,8 @@ app.use("/api/projects", autoTrimRouter); // cắt khoảng lặng + mỡ thừa
 app.use("/api/auto-cut", autoCutRouter);
 // Text to video: phiên nguồn (bài viết/đoạn văn) → tự sinh Videos Project
 app.use("/api/text-to-video", textToVideoRouter);
+// Dịch video: phiên nguồn (video) -> bóc lời -> dịch -> ghép phụ đề
+app.use("/api/translate-video", translateVideoRouter);
 app.use("/api/tts", ttsRouter);
 app.use("/api/voices", voicesRouter); // giọng nhân bản chạy trên máy (VieNeu)
 app.use("/api/video-styles", videoStylesRouter); // phong cách dựng (giấy gấp, mực tàu...)

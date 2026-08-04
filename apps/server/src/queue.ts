@@ -10,6 +10,7 @@ import { runImageGen } from "./jobs/imageGen.js";
 import { runAutoCut } from "./jobs/autoCut.js";
 import { runAutoTrim } from "./jobs/autoTrim.js";
 import { runTextToVideo } from "./jobs/textToVideo.js";
+import { runTranslateVideo } from "./jobs/translateVideo.js";
 
 /**
  * Hàng đợi render trong process - chạy SONG SONG tối đa `queueConcurrency` job
@@ -68,7 +69,9 @@ function busyKeyOf(j: db.JobRow): string {
         ? "cut:"
         : j.type === "text-to-video"
           ? "t2v:"
-          : "vid:";
+          : j.type === "translate-video"
+            ? "tvd:"
+            : "vid:";
   return ns + j.projectId;
 }
 
@@ -145,6 +148,8 @@ class RenderQueue {
         await runImageGen(ctx);
       } else if (fresh.type === "text-to-video") {
         await runTextToVideo(ctx);
+      } else if (fresh.type === "translate-video") {
+        await runTranslateVideo(ctx);
       } else if (fresh.type === "auto-cut") {
         await runAutoCut(ctx);
       } else if (fresh.type === "auto-trim") {

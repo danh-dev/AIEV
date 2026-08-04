@@ -8,6 +8,7 @@ import {
   FileText,
   FolderOpen,
   Images,
+  Languages,
   LayoutDashboard,
   ListVideo,
   Mic,
@@ -55,8 +56,11 @@ const NAV = [
   { href: "/images", label: "nav.images", icon: Images },
   { href: "/auto-cut", label: "nav.auto-cut", icon: Scissors },
   { href: "/text-to-video", label: "nav.text-to-video", icon: FileText },
-  // Đặt ngay dưới Text to video: thư viện giọng chỉ có nghĩa với tính năng đó,
-  // để lẫn xuống cụm thư viện phía dưới là người dùng không tìm ra.
+  // Ngay dưới Text to video theo đúng yêu cầu: hai tính năng đều "đưa nội dung
+  // vào, nhận video ra", để cạnh nhau người dùng khỏi phải quét cả sidebar.
+  { href: "/translate-video", label: "nav.translate-video", icon: Languages },
+  // Đặt ngay dưới cụm Text to video: thư viện giọng chỉ có nghĩa với tính năng
+  // đó, để lẫn xuống cụm thư viện phía dưới là người dùng không tìm ra.
   { href: "/voices", label: "nav.voices", icon: Mic },
   { href: "/styles", label: "nav.styles", icon: Palette },
   { href: "/queue", label: "nav.queue", icon: ListVideo },

@@ -106,7 +106,10 @@ function pythonScript(): string {
     "",
     "AUDIO = sys.argv[1]",
     "OUT = sys.argv[2]",
-    "LANG = sys.argv[3]",
+    // "auto" -> None: faster-whisper TỰ dò ngôn ngữ. Cần cho tính năng Dịch
+    // video, nơi người dùng đưa video tiếng nước ngoài mà không biết là tiếng
+    // gì. Ép sẵn "vi" như trước là bóc băng sai toàn bộ mà không báo lỗi.
+    "LANG = None if sys.argv[3] == 'auto' else sys.argv[3]",
     "TOTAL = float(sys.argv[4])",
     "LOGFILE = sys.argv[5]",
     "",
@@ -135,7 +138,7 @@ function pythonScript(): string {
     '    device = "cpu"',
     '    model = WhisperModel("large-v3", device="cpu", compute_type="int8")',
     "",
-    'log("[whisper] bat dau - device=" + device + " model=large-v3 lang=" + LANG)',
+    'log("[whisper] bat dau - device=" + device + " model=large-v3 lang=" + (LANG or "auto"))',
     "",
     "segments, info = model.transcribe(AUDIO, language=LANG, word_timestamps=True)",
     "",
@@ -247,7 +250,11 @@ function rmQuiet(file: string): void {
 export async function transcribeVideo(input: {
   videoAbs: string;
   outJsonAbs: string;
-  /** Mã ngôn ngữ whisper - mặc định "vi" */
+  /**
+   * Mã ngôn ngữ whisper - mặc định "vi". Truyền "auto" để whisper TỰ dò
+   * (dùng cho Dịch video: người dùng đưa video tiếng nước ngoài mà không biết
+   * là tiếng gì). Ngôn ngữ thật whisper nhận ra được trả về trong `language`.
+   */
   language?: string;
   onLog?: (line: string) => void;
   /**

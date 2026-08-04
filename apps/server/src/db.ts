@@ -169,12 +169,16 @@ export type JobType =
    */
   | "auto-trim"
   /** Text to video: projectId là id phiên, không dùng sceneId */
-  | "text-to-video";
+  | "text-to-video"
+  /** Dịch video: projectId là id phiên dịch, sceneId mang step (transcribe | render) */
+  | "translate-video";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
 /**
- * Các loại job tạo được qua POST /api/jobs. CỐ Ý thiếu "text-to-video" -
- * loại đó chỉ được tạo qua route build của Text to video, không tạo tay qua API jobs.
+ * Các loại job tạo được qua POST /api/jobs. CỐ Ý thiếu "text-to-video" và
+ * "translate-video" - hai loại đó chỉ được tạo qua route riêng của chúng.
+ * Thêm vào đây là POST /api/jobs sẽ chạy projectExists() trên một id PHIÊN
+ * (không phải video project) và trả 404.
  */
 export const JOB_TYPES: JobType[] = [
   "scene-draft",
