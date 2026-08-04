@@ -82,6 +82,7 @@ import {
   SFX_MODE_LABEL,
 } from "@/components/ProjectBriefCard";
 import { ProjectAssetsCard } from "@/components/ProjectAssetsCard";
+import { ProjectAutoTrimCard } from "@/components/ProjectAutoTrimCard";
 import { ProjectClipsCard } from "@/components/ProjectClipsCard";
 import { ProjectReviewCard } from "@/components/ProjectReviewCard";
 import { ProjectPublishCard } from "@/components/ProjectPublishCard";
@@ -1095,6 +1096,12 @@ export default function ProjectDetailPage() {
                     onChanged={load}
                   />
                 )}
+                {/* Đứng ngay dưới Asset vì nói về chính file nguồn ở trên -
+                    tự ẩn khi project chưa chạy cắt tự động lần nào */}
+                <ProjectAutoTrimCard
+                  projectId={projectId}
+                  version={project?.updatedAt}
+                />
               </div>
 
               <div className="flex flex-col gap-4">

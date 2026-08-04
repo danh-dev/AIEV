@@ -49,6 +49,7 @@ const JOB_TYPE_LABEL: Record<Job["type"], string> = {
   "assemble-final": "dash.job.assemble-final",
   "image-gen": "dash.job.image-gen",
   "auto-cut": "dash.job.auto-cut",
+  "auto-trim": "dash.job.auto-trim",
   "text-to-video": "dash.job.text-to-video",
 };
 

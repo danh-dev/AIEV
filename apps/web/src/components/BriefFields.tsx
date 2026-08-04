@@ -13,6 +13,7 @@ import { AlertTriangle, Loader2, Plus, ScrollText, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  AUTO_CUT_LEVELS,
   getPrompts,
   getSkills,
   type Brief,
@@ -20,6 +21,7 @@ import {
   type PromptTemplate,
   type SfxMode,
   type SkillMeta,
+  type TrimAggressiveness,
 } from "@/lib/api";
 import { TagInput } from "@/components/TagInput";
 import { TextPositionPicker, useGeminiImageModels } from "@/components/ImageProjectForm";
@@ -32,6 +34,7 @@ export const DEFAULT_BRIEF: Brief = {
   sourceDescription: "",
   // Khớp defaultBrief() phía server - lệch default là lưu sớm sẽ âm thầm đổi hành vi
   autoCut: true,
+  autoCutLevel: "default",
   subtitles: true,
   highlightEnabled: true,
   highlightKeywords: [],
@@ -61,6 +64,23 @@ export const SFX_MODE_LABEL: Record<SfxMode, string> = {
 export const MUSIC_MODE_LABEL: Record<MusicMode, string> = {
   auto: "brief.music.auto",
   none: "brief.music.none",
+};
+
+/**
+ * Mức mạnh tay khi cắt tự động. Nhãn + gợi ý dùng lại được ở chỗ khác (card
+ * "Cắt tự động" đọc báo cáo cũng cần đúng những nhãn này) nên export.
+ */
+export const AUTO_CUT_LEVEL_LABEL: Record<TrimAggressiveness, string> = {
+  natural: "brief.autocut-level-natural",
+  default: "brief.autocut-level-default",
+  tight: "brief.autocut-level-tight",
+};
+
+/** Gợi ý từng mức - con số lấy thẳng từ TRIM_PROFILES của server, không làm tròn cho đẹp. */
+const AUTO_CUT_LEVEL_HINT: Record<TrimAggressiveness, string> = {
+  natural: "brief.autocut-level-natural-hint",
+  default: "brief.autocut-level-default-hint",
+  tight: "brief.autocut-level-tight-hint",
 };
 
 function Switch({
@@ -290,6 +310,45 @@ export function BriefFields({
           label={t("brief.autocut-label")}
           hint={t("brief.autocut-hint")}
         />
+        {/* Mức mạnh tay - chỉ hiện khi toggle BẬT (autoCut vẫn là công tắc duy nhất) */}
+        {value.autoCut && (
+          <div className="border-t border-[var(--border)] pt-2.5">
+            <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">
+              {t("brief.autocut-level")}
+            </span>
+            <div
+              className="flex flex-col gap-1.5"
+              role="radiogroup"
+              aria-label={t("brief.autocut-level")}
+            >
+              {AUTO_CUT_LEVELS.map((level) => (
+                <label
+                  key={level}
+                  className="flex cursor-pointer items-start gap-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="brief-autocut-level"
+                    className="mt-0.5 accent-[var(--primary)]"
+                    checked={value.autoCutLevel === level}
+                    onChange={() => set("autoCutLevel", level)}
+                  />
+                  <span>
+                    {t(AUTO_CUT_LEVEL_LABEL[level])}
+                    {level === "default" && (
+                      <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">
+                        {t("brief.autocut-level-recommended")}
+                      </span>
+                    )}
+                    <span className="block text-xs font-normal text-[var(--text-muted)]">
+                      {t(AUTO_CUT_LEVEL_HINT[level])}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <Switch
           id="brief-subtitles"
           checked={value.subtitles}

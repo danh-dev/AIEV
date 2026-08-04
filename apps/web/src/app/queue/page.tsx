@@ -28,6 +28,7 @@ const TYPE_LABEL: Record<Job["type"], string> = {
   "assemble-final": "queue.type.assemble-final",
   "image-gen": "queue.type.image-gen",
   "auto-cut": "queue.type.auto-cut",
+  "auto-trim": "queue.type.auto-trim",
   "text-to-video": "queue.type.text-to-video",
 };
 

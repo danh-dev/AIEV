@@ -185,10 +185,23 @@ export type SfxMode = "recommended" | "library" | "none";
 /** Nhạc nền: AI tự chọn bài theo mood trong thư viện / không dùng. */
 export type MusicMode = "auto" | "none";
 
+/**
+ * Mức mạnh tay khi cắt tự động - PHẢI khớp AUTO_CUT_LEVELS của server
+ * (meta.ts) và TRIM_PROFILES (autoTrim.ts). Thứ tự = từ nhẹ tay tới sát nhất.
+ */
+export const AUTO_CUT_LEVELS = ["natural", "default", "tight"] as const;
+
+export type TrimAggressiveness = (typeof AUTO_CUT_LEVELS)[number];
+
 /** Kịch bản edit của project - AI đọc phần này khi bắt đầu edit. */
 export interface Brief {
   sourceDescription: string;
   autoCut: boolean;
+  /**
+   * Mạnh tay tới đâu khi cắt - chỉ có nghĩa khi autoCut = true (autoCut vẫn là
+   * công tắc bật/tắt duy nhất, field này KHÔNG bật thay nó).
+   */
+  autoCutLevel: TrimAggressiveness;
   subtitles: boolean;
   /** BẬT = AI tự phân tích source, chọn keyword và highlight. */
   highlightEnabled: boolean;
@@ -287,6 +300,8 @@ export type JobType =
   | "image-gen"
   /** Phiên cắt tự động - `projectId` = id phiên, `sceneId` = bước (plan/cut). */
   | "auto-cut"
+  /** Cắt khoảng lặng + mỡ thừa ĐÃ DUYỆT của một video project - `sceneId` = mức mạnh tay. */
+  | "auto-trim"
   /** Phiên dựng video từ bài viết - `projectId` = id phiên. */
   | "text-to-video";
 
@@ -1829,6 +1844,191 @@ export const subtitleDownloadUrl = (
     `/api/projects/${encodeURIComponent(projectId)}/subtitles?format=${format}` +
       (version ? `&v=${encodeURIComponent(version)}` : "")
   );
+
+// ================= Cắt tự động (auto-trim) =================
+
+/** Một khoảng lặng đo được, tính bằng giây - khớp SilenceRange của server. */
+export interface TrimSilenceRange {
+  start: number;
+  end: number;
+  duration: number;
+}
+
+/** Bộ số của một mức mạnh tay - khớp TrimProfile (TRIM_PROFILES) của server. */
+export interface TrimProfile {
+  /** Khoảng lặng ngắn hơn mức này thì để yên (nhịp thở tự nhiên). */
+  minSilenceSec: number;
+  /** Chừa lại mỗi mép bao nhiêu giây khi cắt. */
+  padSec: number;
+  /** Sau khi cắt, không khoảng lặng nào được dài hơn mức này. */
+  maxResidualSec: number;
+  /** Tổng thời gian lặng còn lại tối đa, tính theo tỉ lệ thời lượng. */
+  maxResidualRatio: number;
+}
+
+/** Kết quả ĐO khoảng lặng của một file - khớp TrimAnalysis của server. */
+export interface TrimAnalysis {
+  durationSec: number;
+  /** Nền nhiễu đo được, không phải hằng số. */
+  noiseFloorDb: number;
+  thresholdDb: number;
+  profile: TrimProfile;
+  silences: TrimSilenceRange[];
+  keepRanges: Array<[number, number]>;
+  removedSec: number;
+  /** Vì sao ngưỡng này được chọn (kể cả khi phải chọn bừa). */
+  thresholdNote?: string;
+  sweep?: Array<{ db: number; count: number; ratio: number; midpointRate: number }>;
+  /** Transcript đã phủ quyết bao nhiêu - chỉ có khi project đã bóc băng. */
+  wordGuard?: { droppedSec: number; droppedRanges: number };
+}
+
+/** Loại mỡ thừa server dò được từ transcript. */
+export type DeadWeightKind = "filler" | "stutter" | "repeat-take" | "hesitation";
+
+/** Một ứng viên mỡ thừa - việc DUYỆT là của người/AI, server không tự cắt. */
+export interface DeadWeightCandidate {
+  kind: DeadWeightKind;
+  start: number;
+  end: number;
+  text: string;
+  /** 0..1 - càng cao càng chắc là mỡ thừa. */
+  confidence: number;
+  /** Tiếng Việt, giải thích vì sao đề xuất cắt. */
+  reason: string;
+  context: string;
+}
+
+export interface DeadWeightReport {
+  candidates: DeadWeightCandidate[];
+  totalSec: number;
+  byKind: Record<DeadWeightKind, { count: number; sec: number }>;
+}
+
+/** Nghiệm thu bản đã cắt - khớp TrimVerification của server. */
+export interface TrimVerification {
+  residual: TrimSilenceRange[];
+  totalSilenceSec: number;
+  ratio: number;
+  longest: number;
+  pass: boolean;
+  /** Vì sao trượt, tiếng Việt - server soạn sẵn, UI hiện nguyên văn. */
+  reason?: string;
+}
+
+/** Kết quả POST /api/projects/:id/auto-trim/analyze. */
+export interface TrimAnalyzeResult {
+  /** Video đã đo, relPath từ repo root. */
+  source: string;
+  /** Transcript đã dùng làm hàng rào - null = không có, kết quả kém tin cậy hẳn. */
+  transcript: string | null;
+  guarded: boolean;
+  silence: TrimAnalysis;
+  deadWeight: DeadWeightReport;
+  note: string;
+}
+
+/**
+ * POST đo khoảng lặng + dò mỡ thừa - ĐỒNG BỘ và KHÔNG encode gì (chỉ bóc một
+ * WAV tạm rồi tự dọn), nên gọi lại bao nhiêu lần cũng được. Server tự cắt ở 10
+ * phút: 504 TRIM_ANALYZE_TIMEOUT. Lỗi khác: 404 TRIM_SOURCE_NOT_FOUND,
+ * 400 PATH_OUTSIDE_PROJECT / INVALID_LEVEL.
+ * `level` bỏ trống = lấy theo brief của project.
+ */
+export const analyzeAutoTrim = (
+  projectId: string,
+  input?: { source?: string; level?: TrimAggressiveness }
+) =>
+  post<TrimAnalyzeResult>(
+    `/api/projects/${encodeURIComponent(projectId)}/auto-trim/analyze`,
+    input ?? {}
+  );
+
+/** Kết quả 202 của POST /api/projects/:id/auto-trim/apply. */
+export interface AutoTrimApplyResult {
+  job: Job;
+  level: TrimAggressiveness;
+  profile: TrimProfile;
+  source: string;
+  /** Số ứng viên mỡ thừa đã duyệt mà job sẽ cắt thêm ngoài khoảng lặng. */
+  approvedCandidates: number;
+}
+
+/**
+ * POST cắt thật - đẩy vào render queue (202), KHÔNG chạy đồng bộ.
+ * `cutCandidates` là các ứng viên mỡ thừa NGƯỜI/AI ĐÃ DUYỆT; bỏ trống thì job
+ * chỉ cắt khoảng lặng đo được. 409 BUSY khi project đang có job chạy/chờ.
+ */
+export const applyAutoTrim = (
+  projectId: string,
+  input?: {
+    source?: string;
+    level?: TrimAggressiveness;
+    cutCandidates?: Array<{ start: number; end: number }>;
+  }
+) =>
+  post<AutoTrimApplyResult>(
+    `/api/projects/${encodeURIComponent(projectId)}/auto-trim/apply`,
+    input ?? {}
+  );
+
+/** Báo cáo job auto-trim để lại - khớp AutoTrimReport của server (jobs/autoTrim.ts). */
+export interface AutoTrimReport {
+  createdAt: string;
+  jobId: string;
+  level: TrimAggressiveness;
+  profile: TrimProfile;
+  /** relPath từ repo root. */
+  source: string;
+  /** null = không cắt được gì nên KHÔNG sinh file mới, các bước sau dùng lại source. */
+  output: string | null;
+  transcript: { source: string | null; cut: string | null; guarded: boolean };
+  duration: { beforeSec: number; afterSec: number | null; removedSec: number };
+  /**
+   * Bóc tách số giây đã bỏ: `silenceSec` do máy đo, `approvedSec` là phần CỘNG
+   * THÊM nhờ ứng viên đã duyệt (đã trừ chỗ chồng lấn nên hai số cộng lại đúng
+   * bằng tổng, không đếm hai lần).
+   */
+  removed: { silenceSec: number; approvedSec: number; ranges: number };
+  threshold: { db: number; noiseFloorDb: number; note: string };
+  candidates: {
+    approved: number;
+    /** Ứng viên bị lưới trung điểm chặn - duyệt nhầm chỗ có tiếng nói. */
+    rejected: Array<{ start: number; end: number }>;
+  };
+  verification: TrimVerification & { measuredOn: string; guarded: boolean };
+  verdict: "pass" | "fail";
+  note: string;
+}
+
+/**
+ * Báo cáo cắt tự động của project. Job ghi thẳng file vào
+ * `video-projects/<id>/assets/auto-trim-report.json` và KHÔNG có endpoint đọc
+ * riêng - lấy qua /media như mọi file khác của project (whitelist đã có sẵn
+ * prefix video-projects/).
+ *
+ * Trả null khi chưa chạy cắt tự động lần nào (404) hoặc file hỏng: phần lớn
+ * project không có file này nên đó là trạng thái BÌNH THƯỜNG, không phải lỗi.
+ * `version` (updatedAt của project) để trình duyệt không trả bản cũ trong cache.
+ */
+export async function getAutoTrimReport(
+  projectId: string,
+  version?: string
+): Promise<AutoTrimReport | null> {
+  const base = mediaUrl(
+    `video-projects/${encodeURIComponent(projectId)}/assets/auto-trim-report.json`
+  );
+  // mediaUrl có thể đã gắn `?k=` (trang /m) - nối tiếp bằng & chứ không phải ?
+  const url = version
+    ? `${base}${base.includes("?") ? "&" : "?"}v=${encodeURIComponent(version)}`
+    : base;
+  try {
+    const report = await request<AutoTrimReport>(url);
+    return report ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // ================= Duyệt draft + Cắt short + Tái chế tỉ lệ =================
 

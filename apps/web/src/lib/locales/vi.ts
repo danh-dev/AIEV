@@ -204,6 +204,7 @@ export const vi: Record<string, string> = {
   "dash.job.assemble-final": "Lắp ráp (final)",
   "dash.job.image-gen": "Tạo ảnh",
   "dash.job.auto-cut": "Cắt tự động",
+  "dash.job.auto-trim": "Cắt tự động (đo)",
   "dash.job.text-to-video": "Text to video",
   "dash.health.ffmpeg": "FFmpeg không có trên PATH - render sẽ thất bại.",
   "dash.health.claude": "Chưa có xác thực Claude - đăng nhập Claude Code trên máy này (VSCode) hoặc điền ANTHROPIC_API_KEY vào .env.",
@@ -259,6 +260,7 @@ export const vi: Record<string, string> = {
   "queue.type.assemble-final": "Lắp ráp final",
   "queue.type.image-gen": "Tạo ảnh",
   "queue.type.auto-cut": "Cắt tự động",
+  "queue.type.auto-trim": "Cắt tự động (đo)",
   "queue.type.text-to-video": "Text to video",
   "queue.log-title": "Log - {id}",
   "queue.close-log": "Đóng log",
@@ -451,6 +453,17 @@ export const vi: Record<string, string> = {
   "brief.manage-prompts": "Quản lý prompt",
   "brief.autocut-label": "Tự động cắt ngắn video",
   "brief.autocut-hint": "AI cắt bỏ khoảng lặng, đoạn thừa",
+  "brief.autocut-level": "Mức mạnh tay khi cắt",
+  "brief.autocut-level-recommended": "(khuyên dùng)",
+  "brief.autocut-level-natural": "Tự nhiên",
+  "brief.autocut-level-natural-hint":
+    "Chỉ cắt khoảng lặng từ 0,90s trở lên, chừa 0,18s mỗi mép - hợp phỏng vấn, video kể chuyện.",
+  "brief.autocut-level-default": "Mặc định",
+  "brief.autocut-level-default-hint":
+    "Cắt khoảng lặng từ 0,45s, chừa 0,12s mỗi mép - nhịp gọn mà vẫn còn chỗ thở.",
+  "brief.autocut-level-tight": "Sát",
+  "brief.autocut-level-tight-hint":
+    "Cắt khoảng lặng từ 0,30s, chừa 0,08s mỗi mép - nhịp TikTok/Shorts, gần như không còn khoảng nghỉ.",
   "brief.subtitles-label": "Tạo phụ đề",
   "brief.subtitles-hint": "Phụ đề karaoke theo giọng nói",
   "brief.highlight-hint": "AI tự phân tích nội dung và chọn keyword để highlight",
@@ -1080,6 +1093,24 @@ export const vi: Record<string, string> = {
   "publish.download-srt": "Tải .srt",
   "publish.download-vtt": "Tải .vtt",
   "publish.cues": "{n} dòng phụ đề",
+
+  // ===== Cắt tự động (card báo cáo auto-trim) =====
+  "autotrim.title": "Cắt tự động",
+  "autotrim.verdict-pass": "Đạt",
+  "autotrim.verdict-fail": "Chưa đạt",
+  "autotrim.trimmed-at": "Cắt {time}",
+  "autotrim.duration": "Thời lượng",
+  "autotrim.duration-value": "{before} → {after}",
+  "autotrim.removed": "Đã bỏ",
+  "autotrim.removed-value": "{total} ở {ranges} khoảng",
+  "autotrim.removed-split": "Trong đó",
+  "autotrim.removed-split-value": "khoảng lặng {silence} + mỡ thừa đã duyệt {approved}",
+  "autotrim.level": "Mức / ngưỡng",
+  "autotrim.level-value": "{level} · {db}dB",
+  "autotrim.residual": "Chỗ chết còn lại",
+  "autotrim.residual-value": "{total}, dài nhất {longest}",
+  "autotrim.fail-no-reason":
+    "Chưa đạt mức đã chọn nhưng báo cáo không ghi lý do - xem log job auto-trim.",
 
   // ===== Duyệt draft + Cắt short + Tái chế tỉ lệ =====
   "review.title": "Duyệt bản draft",

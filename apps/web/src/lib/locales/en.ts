@@ -204,6 +204,7 @@ export const en: Record<string, string> = {
   "dash.job.assemble-final": "Assemble (final)",
   "dash.job.image-gen": "Image generation",
   "dash.job.auto-cut": "Auto cut",
+  "dash.job.auto-trim": "Auto-trim",
   "dash.job.text-to-video": "Text to video",
   "dash.health.ffmpeg": "FFmpeg is not on PATH - renders will fail.",
   "dash.health.claude": "No Claude authentication - sign in to Claude Code on this machine (VSCode) or set ANTHROPIC_API_KEY in .env.",
@@ -259,6 +260,7 @@ export const en: Record<string, string> = {
   "queue.type.assemble-final": "Assemble final",
   "queue.type.image-gen": "Image generation",
   "queue.type.auto-cut": "Auto cut",
+  "queue.type.auto-trim": "Auto-trim",
   "queue.type.text-to-video": "Text to video",
   "queue.log-title": "Log - {id}",
   "queue.close-log": "Close log",
@@ -451,6 +453,17 @@ export const en: Record<string, string> = {
   "brief.manage-prompts": "Manage prompts",
   "brief.autocut-label": "Auto-trim the video",
   "brief.autocut-hint": "The AI removes silences and filler",
+  "brief.autocut-level": "How aggressive the trim is",
+  "brief.autocut-level-recommended": "(recommended)",
+  "brief.autocut-level-natural": "Natural",
+  "brief.autocut-level-natural-hint":
+    "Only cuts silences from 0.90s up, keeps 0.18s padding each edge - good for interviews and storytelling.",
+  "brief.autocut-level-default": "Default",
+  "brief.autocut-level-default-hint":
+    "Cuts silences from 0.45s, keeps 0.12s padding each edge - tight pacing that still breathes.",
+  "brief.autocut-level-tight": "Tight",
+  "brief.autocut-level-tight-hint":
+    "Cuts silences from 0.30s, keeps 0.08s padding each edge - TikTok/Shorts pacing, almost no pauses left.",
   "brief.subtitles-label": "Generate subtitles",
   "brief.subtitles-hint": "Karaoke subtitles following the voice",
   "brief.highlight-hint": "The AI analyzes the content and picks keywords to highlight",
@@ -1080,6 +1093,24 @@ export const en: Record<string, string> = {
   "publish.download-srt": "Download .srt",
   "publish.download-vtt": "Download .vtt",
   "publish.cues": "{n} subtitle lines",
+
+  // ===== Cắt tự động (card báo cáo auto-trim) =====
+  "autotrim.title": "Auto-trim",
+  "autotrim.verdict-pass": "Passed",
+  "autotrim.verdict-fail": "Not there yet",
+  "autotrim.trimmed-at": "Trimmed {time}",
+  "autotrim.duration": "Duration",
+  "autotrim.duration-value": "{before} → {after}",
+  "autotrim.removed": "Removed",
+  "autotrim.removed-value": "{total} across {ranges} ranges",
+  "autotrim.removed-split": "Of which",
+  "autotrim.removed-split-value": "silence {silence} + approved dead weight {approved}",
+  "autotrim.level": "Level / threshold",
+  "autotrim.level-value": "{level} · {db}dB",
+  "autotrim.residual": "Dead air left",
+  "autotrim.residual-value": "{total}, longest {longest}",
+  "autotrim.fail-no-reason":
+    "Below the level you picked, but the report gives no reason - check the auto-trim job log.",
 
   // ===== Duyệt draft + Cắt short + Tái chế tỉ lệ =====
   "review.title": "Review draft",
