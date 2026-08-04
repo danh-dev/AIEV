@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { repoRoot, upsertEnvVar } from "../config.js";
+import { childEnv, repoRoot, upsertEnvVar } from "../config.js";
 import { Router } from "express";
 import { HttpError, killTree } from "../util.js";
 import { hasLiveUploadSessions } from "./uploadSession.js";
@@ -257,7 +257,11 @@ router.post("/start", (req, res) => {
   lastLog.length = 0;
   pushLog(`$ cloudflared ${args.join(" ")}`);
 
-  const proc = spawn(cloudflaredBin() ?? "cloudflared", args, { windowsHide: true });
+  // env: cloudflared ghi log/file tạm - dồn về .runtime/tmp (xem childEnv ở config.ts)
+  const proc = spawn(cloudflaredBin() ?? "cloudflared", args, {
+    windowsHide: true,
+    env: childEnv(),
+  });
   child = proc;
   proc.stdout?.on("data", (c: Buffer) => pushLog(c.toString("utf8")));
   proc.stderr?.on("data", (c: Buffer) => pushLog(c.toString("utf8")));

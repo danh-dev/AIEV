@@ -12,6 +12,11 @@
  * RÀNG BUỘC: file này chạy TRƯỚC `npm install` (start script gọi nó ở bước đầu)
  * nên KHÔNG được import bất cứ dependency nào - chỉ module built-in của Node.
  *
+ * RÀNG BUỘC 2: mọi thứ file này TẢI VỀ đều phải nằm trong <repo>/.runtime -
+ * xem khối RUNTIME_DIRS bên dưới. Không dùng `pip install` toàn cục, không để
+ * huggingface tải model vào thư mục người dùng, không cài ffmpeg vào ổ hệ thống
+ * nếu tránh được.
+ *
  * Cách chạy tay:
  *   node start/doctor.mjs            # in bảng kiểm tra
  *   node start/doctor.mjs --fix      # thiếu gì hỏi cài nấy
@@ -34,12 +39,62 @@ const NPM = IS_WIN ? "npm.cmd" : "npm";
 /** Node tối thiểu - phải khớp README và package.json */
 export const MIN_NODE_MAJOR = 20;
 
+/**
+ * MỌI THỨ NẶNG DO DỰ ÁN TỰ TẢI VỀ ĐỀU NẰM TRONG .runtime/ CỦA CHÍNH DỰ ÁN.
+ *
+ * Trước đây chúng rơi hết vào ổ hệ thống dù repo nằm ở ổ khác: model whisper
+ * 13,3 GB ở C:\Users\<user>\.cache\huggingface, gói pip trong site-packages của
+ * Python hệ thống, cache pip 3,2 GB trong AppData, ffmpeg cài bằng winget vào
+ * C:\Program Files. Máy chạy repo này để dự án ở F: mà C: chỉ còn 17,7 GB.
+ *
+ * Đây là danh sách đường dẫn DÙNG CHUNG với backend (apps/server) - đổi tên ở
+ * đây là phải đổi cả bên đó, nếu không mỗi bên tìm model một nơi.
+ */
+const RUNTIME = path.join(ROOT, ".runtime");
+export const RUNTIME_DIRS = {
+  root: RUNTIME,
+  tmp: path.join(RUNTIME, "tmp"),
+  models: path.join(RUNTIME, "models"),
+  venv: path.join(RUNTIME, "venv"),
+  bin: path.join(RUNTIME, "bin"),
+  pipCache: path.join(RUNTIME, "pip-cache"),
+};
+
+/** Thư mục chứa lệnh của venv: Windows là Scripts\, còn lại là bin/ */
+const VENV_BIN = path.join(RUNTIME_DIRS.venv, IS_WIN ? "Scripts" : "bin");
+const VENV_PY = path.join(VENV_BIN, IS_WIN ? "python.exe" : "python");
+const VENV_PIP = path.join(VENV_BIN, IS_WIN ? "pip.exe" : "pip");
+
+function ensureRuntimeDirs() {
+  for (const dir of Object.values(RUNTIME_DIRS)) fs.mkdirSync(dir, { recursive: true });
+}
+
+/**
+ * Env cho MỌI tiến trình pip/python mà file này sinh ra. Không đặt mấy biến này
+ * thì pip vẫn cache vào AppData và huggingface vẫn tải model về ổ C: - đúng thứ
+ * đang muốn tránh. TMP/TEMP cũng phải đổi: pip giải nén wheel torch 2-3 GB
+ * trong thư mục tạm trước khi cài.
+ */
+function runtimeEnv() {
+  return {
+    ...process.env,
+    PIP_CACHE_DIR: RUNTIME_DIRS.pipCache,
+    HF_HOME: RUNTIME_DIRS.models,
+    HUGGINGFACE_HUB_CACHE: RUNTIME_DIRS.models,
+    TMPDIR: RUNTIME_DIRS.tmp,
+    TMP: RUNTIME_DIRS.tmp,
+    TEMP: RUNTIME_DIRS.tmp,
+  };
+}
+
 // ===================== tiện ích =====================
 
 /** Chạy lệnh, KHÔNG bao giờ ném - thiếu lệnh trả về { ok: false } */
-function run(file, args, timeout = 10_000) {
+function run(file, args, timeout = 10_000, env = null) {
   try {
-    const r = spawnSync(file, args, { encoding: "utf8", timeout, windowsHide: true });
+    const opts = { encoding: "utf8", timeout, windowsHide: true };
+    if (env) opts.env = env;
+    const r = spawnSync(file, args, opts);
     if (r.error) return { ok: false, out: "" };
     return {
       ok: r.status === 0,
@@ -54,6 +109,61 @@ function run(file, args, timeout = 10_000) {
 /** Dòng đầu của output - phần lớn lệnh --version in version ở dòng này */
 function firstLine(s) {
   return (s || "").split(/\r?\n/)[0].trim();
+}
+
+/** Byte -> chuỗi người đọc được. Dùng cho cả bảng terminal lẫn JSON của web UI */
+function fmtSize(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let n = bytes;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i += 1;
+  }
+  return `${n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)} ${units[i]}`;
+}
+
+/**
+ * Đếm file + tổng byte của một thư mục (đệ quy). Dùng lstat chứ không stat:
+ * cache huggingface trên macOS/Linux đầy symlink từ snapshots/ sang blobs/, đi
+ * theo symlink là đếm đúp dung lượng và so sánh trước/sau lúc chuyển sẽ lệch.
+ *
+ * Có nhớ đệm vì một lần chạy doctor hỏi tới cùng thư mục nhiều lần (bảng kiểm
+ * tra + bước sửa) mà cây model thì tới 13 GB.
+ */
+const dirStatsCache = new Map();
+function dirStats(dir, { fresh = false } = {}) {
+  if (!fresh && dirStatsCache.has(dir)) return dirStatsCache.get(dir);
+  const out = { exists: fs.existsSync(dir), files: 0, bytes: 0 };
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      try {
+        out.files += 1;
+        out.bytes += fs.lstatSync(p).size;
+      } catch {
+        /* file biến mất giữa chừng - bỏ qua */
+      }
+    }
+  };
+  if (out.exists) walk(dir);
+  dirStatsCache.set(dir, out);
+  return out;
+}
+
+function forgetDirStats() {
+  dirStatsCache.clear();
 }
 
 let envCache = null;
@@ -165,6 +275,45 @@ function findPython() {
   return null;
 }
 
+/**
+ * Python RIÊNG CỦA DỰ ÁN (.runtime/venv). Đây mới là nơi mọi gói được cài -
+ * `pip install` toàn cục ném gói vào site-packages của Python hệ thống, tức là
+ * vào ổ C:, và trộn lẫn với gói của dự án khác.
+ */
+function findVenvPython() {
+  if (!fs.existsSync(VENV_PY)) return null;
+  const r = run(VENV_PY, ["-c", "import sys; print(sys.version.split()[0])"], 8000, runtimeEnv());
+  if (!r.ok || !r.out) return null;
+  return { exe: VENV_PY, version: firstLine(r.out) };
+}
+
+/** Hỏi ĐÚNG trình thông dịch được truyền vào xem có module chưa */
+function pyHasModule(exe, mod, timeout) {
+  return run(exe, ["-c", `import ${mod}`], timeout, runtimeEnv()).ok;
+}
+
+/**
+ * Cache model huggingface CŨ nằm ngoài dự án (mặc định ~/.cache/huggingface).
+ * Trả về thư mục ĐÁNG chuyển, hoặc null nếu không có gì.
+ *
+ * Ưu tiên thư mục con hub/ vì HUGGINGFACE_HUB_CACHE của ta trỏ thẳng vào
+ * .runtime/models: model phải nằm ngay đó (models--Systran--faster-whisper...),
+ * chứ chuyển cả cây thành .runtime/models/hub/... là huggingface không thấy và
+ * tải lại 13 GB - đúng thứ đang muốn tránh.
+ */
+function legacyModelCache() {
+  const fromEnv = envVar("HF_HOME") || envVar("HUGGINGFACE_HUB_CACHE");
+  const base =
+    fromEnv && path.resolve(fromEnv) !== path.resolve(RUNTIME_DIRS.models)
+      ? fromEnv
+      : path.join(os.homedir(), ".cache", "huggingface");
+  for (const dir of [path.join(base, "hub"), base]) {
+    const st = dirStats(dir);
+    if (st.exists && st.files > 0) return dir;
+  }
+  return null;
+}
+
 /** Đăng nhập Claude - phải khớp hasClaudeAuth() trong apps/server/src/config.ts */
 function claudeAuthed() {
   if (envVar("ANTHROPIC_API_KEY") || envVar("CLAUDE_CODE_OAUTH_TOKEN") || envVar("ANTHROPIC_AUTH_TOKEN")) {
@@ -181,12 +330,53 @@ function claudeAuthed() {
   return false;
 }
 
-/** cloudflared có thể nằm trong PATH hệ thống hoặc bản tải riêng ở start/bin/ */
-const LOCAL_CLOUDFLARED = path.join(ROOT, "start", "bin", IS_WIN ? "cloudflared.exe" : "cloudflared");
+/**
+ * Binary tải riêng giờ về .runtime/bin (cùng chỗ với model và venv, một thư mục
+ * duy nhất để dọn). start/bin là chỗ CŨ - vẫn phải tìm ở đó, nếu không thì mọi
+ * máy đã tải cloudflared trước thay đổi này sẽ tải lại lần nữa.
+ */
+const LEGACY_BIN = path.join(ROOT, "start", "bin");
+
+function findLocalBinary(name) {
+  const file = IS_WIN ? `${name}.exe` : name;
+  for (const dir of [RUNTIME_DIRS.bin, LEGACY_BIN]) {
+    const p = path.join(dir, file);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+/** Nhãn ngắn cho biết binary lấy từ đâu - người dùng cần thấy nó nằm trong dự án */
+function binaryOrigin(p) {
+  if (!p) return "";
+  if (p.startsWith(RUNTIME_DIRS.bin)) return ".runtime/bin/";
+  if (p.startsWith(LEGACY_BIN)) return "start/bin/";
+  return "PATH";
+}
 
 function findCloudflared() {
-  if (fs.existsSync(LOCAL_CLOUDFLARED)) return LOCAL_CLOUDFLARED;
+  const local = findLocalBinary("cloudflared");
+  if (local) return local;
   return run("cloudflared", ["--version"], 5000).ok ? "cloudflared" : null;
+}
+
+/**
+ * ffmpeg + ffprobe. PATH TRƯỚC: ai đã có sẵn ffmpeg thì tuyệt đối không bắt tải
+ * thêm 150 MB nữa. Không có mới xét bản tải riêng trong .runtime/bin.
+ */
+function findFfmpeg() {
+  const onPath = run("ffmpeg", ["-version"], 8000);
+  const probeOnPath = run("ffprobe", ["-version"], 8000);
+  if (onPath.ok && probeOnPath.ok) return { where: "PATH", version: firstLine(onPath.out) };
+
+  const localFf = findLocalBinary("ffmpeg");
+  const localFp = findLocalBinary("ffprobe");
+  if (localFf && localFp) {
+    const r = run(localFf, ["-version"], 8000);
+    if (r.ok) return { where: binaryOrigin(localFf), version: firstLine(r.out) };
+  }
+  // Có ffmpeg nhưng thiếu ffprobe là ca riêng - báo đúng bệnh
+  return { where: null, version: onPath.ok ? firstLine(onPath.out) : "", ffmpegOnly: onPath.ok };
 }
 
 // ===================== danh sách kiểm tra =====================
@@ -217,20 +407,28 @@ export function runDoctor() {
   });
 
   // --- FFmpeg (kèm ffprobe) ---
-  const ff = run("ffmpeg", ["-version"], 8000);
-  const fp = run("ffprobe", ["-version"], 8000);
-  const ffOk = ff.ok && fp.ok;
+  const ffmpeg = findFfmpeg();
+  const ffOk = Boolean(ffmpeg.where);
   checks.push({
     id: "ffmpeg",
     label: "FFmpeg",
     level: "required",
     status: ffOk ? "ok" : "missing",
-    detail: ffOk ? firstLine(ff.out).split(" ").slice(0, 3).join(" ") : "",
-    note: ff.ok && !fp.ok ? "ffprobe-missing" : null,
+    detail: ffOk
+      ? `${ffmpeg.version.split(" ").slice(0, 3).join(" ")}${
+          ffmpeg.where === "PATH" ? "" : ` - ${ffmpeg.where}`
+        }`
+      : "",
+    note: ffmpeg.ffmpegOnly ? "ffprobe-missing" : null,
+    // Windows: tải bản static thẳng vào .runtime/bin thay vì winget cài vào
+    // C:\Program Files. winget vẫn còn - là đường lui khi tải hỏng, và là lệnh
+    // hiện ra cho ai muốn cài kiểu hệ thống.
     fix: IS_WIN
       ? {
           auto: true,
+          kind: "ffmpeg-win-local",
           size: "~150 MB",
+          target: RUNTIME_DIRS.bin,
           cmd: ["winget", ["install", "--id", "Gyan.FFmpeg", "-e", "--silent",
             "--accept-source-agreements", "--accept-package-agreements"]],
           manual: "winget install --id Gyan.FFmpeg -e",
@@ -307,84 +505,122 @@ export function runDoctor() {
     fix: { auto: false, manual: "claude -> /login", link: "/connections" },
   });
 
-  // --- Python + faster-whisper (phụ đề) ---
-  const py = findPython();
-  const whisper = py ? run(py.exe, ["-c", "import faster_whisper"], 30_000).ok : false;
+  // --- Python: venv của dự án + faster-whisper + VieNeu ---
+  // Gói cài vào .runtime/venv, KHÔNG cài toàn cục. Nên phép dò cũng phải hỏi
+  // trình thông dịch của venv: hỏi Python hệ thống thì thấy gói cũ nằm ở ổ C:
+  // và báo "ok" trong khi venv rỗng, lúc chạy thật là hỏng.
+  const venvPy = findVenvPython();
+  /** Python hệ thống chỉ cần để TẠO venv - dò một lần rồi nhớ, mỗi lần là một spawn */
+  let sysPyMemo;
+  const systemPy = () => (sysPyMemo === undefined ? (sysPyMemo = findPython()) : sysPyMemo);
+  const py = venvPy ?? systemPy();
+  const pyLabel = venvPy ? `Python ${venvPy.version} - .runtime/venv` : py ? `Python ${py.version}` : "";
+  /** Có thể tạo venv (đã có Python bất kỳ) hay chưa có Python nào cả */
+  const canVenv = Boolean(venvPy || systemPy());
+
+  /**
+   * Trả về trạng thái một gói: dò trong venv trước; venv chưa có gói thì mới
+   * hỏi Python hệ thống, chỉ để nói cho đúng bệnh ("đã cài nhưng nằm ngoài dự
+   * án") chứ vẫn coi là THIẾU - đích đến là .runtime/venv.
+   */
+  const probe = (mod, timeout) => {
+    if (venvPy && pyHasModule(venvPy.exe, mod, timeout)) return { ok: true, note: null };
+    const sys = systemPy();
+    if (!sys) return { ok: false, note: "python-missing" };
+    if (pyHasModule(sys.exe, mod, timeout)) return { ok: false, note: "system-only" };
+    return { ok: false, note: venvPy ? "module-missing" : "venv-missing" };
+  };
+
+  /** Fix chung cho mọi gói pip: tạo venv nếu thiếu rồi cài vào đó */
+  const pipFix = (pkgs, size) =>
+    canVenv
+      ? {
+          auto: true,
+          kind: "pip",
+          pkgs,
+          size,
+          target: RUNTIME_DIRS.venv,
+          cmd: [VENV_PIP, ["install", ...pkgs]],
+          manual: `${VENV_PIP} install ${pkgs.join(" ")}`,
+          command: `${VENV_PIP} install ${pkgs.join(" ")}`,
+        }
+      : {
+          auto: false,
+          manual: `pip install ${pkgs.join(" ")} (cài Python 3.10+ trước)`,
+          url: "https://www.python.org/downloads/",
+        };
+
+  const whisper = probe("faster_whisper", 30_000);
   checks.push({
     id: "whisper",
     label: "faster-whisper",
     level: "optional",
-    status: whisper ? "ok" : "missing",
-    detail: py ? `Python ${py.version}` : "",
-    // Có Python nhưng thiếu module là ca sửa được bằng một lệnh pip - phân biệt
-    // rõ với ca chưa có Python (phải cài Python trước)
-    note: !whisper ? (py ? "module-missing" : "python-missing") : null,
-    fix: py
-      ? {
-          auto: true,
-          size: "~300 MB",
-          cmd: [py.exe, ["-m", "pip", "install", "faster-whisper"]],
-          manual: `${py.exe} -m pip install faster-whisper`,
-          command: `${py.exe} -m pip install faster-whisper`,
-        }
-      : {
-          auto: false,
-          manual: "pip install faster-whisper (cài Python 3.10+ trước)",
-          url: "https://www.python.org/downloads/",
-        },
+    status: whisper.ok ? "ok" : "missing",
+    detail: whisper.ok ? pyLabel : py ? `Python ${py.version}` : "",
+    note: whisper.note,
+    fix: pipFix(["faster-whisper"], "~300 MB"),
   });
 
   // --- VieNeu-TTS (giọng đọc chạy trên máy + nhân bản giọng) ---
   // Hai mức, cố ý tách rời: gói `vieneu` là đủ để ĐỌC (chạy bằng ONNX, không
   // cần torch); muốn NHÂN BẢN giọng mới cần thêm torch. Gộp làm một thì người
   // chỉ muốn đọc offline bị bắt tải 2-3 GB torch một cách vô ích.
-  const vieneu = py ? run(py.exe, ["-c", "import vieneu"], 60_000).ok : false;
+  const vieneu = probe("vieneu", 60_000);
   checks.push({
     id: "vieneu",
     label: "VieNeu-TTS",
     level: "optional",
-    status: vieneu ? "ok" : "missing",
-    detail: py ? `Python ${py.version}` : "",
-    note: !vieneu ? (py ? "module-missing" : "python-missing") : null,
-    fix: py
-      ? {
-          auto: true,
-          size: "~30 MB (model ~1 GB tải ở lần đọc đầu)",
-          cmd: [py.exe, ["-m", "pip", "install", "vieneu"]],
-          manual: `${py.exe} -m pip install vieneu`,
-          command: `${py.exe} -m pip install vieneu`,
-        }
-      : {
-          auto: false,
-          manual: "pip install vieneu (cài Python 3.10+ trước)",
-          url: "https://www.python.org/downloads/",
-        },
+    status: vieneu.ok ? "ok" : "missing",
+    detail: vieneu.ok ? pyLabel : py ? `Python ${py.version}` : "",
+    note: vieneu.note,
+    fix: pipFix(["vieneu"], "~30 MB (model ~1 GB tải ở lần đọc đầu)"),
   });
 
   // Chỉ hỏi tới torch KHI ĐÃ có vieneu - máy không dùng giọng offline thì báo
   // thiếu torch chỉ là tiếng ồn.
-  if (vieneu) {
-    const torch = py ? run(py.exe, ["-c", "import torch, torchaudio"], 90_000).ok : false;
+  if (vieneu.ok) {
+    const torch = probe("torch, torchaudio", 90_000);
     checks.push({
       id: "vieneu-clone",
       // Nhãn để nguyên tên gói như mọi mục khác - phần giải thích nằm ở `why`,
       // chỗ duy nhất có bản dịch
       label: "PyTorch",
       level: "optional",
-      status: torch ? "ok" : "missing",
-      detail: py ? `Python ${py.version}` : "",
-      note: !torch ? "module-missing" : null,
-      fix: py
-        ? {
-            auto: true,
-            size: "~2-3 GB",
-            cmd: [py.exe, ["-m", "pip", "install", "torch", "torchaudio"]],
-            manual: `${py.exe} -m pip install torch torchaudio`,
-            command: `${py.exe} -m pip install torch torchaudio`,
-          }
-        : { auto: false, manual: "pip install torch torchaudio" },
+      status: torch.ok ? "ok" : "missing",
+      detail: torch.ok ? pyLabel : py ? `Python ${py.version}` : "",
+      note: torch.note,
+      fix: pipFix(["torch", "torchaudio"], "~2-3 GB"),
     });
   }
+
+  // --- Cache model (whisper tải về ~13 GB) ---
+  // Mục này tồn tại vì một lý do rất cụ thể: model cũ nằm ở
+  // ~/.cache/huggingface trên ổ hệ thống. Chuyển được thì CHUYỂN, không tải lại.
+  const modelsHere = dirStats(RUNTIME_DIRS.models);
+  const legacyModels = modelsHere.files > 0 ? null : legacyModelCache();
+  const legacyStats = legacyModels ? dirStats(legacyModels) : null;
+  checks.push({
+    id: "models-dir",
+    label: "Model cache",
+    level: "optional",
+    status: legacyModels ? "missing" : "ok",
+    detail: legacyModels
+      ? `${fmtSize(legacyStats.bytes)} @ ${legacyModels}`
+      : `${fmtSize(modelsHere.bytes)} - .runtime/models`,
+    note: legacyModels ? "models-elsewhere" : modelsHere.files === 0 ? "models-empty" : null,
+    fix: legacyModels
+      ? {
+          auto: true,
+          kind: "move-models",
+          size: fmtSize(legacyStats.bytes),
+          from: legacyModels,
+          to: RUNTIME_DIRS.models,
+          // Chuyển 13 GB là việc phải hỏi trước - xem cờ confirm ở vòng lặp --fix
+          confirm: true,
+          manual: `move "${legacyModels}" -> "${RUNTIME_DIRS.models}"`,
+        }
+      : null,
+  });
 
   // --- Gemini API key (tạo ảnh) ---
   const gemini = !!envVar("GEMINI_API_KEY");
@@ -410,7 +646,7 @@ export function runDoctor() {
     label: "cloudflared",
     level: "optional",
     status: cf ? "ok" : "missing",
-    detail: cf === LOCAL_CLOUDFLARED ? "start/bin/" : cf ? "PATH" : "",
+    detail: binaryOrigin(cf),
     fix: IS_WIN
       ? {
           auto: true,
@@ -423,6 +659,28 @@ export function runDoctor() {
       : IS_MAC
         ? { auto: true, size: "~20 MB", kind: "cloudflared-mac", manual: "brew install cloudflared", command: "brew install cloudflared" }
         : { auto: false, manual: "https://github.com/cloudflare/cloudflared/releases" },
+  });
+
+  // --- Dung lượng .runtime (chỉ để biết) ---
+  // Một dòng trả lời câu "dự án đang ngốn bao nhiêu ổ đĩa, và bỏ thư mục nào ra
+  // khỏi backup thì đủ".
+  const runtimeSize = dirStats(RUNTIME_DIRS.root);
+  const parts = [
+    ["models", dirStats(RUNTIME_DIRS.models)],
+    ["venv", dirStats(RUNTIME_DIRS.venv)],
+    ["pip-cache", dirStats(RUNTIME_DIRS.pipCache)],
+    ["bin", dirStats(RUNTIME_DIRS.bin)],
+  ]
+    .filter(([, st]) => st.bytes > 0)
+    .map(([name, st]) => `${name} ${fmtSize(st.bytes)}`);
+  checks.push({
+    id: "runtime",
+    label: ".runtime/",
+    level: "info",
+    status: "ok",
+    detail: `${fmtSize(runtimeSize.bytes)}${parts.length > 0 ? ` (${parts.join(", ")})` : ""}`,
+    note: null,
+    fix: null,
   });
 
   // --- GPU (chỉ để biết, không phải lỗi) ---
@@ -449,9 +707,13 @@ export function runDoctor() {
 
 // ===================== cài phần còn thiếu =====================
 
-function spawnLogged(file, args, log) {
+function spawnLogged(file, args, log, env = null) {
   return new Promise((resolve) => {
-    const child = spawn(file, args, { cwd: ROOT, windowsHide: true });
+    const child = spawn(file, args, {
+      cwd: ROOT,
+      windowsHide: true,
+      ...(env ? { env } : {}),
+    });
     const onData = (buf) => {
       for (const line of buf.toString("utf8").split(/\r?\n/)) {
         if (line.trim()) log(line.trim());
@@ -467,23 +729,203 @@ function spawnLogged(file, args, log) {
   });
 }
 
-/** macOS không có brew: tải thẳng binary chính thức về start/bin/ */
+/** Nháy đơn trong chuỗi PowerShell phải nhân đôi - đường dẫn có dấu ' là hỏng lệnh */
+function psQuote(s) {
+  return `'${String(s).replace(/'/g, "''")}'`;
+}
+
+/** Chạy một lệnh PowerShell (chỉ Windows) - Node không có sẵn giải nén zip */
+function powershell(script, log) {
+  return spawnLogged(
+    "powershell",
+    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+    log,
+  );
+}
+
+/**
+ * Tải một file. curl có sẵn trên macOS/Linux và cả Windows 10 1803+; Windows
+ * bản cũ hơn thì lui về Invoke-WebRequest.
+ */
+async function downloadFile(url, dest, log) {
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  log(`Tải ${path.basename(dest)}...`);
+  if (await spawnLogged("curl", ["-fsSL", "-o", dest, url], log)) return true;
+  if (!IS_WIN) return false;
+  log("Không dùng được curl - thử Invoke-WebRequest.");
+  return powershell(
+    `$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri ${psQuote(url)} -OutFile ${psQuote(dest)}`,
+    log,
+  );
+}
+
+/** macOS không có brew: tải thẳng binary chính thức về .runtime/bin */
 async function installCloudflaredMac(log) {
   if (hasBrew()) return spawnLogged("brew", ["install", "cloudflared"], log);
   const pkg = os.arch() === "arm64" ? "cloudflared-darwin-arm64.tgz" : "cloudflared-darwin-amd64.tgz";
-  const binDir = path.join(ROOT, "start", "bin");
-  fs.mkdirSync(binDir, { recursive: true });
-  const tgz = path.join(binDir, pkg);
-  log(`Tải ${pkg} từ Cloudflare...`);
-  const okDl = await spawnLogged("curl", [
-    "-fsSL", "-o", tgz,
+  ensureRuntimeDirs();
+  const binDir = RUNTIME_DIRS.bin;
+  const tgz = path.join(RUNTIME_DIRS.tmp, pkg);
+  const okDl = await downloadFile(
     `https://github.com/cloudflare/cloudflared/releases/latest/download/${pkg}`,
-  ], log);
+    tgz,
+    log,
+  );
   if (!okDl) return false;
   const okTar = await spawnLogged("tar", ["-xzf", tgz, "-C", binDir], log);
   fs.rmSync(tgz, { force: true });
   if (!okTar) return false;
   fs.chmodSync(path.join(binDir, "cloudflared"), 0o755);
+  log(`cloudflared -> ${binDir}`);
+  return true;
+}
+
+/**
+ * FFmpeg bản static vào .runtime/bin (Windows).
+ *
+ * winget cài vào ổ hệ thống nên chỉ còn là ĐƯỜNG LUI khi tải hỏng. Node không
+ * có giải nén zip nên phần bung file nhờ Expand-Archive của PowerShell.
+ */
+async function installFfmpegWindowsLocal(log) {
+  const url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
+  ensureRuntimeDirs();
+  const zip = path.join(RUNTIME_DIRS.tmp, "ffmpeg-release-essentials.zip");
+  const work = path.join(RUNTIME_DIRS.tmp, "ffmpeg-unzip");
+  fs.rmSync(work, { recursive: true, force: true });
+
+  const cleanup = () => {
+    fs.rmSync(zip, { force: true });
+    fs.rmSync(work, { recursive: true, force: true });
+  };
+
+  try {
+    if (!(await downloadFile(url, zip, log))) return false;
+    log("Giải nén...");
+    if (!(await powershell(`Expand-Archive -Path ${psQuote(zip)} -DestinationPath ${psQuote(work)} -Force`, log))) {
+      return false;
+    }
+    // Zip của gyan.dev bung ra ffmpeg-<ver>-essentials_build/bin/*.exe
+    let src = null;
+    for (const entry of fs.readdirSync(work)) {
+      const candidate = path.join(work, entry, "bin");
+      if (fs.existsSync(path.join(candidate, "ffmpeg.exe"))) {
+        src = candidate;
+        break;
+      }
+    }
+    if (!src) {
+      log("Không tìm thấy ffmpeg.exe trong file tải về.");
+      return false;
+    }
+    for (const exe of ["ffmpeg.exe", "ffprobe.exe"]) {
+      fs.copyFileSync(path.join(src, exe), path.join(RUNTIME_DIRS.bin, exe));
+    }
+    log(`ffmpeg.exe + ffprobe.exe -> ${RUNTIME_DIRS.bin}`);
+    return true;
+  } catch (err) {
+    log(err?.message ?? String(err));
+    return false;
+  } finally {
+    cleanup();
+  }
+}
+
+/** Tạo .runtime/venv nếu chưa có. Không có Python thì chịu - doctor không cài Python. */
+async function ensureVenv(log) {
+  ensureRuntimeDirs();
+  if (fs.existsSync(VENV_PY)) return true;
+  const py = findPython();
+  if (!py) {
+    log("Chưa có Python trên máy - cài Python 3.10+ (python.org) rồi chạy lại.");
+    return false;
+  }
+  log(`Tạo môi trường Python riêng của dự án: ${RUNTIME_DIRS.venv}`);
+  const ok = await spawnLogged(py.exe, ["-m", "venv", RUNTIME_DIRS.venv], log, runtimeEnv());
+  if (!ok || !fs.existsSync(VENV_PY)) {
+    log("Không tạo được venv (thiếu module venv? thử: python -m pip install virtualenv).");
+    return false;
+  }
+  return true;
+}
+
+/** Cài gói pip VÀO VENV CỦA DỰ ÁN, cache pip cũng nằm trong .runtime */
+async function pipInstall(pkgs, log) {
+  if (!(await ensureVenv(log))) return false;
+  log(`Cài ${pkgs.join(", ")} vào ${RUNTIME_DIRS.venv} (cache: ${RUNTIME_DIRS.pipCache})`);
+  const ok = await spawnLogged(VENV_PIP, ["install", ...pkgs], log, runtimeEnv());
+  forgetDirStats();
+  return ok;
+}
+
+/**
+ * Chuyển cache model cũ (ổ hệ thống) sang .runtime/models. 13 GB nên:
+ *   - rename trước: cùng ổ thì tức thì, không chép một byte nào;
+ *   - khác ổ (C: -> F:, ca thường gặp) thì CHÉP rồi mới xóa;
+ *   - chỉ xóa bản gốc khi bản đích đã khớp cả SỐ FILE lẫn TỔNG BYTE;
+ *   - hỏng ở bất kỳ bước nào thì bản gốc còn nguyên, bản chép dở bị dọn đi để
+ *     lần sau không nhầm là đã chuyển xong.
+ */
+async function moveModelCache(log) {
+  const src = legacyModelCache();
+  const dst = RUNTIME_DIRS.models;
+  if (!src) {
+    log("Không có cache model cũ nào để chuyển.");
+    return false;
+  }
+  ensureRuntimeDirs();
+  const before = dirStats(src, { fresh: true });
+  const dstBefore = dirStats(dst, { fresh: true });
+  if (dstBefore.files > 0) {
+    log(`${dst} đã có dữ liệu - không trộn hai cache vào nhau. Chuyển tay nếu cần.`);
+    return false;
+  }
+  log(`Nguồn: ${src} (${before.files} file, ${fmtSize(before.bytes)})`);
+  log(`Đích:  ${dst}`);
+
+  // 1) Cùng ổ đĩa: đổi tên là xong
+  try {
+    fs.rmSync(dst, { recursive: true, force: true });
+    fs.renameSync(src, dst);
+    forgetDirStats();
+    log("Đã chuyển bằng rename (cùng ổ đĩa) - không tốn thời gian chép.");
+    return true;
+  } catch (err) {
+    fs.mkdirSync(dst, { recursive: true });
+    log(`Rename không được (${err?.code ?? err?.message}) - khác ổ đĩa, chuyển sang chép rồi xóa.`);
+  }
+
+  // 2) Khác ổ: chép (giữ nguyên symlink theo đúng chữ - cache huggingface trên
+  //    macOS/Linux trỏ snapshots -> blobs bằng đường dẫn tương đối)
+  try {
+    await fs.promises.cp(src, dst, {
+      recursive: true,
+      force: true,
+      verbatimSymlinks: true,
+      preserveTimestamps: true,
+    });
+  } catch (err) {
+    log(`Chép lỗi: ${err?.message ?? err}`);
+    fs.rmSync(dst, { recursive: true, force: true });
+    forgetDirStats();
+    log("Bản gốc GIỮ NGUYÊN, không xóa gì cả.");
+    return false;
+  }
+
+  const after = dirStats(dst, { fresh: true });
+  if (after.files !== before.files || after.bytes !== before.bytes) {
+    log(
+      `Bản chép không khớp: ${after.files}/${before.files} file, ` +
+        `${fmtSize(after.bytes)}/${fmtSize(before.bytes)}.`,
+    );
+    fs.rmSync(dst, { recursive: true, force: true });
+    forgetDirStats();
+    log("Đã dọn bản chép dở. Bản gốc GIỮ NGUYÊN.");
+    return false;
+  }
+
+  fs.rmSync(src, { recursive: true, force: true });
+  forgetDirStats();
+  log(`Đã chuyển đủ ${before.files} file (${fmtSize(before.bytes)}) và xóa bản cũ ở ${src}.`);
   return true;
 }
 
@@ -501,9 +943,22 @@ export async function applyFix(id, { log = () => {} } = {}) {
   let ok;
   if (fix.kind === "cloudflared-mac") {
     ok = await installCloudflaredMac(log);
+  } else if (fix.kind === "pip") {
+    ok = await pipInstall(fix.pkgs, log);
+  } else if (fix.kind === "move-models") {
+    ok = await moveModelCache(log);
+  } else if (fix.kind === "ffmpeg-win-local") {
+    ok = await installFfmpegWindowsLocal(log);
+    // Tải hỏng (mạng chặn, gyan.dev đổi link) thì vẫn còn đường winget - thà cài
+    // vào ổ hệ thống còn hơn không render được
+    if (!ok && fix.cmd) {
+      log("Tải bản riêng cho dự án không xong - thử winget (cài vào ổ hệ thống).");
+      ok = await spawnLogged(fix.cmd[0], fix.cmd[1], log);
+    }
   } else {
     ok = await spawnLogged(fix.cmd[0], fix.cmd[1], log);
   }
+  forgetDirStats();
   // winget ghi PATH vào registry chứ không vào tiến trình đang chạy
   if (ok) refreshWindowsPath();
   return ok;
@@ -523,8 +978,12 @@ const TEXT = {
     installed: "Đã cài {label}.",
     installFailed: "Không cài được {label} - cài tay: {manual}",
     askOne: "Cài {label} ({size}) ngay? [Y/n] ",
+    askMove: "Chuyển {size} model từ {from} sang {to}? [Y/n] ",
+    needConfirm: "Bỏ qua {label} - việc này phải xác nhận, chạy trong terminal hoặc thêm --yes.",
     manualHint: "Cài tay: {manual}",
     fixInUi: "Mở dashboard rồi vào Cấu hình để cài bằng một nút bấm.",
+    runtimeHint:
+      "Mọi thứ dự án tải về (model, venv, cache pip, binary) nằm trong .runtime/ - bỏ thư mục này ra khỏi backup.",
     why: {
       node: "nền tảng chạy toàn hệ thống",
       ffmpeg: "cắt, ghép, encode video",
@@ -534,8 +993,10 @@ const TEXT = {
       whisper: "tạo phụ đề tự động",
       vieneu: "giọng đọc chạy trên máy, miễn phí và không cần mạng",
       "vieneu-clone": "nhân bản giọng từ một đoạn ghi âm ngắn",
+      "models-dir": "model AI để trong ổ của dự án, không nằm nhờ ổ hệ thống",
       gemini: "tạo ảnh nền và ảnh minh họa",
       cloudflared: "mở dashboard qua 4G/5G",
+      runtime: "chỗ dự án cất mọi thứ tải về",
       gpu: "render nhanh hơn",
     },
     note: {
@@ -543,6 +1004,10 @@ const TEXT = {
       "not-needed": "không cần - đã có xác thực",
       "module-missing": "có Python nhưng thiếu module",
       "python-missing": "chưa có Python",
+      "venv-missing": "chưa có .runtime/venv - sẽ tạo khi cài",
+      "system-only": "đang nằm ở Python hệ thống (ổ C:) - cài lại vào .runtime/venv",
+      "models-elsewhere": "model đang nằm ngoài dự án - chuyển được, không phải tải lại",
+      "models-empty": "chưa có model nào - tải khi dùng lần đầu",
       "cpu-only": "không có GPU tăng tốc - render bằng CPU",
     },
   },
@@ -557,8 +1022,12 @@ const TEXT = {
     installed: "{label} installed.",
     installFailed: "Could not install {label} - do it manually: {manual}",
     askOne: "Install {label} ({size}) now? [Y/n] ",
+    askMove: "Move {size} of models from {from} to {to}? [Y/n] ",
+    needConfirm: "Skipping {label} - this one needs confirmation: run in a terminal or add --yes.",
     manualHint: "Manual: {manual}",
     fixInUi: "Open the dashboard and go to Settings to install with one click.",
+    runtimeHint:
+      "Everything the project downloads (models, venv, pip cache, binaries) lives in .runtime/ - exclude that folder from backups.",
     why: {
       node: "runtime for the whole system",
       ffmpeg: "cut, concat and encode video",
@@ -568,8 +1037,10 @@ const TEXT = {
       whisper: "automatic subtitles",
       vieneu: "on-device narration, free and offline",
       "vieneu-clone": "clone a voice from a short recording",
+      "models-dir": "keeps the AI models on the project drive, not the system drive",
       gemini: "background and illustration images",
       cloudflared: "reach the dashboard over 4G/5G",
+      runtime: "where the project keeps everything it downloads",
       gpu: "faster rendering",
     },
     note: {
@@ -577,6 +1048,10 @@ const TEXT = {
       "not-needed": "not needed - already authenticated",
       "module-missing": "Python found but the module is missing",
       "python-missing": "Python not installed",
+      "venv-missing": "no .runtime/venv yet - it is created on install",
+      "system-only": "installed in the system Python (C: drive) - reinstall into .runtime/venv",
+      "models-elsewhere": "models live outside the project - they can be moved, not re-downloaded",
+      "models-empty": "no models yet - downloaded on first use",
       "cpu-only": "no hardware acceleration - rendering on CPU",
     },
   },
@@ -683,8 +1158,20 @@ async function main() {
       (c) => c.status === "missing" && c.level !== "info" && c.fix?.auto,
     );
     for (const c of fixable) {
-      const ask = fmt(T.askOne, { label: c.label, size: c.fix.size ?? "" });
-      if (!assumeYes && !(await askYesNo(`  ${ask}`))) continue;
+      // Chuyển cache model là chuyện 13 GB và có xóa bản gốc - hỏi bằng câu nói
+      // rõ dung lượng và CẢ HAI đường dẫn, và không bao giờ mặc định "có" khi
+      // không có ai ngồi trước terminal (start script chạy nền, CI...)
+      const ask =
+        c.fix.kind === "move-models"
+          ? fmt(T.askMove, { size: c.fix.size ?? "", from: c.fix.from, to: c.fix.to })
+          : fmt(T.askOne, { label: c.label, size: c.fix.size ?? "" });
+      if (!assumeYes) {
+        if (c.fix.confirm && !process.stdin.isTTY) {
+          console.log(`  ${C.dim}${fmt(T.needConfirm, { label: c.label })}${C.reset}`);
+          continue;
+        }
+        if (!(await askYesNo(`  ${ask}`))) continue;
+      }
       console.log(`  ${C.cyan}-> ${fmt(T.installing, { label: c.label })}${C.reset}`);
       let ok = false;
       try {
@@ -719,6 +1206,7 @@ async function main() {
     }
     console.log(`  ${C.dim}${T.fixInUi}${C.reset}`);
   }
+  console.log(`  ${C.dim}${T.runtimeHint}${C.reset}`);
   console.log("");
   return 0;
 }

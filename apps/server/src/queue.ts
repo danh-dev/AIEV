@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import * as db from "./db.js";
 import { broadcast } from "./events.js";
+import { childEnv } from "./config.js";
 import { killTree, nowIso } from "./util.js";
 import { queueConcurrency } from "./renderSettings.js";
 import { runSceneRender } from "./jobs/sceneRender.js";
@@ -234,10 +235,13 @@ class RenderQueue {
           broadcast("joblog", { jobId, line: `[cmd] ${command}` });
 
           // KHÔNG shell - argv array; CLI node chạy bằng process.execPath (xem util.cliJsPath)
+          // env: childEnv() chứ KHÔNG phải process.env - đây là đường chạy
+          // hyperframes/remotion, nơi bundle webpack ~1,7GB + thư mục asset
+          // ~190MB của mỗi lần lắp ráp rơi vào TEMP (xem childEnv ở config.ts).
           const child = spawn(file, args, {
             cwd,
             windowsHide: true,
-            env: process.env,
+            env: childEnv(),
           });
           current.child = child;
 

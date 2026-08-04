@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { venvPython } from "./config.js";
 import { execFileCaptureAll, ensureDir, HttpError, moveFile, toRepoRel } from "./util.js";
 import { parseTranscriptJson } from "./transcript.js";
 
@@ -40,12 +41,16 @@ let cachedPython: string | null = null;
  * macOS/Linux thường là `python3`. Dò bằng `-c "import faster_whisper"` để chọn
  * đúng interpreter ĐÃ CÀI module - máy có 2 bản Python mà chỉ 1 bản có module là
  * chuyện thường gặp. Kết quả cache lại vì lần dò đầu tốn vài giây (nạp ctranslate2).
+ *
+ * Thứ tự ưu tiên: PYTHON_BIN người dùng chỉ định (cửa thoát, luôn thắng) → venv
+ * trong repo (.runtime/venv, do doctor dựng) → PYTHON → các tên trên PATH.
  */
 async function resolvePython(): Promise<string> {
   if (cachedPython) return cachedPython;
 
   const candidates = [
     process.env.PYTHON_BIN,
+    venvPython(),
     process.env.PYTHON,
     "python",
     "py",

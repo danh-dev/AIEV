@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { paths } from "./config.js";
+import { childEnv, paths } from "./config.js";
 import { ensureDir } from "./util.js";
 
 const execFileAsync = promisify(execFile);
@@ -153,7 +153,8 @@ async function psCimJson(className: string, props: string[]): Promise<Record<str
   const { stdout } = await execFileAsync(
     "powershell",
     ["-NoProfile", "-NonInteractive", "-Command", cmd],
-    { windowsHide: true, timeout: 10_000 },
+    // env: thống nhất một lối - mọi tiến trình con dùng .runtime/tmp (xem childEnv)
+    { windowsHide: true, timeout: 10_000, env: childEnv() },
   );
   const parsed = JSON.parse(stdout.trim()) as unknown;
   return Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [parsed as Record<string, unknown>];
@@ -193,7 +194,7 @@ export async function detectHardware(): Promise<HardwareInfo> {
     const { stdout } = await execFileAsync(
       "nvidia-smi",
       ["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
-      { windowsHide: true, timeout: 5000 },
+      { windowsHide: true, timeout: 5000, env: childEnv() },
     );
     const first = stdout.trim().split("\n")[0]?.trim();
     if (first) {
@@ -249,7 +250,10 @@ export async function detectHardware(): Promise<HardwareInfo> {
   if (process.platform === "darwin") {
     // Apple Silicon: RAM hợp nhất; core vật lý qua sysctl
     try {
-      const { stdout } = await execFileAsync("sysctl", ["-n", "hw.physicalcpu"], { timeout: 5000 });
+      const { stdout } = await execFileAsync("sysctl", ["-n", "hw.physicalcpu"], {
+        timeout: 5000,
+        env: childEnv(),
+      });
       const n = Number(stdout.trim());
       if (Number.isFinite(n) && n > 0) info.cpuCores = n;
     } catch {

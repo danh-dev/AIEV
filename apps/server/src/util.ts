@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { Request } from "express";
-import { repoRoot } from "./config.js";
+import { childEnv, repoRoot } from "./config.js";
 
 /** Lỗi HTTP có mã - error handler ở index.ts sẽ trả { error: { code, message } } */
 export class HttpError extends Error {
@@ -181,6 +181,8 @@ export function execFileCapture(
     const child = spawn(file, args, {
       cwd: opts.cwd ?? repoRoot,
       windowsHide: true,
+      // Ép TEMP/HF_HOME... về .runtime/ trong repo - xem childEnv() ở config.ts
+      env: childEnv(),
     });
     let out = "";
     let settled = false;
@@ -249,7 +251,12 @@ export function execFileCaptureAll(
 }> {
   const command = `${file} ${args.join(" ")}`;
   return new Promise((resolve, reject) => {
-    const child = spawn(file, args, { cwd: opts.cwd ?? repoRoot, windowsHide: true });
+    const child = spawn(file, args, {
+      cwd: opts.cwd ?? repoRoot,
+      windowsHide: true,
+      // ffmpeg/whisper/CLI node đều đi qua đây - xem childEnv() ở config.ts
+      env: childEnv(),
+    });
     let stdout = "";
     let stderr = "";
     let settled = false;

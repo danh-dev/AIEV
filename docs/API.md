@@ -51,6 +51,35 @@ cả `npm install`), chạy trong tiến trình server sẽ chặn event loop ~6
   mục (409 `FIX_BUSY`). `installed` là kết quả DÒ LẠI sau khi cài — lệnh chạy xong chưa chắc đã
   thấy (winget ghi PATH ở nơi khác), nên đừng tin mỗi `ok` của lệnh.
 
+## `.runtime/` — dữ liệu tạm lúc chạy (nằm TRONG repo, không rải ra ổ hệ thống)
+
+```
+<repoRoot>/.runtime/
+  tmp/         thư mục tạm của mọi tiến trình con (TEMP/TMP/TMPDIR)
+  models/      HF_HOME + HUGGINGFACE_HUB_CACHE — model whisper/VieNeu
+  venv/        virtualenv Python (faster-whisper, vieneu) — do start/doctor.mjs dựng
+  bin/         binary tải riêng (ffmpeg, cloudflared)
+  pip-cache/   PIP_CACHE_DIR
+```
+
+**Vì sao gom về đây** (số đo thật trên máy Windows có repo ở ổ F:, ổ C: còn 17,7GB trống): mỗi
+lần Remotion lắp ráp ghi ~1,7GB bundle webpack + ~190MB thư mục asset vào thư mục tạm của
+Windows trên C:; model whisper trong `C:\Users\<user>\.cache\huggingface` đã lên 13,3GB; cache
+pip trong AppData 3,2GB. Tất cả giờ nằm cùng ổ với repo.
+
+- Đường dẫn khai báo MỘT chỗ: `paths.runtime.*` trong `apps/server/src/config.ts`; `start/doctor.mjs`
+  dùng đúng bộ đường dẫn đó. Server tạo sẵn `tmp/`, `models/`, `bin/`, `pip-cache/` lúc khởi động
+  (`ensureBaseDirs`); riêng `venv/` để `python -m venv` tự dựng.
+- Mọi tiến trình con nhận môi trường từ `childEnv()` (cùng file) — nó copy `process.env` rồi đè
+  `TEMP`/`TMP`/`TMPDIR`, `HF_HOME`, `HUGGINGFACE_HUB_CACHE`, `PIP_CACHE_DIR`. **Không bao giờ sửa
+  `process.env` của server**, chỉ dựng bản copy cho con.
+- Dò Python (`transcribe.ts`, `ttsLocal.ts`) theo thứ tự: `PYTHON_BIN` (cửa thoát, luôn thắng) →
+  `.runtime/venv` → `PYTHON` → `python`/`py`/`python3`.
+- **Xóa được bất cứ lúc nào** (khi không có job nào chạy) — hệ thống tự tạo lại, chỉ mất thời gian
+  tải model / cài lại venv.
+- **LOẠI TRỪ khỏi backup.** Cả điểm của việc gom một chỗ là chỉ cần một dòng loại trừ `.runtime/`
+  là đủ. Trong `.gitignore` đã có `/.runtime/`.
+
 ## Kết nối điện thoại (upload từ điện thoại cùng WiFi)
 
 ```

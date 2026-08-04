@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
-import { paths } from "./config.js";
+import { childEnv, paths, venvPython } from "./config.js";
 import type { ClonedVoice, TtsRegion, TtsVoice } from "./ttsTypes.js";
 import { clonedRefAbs, getClonedVoice, listClonedVoices } from "./voiceStore.js";
 import { HttpError, ensureDir, execFileCaptureAll, killTree } from "./util.js";
@@ -192,9 +192,17 @@ export async function probeLocalEngine(force = false): Promise<LocalEngineStatus
   }
   if (probeCache && Date.now() - probeCache.at < PROBE_CACHE_MS) return probeCache.status;
 
-  const candidates = [process.env.PYTHON_BIN, process.env.PYTHON, "python", "py", "python3"].filter(
-    (c): c is string => typeof c === "string" && c.trim().length > 0,
-  );
+  // Thứ tự: PYTHON_BIN người dùng chỉ định (cửa thoát, luôn thắng) → venv trong
+  // repo (.runtime/venv - nơi doctor cài sẵn gói, và model tải về nằm cùng ổ với
+  // repo) → PYTHON → các tên trên PATH.
+  const candidates = [
+    process.env.PYTHON_BIN,
+    venvPython(),
+    process.env.PYTHON,
+    "python",
+    "py",
+    "python3",
+  ].filter((c): c is string => typeof c === "string" && c.trim().length > 0);
 
   let anyPython = false;
   let best: { exe: string; data: ProbeData } | null = null;
@@ -373,7 +381,10 @@ function startWorker(python: string): ChildProcess {
       `Thiếu file worker ${WORKER_SCRIPT} - bản cài đặt bị lỗi, tải lại repo.`,
     );
   }
-  const child = spawn(python, [WORKER_SCRIPT], { windowsHide: true });
+  // env: HF_HOME trỏ vào .runtime/models - model ~1GB của VieNeu tải từ
+  // HuggingFace về nằm cùng ổ với repo, không rơi vào ~/.cache trên ổ hệ thống
+  // (thư mục đó trên máy này đã phình 13,3GB). Xem childEnv() ở config.ts.
+  const child = spawn(python, [WORKER_SCRIPT], { windowsHide: true, env: childEnv() });
   worker = child;
   stdoutBuf = "";
   stderrTail = [];

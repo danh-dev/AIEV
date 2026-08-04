@@ -188,7 +188,90 @@ export const paths = {
   remotionDir: path.join(repoRoot, "engines", "remotion"),
   /** Nơi stage asset bằng hardlink cho Remotion staticFile() */
   stagingDir: path.join(repoRoot, "engines", "remotion", "public", "staging"),
+  /**
+   * Dữ liệu tạm lúc chạy - TẤT CẢ nằm trong repo, KHÔNG rải ra ổ hệ thống.
+   *
+   * Đo được trên máy Windows này (repo ở ổ F:, ổ C: chỉ còn 17,7GB trống):
+   * mỗi lần Remotion lắp ráp ghi ~1,7GB bundle webpack + ~190MB thư mục asset
+   * vào thư mục tạm của Windows trên C:; model whisper nằm ở
+   * C:\Users\<user>\.cache\huggingface (13,3GB); cache pip trong AppData (3,2GB).
+   * Gom hết về đây thì mọi thứ ở cùng ổ với repo, và chỉ cần loại trừ MỘT thư
+   * mục khi sao lưu.
+   *
+   * Cả thư mục XÓA ĐƯỢC bất cứ lúc nào - hệ thống tự tạo lại.
+   */
+  runtime: {
+    root: path.join(repoRoot, ".runtime"),
+    /** TEMP/TMP/TMPDIR của mọi tiến trình con (bundle Remotion, profile Chrome...) */
+    tmp: path.join(repoRoot, ".runtime", "tmp"),
+    /** HF_HOME - model whisper tải từ HuggingFace */
+    models: path.join(repoRoot, ".runtime", "models"),
+    /** Virtualenv Python (faster-whisper, vieneu) */
+    venv: path.join(repoRoot, ".runtime", "venv"),
+    /** Binary tải riêng (ffmpeg, cloudflared) */
+    bin: path.join(repoRoot, ".runtime", "bin"),
+    /** PIP_CACHE_DIR */
+    pipCache: path.join(repoRoot, ".runtime", "pip-cache"),
+  },
 } as const;
+
+/**
+ * Interpreter Python của virtualenv trong repo, null nếu chưa tạo venv.
+ *
+ * Dùng làm ứng viên ĐẦU TIÊN khi dò Python (transcribe.ts, ttsLocal.ts): venv
+ * này do `start/doctor.mjs` dựng, cài sẵn faster-whisper/vieneu và mọi thứ nó
+ * tải về đều nằm trong repo. Người dùng đặt PYTHON_BIN thì bản đó vẫn thắng -
+ * đó là cửa thoát khi muốn chỉ định tay.
+ */
+export function venvPython(): string | null {
+  const exe =
+    process.platform === "win32"
+      ? path.join(paths.runtime.venv, "Scripts", "python.exe")
+      : path.join(paths.runtime.venv, "bin", "python");
+  return fs.existsSync(exe) ? exe : null;
+}
+
+/**
+ * Môi trường cho TIẾN TRÌNH CON - copy của process.env đã ép mọi thứ "phình to"
+ * về `.runtime/` trong repo. KHÔNG BAO GIỜ sửa process.env của chính server:
+ * đổi TEMP của tiến trình đang chạy là đổi luôn os.tmpdir() của mọi thư viện
+ * đã cache đường dẫn, và nếu .runtime/ bị xóa giữa chừng thì server chết theo.
+ *
+ * Vì sao từng biến (số liệu đo trên máy Windows này, ổ C: chỉ còn 17,7GB):
+ * - TEMP/TMP/TMPDIR: os.tmpdir() của Node đọc TEMP/TMP trên Windows và TMPDIR
+ *   trên POSIX. Đây là thứ kéo bundle webpack ~1,7GB của Remotion và thư mục
+ *   profile/asset ~190MB của Chrome headless ra khỏi ổ hệ thống - mỗi lần lắp
+ *   ráp lại sinh một bộ mới.
+ * - HF_HOME + HUGGINGFACE_HUB_CACHE: model whisper. Trên máy này
+ *   C:\Users\<user>\.cache\huggingface đã phình lên 13,3GB. Phải set CẢ HAI:
+ *   bản huggingface_hub cũ chỉ đọc HUGGINGFACE_HUB_CACHE, bản mới đọc HF_HOME.
+ * - PIP_CACHE_DIR: cache wheel của pip trong AppData đo được 3,2GB (torch +
+ *   ctranslate2 là những gói nặng nhất).
+ *
+ * `extra` ghi đè sau cùng - chỗ gọi vẫn thêm/sửa biến riêng được.
+ */
+export function childEnv(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  // .runtime/bin đứng TRƯỚC PATH cũ: doctor.mjs tải ffmpeg/cloudflared về đó khi
+  // máy chưa có sẵn, mà server thì gọi trần "ffmpeg" - không chèn vào PATH thì
+  // tải về xong vẫn báo thiếu. Đứng trước chứ không đứng sau để bản của dự án
+  // thắng bản hệ thống: đó mới là bản mình kiểm soát được phiên bản.
+  const pathKey = process.platform === "win32" ? "Path" : "PATH";
+  const currentPath = process.env[pathKey] ?? process.env.PATH ?? "";
+  const mergedPath = currentPath
+    ? `${paths.runtime.bin}${path.delimiter}${currentPath}`
+    : paths.runtime.bin;
+  return {
+    ...process.env,
+    [pathKey]: mergedPath,
+    TEMP: paths.runtime.tmp,
+    TMP: paths.runtime.tmp,
+    TMPDIR: paths.runtime.tmp,
+    HF_HOME: paths.runtime.models,
+    HUGGINGFACE_HUB_CACHE: paths.runtime.models,
+    PIP_CACHE_DIR: paths.runtime.pipCache,
+    ...extra,
+  };
+}
 
 /** Tạo trước các thư mục nền tảng để route không phải lo dir chưa tồn tại */
 export function ensureBaseDirs(): void {
@@ -206,6 +289,15 @@ export function ensureBaseDirs(): void {
     paths.importsDir,
     paths.autoCutDir,
     paths.textToVideoDir,
+    // .runtime/: phải có TRƯỚC lần spawn đầu tiên - childEnv() trỏ TEMP vào đây,
+    // mà tiến trình con gặp TEMP không tồn tại thì hỏng ngay (Chrome, pip).
+    paths.runtime.tmp,
+    paths.runtime.models,
+    paths.runtime.bin,
+    paths.runtime.pipCache,
+    // CỐ Ý không tạo sẵn paths.runtime.venv: thư mục venv là do `python -m venv`
+    // dựng ra, tạo trước một thư mục rỗng chỉ làm phần dò "đã có venv chưa"
+    // tưởng nhầm là đã cài xong.
   ];
   for (const d of dirs) fs.mkdirSync(d, { recursive: true });
 }

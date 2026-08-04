@@ -408,6 +408,17 @@ export function buildEditPrompt(input: {
   }
   lines.push("");
 
+  // Agent hay tự viết script phụ (poll job, đo thử…) rồi để lại ngay gốc repo -
+  // đã gặp thật một file `.tmp/poll.sh` sót lại sau phiên edit. Có chỗ chứa chính
+  // thức rồi thì chỉ luôn, vì `.runtime/` đã gitignore và người dùng loại trừ
+  // đúng một thư mục đó khi sao lưu.
+  lines.push(
+    "File tạm của riêng bạn (script poll job, file đo thử, ghi chú nháp) để trong " +
+      "`.runtime/tmp/` - KHÔNG rải ra gốc repo hay vào thư mục project. Sản phẩm thật của " +
+      "project (scene, render, transcript, report) thì vẫn nằm đúng chỗ của nó như mô tả ở trên.",
+  );
+  lines.push("");
+
   // --- Sound effects theo sfxMode
   lines.push("## Sound effects");
   if (brief.sfxMode === "recommended") {

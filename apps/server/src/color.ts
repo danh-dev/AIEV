@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
+import { childEnv } from "./config.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -172,7 +173,8 @@ export async function probeColorInfo(fileAbs: string): Promise<ColorInfo> {
         "-of", "json",
         fileAbs,
       ],
-      { windowsHide: true },
+      // env: ffmpeg/ffprobe ghi file tạm - dồn về .runtime/tmp (xem childEnv)
+      { windowsHide: true, env: childEnv() },
     );
     const data = JSON.parse(stdout) as {
       streams?: Array<{ color_transfer?: string; color_primaries?: string }>;
@@ -244,7 +246,7 @@ export async function renderGradeFrame(
   await execFileAsync(
     "ffmpeg",
     ["-y", "-v", "error", "-ss", String(t), "-i", videoAbs, "-vf", vf, "-frames:v", "1", outAbs],
-    { windowsHide: true },
+    { windowsHide: true, env: childEnv() },
   );
   return { relPath };
 }
@@ -282,7 +284,7 @@ export async function generateGradePreviews(
     else args.push("-vf", scale);
     args.push("-frames:v", "1", path.join(outDir, v.out));
     try {
-      await execFileAsync("ffmpeg", args, { windowsHide: true });
+      await execFileAsync("ffmpeg", args, { windowsHide: true, env: childEnv() });
       previews.push({
         preset: v.preset,
         label: v.label,

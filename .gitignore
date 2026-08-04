@@ -34,6 +34,11 @@ assets/voices/*
 # DB + cấu hình máy local
 apps/server/data/
 
+# Dữ liệu tạm lúc chạy: thư mục tạm của tiến trình con, model whisper, venv
+# Python, binary tải riêng, cache pip. Sinh lại được hết - xóa lúc nào cũng
+# được, và loại trừ MỘT thư mục này là đủ khi sao lưu. Xem docs/API.md.
+/.runtime/
+
 start/bin/
 start/backup-*/
 # Server ghi mốc cập nhật (tag release hoặc origin/main) cho script update đọc
