@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { verifyTrim, type TrimAggressiveness, type WordSpan } from "./autoTrim.js";
 import { repoRoot } from "./config.js";
-import { projectDirOf, readMeta, type ProjectMeta } from "./meta.js";
+import { briefOf, projectDirOf, readMeta, type ProjectMeta } from "./meta.js";
+import { readProjectTranscript } from "./transcript.js";
 import { ensureDir, execFileCaptureAll, nowIso, toRepoRel } from "./util.js";
 
 /**
@@ -95,6 +97,29 @@ const TAIL_SILENCE_DB = -45;
 const TAIL_SILENCE_MIN_DUR = 0.6;
 /** Đuôi câm > 1.2s là người xem thấy video "hụt" -> nhắc cắt bớt */
 const TAIL_SILENCE_WARN_SEC = 1.2;
+
+/**
+ * DEAD AIR - chỗ chết còn sót lại trong TOÀN BỘ video, không chỉ ở đuôi.
+ *
+ * Khác `tail-silence` ở hai điểm cốt tử:
+ * 1. Soi cả bài chứ không chỉ 4s cuối.
+ * 2. ĐỐI CHIẾU TRANSCRIPT. Đo bằng mức âm thanh một mình là đoán mò: đã đo được
+ *    trên bản cắt từ thanhtoan80.mov - không transcript báo còn 4,56s lặng và
+ *    TRƯỢT, có transcript đo ra 0,00s và đậu; 4,56s đó là tiếng nói nhỏ nằm bên
+ *    trong chữ chứ không phải chỗ chết. Vì thế thiếu transcript là "không đo
+ *    được" (warn), KHÔNG phải "đo bằng cách khác".
+ *
+ * Ngưỡng đậu/trượt lấy từ chính profile của mức cắt trong brief (autoTrim.ts
+ * TRIM_PROFILES) - QC chấm đúng cái lời hứa mà bước cắt đã đưa ra, không phát
+ * minh ngưỡng thứ hai. Chỉ FAIL khi brief bật autoCut: người dùng không yêu cầu
+ * cắt thì khoảng lặng là nhịp có chủ ý, không phải lỗi.
+ *
+ * LƯU Ý về ca dùng: check này đo trên bản ĐÃ LẮP RÁP (có scene chữ, nhạc,
+ * intro). Đoạn không ai nói mà cố ý (title card, nhạc chuyển cảnh) cũng bị tính
+ * là chỗ chết - đó là lý do `detail` luôn in ra mốc giây của các chỗ dài nhất để
+ * người đọc tự phân biệt, thay vì bắt máy đoán ý đồ dàn dựng.
+ */
+const DEAD_AIR_MAX_LISTED = 5;
 
 /** Lệch tiếng/hình > 0.5s là thấy được bằng mắt (khẩu hình lệch, hụt tiếng cuối) */
 const AV_DIFF_WARN_SEC = 0.5;
@@ -365,6 +390,116 @@ async function measureEdgeDensity(
     return m ? parseNum(m[1]) : null;
   } catch {
     return null;
+  }
+}
+
+// ------------------------------------------------------------------- Dead air
+
+/**
+ * Dàn phẳng transcript thành mốc chữ cho hàng rào của verifyTrim.
+ *
+ * Segment thiếu word timestamp thì lấy nguyên khoảng segment làm một "chữ" dài -
+ * nghiêng về phía dè dặt: vùng coi là có tiếng nói rộng ra, số chỗ bị gọi là
+ * chết ít đi. Thà bỏ sót một cảnh báo còn hơn chặn final oan.
+ */
+function flattenTranscriptWords(projectId: string): {
+  words: WordSpan[];
+  relPath: string;
+} | null {
+  const t = readProjectTranscript(projectId);
+  if (!t) return null;
+  const words: WordSpan[] = [];
+  for (const seg of t.segments) {
+    if (seg.words.length > 0) {
+      for (const w of seg.words) {
+        if (Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start) {
+          words.push({ start: w.start, end: w.end });
+        }
+      }
+      continue;
+    }
+    if (Number.isFinite(seg.start) && Number.isFinite(seg.end) && seg.end > seg.start) {
+      words.push({ start: seg.start, end: seg.end });
+    }
+  }
+  return words.length > 0 ? { words, relPath: t.relPath } : null;
+}
+
+/**
+ * Check `dead-air`. KHÔNG BAO GIỜ ném ra ngoài: mọi trục trặc (thiếu ffmpeg,
+ * thiếu transcript, file lạ) đều thành một check "warn" kèm lý do, đúng nguyên
+ * tắc chung của file này.
+ */
+async function checkDeadAir(input: {
+  projectId: string;
+  fileAbs: string;
+  hasAudio: boolean;
+}): Promise<QcCheck> {
+  const label = "Chỗ chết (dead air)";
+  if (!input.hasAudio) return unmeasured("dead-air", label, "file không có stream audio");
+
+  let autoCut = false;
+  let level: TrimAggressiveness = "default";
+  try {
+    const brief = briefOf(readMeta(input.projectId));
+    autoCut = brief.autoCut;
+    level = brief.autoCutLevel;
+  } catch {
+    // Không đọc được meta thì coi như người dùng KHÔNG yêu cầu cắt - chỉ báo cáo
+    // số đo, không chặn final bằng một suy đoán.
+    autoCut = false;
+  }
+
+  const t = flattenTranscriptWords(input.projectId);
+  if (!t) {
+    return unmeasured(
+      "dead-air",
+      label,
+      "project chưa có transcript đọc được - đo khoảng lặng bằng mức âm thanh một mình là " +
+        "đoán mò (đếm cả tiếng nói nhỏ trong chữ là lặng), nên không chấm",
+    );
+  }
+
+  try {
+    const v = await verifyTrim(input.fileAbs, level, { words: t.words });
+    const worstList = [...v.residual]
+      .sort((a, b) => b.duration - a.duration)
+      .slice(0, DEAD_AIR_MAX_LISTED)
+      .map((s) => `${fmt(s.start, 2)}s (${fmt(s.duration, 2)}s)`)
+      .join(", ");
+    const base =
+      `Còn ${fmt(v.totalSilenceSec, 2)}s chỗ chết = ${fmt(v.ratio * 100, 1)}% thời lượng, ` +
+      `chỗ dài nhất ${fmt(v.longest, 2)}s` +
+      (worstList ? ` - dài nhất tại: ${worstList}` : "") +
+      ` (đo có đối chiếu ${t.relPath}, mức "${level}")`;
+
+    if (v.pass) {
+      return { id: "dead-air", label, status: "pass", detail: base, value: v.totalSilenceSec };
+    }
+    if (!autoCut) {
+      // Brief không bật cắt -> đây là thông tin, không phải lỗi.
+      return {
+        id: "dead-air",
+        label,
+        status: "pass",
+        detail:
+          `${base}. Vượt ngưỡng của mức "${level}" nhưng brief KHÔNG bật tự động cắt, ` +
+          "nên chỉ ghi nhận - khoảng lặng ở đây coi như nhịp có chủ ý.",
+        value: v.totalSilenceSec,
+      };
+    }
+    return {
+      id: "dead-air",
+      label,
+      status: "fail",
+      detail:
+        `${base}. ${v.reason ?? ""} Brief BẬT tự động cắt nên đây là lỗi: gọi ` +
+        `POST /api/projects/${input.projectId}/auto-trim/analyze rồi .../apply để cắt bằng ngưỡng đã đo, ` +
+        "đừng tự gõ ffmpeg silencedetect.",
+      value: v.totalSilenceSec,
+    };
+  } catch (err) {
+    return unmeasured("dead-air", label, errText(err));
   }
 }
 
@@ -680,6 +815,11 @@ export async function runQc(input: {
       checks.push(unmeasured("tail-silence", "Đuôi im lặng", errText(err)));
     }
   }
+
+  // ---- 6b) dead-air (cả bài, có đối chiếu transcript) ---------------------
+  checks.push(
+    await checkDeadAir({ projectId: input.projectId, fileAbs, hasAudio: probe.hasAudio }),
+  );
 
   // ---- 7) av-duration -----------------------------------------------------
   if (!probe.ok) {

@@ -7,6 +7,7 @@ import { runSceneRender } from "./jobs/sceneRender.js";
 import { runAssemble } from "./jobs/assemble.js";
 import { runImageGen } from "./jobs/imageGen.js";
 import { runAutoCut } from "./jobs/autoCut.js";
+import { runAutoTrim } from "./jobs/autoTrim.js";
 import { runTextToVideo } from "./jobs/textToVideo.js";
 
 /**
@@ -53,6 +54,10 @@ interface Current {
  * Khóa "bận" của một job. Mỗi loại nguồn có namespace riêng để job ảnh, job cắt
  * và job video trùng id vẫn chạy song song được; nhưng hai job CÙNG namespace và
  * CÙNG id thì không bao giờ chạy đồng thời (tránh giẫm renders/meta).
+ *
+ * "auto-trim" CỐ Ý rơi vào nhánh mặc định "vid:" cùng scene/assemble: nó ghi đè
+ * asset của chính video project đó, chạy song song với một job render đang đọc
+ * asset ấy là hỏng cả hai.
  */
 function busyKeyOf(j: db.JobRow): string {
   const ns =
@@ -141,6 +146,8 @@ class RenderQueue {
         await runTextToVideo(ctx);
       } else if (fresh.type === "auto-cut") {
         await runAutoCut(ctx);
+      } else if (fresh.type === "auto-trim") {
+        await runAutoTrim(ctx);
       } else {
         await runAssemble(ctx);
       }

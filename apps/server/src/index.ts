@@ -42,6 +42,7 @@ import qcRouter from "./routes/qc.js";
 import clipsRouter from "./routes/clips.js";
 import reviewRouter from "./routes/review.js";
 import autoCutRouter from "./routes/autoCut.js";
+import autoTrimRouter from "./routes/autoTrim.js";
 import textToVideoRouter from "./routes/textToVideo.js";
 import ttsRouter from "./routes/tts.js";
 import voicesRouter from "./routes/voices.js";
@@ -185,6 +186,7 @@ app.use("/api/projects", publishRouter); // phụ đề .srt/.vtt + gói metadat
 app.use("/api/projects", qcRouter); // QC tự động trên bản draft
 app.use("/api/projects", clipsRouter); // cắt short + tái chế tỉ lệ khung
 app.use("/api/projects", reviewRouter); // ghi chú duyệt draft theo mốc thời gian
+app.use("/api/projects", autoTrimRouter); // cắt khoảng lặng + mỡ thừa của một video project
 app.use("/api/auto-cut", autoCutRouter);
 // Text to video: phiên nguồn (bài viết/đoạn văn) → tự sinh Videos Project
 app.use("/api/text-to-video", textToVideoRouter);

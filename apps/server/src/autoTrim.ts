@@ -190,7 +190,7 @@ const SWEEP_MIN_DUR = 0.2;
 const EDGE_KEEP_SEC = 0.2;
 
 /** Mảnh keep/cut ngắn hơn mức này thì bỏ - ffmpeg trim không xử lý nổi, mà tai cũng không nghe ra */
-const MIN_PIECE_SEC = 0.03;
+export const MIN_PIECE_SEC = 0.03;
 
 /** Sai số khi so mốc với đầu/cuối file (silencedetect làm tròn theo frame audio) */
 const EDGE_EPS = 0.05;
@@ -738,8 +738,14 @@ function guardMidpoints(cuts: SilenceRange[], words: WordSpan[]): SilenceRange[]
   return cuts.filter((c) => !mids.some((m) => m >= c.start && m <= c.end));
 }
 
-/** Phần bù của danh sách cắt trong [0, durationSec] */
-function toKeepRanges(cuts: SilenceRange[], durationSec: number): Array<[number, number]> {
+/**
+ * Phần bù của danh sách cắt trong [0, durationSec].
+ *
+ * Export vì job auto-trim phải tính lại phần giữ sau khi trộn thêm ứng viên do
+ * người duyệt - hai nơi cùng một phép tính thì phải dùng chung một hàm, chép ra
+ * làm bản thứ hai là sớm muộn cũng lệch MIN_PIECE_SEC.
+ */
+export function toKeepRanges(cuts: SilenceRange[], durationSec: number): Array<[number, number]> {
   const keep: Array<[number, number]> = [];
   let cursor = 0;
   for (const c of cuts) {

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { TrimAggressiveness } from "./autoTrim.js";
 import { paths } from "./config.js";
 import { IMAGE_TEXT_POSITIONS, type ImageTextPosition } from "./imageMeta.js";
 import { videoStyleExists } from "./videoStyles.js";
@@ -55,11 +56,32 @@ export type MusicMode = "auto" | "none";
 
 export const MUSIC_MODES: MusicMode[] = ["auto", "none"];
 
+/**
+ * Mức mạnh tay khi cắt khoảng lặng - ánh xạ 1-1 sang TrimAggressiveness của
+ * autoTrim.ts (natural | default | tight, xem TRIM_PROFILES ở đó để biết con số).
+ *
+ * Khai bằng Record chứ không viết thẳng mảng: thêm/bớt một mức trong autoTrim.ts
+ * mà quên sửa ở đây thì TypeScript báo lỗi ngay, thay vì để lọt một mức không bao
+ * giờ qua nổi khâu kiểm tra của brief.
+ */
+const AUTO_CUT_LEVEL_TABLE: Record<TrimAggressiveness, true> = {
+  natural: true,
+  default: true,
+  tight: true,
+};
+
+export const AUTO_CUT_LEVELS = Object.keys(AUTO_CUT_LEVEL_TABLE) as TrimAggressiveness[];
+
 export interface Brief {
   /** Mô tả nội dung video gốc - bối cảnh cho AI */
   sourceDescription: string;
   /** Có tự động cắt bỏ đoạn thừa, khoảng lặng không */
   autoCut: boolean;
+  /**
+   * Mạnh tay tới đâu khi cắt - chỉ có nghĩa khi autoCut = true (autoCut vẫn là
+   * công tắc bật/tắt duy nhất, field này KHÔNG bật thay nó).
+   */
+  autoCutLevel: TrimAggressiveness;
   /** Có tạo phụ đề (karaoke) không */
   subtitles: boolean;
   /** BẬT = AI tự phân tích source, tự chọn keyword để highlight */
@@ -115,6 +137,7 @@ export function defaultBrief(): Brief {
   return {
     sourceDescription: "",
     autoCut: true,
+    autoCutLevel: "default",
     subtitles: true,
     highlightEnabled: true,
     highlightKeywords: [],
@@ -143,6 +166,9 @@ export function briefOf(meta: ProjectMeta): Brief {
   const b = raw as Record<string, unknown>;
   if (typeof b.sourceDescription === "string") base.sourceDescription = b.sourceDescription;
   if (typeof b.autoCut === "boolean") base.autoCut = b.autoCut;
+  if (AUTO_CUT_LEVELS.includes(b.autoCutLevel as TrimAggressiveness)) {
+    base.autoCutLevel = b.autoCutLevel as TrimAggressiveness;
+  }
   if (typeof b.subtitles === "boolean") base.subtitles = b.subtitles;
   if (typeof b.highlightEnabled === "boolean") base.highlightEnabled = b.highlightEnabled;
   if (Array.isArray(b.highlightKeywords)) {
@@ -267,6 +293,14 @@ export function applyBriefPatch(
     }
     brief.illustrationsPerMinute = v as number | null;
   }
+
+  if (
+    "autoCutLevel" in body &&
+    !AUTO_CUT_LEVELS.includes(body.autoCutLevel as TrimAggressiveness)
+  ) {
+    bad(`autoCutLevel phải là một trong: ${AUTO_CUT_LEVELS.join(" | ")}`);
+  }
+  if ("autoCutLevel" in body) brief.autoCutLevel = body.autoCutLevel as TrimAggressiveness;
 
   if ("sfxMode" in body && !SFX_MODES.includes(body.sfxMode as SfxMode)) {
     bad(`sfxMode phải là một trong: ${SFX_MODES.join(" | ")}`);

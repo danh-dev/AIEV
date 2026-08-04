@@ -116,7 +116,10 @@ FileInfo = { name, relPath, size, mtime, kind: "video"|"audio"|"image"|"other" }
 ```
 Brief = {
   sourceDescription: string,               // mô tả nội dung video gốc (bối cảnh cho AI)
-  autoCut: boolean,                        // có tự động cắt ngắn đoạn thừa không
+  autoCut: boolean,                        // có tự động cắt ngắn đoạn thừa không (công tắc bật/tắt)
+  autoCutLevel: "natural"|"default"|"tight", // mạnh tay tới đâu khi cắt (mặc định "default") -
+                                           //   ánh xạ 1-1 sang TrimAggressiveness của autoTrim.ts;
+                                           //   chỉ có nghĩa khi autoCut = true. Xem mục Auto-trim
   subtitles: boolean,                      // có tạo phụ đề (karaoke) không
   highlightEnabled: boolean,               // BẬT = AI tự phân tích source, chọn keyword và highlight
   highlightKeywords: string[],             // (nâng cao, tùy chọn) chỉ định thêm keyword thủ công
@@ -453,6 +456,73 @@ Chia cue phụ đề: mỗi segment 1 cue; segment > 7s hoặc > 84 ký tự th�
 Metadata do Claude soạn một lượt (không tool) theo transcript + tone của Style Design, ràng buộc
 độ dài title theo từng nền tảng. Chưa có transcript -> 404 `NO_TRANSCRIPT`.
 
+## Auto-trim: cắt khoảng lặng + mỡ thừa của MỘT video project
+
+Khác hẳn mục "Auto cut videos" ở trên (mục đó cắt một video dài thành nhiều video ngắn).
+Đây là bước tiền xử lý của chính một project: bỏ khoảng lặng và mỡ thừa TRƯỚC khi dựng scene.
+Quy trình đầy đủ ở skill `auto-cut`.
+
+```
+POST /api/projects/:id/auto-trim/analyze  { source?, level? } -> 200 TrimAnalyzeResult
+POST /api/projects/:id/auto-trim/apply    { source?, level?, cutCandidates? } -> 202 { job, level, profile, source, approvedCandidates }
+
+level  = "natural"|"default"|"tight"  - thiếu thì lấy brief.autoCutLevel
+source = đường dẫn video nguồn, tính từ thư mục project ("assets/face.mp4") hoặc từ repo root;
+         nằm ngoài project -> 400 PATH_OUTSIDE_PROJECT, không có file -> 404 TRIM_SOURCE_NOT_FOUND.
+         Thiếu thì server tự chọn: assets/face.* -> file video LỚN NHẤT trong assets/ (bỏ qua *.cut.*)
+
+TrimAnalyzeResult = {
+  source: relPath, transcript: relPath|null, guarded: boolean, note: string,
+  silence: { durationSec, noiseFloorDb, thresholdDb, profile, silences[], keepRanges[],
+             removedSec, thresholdNote, sweep[], wordGuard? },
+  deadWeight: { candidates: [{ kind: "filler"|"stutter"|"repeat-take"|"hesitation",
+                               start, end, text, confidence, reason, context }],
+                totalSec, byKind }
+}
+```
+
+**`analyze` KHÔNG encode gì** (chỉ bóc một WAV tạm 16kHz rồi tự dọn) nên gọi lại bao nhiêu lần cũng
+được, kể cả giữa phiên edit - file 217s phân tích hết khoảng 1 giây.
+
+**Hàng rào transcript là lý do tính năng này tồn tại.** Server đọc `assets/transcript.raw.json` rồi
+`assets/transcript.json` (CỐ Ý không dùng `transcript.final/cut.json` - những bản đó đã dời mốc sang
+hệ thời gian của file ĐÃ CẮT), dàn phẳng thành mốc chữ và chỉ cho cắt vào khoảng TRỐNG GIỮA CHỮ. Đo
+thật trên `demo1/assets/thanhtoan80.mov`: ffmpeg gọi 70,3s là "lặng", transcript chỉ cho phép cắt
+23,3s - 47s còn lại là tiếng nói nhỏ nằm bên trong chữ. Không có transcript thì vẫn chạy nhưng trả
+`guarded: false`, `deadWeight` rỗng, và con số không đáng tin theo cả hai chiều.
+
+**Ngưỡng dB do server dò theo từng file**, không phải hằng số: cùng một video, -40dB ra 0 khoảng lặng
+còn -25dB ra 21. `thresholdNote` luôn nói rõ vì sao ngưỡng đó thắng.
+
+**`apply` đi qua render queue** (luật CLAUDE.md: mọi render đều hiện trong queue) - job type
+`auto-trim`, `sceneId` mang mức mạnh tay. `cutCandidates` là các khoảng `{start, end}` mà người/AI
+**đã duyệt** từ `deadWeight` (server không tự duyệt hộ: từ đệm tiếng Việt trùng mặt chữ với từ có
+nghĩa, chỉ ngữ nghĩa mới phân biệt được). Job chạy:
+đo lại (có hàng rào) → gộp khoảng lặng + khoảng đã duyệt (khử chồng lấn) → bỏ khoảng nào đè lên
+TRUNG ĐIỂM của một chữ (lưới an toàn cuối, có ghi log từng khoảng bị loại) → cắt MỘT lượt ffmpeg ra
+`assets/<stem>.cut.mp4` → dời mốc transcript ra `assets/transcript.cut.json` → nghiệm thu bản ĐÃ CẮT
+bằng chính mốc đã dời → ghi `assets/auto-trim-report.json`.
+
+```
+AutoTrimReport = {
+  createdAt, jobId, level, profile, source, output: relPath|null,
+  transcript: { source, cut, guarded },
+  duration: { beforeSec, afterSec, removedSec },
+  removed: { silenceSec, approvedSec, ranges },        // approvedSec = phần CỘNG THÊM nhờ ứng viên
+                                                       //   đã duyệt (đã trừ chỗ chồng khoảng lặng)
+  threshold: { db, noiseFloorDb, note },
+  candidates: { approved, rejected: [{start, end}] },  // rejected = bị lưới trung điểm chặn
+  verification: TrimVerification & { measuredOn, guarded },
+  verdict: "pass"|"fail", note
+}
+```
+
+Không có gì đáng cắt thì job CỐ Ý không sinh file mới (`output: null`) - encode lại một bản y hệt chỉ
+làm giảm chất. Nghiệm thu TRƯỢT thì job vẫn `done` và vẫn ghi báo cáo, nhưng log nói thẳng là chưa
+đạt profile; `verdict` trong báo cáo là nguồn sự thật, không được lờ đi.
+
+409 `BUSY` khi project đang có job chạy/chờ (cắt là ghi đè asset, không được chạy chồng).
+
 ## QC tự động (đo bằng ffmpeg, chặn final nếu FAIL)
 
 ```
@@ -467,7 +537,15 @@ Kết quả ghi `video-projects/<id>/qc.json`. `stale: true` khi file đã đổ
 
 Các phép đo: `resolution` (so meta), `loudness` (loudnorm, mục tiêu -14 LUFS), `truepeak` (clipping),
 `blackframes` (bỏ qua fade đầu/cuối, `pix_th=0.03` để nền tối `#0A0E1A` không bị báo nhầm là đen),
-`freeze`, `tail-silence`, `av-duration`, `duration`, và `safe-area`.
+`freeze`, `tail-silence`, `dead-air`, `av-duration`, `duration`, và `safe-area`.
+
+**`dead-air`** đo chỗ chết trên CẢ BÀI (khác `tail-silence` chỉ soi 4s cuối), dùng chính bộ đo của
+auto-trim và có đối chiếu transcript của project (`readProjectTranscript`, tức bản `final/cut` nếu
+có - đúng hệ thời gian của bản đã dựng). Ngưỡng đậu/trượt lấy từ profile của `brief.autoCutLevel`,
+không phát minh ngưỡng thứ hai. Chỉ **FAIL khi `brief.autoCut` bật** - người dùng không yêu cầu cắt
+thì khoảng lặng là nhịp có chủ ý, khi đó check vẫn `pass` và chỉ ghi nhận số đo. Thiếu transcript,
+thiếu audio hay ffmpeg lỗi đều xuống `warn` ("không đo được"), không bao giờ ném lỗi: đo bằng mức âm
+thanh một mình là đoán mò (đã đo được ca báo trượt oan 4,56s trong khi có transcript đo ra 0,00s).
 
 **`safe-area` không tự kết luận.** Đã đo và xác nhận: mật độ biên (edgedetect + signalstats) của chữ
 và của cảnh quay là như nhau (dải trên 2.99 tại giây 3 hóa ra là lá cây, không phải chữ), nên mọi
@@ -631,15 +709,18 @@ hoặc env `QUEUE_CONCURRENCY`). Ràng buộc: **2 job của cùng một project
 
 ```
 Job = { id, projectId, type: "scene-draft"|"scene-final"|"assemble-draft"|"assemble-final"
-              |"image-gen"|"auto-cut"|"text-to-video",
+              |"image-gen"|"auto-cut"|"auto-trim"|"text-to-video",
         sceneId: string|null, status: "queued"|"running"|"done"|"failed"|"canceled",
         progress: 0..100, step: string, outputPath: string|null,
         createdAt, startedAt: string|null, finishedAt: string|null }
 
-7 loại job. Tạo được qua POST /api/jobs: scene-draft, scene-final, assemble-draft, assemble-final,
+8 loại job. Tạo được qua POST /api/jobs: scene-draft, scene-final, assemble-draft, assemble-final,
 image-gen (projectId = image project, sceneId = step all|background|compose),
-auto-cut (projectId = id phiên cắt, sceneId = step plan|cut).
+auto-cut (projectId = id phiên cắt, sceneId = step plan|cut),
+auto-trim (projectId = video project, sceneId = mức natural|default|tight).
 "text-to-video" KHÔNG tạo tay được - chỉ sinh qua POST /api/text-to-video/:id/build.
+`auto-trim` tạo thẳng qua POST /api/jobs thì chạy với mức trong brief và KHÔNG có ứng viên mỡ thừa
+nào được duyệt - muốn truyền `cutCandidates` thì phải đi qua POST /api/projects/:id/auto-trim/apply.
 
 GET  /api/jobs?limit=50&projectId=  → Job[] (mới nhất trước; projectId lọc theo project - tùy chọn)
 GET  /api/jobs/:id              → Job & { log: string }
@@ -658,6 +739,9 @@ Thực thi (cwd trong ngoặc):
   sinh `props.resolved.json` (đường dẫn đổi thành `staging/<projectId>/...`), rồi
   `npx remotion render Assemble --props=<props.resolved.json> --output=<abs outputs/...>` (cwd `engines/remotion`)
   Draft thêm `--crf 28`. Final ghi `outputs/<projectId>-v<N>.mp4` (N tự tăng), xong cập nhật meta.json (`status`, `output`).
+- `auto-trim`: đo → gộp khoảng cắt → một lượt ffmpeg `trim/atrim + concat` ra `assets/<stem>.cut.mp4`
+  → dời mốc transcript → nghiệm thu → `assets/auto-trim-report.json` (xem mục Auto-trim).
+  Dùng chung khóa "bận" `vid:` với scene/assemble vì nó ghi đè asset của chính project đó.
 - Progress: parse stdout hai CLI (dòng tiến độ frame) → `progress` + `step`, đẩy SSE. Log đầy đủ lưu DB.
 - Server từ chối (409) job `*-final` nếu chưa có job `assemble-draft` thành công cho project đó.
 

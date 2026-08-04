@@ -67,14 +67,42 @@ export function buildEditPrompt(input: {
   lines.push(
     `- Video source: ${brief.sourceDescription.trim() || "(chưa có mô tả - tự xem asset/scenes để hiểu source)"}`,
   );
+  // Trước đây chỗ này bảo agent tự chạy silencedetect và tự chọn ngưỡng dB. Đo
+  // đạc cho thấy cách đó không lặp lại được: ngưỡng đúng là tính chất của TỪNG
+  // FILE (cùng một video, -40dB ra 0 khoảng lặng còn -25dB ra 21), và mức âm
+  // thanh một mình không phân biệt được "đang nghỉ" với "đang nói nhỏ". Toàn bộ
+  // phần cơ học đó đã chuyển vào server (autoTrim.ts + deadWeight.ts), nên ở đây
+  // chỉ còn giao việc DUYỆT - thứ duy nhất mà máy không làm thay được.
   lines.push(
     `- Tự động cắt: ${
       brief.autoCut
-        ? "Có - BẮT BUỘC cắt khoảng lặng + đoạn thừa TRƯỚC khi dựng, theo ĐÚNG quy trình skill `auto-cut` " +
-          "(silencedetect + rà transcript cắt filler/câu nói hỏng + PHÂN TÍCH NGỮ NGHĨA thoại tìm nội dung " +
-          "LẶP Ý: các câu cùng ý chỉ giữ MỘT bản đầy đủ nhất - câu sau nói lại dài/đủ hơn thì giữ câu sau; " +
-          "remap word timestamp, verify bằng silencedetect LẦN 2 trên bản đã cắt). Báo cáo cuối PHẢI có " +
-          "bảng các đoạn đã cắt (mốc giây | lý do | câu giữ lại) + tổng số giây - không cắt được gì thì nêu lý do."
+        ? `Có (mức "${brief.autoCutLevel}") - BẮT BUỘC cắt khoảng lặng + mỡ thừa TRƯỚC khi dựng, ` +
+          "bằng API đo sẵn của server, KHÔNG tự gõ ffmpeg:\n" +
+          `  1. \`POST http://localhost:6869/api/projects/${id}/auto-trim/analyze\` (body \`{}\` là đủ; ` +
+          "thêm `source`/`level` khi cần). Server tự dò ngưỡng dB theo chính file này, đối chiếu " +
+          "transcript để không bao giờ cắt vào chỗ có tiếng nói, và trả về `silence` (khoảng lặng đo " +
+          "được) + `deadWeight` (ứng viên mỡ thừa: từ đệm, vấp, câu nói lại) + `guarded`.\n" +
+          "  2. DUYỆT từng ứng viên trong `deadWeight.candidates` - đây là phần việc của bạn, không " +
+          "phải của máy. Mỗi ứng viên có `confidence`, `reason`, `context`: duyệt thì giữ, không " +
+          "duyệt thì bỏ. Ứng viên `confidence` thấp (đặc biệt các cụm nối như \"hoặc là\", \"tức là\", " +
+          "\"bởi vì là\") BẮT BUỘC đọc `context` trước khi duyệt - chúng vừa có thể là câu bỏ dở, vừa " +
+          "có thể đang nối hai vế thật, cắt nhầm là mất hẳn một vế.\n" +
+          `  3. \`POST http://localhost:6869/api/projects/${id}/auto-trim/apply\` với ` +
+          "`{ \"cutCandidates\": [{start,end}, ...] }` = ĐÚNG các khoảng bạn đã duyệt (bỏ trống nếu " +
+          "không duyệt cái nào - khoảng lặng vẫn được cắt). Server cắt một lượt, dời mốc transcript " +
+          "sang `assets/transcript.cut.json`, nghiệm thu lại và ghi `assets/auto-trim-report.json`.\n" +
+          "  4. ĐỢI job chạy xong (poll `GET /api/jobs/<id>`), rồi đọc `assets/auto-trim-report.json`: " +
+          "`verdict` phải là `pass`. `fail` nghĩa là còn quá nhiều chỗ chết - duyệt thêm ứng viên rồi " +
+          "chạy lại, hoặc nêu rõ lý do chấp nhận trong báo cáo.\n" +
+          "  5. Từ đây trở đi mọi bước (phụ đề, key, sound effect, zoom) dùng BẢN ĐÃ CẮT + " +
+          "`transcript.cut.json`, không đụng lại bản gốc.\n" +
+          "  CẤM tự cắt khoảng lặng bằng ffmpeg silencedetect gõ tay: ngưỡng đo được nằm trong server " +
+          "và đổi theo từng file, tự chọn ngưỡng là quay lại kiểu làm không lặp lại được. Việc mà " +
+          "CHỈ BẠN làm được và VẪN PHẢI LÀM là đọc transcript tìm nội dung LẶP Ý (các câu cùng một ý " +
+          "chỉ giữ MỘT bản đầy đủ nhất) rồi đưa các khoảng đó vào `cutCandidates` - máy không hiểu " +
+          "được ngữ nghĩa. Đọc skill `auto-cut` để biết cách duyệt.\n" +
+          "  Báo cáo cuối PHẢI có bảng các đoạn đã cắt (mốc giây | lý do | câu giữ lại) + tổng số giây " +
+          "(lấy từ `auto-trim-report.json`) - không cắt được gì thì nêu lý do."
         : "Không - giữ nguyên nhịp video, không tự ý cắt bỏ đoạn nào"
     }`,
   );

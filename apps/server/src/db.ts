@@ -162,6 +162,12 @@ export type JobType =
   | "image-gen"
   /** Auto cut videos: projectId là id phiên cắt, sceneId mang step (plan | cut) */
   | "auto-cut"
+  /**
+   * Cắt khoảng lặng + mỡ thừa của MỘT video project (khác hẳn "auto-cut" ở trên
+   * - loại kia cắt video dài thành nhiều video ngắn). projectId là video project,
+   * sceneId mang mức mạnh tay (natural | default | tight).
+   */
+  | "auto-trim"
   /** Text to video: projectId là id phiên, không dùng sceneId */
   | "text-to-video";
 export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
@@ -177,6 +183,7 @@ export const JOB_TYPES: JobType[] = [
   "assemble-final",
   "image-gen",
   "auto-cut",
+  "auto-trim",
 ];
 
 export interface JobRow {
