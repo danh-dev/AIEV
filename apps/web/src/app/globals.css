@@ -578,6 +578,19 @@ textarea.input {
 /* Đáy rail (mã nguồn + phiên bản + nút gấp/mở) dán cứng vào đáy vùng cuộn:
    màn thấp mà 16 mục điều hướng làm rail phải cuộn thì nút gấp cũng cuộn mất -
    nút duy nhất để mở rail ra lại mà phải đi tìm bằng cách cuộn là mất luôn. */
+/* Nút gấp/mở rail: dán ĐỈNH, ngay trên mục điều hướng đầu tiên. Rail có 17 mục
+   nên trên màn hình thấp là phải cuộn - nút gấp mà cuộn mất tầm với thì coi như
+   không có nút. Cùng nền với rail để lúc cuộn không thấy chữ chạy xuyên qua. */
+.shell-nav-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+
 .shell-nav-foot {
   position: sticky;
   bottom: 0;

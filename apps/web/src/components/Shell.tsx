@@ -351,7 +351,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
 
           {/* Nút gấp/mở rail KHÔNG còn ở header: nó nằm dưới đáy chính cái rail
-              nó điều khiển (xem `.shell-nav-foot` bên dưới). */}
+              nó điều khiển (xem `.shell-nav-head` bên dưới). */}
           <span className="min-w-0 truncate text-sm font-semibold">
             {t(pageTitle(pathname))}
           </span>
@@ -382,68 +382,12 @@ export function Shell({ children }: { children: ReactNode }) {
             id="shell-nav"
             className="shell-nav flex shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-subtle)]"
           >
-            <nav
-              className="flex flex-col gap-1"
-              aria-label={t("shell.nav-aria")}
-            >
-              {NAV.map(({ href, label, icon: Icon }) => {
-                const text = t(label);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    // title + aria-label luôn có: lúc rail gấp thì đây là thứ
-                    // duy nhất cho biết icon này là gì
-                    title={text}
-                    aria-label={text}
-                    aria-current={isActive(pathname, href) ? "page" : undefined}
-                    className={`nav-item ${isActive(pathname, href) ? "active" : ""}`}
-                  >
-                    <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-                    <span className="shell-nav-label min-w-0 truncate">
-                      {text}
-                    </span>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* Cuối sidebar: link mã nguồn nằm TRÊN badge phiên bản - hai thứ này
-                cùng nói về "bản dựng nào đang chạy" nên đứng cạnh nhau - và dưới
-                cùng là nút gấp/mở chính cái rail này.
-                `.shell-nav-foot` dán đáy (sticky): rail cao hơn màn hình là phải
-                cuộn, mà nút gấp cuộn mất thì coi như không có nút. */}
-            <div className="shell-nav-foot mt-auto flex flex-col gap-1">
-              <a
-                href={REPO_URL}
-                target="_blank"
-                rel="noreferrer noopener"
-                title={REPO_URL}
-                aria-label={t("nav.source")}
-                className="shell-nav-source inline-flex items-center gap-2 rounded-[var(--radius)] py-1 text-xs text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)]"
-              >
-                <GithubMark size={14} />
-                <span className="shell-nav-label min-w-0 flex-1 truncate">
-                  {t("nav.source")}
-                </span>
-                <ExternalLink
-                  size={12}
-                  strokeWidth={2}
-                  className="shell-nav-label shrink-0 opacity-60"
-                  aria-hidden="true"
-                />
-              </a>
-              {/* Badge phiên bản là chữ thuần, gấp rail còn 56px là không đọc
-                  được nữa nên ẩn hẳn thay vì bóp vỡ */}
-              <div className="shell-nav-extra flex-col">
-                <UpdateBadge />
-              </div>
-
-              {/* Nút gấp/mở rail - Ô CUỐI CÙNG của rail, đúng chỗ người dùng đi
-                  tìm nó. Lúc gấp còn 56px thì chỉ còn icon, nhưng vẫn là một ô
-                  viền rõ chiếm hết bề ngang rail nên không lẫn vào đâu được.
-                  aria-controls trỏ về #shell-nav: nút nằm trong chính vùng nó
-                  điều khiển, đây là mẫu disclosure hợp lệ. */}
+            {/* Nút gấp/mở rail đứng NGAY TRÊN mục đầu tiên (Dashboard) - dán
+                đỉnh (sticky) vì rail 17 mục cao hơn màn hình là phải cuộn, mà
+                nút gấp cuộn mất tầm với thì coi như không có nút.
+                aria-controls trỏ về #shell-nav: nút nằm trong chính vùng nó
+                điều khiển, đây là mẫu disclosure hợp lệ. */}
+            <div className="shell-nav-head">
               <button
                 type="button"
                 onClick={() => setNav(!navCollapsed)}
@@ -471,6 +415,63 @@ export function Shell({ children }: { children: ReactNode }) {
                   {navToggleShort}
                 </span>
               </button>
+            </div>
+
+            <nav
+              className="flex flex-col gap-1"
+              aria-label={t("shell.nav-aria")}
+            >
+              {NAV.map(({ href, label, icon: Icon }) => {
+                const text = t(label);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    // title + aria-label luôn có: lúc rail gấp thì đây là thứ
+                    // duy nhất cho biết icon này là gì
+                    title={text}
+                    aria-label={text}
+                    aria-current={isActive(pathname, href) ? "page" : undefined}
+                    className={`nav-item ${isActive(pathname, href) ? "active" : ""}`}
+                  >
+                    <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+                    <span className="shell-nav-label min-w-0 truncate">
+                      {text}
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Cuối sidebar: link mã nguồn nằm TRÊN badge phiên bản - hai thứ này
+                cùng nói về "bản dựng nào đang chạy" nên đứng cạnh nhau.
+                `.shell-nav-foot` dán đáy (sticky) để rail dài vẫn với tới được. */}
+            <div className="shell-nav-foot mt-auto flex flex-col gap-1">
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={REPO_URL}
+                aria-label={t("nav.source")}
+                className="shell-nav-source inline-flex items-center gap-2 rounded-[var(--radius)] py-1 text-xs text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--text)]"
+              >
+                <GithubMark size={14} />
+                <span className="shell-nav-label min-w-0 flex-1 truncate">
+                  {t("nav.source")}
+                </span>
+                <ExternalLink
+                  size={12}
+                  strokeWidth={2}
+                  className="shell-nav-label shrink-0 opacity-60"
+                  aria-hidden="true"
+                />
+              </a>
+              {/* Badge phiên bản là chữ thuần, gấp rail còn 56px là không đọc
+                  được nữa nên ẩn hẳn thay vì bóp vỡ */}
+              <div className="shell-nav-extra flex-col">
+                <UpdateBadge />
+              </div>
+
             </div>
           </aside>
 
