@@ -4,8 +4,8 @@ import { paths } from "../config.js";
 import { updateJob } from "../db.js";
 import type { JobCtx } from "../queue.js";
 import { remotionSpeedArgs } from "../renderSettings.js";
+import { transcribeWith } from "../stt.js";
 import { segmentsToCues } from "../subtitles.js";
-import { transcribeVideo } from "../transcribe.js";
 import { parseTranscriptJson } from "../transcript.js";
 import {
   outputPathOf,
@@ -79,35 +79,56 @@ async function stepTranscribe(ctx: JobCtx, id: string): Promise<void> {
   ensureDir(translateVideoDirOf(id));
 
   /**
-   * "auto" đi thẳng xuống whisper: transcribe.ts truyền `language=None` cho
-   * faster-whisper để nó tự dò. Đây là mặc định đúng của tính năng này -
-   * người dùng đưa video tiếng nước ngoài thường KHÔNG biết đó là tiếng gì,
-   * ép sẵn tiếng Việt là bóc sai toàn bộ mà không có lỗi nào báo ra.
-   * Ngôn ngữ whisper nhận ra được ghi lại vào meta ở dưới.
+   * "auto" đi thẳng xuống provider: mọi provider ở `stt.ts` đều TỰ dò được ngôn
+   * ngữ (faster-whisper `language=None`, Gemini tự nghe, Soniox bật
+   * `enable_language_identification`). Đây là mặc định đúng của tính năng này -
+   * người dùng đưa video tiếng nước ngoài thường KHÔNG biết đó là tiếng gì, ép
+   * sẵn tiếng Việt là bóc sai toàn bộ mà không có lỗi nào báo ra.
+   * Ngôn ngữ nhận ra được ghi lại vào meta ở dưới.
    */
   const language = meta.sourceLang === "auto" ? "auto" : meta.sourceLang;
   if (language === "auto") {
-    ctx.log("[translate] sourceLang = auto - để whisper tự dò ngôn ngữ của video");
+    ctx.log("[translate] sourceLang = auto - để AI bóc lời tự dò ngôn ngữ của video");
   }
 
-  ctx.progress(2, "Bóc lời video nguồn");
-  const res = await transcribeVideo({
+  ctx.progress(2, `Bóc lời video nguồn (${meta.sttProvider})`);
+  const res = await transcribeWith({
+    provider: meta.sttProvider,
     videoAbs,
     outJsonAbs,
     language,
+    /**
+     * LUÔN xin nhãn người nói. Provider nào không làm được thì `stt.ts` chỉ ghi
+     * một dòng log rồi đi tiếp, không tốn gì; còn thiếu nhãn thì bước lồng tiếng
+     * sắp tới không biết câu nào của giọng nam để gán đúng giọng nam - và lúc
+     * phát hiện ra thì phải bóc lời LẠI cả video, đó mới là cái đắt.
+     */
+    diarize: true,
     onLog: (line) => ctx.log(line),
     // BẮT BUỘC: không truyền thì hủy job xong whisper vẫn chạy tiếp và ăn GPU
     isCanceled: () => ctx.isCanceled(),
   });
   if (ctx.isCanceled()) throw new Error("Job đã bị hủy");
   ctx.log(
-    `[translate] transcript: ${res.segments} đoạn, ${res.durationSec.toFixed(1)}s, ngôn ngữ ${res.language}`,
+    `[translate] transcript: ${res.segments.length} đoạn, ${res.durationSec.toFixed(1)}s, ` +
+      `ngôn ngữ ${res.language}, provider ${res.provider}` +
+      (res.diarized ? `, ${res.speakers.length} người nói (${res.speakers.join(", ")})` : "") +
+      (res.wordTimestamps ? "" : ", KHÔNG có mốc từng từ"),
   );
 
   // Vá ngay sau mỗi bước con: transcribe là phần đắt nhất, hỏng ở bước sau thì
   // vẫn còn nguyên file này để chạy lại từ giữa.
   patchTranslateVideo(id, {
     transcriptFile: toRepoRel(outJsonAbs),
+    // Provider ĐÃ chạy + có phân vai không: UI hiện thẳng, không phải đoán từ
+    // lựa chọn `sttProvider` (người dùng đổi lựa chọn mà chưa chạy lại là lệch).
+    transcriptInfo: {
+      provider: res.provider,
+      language: res.language,
+      diarized: res.diarized,
+      speakers: res.speakers,
+      wordTimestamps: res.wordTimestamps,
+    },
     // Phiên để "auto" thì ghi lại ngôn ngữ ĐÃ DÙNG - lần dịch sau khỏi đoán
     ...(meta.sourceLang === "auto" ? { sourceLang: res.language } : {}),
   });
@@ -135,19 +156,82 @@ async function stepTranscribe(ctx: JobCtx, id: string): Promise<void> {
  */
 export function cuesFromTranscript(transcriptAbs: string): TranslatedCue[] {
   if (!fs.existsSync(transcriptAbs)) return [];
-  let segments;
+  let raw: unknown;
   try {
-    segments = parseTranscriptJson(JSON.parse(fs.readFileSync(transcriptAbs, "utf8")));
+    raw = JSON.parse(fs.readFileSync(transcriptAbs, "utf8"));
   } catch {
     return [];
   }
+  const segments = parseTranscriptJson(raw);
   if (!segments || segments.length === 0) return [];
-  return segmentsToCues(segments).map((c) => ({
-    start: Math.round(c.start * 1000) / 1000,
-    end: Math.round(c.end * 1000) / 1000,
-    text: c.text,
-    original: c.text,
-  }));
+
+  const speakerRanges = readSpeakerRanges(raw);
+  return segmentsToCues(segments).map((c) => {
+    const start = Math.round(c.start * 1000) / 1000;
+    const end = Math.round(c.end * 1000) / 1000;
+    const cue: TranslatedCue = { start, end, text: c.text, original: c.text };
+    const speaker = speakerAt(speakerRanges, start, end);
+    if (speaker) cue.speaker = speaker;
+    return cue;
+  });
+}
+
+/** Một khoảng thời gian thuộc về một người nói - dựng từ JSON THÔ của transcript */
+interface SpeakerRange {
+  start: number;
+  end: number;
+  speaker: string;
+}
+
+/**
+ * Đọc nhãn người nói từ JSON thô.
+ *
+ * VÌ SAO KHÔNG LẤY TỪ `parseTranscriptJson`: parser chung CỐ Ý chỉ giữ
+ * start/end/text/words - nó là hợp đồng ổn định cho cả hệ thống và `speaker` chỉ
+ * là field phụ thêm mà provider mới ghi ra. Muốn dùng nhãn thì đọc thẳng JSON
+ * thô ở đây, chứ không nới hợp đồng của parser (nới là mọi consumer phải quan
+ * tâm tới một field họ không cần).
+ *
+ * Transcript của faster-whisper không có `speaker` -> trả [] và mọi cue không có
+ * nhãn, đúng như trước.
+ */
+function readSpeakerRanges(raw: unknown): SpeakerRange[] {
+  const segs =
+    raw && typeof raw === "object" && Array.isArray((raw as Record<string, unknown>).segments)
+      ? ((raw as Record<string, unknown>).segments as unknown[])
+      : [];
+  const out: SpeakerRange[] = [];
+  for (const s of segs) {
+    if (!s || typeof s !== "object") continue;
+    const o = s as Record<string, unknown>;
+    const speaker = typeof o.speaker === "string" ? o.speaker.trim() : "";
+    const start = typeof o.start === "number" && Number.isFinite(o.start) ? o.start : null;
+    const end = typeof o.end === "number" && Number.isFinite(o.end) ? o.end : null;
+    if (!speaker || start === null || end === null || end <= start) continue;
+    out.push({ start, end, speaker });
+  }
+  return out;
+}
+
+/**
+ * Người nói của một cue = người CHIẾM NHIỀU THỜI GIAN NHẤT trong khoảng cue.
+ *
+ * Không lấy theo mốc bắt đầu: `segmentsToCues` cắt segment dài thành nhiều cue,
+ * và một cue nằm vắt qua chỗ đổi người nói thì mốc bắt đầu vẫn thuộc người
+ * TRƯỚC - gán theo mốc là câu của người B bị dán nhãn người A, tức là bước lồng
+ * tiếng sẽ đọc câu đó bằng sai giọng.
+ */
+function speakerAt(ranges: SpeakerRange[], start: number, end: number): string | null {
+  let best: string | null = null;
+  let bestOverlap = 0;
+  for (const r of ranges) {
+    const overlap = Math.min(end, r.end) - Math.max(start, r.start);
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      best = r.speaker;
+    }
+  }
+  return bestOverlap > 0 ? best : null;
 }
 
 // ================================================================== Step "render"

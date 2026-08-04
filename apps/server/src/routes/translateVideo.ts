@@ -9,6 +9,7 @@ import { broadcast } from "../events.js";
 import { cuesFromTranscript } from "../jobs/translateVideo.js";
 import { queue } from "../queue.js";
 import { probeVideo } from "../reframe.js";
+import { STT_PROVIDERS, assertSttAvailable, isSttProvider, sttCapabilities } from "../stt.js";
 import { translateCues } from "../translate.js";
 import {
   SUBTITLE_FONTS,
@@ -105,6 +106,26 @@ function assertNotBusy(meta: TranslateVideoMeta): void {
   }
 }
 
+/**
+ * Provider bóc lời từ client - giá trị lạ thì 400 CÓ MÃ, không im lặng lùi về
+ * mặc định (im lặng thì người dùng chọn Soniox, hệ thống chạy whisper, và không
+ * ai hiểu vì sao không có nhãn người nói). Đúng cách `mode` đang validate.
+ *
+ * KHÔNG kiểm tra key ở đây: lưu lựa chọn là việc rẻ và làm được cả khi chưa nhập
+ * key (người dùng chọn trước, nhập key sau). Chốt chặn "có key chưa" nằm ở
+ * /transcribe, ngay trước khi thật sự tốn thời gian.
+ */
+function mustSttProvider(raw: unknown): (typeof STT_PROVIDERS)[number] {
+  if (!isSttProvider(raw)) {
+    throw new HttpError(
+      400,
+      "INVALID_STT_PROVIDER",
+      `sttProvider phải là một trong: ${STT_PROVIDERS.join(", ")}`,
+    );
+  }
+  return raw;
+}
+
 /** Tạo + enqueue job. sceneId mang step (xem db.ts JobType "translate-video") */
 function enqueueJob(sessionId: string, step: "transcribe" | "render"): db.JobApi {
   const job = db.createJob({
@@ -131,6 +152,18 @@ router.get("/fonts", (_req, res) => {
   res.json(SUBTITLE_FONTS);
 });
 
+/**
+ * GET /api/translate-video/stt-providers -> SttCapabilities[]
+ *
+ * AI nào bóc lời được TRÊN MÁY NÀY, kèm `diarization` (có phân vai người nói
+ * không) và `why` khi không dùng được. UI đọc để dựng dropdown và khóa lựa chọn
+ * thiếu key - thay vì để người dùng chọn rồi job chết ở phút thứ hai.
+ * ĐẶT TRƯỚC GET /:id, nếu không "stt-providers" bị bắt như một id.
+ */
+router.get("/stt-providers", (_req, res) => {
+  res.json(sttCapabilities());
+});
+
 // GET /api/translate-video -> TranslateVideoMeta[] (mới cập nhật trước)
 router.get("/", (_req, res) => {
   res.json(scanTranslateVideos());
@@ -152,6 +185,7 @@ router.post("/", (req, res) => {
   if ("sourceLang" in body) meta.sourceLang = normLang(body.sourceLang, meta.sourceLang);
   if ("targetLang" in body) meta.targetLang = normLang(body.targetLang, meta.targetLang);
   if (TRANSLATE_MODES.includes(body.mode as TranslateMode)) meta.mode = body.mode as TranslateMode;
+  if ("sttProvider" in body) meta.sttProvider = mustSttProvider(body.sttProvider);
 
   writeTranslateVideo(meta);
   res.status(201).json(readTranslateVideo(meta.id));
@@ -181,6 +215,7 @@ router.patch("/:id", (req, res) => {
     "sourceLang" in body ||
     "targetLang" in body ||
     "mode" in body ||
+    "sttProvider" in body ||
     "cues" in body ||
     "subtitleStyle" in body;
   if (touchesRun) assertNotBusy(cur);
@@ -205,6 +240,20 @@ router.patch("/:id", (req, res) => {
       );
     }
     patch.mode = body.mode as TranslateMode;
+  }
+
+  /**
+   * Đổi provider bóc lời KHÔNG xóa transcript đang có - khác hẳn đổi `sourceLang`.
+   *
+   * Lý do phân biệt: đổi ngôn ngữ nguồn làm transcript cũ SAI (bóc bằng ngôn ngữ
+   * khác), nên phải xóa. Đổi provider chỉ làm nó CŨ chứ không sai - chữ vẫn đúng,
+   * bản dịch dựa trên nó vẫn dùng được. Xóa ở đây là bắt người dùng chạy lại một
+   * bước rất đắt chỉ vì họ bấm thử một lựa chọn. Muốn có transcript của provider
+   * mới thì bấm "bóc lời" lại; `transcriptInfo` luôn nói rõ transcript ĐANG CÓ là
+   * của provider nào nên không có chuyện nhầm.
+   */
+  if ("sttProvider" in body) {
+    patch.sttProvider = mustSttProvider(body.sttProvider);
   }
 
   if ("sourceLang" in body) {
@@ -363,11 +412,25 @@ router.post("/:id/source", upload.single("file"), async (req, res) => {
 
 // ------------------------------------------------------------------ Bóc lời
 
-// POST /api/translate-video/:id/transcribe -> 202 { jobId } - job step "transcribe"
+/**
+ * POST /api/translate-video/:id/transcribe -> 202 { jobId } - job step "transcribe"
+ * Body (tùy chọn): { sttProvider } - chọn luôn provider cho lần chạy này.
+ *
+ * Kiểm tra provider có dùng được TRƯỚC KHI đẩy vào hàng đợi: thiếu
+ * SONIOX_API_KEY thì trả 503 STT_PROVIDER_UNAVAILABLE kèm câu tiếng Việt ngay
+ * tại đây, thay vì để người dùng thấy job "đang chạy" rồi failed vài giây sau.
+ */
 router.post("/:id/transcribe", (req, res) => {
   const meta = mustRead(req.params.id);
+  const body = (req.body ?? {}) as Record<string, unknown>;
   sourceAbsOf(meta); // ném 400 NO_SOURCE / 404 SOURCE_NOT_FOUND nếu thiếu file
   assertNotBusy(meta);
+
+  const provider = "sttProvider" in body ? mustSttProvider(body.sttProvider) : meta.sttProvider;
+  assertSttAvailable(provider);
+  // Job runner đọc meta từ đĩa - lựa chọn phải nằm trên đĩa TRƯỚC khi enqueue
+  if (provider !== meta.sttProvider) patchTranslateVideo(meta.id, { sttProvider: provider });
+
   res.status(202).json({ jobId: enqueueJob(meta.id, "transcribe").id });
 });
 

@@ -242,6 +242,12 @@ GET  /api/connections                    → trạng thái kết nối từng pr
 PUT  /api/connections/:provider/key      { apiKey } → 200 — lưu API key vào .env
 POST /api/connections/:provider/test     → { ok, message? } — gọi thử API để kiểm tra key
 ```
+provider ∈ `claude` | `gemini` | `openai` | `soniox`.
+
+- **soniox** (`SONIOX_API_KEY`, lấy tại console.soniox.com) - bóc lời async $0.10/giờ, 60+ ngôn ngữ,
+  **phân vai người nói** (thứ faster-whisper trên máy không làm được). `roles: ["stt"]`.
+  `/test` gọi `GET https://api.soniox.com/v1/models` (rẻ nhất, không tính tiền, vẫn qua tầng Bearer).
+  Không có key thì hệ thống vẫn bóc lời được bằng faster-whisper trên máy - chỉ là không có nhãn người nói.
 
 ## Cloudflare Tunnel (card trên trang /connections)
 
@@ -414,8 +420,13 @@ TranslateVideoMeta = { id, name, autoNamed: boolean,
   sourceLang: string,                 // "auto" hoặc mã whisper ("vi","en"...)
   targetLang: string,                 // "vi" | "en" | ...
   mode: "subtitle"|"dub",             // "dub" (lồng tiếng) là giai đoạn sau - /render trả 501
+  sttProvider: "local"|"gemini"|"soniox",   // AI bóc lời cho lần chạy TIẾP THEO (mặc định "local")
   transcriptFile: string|null,        // transcript GỐC (relPath repo)
+  transcriptInfo: {                   // provider ĐÃ chạy ra transcript đang nằm trên đĩa; null = chưa bóc
+    provider, language, diarized: boolean, speakers: string[], wordTimestamps: boolean } | null,
   cues: [{ start, end, text, original?, speaker? }],  // GIÂY trong video nguồn; text đã xuống dòng "\n"
+                                      // speaker: có khi provider phân vai được (gán theo segment
+                                      // CHỒNG LẤN NHIỀU NHẤT, không theo mốc bắt đầu)
   subtitleStyle: { fontFamily, fontSizePx, color, backdrop: "blur"|"solid"|"none",
                    backdropColor, blurPx, bottomPx },
                                       // fontFamily: "vietnamese"|"sans"|"serif"|"mono" (GET /fonts)
@@ -428,22 +439,34 @@ TranslateVideoMeta = { id, name, autoNamed: boolean,
 
 GET    /api/translate-video/fonts  -> [{ id, label, cssStack }] - DANH SÁCH CHO PHÉP của
                                       subtitleStyle.fontFamily (đặt trước /:id)
+GET    /api/translate-video/stt-providers -> SttCapabilities[] (đặt trước /:id)
+                                      [{ id: "local"|"gemini"|"soniox", label, diarization: boolean,
+                                         available: boolean, why?: string }]
+                                      available=false -> `why` là câu tiếng Việt hiện thẳng lên UI
 GET    /api/translate-video        -> TranslateVideoMeta[] (mới cập nhật trước)
-POST   /api/translate-video        { name?, sourceLang?, targetLang?, mode? } -> 201
+POST   /api/translate-video        { name?, sourceLang?, targetLang?, mode?, sttProvider? } -> 201
                                       name bỏ trống được: đặt tên tạm (autoNamed=true) rồi thay
                                       bằng tên file khi upload nguồn
 GET    /api/translate-video/:id    -> TranslateVideoMeta
-PATCH  /api/translate-video/:id    { name?, sourceLang?, targetLang?, mode?, subtitleStyle?, cues? }
+PATCH  /api/translate-video/:id    { name?, sourceLang?, targetLang?, mode?, sttProvider?,
+                                      subtitleStyle?, cues? }
                                       - đổi sourceLang -> xóa transcript + cues, về "draft"
                                       - đổi targetLang -> trả text về `original`, về "transcribed"
-                                      - sửa cues/đổi ngôn ngữ khi đang chạy job -> 409 BUSY
+                                      - đổi sttProvider -> KHÔNG xóa gì (transcript cũ chỉ CŨ chứ
+                                        không SAI; bấm /transcribe lại nếu muốn bản của provider mới)
+                                      - sttProvider lạ -> 400 INVALID_STT_PROVIDER
+                                      - sửa cues/đổi ngôn ngữ/đổi provider khi đang chạy job -> 409 BUSY
 DELETE /api/translate-video/:id    -> 204 (xóa cả thư mục phiên + staging)
 
 POST   /api/translate-video/:id/source     multipart: file -> TranslateVideoMeta
                                       chỉ nhận mp4/mov/webm/mkv/avi/m4v; đo ffprobe ngay
                                       (400 INVALID_SOURCE / PROBE_FAILED); nguồn mới xóa
                                       transcript + cues + output cũ
-POST   /api/translate-video/:id/transcribe -> 202 { jobId } - job "translate-video" step "transcribe"
+POST   /api/translate-video/:id/transcribe { sttProvider? } -> 202 { jobId }
+                                      job "translate-video" step "transcribe"; sttProvider truyền ở
+                                      đây thì ghi đè lựa chọn của phiên rồi mới chạy
+                                      (400 INVALID_STT_PROVIDER; 503 STT_PROVIDER_UNAVAILABLE khi
+                                      thiếu key - kiểm TRƯỚC khi vào hàng đợi, không để job chết giữa chừng)
 POST   /api/translate-video/:id/translate  { model? } -> TranslateVideoMeta (ĐỒNG BỘ)
                                       đầu vào lấy từ transcript GỐC, không dịch chồng lên bản dịch cũ
                                       (400 NO_TRANSCRIPT, 502 TRANSLATE_EMPTY)
@@ -451,9 +474,39 @@ POST   /api/translate-video/:id/render     -> 202 { jobId } - job step "render"
                                       (400 NO_CUES, 501 MODE_NOT_IMPLEMENTED nếu mode="dub")
 ```
 
-⚠ **`sourceLang: "auto"`**: `transcribe.ts` luôn truyền một mã ngôn ngữ cụ thể xuống faster-whisper
-nên chưa tự dò được - "auto" chạy bằng mặc định tiếng Việt, ghi rõ một dòng trong log job, và
-`sourceLang` được ghi lại bằng ngôn ngữ đã dùng sau khi bóc xong.
+### Bóc lời: chọn provider (`apps/server/src/stt.ts`)
+
+Bóc lời đi qua đúng một cổng `transcribeWith({ provider, videoAbs, outJsonAbs, language, diarize })`.
+Cả ba provider đều tách audio bằng CÙNG một hàm (`extractAudioWav` - WAV 16 kHz mono, 32 kB/giây)
+nên chúng nghe cùng một thứ.
+
+| provider | tiền | mạng | phân vai người nói | mốc từng TỪ |
+|---|---|---|---|---|
+| `local` (faster-whisper large-v3) | miễn phí | không cần | **không** | có |
+| `gemini` (gemini-2.5-flash, key sẵn có) | theo token | cần | best effort (LLM đoán) | **không** |
+| `soniox` (`stt-async-v5`) | $0.10/giờ | cần | có (mô hình thật) | có |
+
+- **`sourceLang: "auto"`** giờ tự dò thật ở cả ba provider (whisper `language=None`, Gemini tự nghe,
+  Soniox `enable_language_identification`). Ngôn ngữ nhận ra được ghi lại vào `sourceLang` và
+  `transcriptInfo.language` sau khi bóc xong.
+- **`gemini` KHÔNG có mốc thời gian từng từ**: mốc mức TỪ do một LLM đoán ra lệch tới hàng trăm ms
+  mà caption karaoke lệch 100 ms là thấy ngay - nên transcript ghi `"words": []` và job log nói rõ,
+  thay vì bịa số. `segmentsToCues` tự lùi về chia câu theo dấu câu, phụ đề vẫn đúng nhưng thô hơn.
+- **Gemini chia audio thành khúc 4 phút** (`GEMINI_CHUNK_SEC = 240`), cắt ở mốc cố định không chồng
+  lấn, cộng offset của khúc vào timestamp. Ràng buộc quyết định con số này là **trần token ĐẦU RA**
+  (JSON bị cắt giữa chừng là mất trắng cả khúc), sau đó mới tới trần request ~20 MB
+  (240 s ≈ 10,2 MB base64 ≈ nửa trần) và độ trôi mốc thời gian.
+- **Soniox**: `POST /v1/files` → `POST /v1/transcriptions` → poll `GET /v1/transcriptions/{id}` tới
+  `status="completed"` → `GET /v1/transcriptions/{id}/transcript`. Mốc của họ là **milli giây**
+  (`start_ms`/`end_ms`), token là **dưới-từ** ("Hel"+"lo") nhưng có khoảng trắng đầu từ nên
+  `joinWords` ghép đúng. Trần **300 phút/file** (cố định) - chặn trước khi upload. File **không tự
+  xóa**: xong là `DELETE` cả file lẫn transcription.
+
+⚠ **Hình dạng transcript.json KHÔNG ĐỔI**: `{ language, duration, segments: [{ start, end, text,
+words: [{word,start,end}] }] }`. `speaker` chỉ là field **phụ thêm** trên segment/word.
+`parseTranscriptJson` dựng object mới và bỏ field lạ, nên mọi consumer (`subtitles.ts`, `autoTrim.ts`,
+QC, đường caption Remotion) chạy nguyên không sửa một dòng. Muốn đọc `speaker` thì đọc thẳng JSON thô
+(xem `readSpeakerRanges` ở `jobs/translateVideo.ts`) - đừng nới hợp đồng của parser chung.
 
 ⚠ **font phụ đề là ID trong danh sách cho phép**, không phải tên family tự do: family lạ thì DOM render
 im lặng rơi về font mặc định và thứ hỏng đầu tiên là DẤU TIẾNG VIỆT - mà chỉ lộ ra sau khi render xong.

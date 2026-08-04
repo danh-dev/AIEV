@@ -11,7 +11,7 @@ import { HttpError } from "../util.js";
  */
 
 interface ConnectionInfo {
-  id: "claude" | "gemini" | "openai";
+  id: "claude" | "gemini" | "openai" | "soniox";
   label: string;
   roles: string[];
   connected: boolean;
@@ -53,6 +53,7 @@ function listConnections(): ConnectionInfo[] {
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
   const geminiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "";
   const openaiKey = process.env.OPENAI_API_KEY || "";
+  const sonioxKey = process.env.SONIOX_API_KEY || "";
   const oauth = claudeOauthPresent();
 
   return [
@@ -110,6 +111,22 @@ function listConnections(): ConnectionInfo[] {
       },
       keyHelpUrl: "https://platform.openai.com/api-keys",
     },
+    {
+      id: "soniox",
+      label: "Soniox (bóc lời + phân vai người nói)",
+      roles: ["stt"],
+      connected: !!sonioxKey,
+      source: sonioxKey ? "api-key" : null,
+      note: sonioxKey
+        ? "Đã kết nối - bóc lời async $0.10/giờ, 60+ ngôn ngữ, PHÂN VAI ĐƯỢC NGƯỜI NÓI (thứ faster-whisper trên máy không làm được)."
+        : "Chưa kết nối. Không có key vẫn bóc lời được bằng faster-whisper trên máy (miễn phí) - nhưng bản đó không phân biệt được ai đang nói, thứ mà bước lồng tiếng cần để gán đúng giọng nam/nữ.",
+      key: {
+        envVar: "SONIOX_API_KEY",
+        present: !!sonioxKey,
+        masked: sonioxKey ? maskKey(sonioxKey) : null,
+      },
+      keyHelpUrl: "https://console.soniox.com",
+    },
   ];
 }
 
@@ -132,6 +149,7 @@ router.put("/:provider/key", (req, res) => {
     gemini: "GEMINI_API_KEY",
     claude: "ANTHROPIC_API_KEY",
     openai: "OPENAI_API_KEY",
+    soniox: "SONIOX_API_KEY",
   };
   const envVar = ENV_VARS[provider];
   if (!envVar) {
@@ -252,6 +270,32 @@ router.post("/:provider/test", async (req, res) => {
       res.json({ ok: true, message: "API key OpenAI hoạt động." });
     } else {
       res.json({ ok: false, message: `Key không hợp lệ (HTTP ${r.status}).` });
+    }
+    return;
+  }
+
+  if (provider === "soniox") {
+    const key = process.env.SONIOX_API_KEY;
+    if (!key) {
+      res.json({ ok: false, message: "Chưa có SONIOX_API_KEY." });
+      return;
+    }
+    // GET /v1/models: endpoint rẻ nhất của họ (chỉ liệt kê model, không bóc lời
+    // nên không tính tiền) mà vẫn đi qua đúng tầng xác thực Bearer.
+    const r = await fetch("https://api.soniox.com/v1/models", {
+      headers: { authorization: `Bearer ${key}` },
+    });
+    if (r.ok) {
+      res.json({ ok: true, message: "Key Soniox hoạt động - sẵn sàng bóc lời + phân vai người nói." });
+    } else {
+      const detail = (await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+      res.json({
+        ok: false,
+        message:
+          r.status === 401 || r.status === 403
+            ? `Soniox từ chối key (HTTP ${r.status}) - kiểm tra lại key ở console.soniox.com.`
+            : `Soniox trả lỗi HTTP ${r.status}: ${detail || r.statusText}`,
+      });
     }
     return;
   }

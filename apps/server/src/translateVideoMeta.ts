@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { paths, repoRoot } from "./config.js";
+import { DEFAULT_STT_PROVIDER, isSttProvider, type SttProvider } from "./stt.js";
 import { HttpError, isKebabCase, nowIso } from "./util.js";
 
 /**
@@ -154,6 +155,27 @@ export interface TranslatedCue {
   speaker?: string;
 }
 
+/**
+ * Kết quả bóc lời của LẦN CHẠY GẦN NHẤT - khác `sttProvider` (là LỰA CHỌN của
+ * người dùng cho lần chạy TIẾP THEO). Hai thứ này phải tách nhau: người dùng đổi
+ * lựa chọn sang Soniox nhưng chưa bấm bóc lời lại thì transcript đang có vẫn là
+ * của whisper, UI phải nói đúng thứ đang có trên đĩa.
+ *
+ * null = chưa bóc lời lần nào (hoặc transcript có từ trước khi có tính năng này).
+ */
+export interface TranscriptInfo {
+  /** Provider ĐÃ THỰC SỰ chạy ra transcript đang nằm trên đĩa */
+  provider: SttProvider;
+  /** Ngôn ngữ provider NHẬN RA được */
+  language: string;
+  /** Có nhãn người nói không - bước lồng tiếng cần biết để gán giọng nam/nữ */
+  diarized: boolean;
+  /** Các nhãn người nói tìm thấy ("1","2" của Soniox; "A","B" của Gemini) */
+  speakers: string[];
+  /** Có mốc thời gian từng TỪ không (Gemini thì không - phụ đề chia theo dấu câu) */
+  wordTimestamps: boolean;
+}
+
 export interface TranslateVideoSource {
   /** Đường dẫn tương đối repo tới file nguồn - null = chưa upload */
   relPath: string | null;
@@ -175,8 +197,16 @@ export interface TranslateVideoMeta {
   /** Mã ngôn ngữ đích ("vi" | "en" | ...) */
   targetLang: string;
   mode: TranslateMode;
-  /** Transcript GỐC do whisper bóc ra (đường dẫn tương đối repo) */
+  /**
+   * AI nào bóc lời cho lần chạy TIẾP THEO. Mặc định "local" (faster-whisper trên
+   * máy) - giữ nguyên hành vi cũ cho mọi phiên đã có. Provider nào dùng được
+   * trên máy này thì hỏi `sttCapabilities()` (GET /api/translate-video/stt-providers).
+   */
+  sttProvider: SttProvider;
+  /** Transcript GỐC (đường dẫn tương đối repo) - do provider ở `transcriptInfo` bóc */
   transcriptFile: string | null;
+  /** Provider nào đã thực sự chạy + có phân vai người nói không - xem TranscriptInfo */
+  transcriptInfo: TranscriptInfo | null;
   /** Bản dịch - sửa tay được trên UI qua PATCH */
   cues: TranslatedCue[];
   subtitleStyle: SubtitleStyle;
@@ -328,6 +358,32 @@ export function normCues(raw: unknown): TranslatedCue[] {
   return out;
 }
 
+/**
+ * Kết quả bóc lời đọc từ đĩa. Field nào sai kiểu thì lùi về giá trị an toàn chứ
+ * KHÔNG ném lỗi - đây là thông tin hiển thị, không đáng làm hỏng cả phiên.
+ * Provider lạ (file cũ, hoặc provider đã bị gỡ) -> coi như chưa có thông tin.
+ */
+export function normTranscriptInfo(raw: unknown): TranscriptInfo | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (!isSttProvider(o.provider)) return null;
+  const speakers = Array.isArray(o.speakers)
+    ? o.speakers.filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    : [];
+  return {
+    provider: o.provider,
+    language: typeof o.language === "string" && o.language.trim() ? o.language.trim() : "und",
+    diarized: o.diarized === true,
+    speakers,
+    wordTimestamps: o.wordTimestamps === true,
+  };
+}
+
+/** Provider bóc lời hợp lệ; giá trị lạ -> fallback (không ném lỗi khi ĐỌC đĩa) */
+export function normSttProvider(raw: unknown, fallback: SttProvider): SttProvider {
+  return isSttProvider(raw) ? raw : fallback;
+}
+
 // ------------------------------------------------------------------ Đọc/ghi
 
 export function defaultTranslateVideoMeta(id: string, name: string): TranslateVideoMeta {
@@ -340,7 +396,10 @@ export function defaultTranslateVideoMeta(id: string, name: string): TranslateVi
     sourceLang: "auto",
     targetLang: "vi",
     mode: "subtitle",
+    // Mặc định = hành vi cũ: bóc lời trên máy, không tốn tiền, không cần mạng
+    sttProvider: DEFAULT_STT_PROVIDER,
     transcriptFile: null,
+    transcriptInfo: null,
     cues: [],
     subtitleStyle: defaultSubtitleStyle(),
     outputFile: null,
@@ -397,7 +456,9 @@ export function readTranslateVideo(id: string): TranslateVideoMeta {
     mode: TRANSLATE_MODES.includes(raw.mode as TranslateMode)
       ? (raw.mode as TranslateMode)
       : base.mode,
+    sttProvider: normSttProvider(raw.sttProvider, base.sttProvider),
     transcriptFile: typeof raw.transcriptFile === "string" ? raw.transcriptFile : null,
+    transcriptInfo: normTranscriptInfo(raw.transcriptInfo),
     cues: normCues(raw.cues),
     subtitleStyle: normSubtitleStyle(raw.subtitleStyle, base.subtitleStyle),
     outputFile: typeof raw.outputFile === "string" ? raw.outputFile : null,

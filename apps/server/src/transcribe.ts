@@ -264,6 +264,90 @@ function rmQuiet(file: string): void {
   }
 }
 
+// ------------------------------------------------------------------ Audio dùng chung
+
+/**
+ * Đo thời lượng media bằng ffprobe. Ném HttpError NO_FFMPEG khi máy chưa có
+ * ffprobe - đây là lỗi cấu hình máy chứ không phải lỗi dữ liệu, người dùng cần
+ * đọc được đúng câu đó thay vì "spawn ENOENT".
+ *
+ * Trả 0 khi ffprobe chạy được nhưng không đọc ra số (container lạ) - phía gọi tự
+ * quyết định chạy tiếp hay dừng.
+ */
+export async function probeDurationSec(mediaAbs: string): Promise<number> {
+  let probe: Awaited<ReturnType<typeof execFileCaptureAll>>;
+  try {
+    probe = await execFileCaptureAll(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mediaAbs],
+      { timeoutMs: 20_000 },
+    );
+  } catch (err) {
+    throw new HttpError(
+      503,
+      "NO_FFMPEG",
+      `Không chạy được ffprobe - cài FFmpeg và thêm vào PATH. Chi tiết: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  const sec = parseFloat(probe.stdout.trim());
+  return Number.isFinite(sec) && sec > 0 ? sec : 0;
+}
+
+/**
+ * Tách audio của video ra WAV mono 16kHz.
+ *
+ * DÙNG CHUNG cho MỌI provider bóc lời (xem `stt.ts`), không chỉ faster-whisper:
+ *  - whisper muốn đúng 16kHz mono;
+ *  - Gemini và Soniox đều nhận WAV, và 16kHz mono là định dạng NHỎ NHẤT vẫn giữ
+ *    trọn dải tần tiếng nói (32 kB/giây) - đây là con số quyết định việc chia
+ *    khúc audio gửi lên Gemini, xem `GEMINI_CHUNK_SEC` ở stt.ts.
+ * Có đúng một chỗ tách audio thì mọi provider nghe CÙNG một thứ, so sánh kết quả
+ * mới có nghĩa.
+ *
+ * `-vn` bỏ luồng hình: video 64 MB ra file wav vài MB, và ffmpeg không phải giải
+ * mã hình để làm việc này.
+ */
+export async function extractAudioWav(input: {
+  videoAbs: string;
+  outWavAbs: string;
+  /** Thời lượng video (giây) - chỉ dùng để tính timeout, 0 = dùng sàn 10 phút */
+  durationSec?: number;
+  isCanceled?: () => boolean;
+}): Promise<void> {
+  const { videoAbs, outWavAbs } = input;
+  const durationSec = input.durationSec ?? 0;
+  ensureDir(path.dirname(outWavAbs));
+
+  // Tách audio nhanh hơn thời gian thật rất nhiều; cho hẳn 1x thời lượng, sàn 10
+  // phút, trần 1 giờ - quá mức đó là ffmpeg đang treo chứ không phải chậm.
+  const timeoutMs = Math.min(Math.max(MIN_WHISPER_MS, durationSec * 1000), 60 * 60 * 1000);
+  let wav: Awaited<ReturnType<typeof execFileCaptureAll>>;
+  try {
+    wav = await execFileCaptureAll(
+      "ffmpeg",
+      ["-y", "-i", videoAbs, "-vn", "-ac", "1", "-ar", "16000", outWavAbs],
+      { timeoutMs, isCanceled: input.isCanceled },
+    );
+  } catch (err) {
+    throw new HttpError(
+      503,
+      "NO_FFMPEG",
+      `Không chạy được ffmpeg - cài FFmpeg và thêm vào PATH. Chi tiết: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  if (wav.timedOut) {
+    throw new Error(`Tách audio quá ${Math.round(timeoutMs / 60_000)} phút chưa xong - đã hủy`);
+  }
+  if (wav.canceled) throw new Error("Job đã bị hủy");
+  if (wav.code !== 0 || !fs.existsSync(outWavAbs)) {
+    throw new Error(`Tách audio thất bại (ffmpeg thoát mã ${wav.code}):\n${tail(wav.stderr)}`);
+  }
+}
+
 // ------------------------------------------------------------------ Hàm chính
 
 export async function transcribeVideo(input: {
@@ -303,54 +387,14 @@ export async function transcribeVideo(input: {
 
   try {
     // 1. Đo thời lượng trước - dùng để tính timeout và để Python in tiến độ theo %
-    let durationSec = 0;
-    try {
-      const probe = await execFileCaptureAll(
-        "ffprobe",
-        ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", videoAbs],
-        { timeoutMs: 20_000 },
-      );
-      const sec = parseFloat(probe.stdout.trim());
-      if (Number.isFinite(sec) && sec > 0) durationSec = sec;
-    } catch (err) {
-      throw new HttpError(
-        503,
-        "NO_FFMPEG",
-        `Không chạy được ffprobe - cài FFmpeg và thêm vào PATH. Chi tiết: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
+    const durationSec = await probeDurationSec(videoAbs);
     if (durationSec <= 0) {
       log("[transcribe] ffprobe không đọc được thời lượng - vẫn chạy tiếp, tiến độ sẽ không có mốc tổng");
     }
 
     // 2. Tách audio mono 16kHz - đúng định dạng whisper muốn, file nhỏ hơn video hàng chục lần
     log(`[transcribe] tách audio 16kHz mono (video dài ${durationSec.toFixed(1)}s)`);
-    const wavTimeout = Math.min(Math.max(MIN_WHISPER_MS, durationSec * 1000), 60 * 60 * 1000);
-    let wav: Awaited<ReturnType<typeof execFileCaptureAll>>;
-    try {
-      wav = await execFileCaptureAll(
-        "ffmpeg",
-        ["-y", "-i", videoAbs, "-vn", "-ac", "1", "-ar", "16000", wavAbs],
-        { timeoutMs: wavTimeout, isCanceled },
-      );
-    } catch (err) {
-      throw new HttpError(
-        503,
-        "NO_FFMPEG",
-        `Không chạy được ffmpeg - cài FFmpeg và thêm vào PATH. Chi tiết: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-    if (wav.timedOut) {
-      throw new Error(`Tách audio quá ${Math.round(wavTimeout / 60_000)} phút chưa xong - đã hủy`);
-    }
-    if (wav.canceled) throw new Error("Job đã bị hủy");
-    if (wav.code !== 0 || !fs.existsSync(wavAbs)) {
-      throw new Error(`Tách audio thất bại (ffmpeg thoát mã ${wav.code}):\n${tail(wav.stderr)}`);
-    }
+    await extractAudioWav({ videoAbs, outWavAbs: wavAbs, durationSec, isCanceled });
 
     // 3. Chạy faster-whisper qua script Python tạm
     fs.writeFileSync(pyAbs, pythonScript(), "utf8");
