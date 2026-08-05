@@ -9,12 +9,13 @@
  *   Trước đây khối này ở cột kết quả: người dùng phải nhìn sang đầu kia màn hình
  *   để bấm một nút làm việc trên chính cái video đang xem ở đây.
  * - Cột `setup`: ngôn ngữ đích, chế độ, model dịch, danh sách câu thoại sửa tay
- *   được, cấu hình lồng tiếng và kiểu phụ đề kèm ô xem trước - toàn bộ phần
- *   "mình muốn ra cái gì". Hai cụm cấu hình ấy là KHỐI THẬT trong cột, không
- *   phải popup: trang này từng là trang chi tiết duy nhất nhét biểu mẫu chính
- *   vào modal, hệ quả là cột giữa gần như trống trong khi công việc thật nằm
- *   sau một cái nút. Ba trang anh em (projects, text-to-video, auto cut) đều
- *   để cấu hình ngay tại cột giữa.
+ *   được - phần "mình muốn ra cái gì". Hai cụm cấu hình NẶNG (kiểu phụ đề kèm ô
+ *   xem trước, và bảng gán giọng cho từng người nói ~430 dòng) nằm trong MODAL,
+ *   mở ra ngay lúc chọn chế độ. Đã thử đưa chúng thành khối thật trong cột như
+ *   ba trang anh em (projects, text-to-video, auto cut) và bị người dùng bác:
+ *   riêng trang này phần cấu hình dài tới mức chọn xong chế độ ở trên phải cuộn
+ *   rất xa mới tới chỗ chỉnh. Modal đưa thẳng cấu hình ra trước mặt. Cột giữa
+ *   giữ một Panel tóm tắt cho mỗi phần đang bật, kèm nút mở lại modal.
  * - Cột `output`: khối video thành phẩm ĐỨNG ĐẦU (chạy thì nhấp nháy chờ, xong
  *   thì hiện thẳng video), rồi mới tới tiến trình dịch.
  *
@@ -111,6 +112,7 @@ import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { InfoHint } from "@/components/InfoHint";
+import { Modal } from "@/components/Modal";
 import { OptionCard, OptionCardGroup } from "@/components/OptionCard";
 import { Panel } from "@/components/Panel";
 import { PageHeader } from "@/components/PageHeader";
@@ -149,15 +151,13 @@ const FONT_STACK: Record<SubtitleFontId, string> = {
   mono: "'JetBrains Mono', 'Consolas', ui-monospace, monospace",
 };
 
-/** Các khối của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung. */
-const TV_BLOCKS = [
-  "source",
-  "transcript",
-  "translation",
-  "dub",
-  "subtitle",
-  "result",
-] as const;
+/**
+ * Các khối GẤP/MỞ của phiên - key vừa là id state gấp/mở vừa là id vùng nội dung.
+ *
+ * KHÔNG có "subtitle" và "dub" ở đây: hai cụm cấu hình ấy sống trong modal chứ
+ * không phải khối gấp/mở trong cột (xem ghi chú ở `chooseMode`).
+ */
+const TV_BLOCKS = ["source", "transcript", "translation", "result"] as const;
 type BlockKey = (typeof TV_BLOCKS)[number];
 
 /**
@@ -917,6 +917,45 @@ function DubReport({ info }: { info: DubInfo }) {
   );
 }
 
+/**
+ * Dòng tóm tắt của một cụm cấu hình đang bật + nút mở lại modal.
+ *
+ * Đây là ĐƯỜNG QUAY LẠI sau khi đóng modal, và cũng là chỗ duy nhất trong cột
+ * nói ra "đang đặt gì" - nên nó phải hiện giá trị thật (ngôn ngữ, giọng, font)
+ * chứ không chỉ là một cái nút. Cố ý KHÔNG dựng lại biểu mẫu ở đây: dựng hai
+ * lần thì hai bản sẽ lệch nhau.
+ */
+function ConfigSummary({
+  icon: Icon,
+  label,
+  value,
+  onEdit,
+}: {
+  icon: typeof Type;
+  label: string;
+  value: string;
+  onEdit: () => void;
+}) {
+  const { t } = useT();
+  return (
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
+          <Icon size={14} strokeWidth={2} aria-hidden="true" />
+          {label}
+        </span>
+      }
+      actions={
+        <Button variant="secondary" small onClick={onEdit}>
+          {t("tv.configure")}
+        </Button>
+      }
+    >
+      <p className="min-w-0 text-meta text-[var(--text-muted)]">{value}</p>
+    </Panel>
+  );
+}
+
 export default function TranslateVideoDetailPage() {
   const { t, tf } = useT();
   const router = useRouter();
@@ -990,6 +1029,13 @@ export default function TranslateVideoDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Hai cụm cấu hình nặng sống trong modal - xem `chooseMode`. `chainToDub` là
+  // hàng đợi một bậc cho chế độ "cả hai": đóng modal phụ đề thì mở tiếp modal
+  // lồng tiếng. Mở chồng hai modal cùng lúc thì cái sau che mất cái trước.
+  const [subtitleModalOpen, setSubtitleModalOpen] = useState(false);
+  const [dubModalOpen, setDubModalOpen] = useState(false);
+  const [chainToDub, setChainToDub] = useState(false);
 
   /** Đổ dữ liệu server vào các bản nháp chưa bị sửa dở. */
   const adopt = useCallback((s: TranslateVideoMeta) => {
@@ -1136,18 +1182,37 @@ export default function TranslateVideoDetailPage() {
   }
 
   /**
-   * Chọn chế độ VÀ mở luôn khối cấu hình của nó ngay bên dưới. Chọn "cả hai"
-   * thì mở khối phụ đề - chữ trên hình là thứ nhìn thấy trước, còn giọng đọc
-   * nằm ngay khối kế tiếp, bấm một cái là mở.
+   * Chọn chế độ VÀ mở luôn modal cấu hình của chế độ đó. Chọn "cả hai" thì mở
+   * modal phụ đề trước (chữ trên hình là thứ nhìn thấy trước), đóng nó xong mới
+   * tới modal lồng tiếng - NỐI TIẾP, không mở chồng.
    *
-   * Trước đây hai cụm cấu hình này nằm trong popup: đóng popup lại là không còn
-   * thấy mình đã đặt gì, mà cột giữa thì trống trơn. Giờ chúng là khối thật
-   * trong cột, gấp/mở như mọi khối khác và có dòng tóm tắt lúc gấp.
+   * Vì sao là modal chứ không phải khối trong cột: cấu hình lồng tiếng gồm cả
+   * bảng gán giọng cho từng người nói, để trong cột thì chọn xong chế độ ở trên
+   * phải cuộn rất xa xuống mới tới chỗ chỉnh.
+   *
+   * Bấm LẠI đúng chế độ đang chọn cũng mở modal - người dùng hay bấm lại để
+   * chỉnh, và `Segmented` gọi onChange ở mọi cú bấm nên chỗ này chỉ cần không
+   * tự chặn.
    */
   function chooseMode(v: TranslateMode) {
     patchMode(v);
-    if (v === "dub") group.set("dub", false);
-    else group.set("subtitle", false);
+    setChainToDub(v === "both");
+    if (v === "dub") {
+      setSubtitleModalOpen(false);
+      setDubModalOpen(true);
+    } else {
+      setDubModalOpen(false);
+      setSubtitleModalOpen(true);
+    }
+  }
+
+  /** Đóng modal phụ đề; chế độ "cả hai" thì mở tiếp modal lồng tiếng. */
+  function closeSubtitleModal() {
+    setSubtitleModalOpen(false);
+    if (chainToDub) {
+      setChainToDub(false);
+      setDubModalOpen(true);
+    }
   }
 
   function patchSttProvider(v: SttProvider) {
@@ -1794,10 +1859,11 @@ export default function TranslateVideoDetailPage() {
           >
             <div className="flex flex-col gap-3">
               <Panel>
-                {/* Chọn chế độ là MỞ LUÔN khối cấu hình của chế độ đó ngay bên
-                    dưới: chọn xong mà không thấy gì xảy ra thì người dùng phải
-                    tự đi tìm chỗ chỉnh. Chọn "cả hai" thì mở khối phụ đề trước
-                    - đó là thứ nhìn thấy ngay trên hình. */}
+                {/* Chọn chế độ là MỞ LUÔN modal cấu hình của chế độ đó: chọn
+                    xong mà không thấy gì xảy ra thì người dùng phải tự đi tìm
+                    chỗ chỉnh. Chọn "cả hai" thì mở modal phụ đề trước - đó là
+                    thứ nhìn thấy ngay trên hình - đóng nó xong mới tới lồng
+                    tiếng. Bấm lại đúng chế độ đang chọn cũng mở lại modal. */}
                 <Field
                   label={t("tv.mode")}
                   hintKeys={{
@@ -1865,6 +1931,26 @@ export default function TranslateVideoDetailPage() {
                   </select>
                 </Field>
               </Panel>
+
+              {/* Đường quay lại sau khi đóng modal. Chỉ hiện phần chế độ đang
+                  bật: chọn thuần lồng tiếng mà vẫn bày dòng phụ đề là nhắc tới
+                  một thứ video sẽ không có. */}
+              {wantsSubtitleMode && (
+                <ConfigSummary
+                  icon={Type}
+                  label={t("tv.card-subtitle")}
+                  value={`${langLabel(targetLang)} · ${subtitleSummary}`}
+                  onEdit={() => setSubtitleModalOpen(true)}
+                />
+              )}
+              {wantsDubMode && (
+                <ConfigSummary
+                  icon={Mic}
+                  label={t("tv.card-dub")}
+                  value={`${langLabel(effectiveDubLang)} · ${dubSummary}`}
+                  onEdit={() => setDubModalOpen(true)}
+                />
+              )}
 
               {session.status === "translating" ? (
                 <p className="flex items-center gap-2 py-4 text-sm text-[var(--text-muted)]">
@@ -1982,341 +2068,6 @@ export default function TranslateVideoDetailPage() {
               )}
             </div>
           </WorkspaceBlock>
-
-          {/* ---- Cấu hình PHỤ ĐỀ ----
-              Đây là KHỐI THẬT trong cột, không còn là popup. Trước đây cả biểu
-              mẫu này nằm trong modal nên cột giữa gần như trống, còn công việc
-              thật thì phải mở popup mới thấy - ba trang chi tiết anh em
-              (projects, text-to-video, auto cut) đều để cấu hình ngay tại cột
-              giữa. Chỉ hiện khi chế độ có đốt chữ lên hình: chọn thuần lồng
-              tiếng mà vẫn bày cả bảng kiểu chữ là bày một khối không dùng tới. */}
-          {wantsSubtitleMode && (
-            <WorkspaceBlock
-              id="tv-block-subtitle"
-              icon={Type}
-              collapsed={group.isCollapsed("subtitle")}
-              onToggle={() => group.toggle("subtitle")}
-              summary={`${langLabel(targetLang)} · ${subtitleSummary}`}
-              title={t("tv.card-subtitle")}
-            >
-              <div className="flex flex-col gap-4">
-                {/* Ngôn ngữ của CHỮ TRÊN MÀN HÌNH - đặt ngay trong khối phụ đề để
-                    không phải nhớ nó nằm ở đâu khác */}
-                <Field label={t("tv.subtitle-lang")} htmlFor="tv-subtitle-lang">
-                  <select
-                    id="tv-subtitle-lang"
-                    className="input"
-                    value={targetLang}
-                    disabled={locked}
-                    onChange={(e) => patchTargetLang(e.target.value)}
-                  >
-                    {!TRANSLATE_TARGET_LANGS.includes(
-                      targetLang as (typeof TRANSLATE_TARGET_LANGS)[number]
-                    ) && <option value={targetLang}>{targetLang}</option>}
-                    {TRANSLATE_TARGET_LANGS.map((code) => (
-                      <option key={code} value={code}>
-                        {langLabel(code)}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                {/* Lồng tiếng KHÔNG đốt chữ lên hình - nói thẳng thay vì để người
-                    dùng chỉnh cả bảng kiểu chữ rồi không thấy chữ đâu trong video */}
-                {isDub && (
-                  <Banner tone="muted" message={t("tv.subtitle-unused-in-dub")} />
-                )}
-
-                {/* Xem trước NGAY: đổi cỡ chữ hay màu nền mà phải render mới biết
-                    đẹp xấu thì mỗi lần thử mất hàng chục phút. */}
-                <Field
-                  label={t("tv.preview")}
-                  hint={sourceUrl ? t("tv.preview-hint") : t("tv.preview-hint-no-source")}
-                >
-                  {/* NGOẠI LỆ DUY NHẤT của bảng token trong file này: khung dưới
-                      đây MÔ PHỎNG khung hình video, không phải một bề mặt của
-                      dashboard. Nền phải tối và CỐ ĐỊNH tối - lấy --bg-subtle thì
-                      ở theme sáng nó thành trắng, và xem trước phụ đề chữ trắng
-                      trên nền trắng là xem trước nói dối. Hai giá trị hex ở đây
-                      (#1c1c20 cho nền, cặp #3a3f4b/#191c22 cho sọc chéo) cố ý
-                      không có token tương ứng vì chúng không bao giờ đổi theo
-                      theme. */}
-                  <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[var(--radius)] bg-[#1c1c20]">
-                    {/*
-                      PHÍA SAU CHỮ PHẢI CÓ HÌNH THẬT.
-
-                      Lỗi đã sửa: `backdrop-filter: blur()` chỉ làm mờ NHỮNG GÌ NẰM
-                      PHÍA SAU nó. Trước đây ô xem trước là một khối màu phẳng, mà
-                      làm mờ một màu phẳng thì ra đúng màu phẳng đó - kéo "Độ mờ"
-                      từ 0 lên 40 không đổi lấy một pixel, người dùng tưởng tính
-                      năng hỏng.
-                      Nên: một khung hình của CHÍNH video người dùng vừa tải lên
-                      (mốc PREVIEW_FRAME_SEC, tránh giây đầu thường là màn đen),
-                      chưa có nguồn thì dùng nền kẻ sọc tương phản - cả hai đều có
-                      chi tiết để làm mờ, nên 0 / 20 / 40 nhìn ra ngay là ba mức.
-                      Video ở đây câm và không có controls: nó là HÌNH NỀN, người
-                      dùng đã có trình phát thật ở khối Video nguồn.
-                    */}
-                    {sourceUrl ? (
-                      <video
-                        key={sourceUrl}
-                        src={`${sourceUrl}#t=${PREVIEW_FRAME_SEC}`}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0"
-                        // Sọc chéo hai tông xám: đủ chi tiết để thấy độ mờ, và cố
-                        // ý KHÔNG dùng token màu (xem ghi chú khung giả lập trên).
-                        style={{
-                          background:
-                            "repeating-linear-gradient(135deg, #3a3f4b 0 14px, #191c22 14px 28px)",
-                        }}
-                      />
-                    )}
-                    <div
-                      className="relative max-w-[86%] rounded-[var(--radius)] px-3 py-1 text-center leading-snug"
-                      style={{
-                        marginBottom: `${Math.min(
-                          // bottomPx tính trên khung hình thật (vd 1080px cao), ô
-                          // xem trước chỉ cao 160px → thu tỉ lệ cho khỏi đẩy chữ ra ngoài
-                          Math.round(subtitleStyle.bottomPx / 8),
-                          96
-                        )}px`,
-                        fontFamily:
-                          FONT_STACK[subtitleStyle.fontFamily as SubtitleFontId] ??
-                          FONT_STACK.sans,
-                        fontSize: `${Math.max(
-                          11,
-                          Math.round(subtitleStyle.fontSizePx / 3)
-                        )}px`,
-                        color: subtitleStyle.color,
-                        background:
-                          subtitleStyle.backdrop === "none"
-                            ? "transparent"
-                            : subtitleStyle.backdropColor,
-                        // Bán kính mờ thu theo ĐÚNG tỉ lệ của cỡ chữ (÷3): ô xem
-                        // trước nhỏ hơn khung hình thật chừng ấy lần, để nguyên
-                        // 40px là cả ô nhòe thành một mảng - lại nói dối kiểu khác.
-                        backdropFilter:
-                          subtitleStyle.backdrop === "blur"
-                            ? `blur(${(subtitleStyle.blurPx / 3).toFixed(1)}px)`
-                            : undefined,
-                        opacity: subtitleStyle.backdrop === "blur" ? 0.92 : 1,
-                      }}
-                    >
-                      {t("tv.preview-text")}
-                    </div>
-                  </div>
-                </Field>
-
-                {/* auto-fit, không `sm:grid-cols-2` - xem lý do ở nhóm engine
-                    đọc trong DubbingPicker */}
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-                  <Field
-                    label={t("tv.font")}
-                    htmlFor="tv-font"
-                    hintKeys={{
-                      titleKey: "help.tv-font.title",
-                      bodyKey: "help.tv-font.body",
-                    }}
-                  >
-                    <select
-                      id="tv-font"
-                      className="input"
-                      value={subtitleStyle.fontFamily}
-                      disabled={locked}
-                      onChange={(e) => patchStyle({ fontFamily: e.target.value }, true)}
-                    >
-                      {/* Font ngoài allowlist (server cũ/mới lệch nhau) vẫn hiện để
-                          không âm thầm đổi lựa chọn đã lưu của người dùng */}
-                      {!SUBTITLE_FONTS.includes(
-                        subtitleStyle.fontFamily as SubtitleFontId
-                      ) && (
-                        <option value={subtitleStyle.fontFamily}>
-                          {subtitleStyle.fontFamily}
-                        </option>
-                      )}
-                      {SUBTITLE_FONTS.map((f) => (
-                        <option key={f} value={f}>
-                          {t(`tv.font.${f}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-
-                  <Field label={t("tv.font-size")} htmlFor="tv-font-size">
-                    <input
-                      id="tv-font-size"
-                      className="input"
-                      type="number"
-                      min={SUBTITLE_FONT_SIZE_MIN}
-                      max={SUBTITLE_FONT_SIZE_MAX}
-                      value={subtitleStyle.fontSizePx}
-                      disabled={locked}
-                      onChange={(e) =>
-                        patchStyle({ fontSizePx: Number(e.target.value) }, true)
-                      }
-                    />
-                  </Field>
-
-                  <ColorField
-                    id="tv-color"
-                    label={t("tv.color")}
-                    value={subtitleStyle.color}
-                    disabled={locked}
-                    onChange={(v) => patchStyle({ color: v }, true)}
-                  />
-
-                  <Field label={t("tv.bottom")} htmlFor="tv-bottom">
-                    <input
-                      id="tv-bottom"
-                      className="input"
-                      type="number"
-                      min={0}
-                      max={SUBTITLE_BOTTOM_MAX}
-                      value={subtitleStyle.bottomPx}
-                      disabled={locked}
-                      onChange={(e) =>
-                        patchStyle({ bottomPx: Number(e.target.value) }, true)
-                      }
-                    />
-                  </Field>
-                </div>
-
-                <Field label={t("tv.backdrop")}>
-                  <Segmented
-                    label={t("tv.backdrop")}
-                    value={subtitleStyle.backdrop as SubtitleBackdrop}
-                    disabled={locked}
-                    onChange={(b) => patchStyle({ backdrop: b }, true)}
-                    options={(["blur", "solid", "none"] as const).map((b) => ({
-                      value: b,
-                      label: t(`tv.backdrop.${b}`),
-                    }))}
-                  />
-                </Field>
-
-                {subtitleStyle.backdrop !== "none" && (
-                  /* auto-fit, không `sm:grid-cols-2` - xem lý do ở nhóm engine
-                     đọc trong DubbingPicker */
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-                    <ColorField
-                      id="tv-backdrop-color"
-                      label={t("tv.backdrop-color")}
-                      value={subtitleStyle.backdropColor}
-                      disabled={locked}
-                      // Giữ nguyên độ đặc đang đặt khi đổi MÀU: ô chọn màu trả về
-                      // #rrggbb (không mang alpha), nhận thẳng là mỗi lần đổi màu
-                      // lại đá nền về đặc 100%
-                      onChange={(v) =>
-                        patchStyle(
-                          {
-                            backdropColor: withAlpha(
-                              v,
-                              alphaOf(subtitleStyle.backdropColor)
-                            ),
-                          },
-                          true
-                        )
-                      }
-                    />
-                    <OpacityField
-                      id="tv-backdrop-opacity"
-                      label={t("tv.backdrop-opacity")}
-                      value={subtitleStyle.backdropColor}
-                      disabled={locked}
-                      onChange={(v) => patchStyle({ backdropColor: v }, true)}
-                    />
-                    {subtitleStyle.backdrop === "blur" && (
-                      <Field label={t("tv.blur")} htmlFor="tv-blur">
-                        <input
-                          id="tv-blur"
-                          className="input"
-                          type="number"
-                          min={0}
-                          max={SUBTITLE_BLUR_MAX}
-                          value={subtitleStyle.blurPx}
-                          disabled={locked}
-                          onChange={(e) =>
-                            patchStyle({ blurPx: Number(e.target.value) }, true)
-                          }
-                        />
-                      </Field>
-                    )}
-                  </div>
-                )}
-
-                <p className="text-meta text-[var(--text-muted)]">
-                  {locked ? t("tv.style-locked") : t("tv.style-autosave")}
-                </p>
-              </div>
-            </WorkspaceBlock>
-          )}
-
-          {/* ---- Cấu hình LỒNG TIẾNG ---- cũng là khối thật trong cột. Chỉ hiện
-              khi chế độ có đọc tiếng: bảng gán giọng cho từng người nói là thứ
-              nặng nhất trang này, bày ra khi không dùng tới là phí cả màn hình. */}
-          {wantsDubMode && (
-            <WorkspaceBlock
-              id="tv-block-dub"
-              icon={Mic}
-              collapsed={group.isCollapsed("dub")}
-              onToggle={() => group.toggle("dub")}
-              summary={`${langLabel(effectiveDubLang)} · ${dubSummary}`}
-              title={t("tv.card-dub")}
-            >
-              <div className="flex flex-col gap-4">
-                {/* Ngôn ngữ ĐỌC LÊN - chọn riêng với ngôn ngữ phụ đề. "Giống phụ đề"
-                    là một lựa chọn thật trong danh sách chứ không phải ô để trống:
-                    đó là điều đa số người dùng muốn, phải nhìn thấy được. */}
-                <Field
-                  label={t("tv.dub-lang")}
-                  htmlFor="tv-dub-lang"
-                  hint={
-                    dubLang && dubLang !== targetLang ? t("tv.dub-lang-cost") : undefined
-                  }
-                >
-                  <select
-                    id="tv-dub-lang"
-                    className="input"
-                    value={dubLang ?? ""}
-                    disabled={locked}
-                    onChange={(e) => patchDubLang(e.target.value || null)}
-                  >
-                    <option value="">
-                      {tf("tv.dub-lang-same", { lang: langLabel(targetLang) })}
-                    </option>
-                    {TRANSLATE_TARGET_LANGS.map((code) => (
-                      <option key={code} value={code}>
-                        {langLabel(code)}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                {cues.length === 0 ? (
-                  <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
-                ) : (
-                  <DubSettingsCard
-                    sessionId={sessionId}
-                    dub={dub}
-                    speakers={speakers}
-                    diarized={session.transcriptInfo?.diarized === true}
-                    cueIndexOf={cueIndexOf}
-                    speakerF0={session.dubInfo?.speakerF0 ?? {}}
-                    disabled={locked}
-                    onChange={patchDub}
-                  />
-                )}
-              </div>
-            </WorkspaceBlock>
-          )}
         </WorkspaceColumn>
 
         {/* ============ Cột 3: tiến trình & kết quả ============ */}
@@ -2422,6 +2173,337 @@ export default function TranslateVideoDetailPage() {
           </Panel>
         )}
       </ShellRightPanel>
+
+      {/* ---- Modal: cấu hình PHỤ ĐỀ ----
+          Nằm NGOÀI <Workspace>: `.workspace` có `container-type: inline-size`,
+          tức là nó chứa luôn cả con `position: fixed` - modal đặt bên trong sẽ
+          căn theo khung workspace chứ không theo màn hình.
+          `wide` vì có ô xem trước phụ đề đứng cạnh lưới thiết lập. */}
+      <Modal
+        wide
+        title={t("tv.card-subtitle")}
+        open={subtitleModalOpen}
+        onClose={closeSubtitleModal}
+        footer={
+          <Button onClick={closeSubtitleModal}>{t("common.done")}</Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {/* Ngôn ngữ của CHỮ TRÊN MÀN HÌNH - đặt ngay trong modal phụ đề để
+              không phải nhớ nó nằm ở đâu khác */}
+          <Field label={t("tv.subtitle-lang")} htmlFor="tv-subtitle-lang">
+            <select
+              id="tv-subtitle-lang"
+              className="input"
+              value={targetLang}
+              disabled={locked}
+              onChange={(e) => patchTargetLang(e.target.value)}
+            >
+              {!TRANSLATE_TARGET_LANGS.includes(
+                targetLang as (typeof TRANSLATE_TARGET_LANGS)[number]
+              ) && <option value={targetLang}>{targetLang}</option>}
+              {TRANSLATE_TARGET_LANGS.map((code) => (
+                <option key={code} value={code}>
+                  {langLabel(code)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {/* Lồng tiếng KHÔNG đốt chữ lên hình - nói thẳng thay vì để người
+              dùng chỉnh cả bảng kiểu chữ rồi không thấy chữ đâu trong video */}
+          {isDub && (
+            <Banner tone="muted" message={t("tv.subtitle-unused-in-dub")} />
+          )}
+
+          {/* Xem trước NGAY: đổi cỡ chữ hay màu nền mà phải render mới biết
+              đẹp xấu thì mỗi lần thử mất hàng chục phút. */}
+          <Field
+            label={t("tv.preview")}
+            hint={sourceUrl ? t("tv.preview-hint") : t("tv.preview-hint-no-source")}
+          >
+            {/* NGOẠI LỆ DUY NHẤT của bảng token trong file này: khung dưới
+                đây MÔ PHỎNG khung hình video, không phải một bề mặt của
+                dashboard. Nền phải tối và CỐ ĐỊNH tối - lấy --bg-subtle thì
+                ở theme sáng nó thành trắng, và xem trước phụ đề chữ trắng
+                trên nền trắng là xem trước nói dối. Hai giá trị hex ở đây
+                (#1c1c20 cho nền, cặp #3a3f4b/#191c22 cho sọc chéo) cố ý
+                không có token tương ứng vì chúng không bao giờ đổi theo
+                theme. */}
+            <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[var(--radius)] bg-[#1c1c20]">
+              {/*
+                PHÍA SAU CHỮ PHẢI CÓ HÌNH THẬT.
+
+                Lỗi đã sửa: `backdrop-filter: blur()` chỉ làm mờ NHỮNG GÌ NẰM
+                PHÍA SAU nó. Trước đây ô xem trước là một khối màu phẳng, mà
+                làm mờ một màu phẳng thì ra đúng màu phẳng đó - kéo "Độ mờ"
+                từ 0 lên 40 không đổi lấy một pixel, người dùng tưởng tính
+                năng hỏng.
+                Nên: một khung hình của CHÍNH video người dùng vừa tải lên
+                (mốc PREVIEW_FRAME_SEC, tránh giây đầu thường là màn đen),
+                chưa có nguồn thì dùng nền kẻ sọc tương phản - cả hai đều có
+                chi tiết để làm mờ, nên 0 / 20 / 40 nhìn ra ngay là ba mức.
+                Video ở đây câm và không có controls: nó là HÌNH NỀN, người
+                dùng đã có trình phát thật ở khối Video nguồn.
+              */}
+              {sourceUrl ? (
+                <video
+                  key={sourceUrl}
+                  src={`${sourceUrl}#t=${PREVIEW_FRAME_SEC}`}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0"
+                  // Sọc chéo hai tông xám: đủ chi tiết để thấy độ mờ, và cố
+                  // ý KHÔNG dùng token màu (xem ghi chú khung giả lập trên).
+                  style={{
+                    background:
+                      "repeating-linear-gradient(135deg, #3a3f4b 0 14px, #191c22 14px 28px)",
+                  }}
+                />
+              )}
+              <div
+                className="relative max-w-[86%] rounded-[var(--radius)] px-3 py-1 text-center leading-snug"
+                style={{
+                  marginBottom: `${Math.min(
+                    // bottomPx tính trên khung hình thật (vd 1080px cao), ô
+                    // xem trước chỉ cao 160px → thu tỉ lệ cho khỏi đẩy chữ ra ngoài
+                    Math.round(subtitleStyle.bottomPx / 8),
+                    96
+                  )}px`,
+                  fontFamily:
+                    FONT_STACK[subtitleStyle.fontFamily as SubtitleFontId] ??
+                    FONT_STACK.sans,
+                  fontSize: `${Math.max(
+                    11,
+                    Math.round(subtitleStyle.fontSizePx / 3)
+                  )}px`,
+                  color: subtitleStyle.color,
+                  background:
+                    subtitleStyle.backdrop === "none"
+                      ? "transparent"
+                      : subtitleStyle.backdropColor,
+                  // Bán kính mờ thu theo ĐÚNG tỉ lệ của cỡ chữ (÷3): ô xem
+                  // trước nhỏ hơn khung hình thật chừng ấy lần, để nguyên
+                  // 40px là cả ô nhòe thành một mảng - lại nói dối kiểu khác.
+                  backdropFilter:
+                    subtitleStyle.backdrop === "blur"
+                      ? `blur(${(subtitleStyle.blurPx / 3).toFixed(1)}px)`
+                      : undefined,
+                  opacity: subtitleStyle.backdrop === "blur" ? 0.92 : 1,
+                }}
+              >
+                {t("tv.preview-text")}
+              </div>
+            </div>
+          </Field>
+
+          {/* auto-fit, không `sm:grid-cols-2` - xem lý do ở nhóm engine
+              đọc trong DubbingPicker */}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+            <Field
+              label={t("tv.font")}
+              htmlFor="tv-font"
+              hintKeys={{
+                titleKey: "help.tv-font.title",
+                bodyKey: "help.tv-font.body",
+              }}
+            >
+              <select
+                id="tv-font"
+                className="input"
+                value={subtitleStyle.fontFamily}
+                disabled={locked}
+                onChange={(e) => patchStyle({ fontFamily: e.target.value }, true)}
+              >
+                {/* Font ngoài allowlist (server cũ/mới lệch nhau) vẫn hiện để
+                    không âm thầm đổi lựa chọn đã lưu của người dùng */}
+                {!SUBTITLE_FONTS.includes(
+                  subtitleStyle.fontFamily as SubtitleFontId
+                ) && (
+                  <option value={subtitleStyle.fontFamily}>
+                    {subtitleStyle.fontFamily}
+                  </option>
+                )}
+                {SUBTITLE_FONTS.map((f) => (
+                  <option key={f} value={f}>
+                    {t(`tv.font.${f}`)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label={t("tv.font-size")} htmlFor="tv-font-size">
+              <input
+                id="tv-font-size"
+                className="input"
+                type="number"
+                min={SUBTITLE_FONT_SIZE_MIN}
+                max={SUBTITLE_FONT_SIZE_MAX}
+                value={subtitleStyle.fontSizePx}
+                disabled={locked}
+                onChange={(e) =>
+                  patchStyle({ fontSizePx: Number(e.target.value) }, true)
+                }
+              />
+            </Field>
+
+            <ColorField
+              id="tv-color"
+              label={t("tv.color")}
+              value={subtitleStyle.color}
+              disabled={locked}
+              onChange={(v) => patchStyle({ color: v }, true)}
+            />
+
+            <Field label={t("tv.bottom")} htmlFor="tv-bottom">
+              <input
+                id="tv-bottom"
+                className="input"
+                type="number"
+                min={0}
+                max={SUBTITLE_BOTTOM_MAX}
+                value={subtitleStyle.bottomPx}
+                disabled={locked}
+                onChange={(e) =>
+                  patchStyle({ bottomPx: Number(e.target.value) }, true)
+                }
+              />
+            </Field>
+          </div>
+
+          <Field label={t("tv.backdrop")}>
+            <Segmented
+              label={t("tv.backdrop")}
+              value={subtitleStyle.backdrop as SubtitleBackdrop}
+              disabled={locked}
+              onChange={(b) => patchStyle({ backdrop: b }, true)}
+              options={(["blur", "solid", "none"] as const).map((b) => ({
+                value: b,
+                label: t(`tv.backdrop.${b}`),
+              }))}
+            />
+          </Field>
+
+          {subtitleStyle.backdrop !== "none" && (
+            /* auto-fit, không `sm:grid-cols-2` - xem lý do ở nhóm engine
+               đọc trong DubbingPicker */
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+              <ColorField
+                id="tv-backdrop-color"
+                label={t("tv.backdrop-color")}
+                value={subtitleStyle.backdropColor}
+                disabled={locked}
+                // Giữ nguyên độ đặc đang đặt khi đổi MÀU: ô chọn màu trả về
+                // #rrggbb (không mang alpha), nhận thẳng là mỗi lần đổi màu
+                // lại đá nền về đặc 100%
+                onChange={(v) =>
+                  patchStyle(
+                    {
+                      backdropColor: withAlpha(
+                        v,
+                        alphaOf(subtitleStyle.backdropColor)
+                      ),
+                    },
+                    true
+                  )
+                }
+              />
+              <OpacityField
+                id="tv-backdrop-opacity"
+                label={t("tv.backdrop-opacity")}
+                value={subtitleStyle.backdropColor}
+                disabled={locked}
+                onChange={(v) => patchStyle({ backdropColor: v }, true)}
+              />
+              {subtitleStyle.backdrop === "blur" && (
+                <Field label={t("tv.blur")} htmlFor="tv-blur">
+                  <input
+                    id="tv-blur"
+                    className="input"
+                    type="number"
+                    min={0}
+                    max={SUBTITLE_BLUR_MAX}
+                    value={subtitleStyle.blurPx}
+                    disabled={locked}
+                    onChange={(e) =>
+                      patchStyle({ blurPx: Number(e.target.value) }, true)
+                    }
+                  />
+                </Field>
+              )}
+            </div>
+          )}
+
+          <p className="text-meta text-[var(--text-muted)]">
+            {locked ? t("tv.style-locked") : t("tv.style-autosave")}
+          </p>
+        </div>
+      </Modal>
+
+      {/* ---- Modal: cấu hình LỒNG TIẾNG ----
+          `wide` vì bên trong có bảng gán giọng theo từng người nói (tên người
+          nói + ô chọn giọng + nút nghe thử + số đo trên cùng một hàng). */}
+      <Modal
+        wide
+        title={t("tv.card-dub")}
+        open={dubModalOpen}
+        onClose={() => setDubModalOpen(false)}
+        footer={
+          <Button onClick={() => setDubModalOpen(false)}>{t("common.done")}</Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {/* Ngôn ngữ ĐỌC LÊN - chọn riêng với ngôn ngữ phụ đề. "Giống phụ đề"
+              là một lựa chọn thật trong danh sách chứ không phải ô để trống:
+              đó là điều đa số người dùng muốn, phải nhìn thấy được. */}
+          <Field
+            label={t("tv.dub-lang")}
+            htmlFor="tv-dub-lang"
+            hint={
+              dubLang && dubLang !== targetLang ? t("tv.dub-lang-cost") : undefined
+            }
+          >
+            <select
+              id="tv-dub-lang"
+              className="input"
+              value={dubLang ?? ""}
+              disabled={locked}
+              onChange={(e) => patchDubLang(e.target.value || null)}
+            >
+              <option value="">
+                {tf("tv.dub-lang-same", { lang: langLabel(targetLang) })}
+              </option>
+              {TRANSLATE_TARGET_LANGS.map((code) => (
+                <option key={code} value={code}>
+                  {langLabel(code)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {cues.length === 0 ? (
+            <EmptyState icon={Mic} description={t("tv.dub.need-cues")} />
+          ) : (
+            <DubSettingsCard
+              sessionId={sessionId}
+              dub={dub}
+              speakers={speakers}
+              diarized={session.transcriptInfo?.diarized === true}
+              cueIndexOf={cueIndexOf}
+              speakerF0={session.dubInfo?.speakerF0 ?? {}}
+              disabled={locked}
+              onChange={patchDub}
+            />
+          )}
+        </div>
+      </Modal>
 
       <ConfirmDeleteModal
         open={deleteOpen}

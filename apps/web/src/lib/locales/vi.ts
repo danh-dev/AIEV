@@ -2481,9 +2481,9 @@ export const vi: Record<string, string> = {
   "dash.col-cost-total": "Tổng $",
   "dash.model-none": "(không rõ model)",
   "dash.total-row": "Tổng",
-  "help.cost-by-model.title": "Hai cột tiền này khác nhau chỗ nào?",
-  "help.cost-by-model.body": "Cột \"$ vào\" và \"$ ra\" là tiền TẠM TÍNH: lấy số token nhân với bảng giá niêm yết của từng model, để bạn thấy phần nào tốn tiền - đọc dữ liệu vào hay AI viết ra.\nCột \"Tổng $\" mới là tiền THẬT mà nhà cung cấp tính, đúng bằng con số trên hóa đơn.\nHai số này lệch nhau là bình thường, không phải lỗi: những đoạn nội dung AI đã đọc lần trước được lưu lại (prompt cache), lần sau đọc lại chỉ tính khoảng 10% giá token vào - nên tiền thật thường THẤP hơn tạm tính.\nModel nào chưa có trong bảng giá thì hai ô $ để trống dấu \"-\": hệ thống không đoán giá.",
-  "dash.unpriced-note": "{n} dòng chưa có trong bảng giá nên hai cột \"$ vào\" và \"$ ra\" không tính phần đó. Cột \"Tổng $\" vẫn là tiền thật của tất cả các dòng.",
+  "help.cost-by-model.title": "Hai cột tiền này tính ra sao?",
+  "help.cost-by-model.body": "Bảng chia số tiền THẬT bạn đã trả thành hai phần: tiền cho phần AI ĐỌC VÀO và tiền cho phần AI VIẾT RA. Cộng hai cột đó lại đúng bằng cột \"Tổng $\", không thừa không thiếu.\nCách chia: lấy bảng giá niêm yết của từng model làm tỉ lệ (token viết ra thường đắt gấp 5 lần token đọc vào), rồi chia số tiền thật theo đúng tỉ lệ đó. Nên đây là cách tiền của bạn phân bổ, không phải bảng báo giá.\nVì sao không nhân thẳng số token với giá niêm yết: những đoạn nội dung AI đã đọc lần trước được lưu lại, lần sau đọc lại chỉ tính khoảng 10% giá - nhân thẳng sẽ ra con số cao gấp nhiều lần số tiền thật.\nModel nào chưa có trong bảng giá thì không có tỉ lệ để chia, hai ô $ để dấu \"-\". Tiền của dòng đó vẫn được tính đủ ở cột \"Tổng $\", và dòng ghi chú dưới bảng cho biết phần chưa chia được là bao nhiêu.",
+  "dash.unallocated-note": "Trong đó {amount} chưa chia được thành hai phần vì {n} dòng không rõ model (không có bảng giá để lấy tỉ lệ). Số tiền này vẫn được tính đủ ở cột \"Tổng $\".",
 
   // ===== Đại tu giao diện 8/2026: tìm kiếm, lọc, trạng thái rỗng, chú thích =====
   "common.status-unknown": "Trạng thái khác",

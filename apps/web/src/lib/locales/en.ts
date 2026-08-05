@@ -2488,9 +2488,9 @@ export const en: Record<string, string> = {
   "dash.col-cost-total": "Total $",
   "dash.model-none": "(model not recorded)",
   "dash.total-row": "Total",
-  "help.cost-by-model.title": "How do these two money columns differ?",
-  "help.cost-by-model.body": "The \"$ in\" and \"$ out\" columns are ESTIMATES: token counts multiplied by each model's list price, so you can see which side costs more - the data going in or what the AI writes out.\nThe \"Total $\" column is the REAL amount the provider charged, the same figure that lands on the invoice.\nThe two not matching is normal, not a bug: text the AI already read is kept in a prompt cache, and reading it again costs only about 10% of the input price - so the real amount is usually LOWER than the estimate.\nA model that is not in the price table leaves both $ cells as \"-\": the system never guesses a price.",
-  "dash.unpriced-note": "{n} rows are not in the price table, so the \"$ in\" and \"$ out\" columns exclude them. The \"Total $\" column still covers every row.",
+  "help.cost-by-model.title": "How are these two money columns calculated?",
+  "help.cost-by-model.body": "This table splits the money you actually paid into two parts: what was spent on the AI READING your input, and what was spent on the AI WRITING output. The two columns add up to exactly the \"Total $\" column.\nHow the split works: each model's list price is used as a ratio (output tokens usually cost 5x input tokens), and the real amount is divided along that ratio. So this shows how your money is allocated, not a price quote.\nWhy not simply multiply tokens by the list price: content the AI already read is cached, and re-reading it costs about 10% of the input price - multiplying directly would show a figure several times higher than what you actually paid.\nA model that is not in the price table has no ratio to split by, so both $ cells show \"-\". That money is still counted in full under \"Total $\", and the note below the table says how much could not be split.",
+  "dash.unallocated-note": "Of that, {amount} could not be split into the two parts because {n} rows have no recorded model (no price table to derive a ratio from). It is still counted in full under \"Total $\".",
 
   // ===== Aug 2026 UI overhaul: search, filters, empty states, hints =====
   "common.status-unknown": "Other status",

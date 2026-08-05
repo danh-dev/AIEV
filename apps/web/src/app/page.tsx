@@ -333,15 +333,13 @@ export default function DashboardPage() {
     { tokens: 0, costUsd: 0 }
   );
 
-  // Số dòng KHÔNG có đơn giá. Phải đếm và nói ra: hàng tổng cộng "$ vào"/"$ ra"
-  // chỉ từ những dòng biết giá, trong khi "Tổng $" cộng đủ mọi dòng. Trên dữ
-  // liệu thật, một dòng Claude không rõ model đang chiếm hơn 180 triệu token -
-  // để im thì người đọc so hai con số và kết luận sai hoàn toàn về tỉ lệ tiền.
-  const unpricedRows = (byModel ?? []).filter((r) => r.price === null).length;
-
-  // Hàng TỔNG của bảng theo model. $ vào / $ ra chỉ cộng những dòng BIẾT đơn
-  // giá - dòng không có giá đóng góp 0 chứ không kéo cả tổng thành "không biết",
-  // còn cột Tổng $ luôn cộng đủ vì costUsd là tiền thật, dòng nào cũng có.
+  // Hàng TỔNG của bảng theo model.
+  //
+  // Từ khi server phân bổ tiền THẬT theo tỉ lệ giá (xem routes/usage.ts), mỗi
+  // dòng đã có $vào + $ra = Tổng $. Nên hàng tổng cũng cộng đúng - trừ đúng
+  // phần của những dòng KHÔNG biết đơn giá: chúng không chia được nên chỉ góp
+  // vào cột tổng. Số tiền đó không được phép biến mất khỏi màn hình, nên tính
+  // riêng thành `unallocatedUsd` và nói thẳng ra dưới bảng.
   const byModelTotal = (byModel ?? []).reduce(
     (acc, r) => ({
       tokensIn: acc.tokensIn + r.tokensIn,
@@ -349,8 +347,18 @@ export default function DashboardPage() {
       costUsd: acc.costUsd + r.costUsd,
       costInUsd: acc.costInUsd + (r.costInUsd ?? 0),
       costOutUsd: acc.costOutUsd + (r.costOutUsd ?? 0),
+      unallocatedUsd: acc.unallocatedUsd + (r.price === null ? r.costUsd : 0),
+      unpricedRows: acc.unpricedRows + (r.price === null ? 1 : 0),
     }),
-    { tokensIn: 0, tokensOut: 0, costUsd: 0, costInUsd: 0, costOutUsd: 0 }
+    {
+      tokensIn: 0,
+      tokensOut: 0,
+      costUsd: 0,
+      costInUsd: 0,
+      costOutUsd: 0,
+      unallocatedUsd: 0,
+      unpricedRows: 0,
+    }
   );
 
   const doneProjects = (projects ?? []).filter((p) => p.status === "done").length;
@@ -801,14 +809,19 @@ export default function DashboardPage() {
           <EmptyState icon={Coins} description={t("dash.no-usage-by-model")} />
         )}
 
-        {/* Nói thẳng khi hàng tổng KHÔNG so sánh được: hai cột $ ước tính bỏ
-            qua các dòng chưa có giá, còn cột Tổng $ thì không. Thiếu câu này
-            thì bảng trông như "AI chỉ tốn 1/5 số tiền thật". */}
-        {byModel !== null && byModel.length > 0 && unpricedRows > 0 && (
-          <p className="mt-3 text-meta text-[var(--text-muted)]">
-            {tf("dash.unpriced-note", { n: unpricedRows })}
-          </p>
-        )}
+        {/* Chỉ còn MỘT chỗ duy nhất mà bảng không tự cộng khít: các dòng không
+            biết đơn giá nên không chia được ra hai chiều. Nói rõ số tiền đó là
+            bao nhiêu, để người đọc cộng tay vẫn ra đúng cột tổng. */}
+        {byModel !== null &&
+          byModel.length > 0 &&
+          byModelTotal.unpricedRows > 0 && (
+            <p className="mt-3 text-meta text-[var(--text-muted)]">
+              {tf("dash.unallocated-note", {
+                n: byModelTotal.unpricedRows,
+                amount: formatUsd(byModelTotal.unallocatedUsd),
+              })}
+            </p>
+          )}
       </Card>
 
       {/* Hàng 3 - project gần đây (bảng) + phiên AI gần đây */}

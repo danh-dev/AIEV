@@ -4,15 +4,18 @@
  * DÙNG ĐỂ LÀM GÌ: bảng "Chi phí AI theo model" trên Dashboard cần tách riêng
  * tiền của token VÀO và token RA. Bảng `token_usage` chỉ lưu MỘT con số
  * `costUsd` gộp cả hai (Agent SDK trả về `total_cost_usd`), nên không tách
- * ngược ra được - phải nhân lại từ đơn giá.
+ * ngược ra được từ dữ liệu - phải suy ra bằng tỉ lệ.
  *
- * QUAN HỆ VỚI `costUsd` ĐÃ LƯU - đọc kỹ chỗ này:
- *   - `costUsd` là số tiền THẬT đã tiêu, do nhà cung cấp trả về.
- *   - $vào / $ra tính từ bảng này là số tiền THEO GIÁ NIÊM YẾT.
- *   Hai con số KHÔNG bằng nhau, và đó là bình thường: prompt cache đọc lại chỉ
- *   tính ~10% giá vào, nên tiền thật thường THẤP HƠN giá niêm yết. Vì vậy UI
- *   hiện $vào/$ra như ước tính theo đơn giá, còn cột tổng lấy đúng `costUsd`
- *   đã lưu. Đừng "sửa" cho hai bên khớp nhau - lệch chính là thông tin.
+ * BẢNG GIÁ NÀY LÀ TỈ LỆ, KHÔNG PHẢI SỐ TIỀN - đọc kỹ chỗ này:
+ * `routes/usage.ts` dùng đơn giá ở đây để tính TRỌNG SỐ giữa chiều vào và chiều
+ * ra, rồi chia đúng số tiền THẬT theo trọng số đó. Nên $vào + $ra luôn bằng
+ * `costUsd`.
+ *
+ * KHÔNG được quay lại cách nhân thẳng token × đơn giá để ra tiền. Đã thử và
+ * hỏng: prompt cache đọc lại chỉ tính khoảng 10% giá vào, nên số nhân ra cao
+ * gấp mấy lần tiền thật - bảng hiện $2.055 cạnh $402 trong cùng một hàng và
+ * người dùng báo ngay là sai. Giá niêm yết trả lời được câu "chiều nào tốn hơn",
+ * nhưng không trả lời được câu "hết bao nhiêu tiền".
  *
  * Giá Claude lấy từ bảng model chính thức (skill `claude-api`, bản 2026-06-24),
  * KHÔNG phải nhớ ra. Có model mới thì cập nhật ở đây, đừng đoán.
