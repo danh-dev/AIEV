@@ -320,6 +320,37 @@ export function remotionCli(): string {
   return cliJsPath("@remotion/cli", "remotion");
 }
 
+/**
+ * Độ dài fade âm thanh ở mỗi mép cắt. 30ms - đủ dập bậc nhảy, quá ngắn để tai
+ * nghe ra là tiếng vuốt.
+ */
+export const CUT_FADE_SEC = 0.03;
+
+/**
+ * Chuỗi filter fade cho HAI đầu một đoạn audio vừa cắt ra.
+ *
+ * VÌ SAO BẮT BUỘC: cắt giữa dòng âm thanh là cắt ngang một sóng đang ở biên độ
+ * bất kỳ. Mẫu cuối của mảnh trước và mẫu đầu của mảnh sau chẳng liên quan gì
+ * nhau, nên mối nối thành một bậc nhảy dựng đứng - tai nghe ra tiếng "tách".
+ * Một video auto-cut có hàng trăm mối nối, nên nó thành tiếng lộp bộp suốt bài
+ * chứ không phải một tiếng lẻ. Fade kéo hai đầu về 0 nên không còn bậc nào.
+ *
+ * PHẢI đặt SAU asetpts=PTS-STARTPTS: afade tính `st` theo mốc của chính luồng,
+ * còn giữ timestamp gốc thì st=0 nằm ở quá khứ và fade vào không bao giờ chạy.
+ *
+ * Trả về chuỗi KHÔNG kèm dấu phẩy đầu; "" khi mảnh ngắn tới mức fade sẽ nuốt
+ * gần hết tiếng (hai fade chồng lên nhau).
+ */
+export function audioCutFade(durationSec: number): string {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return "";
+  // Trần dur/2 để fade vào và fade ra không giẫm lên nhau ở mảnh ngắn.
+  const d = Math.min(CUT_FADE_SEC, durationSec / 2);
+  // Dưới 5ms thì fade ngắn hơn một chu kỳ tiếng trầm - vô nghĩa, bỏ luôn.
+  if (d < 0.005) return "";
+  const outStart = durationSec - d;
+  return `afade=t=in:st=0:d=${d.toFixed(3)},afade=t=out:st=${outStart.toFixed(3)}:d=${d.toFixed(3)}`;
+}
+
 /** Đo thời lượng file media bằng ffprobe → ms, null nếu ffprobe fail */
 export async function ffprobeDurationMs(absFile: string): Promise<number | null> {
   try {

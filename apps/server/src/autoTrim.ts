@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { paths } from "./config.js";
-import { HttpError, ensureDir, execFileCaptureAll } from "./util.js";
+import { HttpError, audioCutFade, ensureDir, execFileCaptureAll } from "./util.js";
 
 /**
  * Cắt khoảng lặng KHÔNG cần AI - đo bằng máy, quyết định bằng số.
@@ -813,6 +813,10 @@ export async function analyzeSilence(
  * setpts=PTS-STARTPTS là bắt buộc ở MỖI mảnh: không có nó, mảnh thứ hai giữ
  * nguyên timestamp gốc và concat sẽ đẩy ra một video có khoảng trống đúng bằng
  * phần vừa cắt - tức là không cắt được gì.
+ *
+ * afade ở hai đầu MỌI mảnh cũng bắt buộc, vì lý do khác: xem audioCutFade().
+ * Thiếu nó thì mỗi mối nối là một tiếng "tách", và một video cắt mức tight có
+ * hàng trăm mối.
  */
 function buildTrimFilter(
   keepRanges: Array<[number, number]>,
@@ -828,7 +832,12 @@ function buildTrimFilter(
       parts.push(`[0:v]trim=start=${from}:end=${to},setpts=PTS-STARTPTS[v${i}]`);
     }
     if (hasAudio) {
-      parts.push(`[0:a]atrim=start=${from}:end=${to},asetpts=PTS-STARTPTS[a${i}]`);
+      // Độ dài tính từ chuỗi ĐÃ làm tròn, đúng bằng cái ffmpeg sẽ cắt ra - lấy
+      // e - s thô thì mốc fade ra lệch khỏi mép mảnh vài phần nghìn giây.
+      const fade = audioCutFade(Number(to) - Number(from));
+      parts.push(
+        `[0:a]atrim=start=${from}:end=${to},asetpts=PTS-STARTPTS${fade ? `,${fade}` : ""}[a${i}]`,
+      );
     }
     labels.push(`${hasVideo ? `[v${i}]` : ""}${hasAudio ? `[a${i}]` : ""}`);
   });

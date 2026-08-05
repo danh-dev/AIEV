@@ -4,7 +4,13 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { AutoCutBackground } from "./autoCutMeta.js";
 import { detectHardware, readRenderSettings } from "./renderSettings.js";
-import { execFileCaptureAll } from "./util.js";
+import { audioCutFade, execFileCaptureAll } from "./util.js";
+
+/** `-af <fade>` cho đoạn dài `durationSec`, hoặc [] nếu đoạn ngắn quá để fade. */
+function audioFadeArgs(durationSec: number): string[] {
+  const fade = audioCutFade(durationSec);
+  return fade ? ["-af", fade] : [];
+}
 
 /**
  * Cắt đoạn + ĐỔI KHUNG HÌNH (reframe) - lõi kỹ thuật của "Auto cut videos".
@@ -471,12 +477,14 @@ export function buildReframeArgs(spec: ReframeSpec): string[] {
   const H = evenClamp(spec.target.height, 2, 8192);
   const fps = Number.isFinite(spec.fps) && spec.fps > 0 ? Math.round(spec.fps * 1000) / 1000 : 30;
 
+  const ssSec = Math.max(0, spec.start);
+  const toSec = Math.max(spec.start + 0.04, spec.end);
   const inputs: string[] = [
     "-accurate_seek",
     "-ss",
-    formatSec(Math.max(0, spec.start)),
+    formatSec(ssSec),
     "-to",
-    formatSec(Math.max(spec.start + 0.04, spec.end)),
+    formatSec(toSec),
     "-i",
     spec.srcAbs,
   ];
@@ -532,6 +540,11 @@ export function buildReframeArgs(spec: ReframeSpec): string[] {
     "[v]",
     "-map",
     "0:a?",
+    // Đoạn cắt ra gần như luôn bắt đầu và kết thúc giữa chừng tiếng nói hoặc
+    // tiếng nền, nên hai mép là hai bậc nhảy biên độ - xem audioCutFade().
+    // `-af` bám luồng audio đầu ra; nguồn không có tiếng thì `0:a?` không map
+    // gì và ffmpeg bỏ qua tùy chọn này, không lỗi (đã thử với file câm).
+    ...audioFadeArgs(toSec - ssSec),
     ...encoderArgs(spec.encoder),
     "-r",
     String(fps),

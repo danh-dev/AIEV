@@ -152,3 +152,32 @@ dead weight, and the verification verdict. Take the numbers from `auto-trim-repo
 - SFX/narration files with their own lead silence -> use `data-media-start` to trim inside HyperFrames
   (see "SFX loudness and lead silence" in the noti-tiktok-vn skill), do not re-encode an audio file
   just for 0.3s of leading silence.
+- Joining cut segments without a fade -> a click at every join. Fixed in `autoTrim.ts`; the rule is
+  below, and it applies to any new code that cuts or concatenates audio.
+
+## Audio: fade 30ms at every cut edge (hard rule)
+
+A cut lands mid-waveform. The last sample of one segment and the first sample of the next are
+unrelated, so the join is a vertical step, and a step is a click. One click is inaudible; a tight cut
+produces hundreds, and it reads as crackle running through the whole video. The cause is not the
+encoder and not the source - it is the join itself, so it survives any re-encode downstream.
+
+Fix: fade both edges of every segment over 30ms. Long enough to kill the step, far too short to hear
+as a fade. Use `audioCutFade()` in `apps/server/src/util.ts`; do not hand-roll the filter.
+
+```
+[0:a]atrim=start=S:end=E,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.030,afade=t=out:st=D-0.030:d=0.030[aN]
+```
+
+Three things that make it silently do nothing:
+
+- **Order.** `afade` must come AFTER `asetpts=PTS-STARTPTS`. `afade` reads `st` off the stream's own
+  clock; on original timestamps `st=0` is in the past and the fade-in never fires.
+- **Length.** `D` is the segment duration, so the fade-out start is `D - 0.030`. Clamp the fade to
+  `D/2` or the two fades overlap on a short segment and swallow it.
+- **Extracting a clip, not just joining.** A clip cut out of a longer video has the same two raw edges
+  even though nothing is being joined - `reframe.ts` fades them via `-af`.
+
+Measured on a synthetic join (loud 200 Hz into quiet 1500 Hz): largest sample step at the join was
+0.0637 before, against 0.0116 anywhere else in the file - 5.5x, which is the click. After the fix the
+join step is 0.0008, six times SMOOTHER than the rest of the file.
