@@ -66,6 +66,7 @@ import { HardwareMeter } from "@/components/HardwareMeter";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UpdateBadge } from "@/components/UpdateBadge";
+import { LOGO_DARK, LOGO_LIGHT } from "@/lib/brand";
 import { useT } from "@/lib/i18n";
 
 /** Mã nguồn dự án - hiện ở cuối sidebar, ngay trên badge phiên bản */
@@ -335,19 +336,16 @@ export function Shell({ children }: { children: ReactNode }) {
 
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4">
           <Link href="/" className="flex shrink-0 items-center">
-            {/* Logo đổi theo theme qua CSS trong globals.css */}
+            {/* Logo đổi theo theme qua CSS trong globals.css.
+                Nguồn ảnh là hằng số data URI biên dịch vào bundle
+                (src/lib/brand.ts), KHÔNG phải file trong public/: nhận diện của
+                chính ứng dụng không được đổi bằng cách chép đè một file PNG.
+                Logo người dùng tải lên ở Style Design đi đường khác hẳn
+                (assets/styles → /media), chỉ dùng đóng dấu lên video. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-duong-ban.png"
-              alt="noti.vn"
-              className="logo-light h-7 w-auto"
-            />
+            <img src={LOGO_LIGHT} alt="noti.vn" className="logo-light h-7 w-auto" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-am-ban.png"
-              alt="noti.vn"
-              className="logo-dark h-7 w-auto"
-            />
+            <img src={LOGO_DARK} alt="noti.vn" className="logo-dark h-7 w-auto" />
           </Link>
 
           {/* Nút gấp/mở rail KHÔNG còn ở header: nó nằm dưới đáy chính cái rail

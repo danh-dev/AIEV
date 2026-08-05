@@ -5,6 +5,7 @@ import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
 import "@fontsource/inter/700.css";
 import "./globals.css";
+import { FAVICON } from "@/lib/brand";
 import { Shell } from "@/components/Shell";
 import { StaleChunkGuard } from "@/components/StaleChunkGuard";
 import { LanguageProvider } from "@/lib/i18n";
@@ -13,7 +14,10 @@ import { EventsProvider } from "@/lib/useEvents";
 export const metadata: Metadata = {
   title: "AI Edit Video by: noti.vn",
   description: "Edit video tự động bằng AI",
-  icons: { icon: "/brand/favicon.png" },
+  // Data URI biên dịch vào bundle chứ không trỏ tới /brand/favicon.png: chép đè
+  // file trong public/ không đổi được favicon của ứng dụng nữa. Xem
+  // scripts/build-brand.mjs.
+  icons: { icon: FAVICON },
 };
 
 /** Chống FOUC: áp data-theme trước khi paint. Mặc định light. */
