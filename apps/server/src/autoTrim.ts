@@ -818,7 +818,7 @@ export async function analyzeSilence(
  * Thiếu nó thì mỗi mối nối là một tiếng "tách", và một video cắt mức tight có
  * hàng trăm mối.
  */
-function buildTrimFilter(
+export function buildTrimFilter(
   keepRanges: Array<[number, number]>,
   hasVideo: boolean,
   hasAudio: boolean,

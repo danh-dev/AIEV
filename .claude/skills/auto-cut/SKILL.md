@@ -158,9 +158,25 @@ dead weight, and the verification verdict. Take the numbers from `auto-trim-repo
 ## Audio: fade 30ms at every cut edge (hard rule)
 
 A cut lands mid-waveform. The last sample of one segment and the first sample of the next are
-unrelated, so the join is a vertical step, and a step is a click. One click is inaudible; a tight cut
-produces hundreds, and it reads as crackle running through the whole video. The cause is not the
-encoder and not the source - it is the join itself, so it survives any re-encode downstream.
+unrelated, so the join is a vertical step, and a step is a click. The cause is not the encoder and not
+the source - it is the join itself, so it survives any re-encode downstream.
+
+**How much it matters depends on WHERE the cut lands, and the difference is large.** Measured
+losslessly on a real 278s talking-head, comparing the same cut with and without the fade (largest
+sample-to-sample step at the join; anything above ~0.02 is audible):
+
+| Kind of join | Before | After |
+|---|---|---|
+| Silence trim, 40 joins (`balanced`) | median 0.0040, worst 0.0113 - **none audible** | median 0.0000 |
+| Mid-speech, 4 joins (dead weight / repeated points) | 0.1195, 0.0744, 0.0232, 0.0064 - **3 of 4 audible** | all ≤ 0.0008 |
+
+For scale, the loudest step anywhere in normal speech in those files was 0.06-0.13. So a mid-speech
+join without the fade can be a bigger jump than anything the content itself produces, while a silence
+join is nowhere near audible.
+
+Do not skip the fade on the strength of that first row. Plain silence trimming is the case where it
+happens not to matter; Step 3 (repeated points) and clip extraction cut straight through speech, and
+those are the joins that click.
 
 Fix: fade both edges of every segment over 30ms. Long enough to kill the step, far too short to hear
 as a fade. Use `audioCutFade()` in `apps/server/src/util.ts`; do not hand-roll the filter.
@@ -178,6 +194,7 @@ Three things that make it silently do nothing:
 - **Extracting a clip, not just joining.** A clip cut out of a longer video has the same two raw edges
   even though nothing is being joined - `reframe.ts` fades them via `-af`.
 
-Measured on a synthetic join (loud 200 Hz into quiet 1500 Hz): largest sample step at the join was
-0.0637 before, against 0.0116 anywhere else in the file - 5.5x, which is the click. After the fix the
-join step is 0.0008, six times SMOOTHER than the rest of the file.
+One note on measuring this yourself: do not compare two AAC encodes. Re-encoding perturbs samples
+everywhere, which buried the 40 real joins among 294 spurious difference regions and put a 54ms
+offset between the two files. Render both variants straight to `pcm_s16le` instead - then the two are
+sample-aligned and the joins sit exactly at the cumulative segment lengths.
