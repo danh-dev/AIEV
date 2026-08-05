@@ -5,8 +5,10 @@ import {
   maxWorkers,
   readRenderSettings,
   recommendedWorkers,
+  UPDATE_CHANNELS,
   writeRenderSettings,
   type RenderSettings,
+  type UpdateChannel,
 } from "../renderSettings.js";
 import { HttpError } from "../util.js";
 
@@ -28,46 +30,69 @@ router.get("/", async (_req, res) => {
   });
 });
 
+type SettingKind = "number" | "boolean" | "nullableNumber" | "updateChannel";
+
+/**
+ * Kiểu dữ liệu của TỪNG cài đặt, dùng để lọc body của PUT.
+ *
+ * Kiểu `Record<keyof RenderSettings, …>` là phần quan trọng nhất ở đây: thêm một
+ * field vào RenderSettings mà quên khai báo tại đây thì TypeScript BÁO LỖI BUILD.
+ * Bản trước liệt kê tên field bằng tay trong ba mảng rời, nên `updateChannel`,
+ * `aiMaxAttempts` và `aiMaxTurns` bị bỏ quên - PUT vẫn trả 200 kèm settings cũ,
+ * giao diện nháy sang giá trị mới rồi bật lại như cũ và vẫn báo "đã lưu". Im lặng
+ * bỏ qua là kiểu hỏng tệ nhất, nên bây giờ nó thành lỗi biên dịch.
+ */
+const SETTING_KINDS: Record<keyof RenderSettings, SettingKind> = {
+  workers: "number",
+  browserGpu: "boolean",
+  gpuEncodeDraft: "boolean",
+  gpuEncodeFinal: "boolean",
+  fastCapture: "boolean",
+  remotionConcurrency: "number",
+  queueConcurrency: "number",
+  draftFps: "nullableNumber",
+  qcGate: "boolean",
+  updateChannel: "updateChannel",
+  aiMaxAttempts: "number",
+  aiMaxTurns: "number",
+};
+
+const KIND_LABEL: Record<SettingKind, string> = {
+  number: "phải là số",
+  boolean: "phải là boolean",
+  nullableNumber: "phải là số hoặc null",
+  updateChannel: `phải là một trong ${UPDATE_CHANNELS.join(", ")}`,
+};
+
+function isValid(kind: SettingKind, v: unknown): boolean {
+  switch (kind) {
+    case "number":
+      return typeof v === "number" && Number.isFinite(v);
+    case "boolean":
+      return typeof v === "boolean";
+    case "nullableNumber":
+      return v === null || (typeof v === "number" && Number.isFinite(v));
+    case "updateChannel":
+      return UPDATE_CHANNELS.includes(v as UpdateChannel);
+  }
+}
+
 // PUT /api/render-settings - partial → { settings }
 router.put("/", (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const patch: Partial<RenderSettings> = {};
 
-  const numFields: Array<keyof RenderSettings> = [
-    "workers",
-    "remotionConcurrency",
-    "queueConcurrency",
-  ];
-  for (const f of numFields) {
-    if (f in body) {
-      if (typeof body[f] !== "number" || !Number.isFinite(body[f])) {
-        throw new HttpError(400, "INVALID_SETTING", `${f} phải là số`);
-      }
-      (patch as Record<string, unknown>)[f] = body[f];
+  for (const [key, kind] of Object.entries(SETTING_KINDS) as Array<
+    [keyof RenderSettings, SettingKind]
+  >) {
+    if (!(key in body)) continue;
+    if (!isValid(kind, body[key])) {
+      throw new HttpError(400, "INVALID_SETTING", `${key} ${KIND_LABEL[kind]}`);
     }
-  }
-  const boolFields: Array<keyof RenderSettings> = [
-    "browserGpu",
-    "gpuEncodeDraft",
-    "gpuEncodeFinal",
-    "fastCapture",
-    "qcGate",
-  ];
-  for (const f of boolFields) {
-    if (f in body) {
-      if (typeof body[f] !== "boolean") {
-        throw new HttpError(400, "INVALID_SETTING", `${f} phải là boolean`);
-      }
-      (patch as Record<string, unknown>)[f] = body[f];
-    }
-  }
-  if ("draftFps" in body) {
-    if (body.draftFps !== null && typeof body.draftFps !== "number") {
-      throw new HttpError(400, "INVALID_SETTING", "draftFps phải là số hoặc null");
-    }
-    patch.draftFps = body.draftFps as number | null;
+    (patch as Record<string, unknown>)[key] = body[key];
   }
 
+  // Kẹp range vẫn do normalizeSettings() lo - ở đây chỉ chặn sai KIỂU.
   res.json({ settings: writeRenderSettings(patch) });
 });
 
