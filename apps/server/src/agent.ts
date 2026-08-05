@@ -5,6 +5,7 @@ import { hasClaudeAuth, paths, repoRoot } from "./config.js";
 import * as db from "./db.js";
 import { broadcast } from "./events.js";
 import { normOutput, readMeta } from "./meta.js";
+import { readRenderSettings } from "./renderSettings.js";
 
 /**
  * Chạy Claude Code headless qua Claude Agent SDK (0.3.x).
@@ -136,17 +137,24 @@ const RESUME_MESSAGE =
  * hoặc khi refreshResumeProgress phát hiện project có tiến bộ giữa hai lượt).
  */
 const MAX_RESUME_ATTEMPTS = 3;
-/**
- * Phiên edit goal='final': pipeline dài (transcribe → scene → draft → verify → final),
- * mỗi lượt agent có thể kết thúc sớm trong khi render nền còn chạy - cap rộng hơn hẳn,
- * áp cho CẢ resume lỗi lẫn final-gate. Phiên thường giữ MAX_RESUME_ATTEMPTS.
- */
-const FINAL_GOAL_MAX_ATTEMPTS = 12;
 const RESUME_DELAY_MS = 10_000;
 
-/** Cap resume theo loại phiên - goal='final' được nhiều lượt hơn hẳn */
+/**
+ * Cap resume theo loại phiên - goal='final' được nhiều lượt hơn hẳn vì pipeline
+ * dài (transcribe → scene → draft → verify → final) và mỗi lượt agent có thể
+ * kết thúc sớm trong khi render nền còn chạy.
+ *
+ * Con số của phiên 'final' KHÔNG còn là hằng số: đọc từ Cấu hình mỗi lần gọi,
+ * nên người dùng đổi là có hiệu lực ngay ở phiên kế tiếp, không cần khởi động
+ * lại server. Trước đây nó cứng ở 12, và đo trên dữ liệu thật thì 4 phiên có
+ * chạy lại đã nuốt 34% tổng chi phí - đủ đắt để đáng cho người dùng tự chỉnh.
+ * Phiên chat thường vẫn giữ MAX_RESUME_ATTEMPTS, không liên quan tới tiền dựng
+ * video nên không mở ra làm gì.
+ */
 function maxResumeAttemptsFor(session: Pick<db.ChatSessionRow, "goal">): number {
-  return session.goal === "final" ? FINAL_GOAL_MAX_ATTEMPTS : MAX_RESUME_ATTEMPTS;
+  return session.goal === "final"
+    ? readRenderSettings().aiMaxAttempts
+    : MAX_RESUME_ATTEMPTS;
 }
 
 /**
@@ -305,7 +313,9 @@ export async function runAgent(
     includePartialMessages: true,
     // Phiên edit goal='final' chạy pipeline dài (transcribe → scene → draft → verify → final)
     // - 100 turn không đủ, lượt kết thúc với subtype != success giữa chừng
-    maxTurns: session?.goal === "final" ? 300 : 100,
+    // Trần lượt của phiên dựng video lấy từ Cấu hình (đọc mỗi lần chạy nên đổi
+    // là ăn ngay). Phiên chat thường giữ 100 - nó ngắn, không phải chỗ tốn tiền.
+    maxTurns: session?.goal === "final" ? readRenderSettings().aiMaxTurns : 100,
     settingSources: ["project", "user"],
     systemPrompt: { type: "preset", preset: "claude_code" },
   };

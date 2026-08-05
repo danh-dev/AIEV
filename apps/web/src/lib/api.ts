@@ -522,6 +522,16 @@ export interface RenderSettings {
   draftFps: number | null;
   /** Kênh cập nhật hệ thống (mặc định "stable" - chỉ nhận bản đã phát hành). */
   updateChannel: UpdateChannel;
+  /**
+   * Số lần phiên dựng video được TỰ CHẠY LẠI khi lượt trước kết thúc mà video
+   * final chưa có (mặc định 4, server kẹp 1..12).
+   */
+  aiMaxAttempts: number;
+  /**
+   * Trần số lượt agent gọi công cụ trong MỘT lần chạy của phiên dựng video
+   * (mặc định 300, server kẹp 20..300).
+   */
+  aiMaxTurns: number;
 }
 
 /** Phần cứng máy backend phát hiện được - GET /api/render-settings. */

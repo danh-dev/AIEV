@@ -186,6 +186,8 @@ export const vi: Record<string, string> = {
   "model.gemini-connected": "Gemini đã kết nối - chỉ dùng cho tính năng Tạo ảnh, không dùng cho chat/edit.",
   "model.gemini-not-connected": "Gemini chưa kết nối - chỉ dùng cho tính năng Tạo ảnh, không dùng cho chat/edit.",
   "model.gemini-images-only": "Gemini: chỉ Tạo ảnh",
+  "model.cost-tip":
+    "Video theo khuôn quen (TikTok, YouTube - đã có skill sẵn) thì Sonnet 5 là đủ và rẻ hơn khoảng 40%; việc nhẹ hơn nữa dùng Haiku 4.5 rẻ hơn khoảng 80%. Để dành Opus 5 cho video khó, nhiều yêu cầu lắt léo. Tiền dựng video gần như nằm hết ở phần AI đọc vào, nên giá token đọc vào của model mới là thứ quyết định.",
   "model.aria-model": "Model AI cho phiên mới",
   "model.aria-effort": "Chế độ AI cho phiên mới",
   "effort.low": "Nhanh",
@@ -1019,6 +1021,14 @@ export const vi: Record<string, string> = {
   "config.update-channel": "Kênh cập nhật",
   "config.update-channel-hint": "Bản chính thức chỉ nhận bản đã phát hành - ổn định, khuyên dùng. Bản mới nhất nhận mọi commit đẩy lên main, có fix sớm hơn nhưng có thể chưa ổn định.",
   "config.update-channel-aria": "Kênh cập nhật hệ thống",
+  "config.ai-max-attempts": "Số lần AI được tự làm lại một video",
+  "config.ai-max-attempts-hint":
+    "Hết lượt mà video final chưa có thì hệ thống tự cho AI làm lại từ đầu, tối đa bấy nhiêu lần. Mỗi lần làm lại tốn tiền gần bằng một video mới, nên để 3-4 là vừa.",
+  "config.ai-max-attempts-aria": "Số lần AI được tự làm lại một video",
+  "config.ai-max-turns": "Trần số bước AI được làm trong một lần",
+  "config.ai-max-turns-hint":
+    "Một bước là một lần AI gọi công cụ rồi đọc kết quả. Chạm trần là dừng, kể cả đang làm dở - hạ xuống để cắt sớm phiên đi lạc, nhưng dưới 50 thì video khó không kịp xong.",
+  "config.ai-max-turns-aria": "Trần số bước AI trong một lần chạy",
 
   // ===== Kết nối =====
   "conn.subtitle": "Quản lý AI và API key",
@@ -1479,6 +1489,18 @@ export const vi: Record<string, string> = {
   "help.config-render.title": "Cài đặt render",
   "help.config-render.body":
     "Mấy nút này đánh đổi giữa nhanh và chắc: worker và concurrency càng cao càng nhanh nhưng ăn RAM, quá sức máy là job chết giữa chừng.\nEncode GPU nhanh hơn hẳn nhưng cùng dung lượng thì chất lượng thấp hơn CPU - hợp với draft, cân nhắc kỹ với final. Draft fps thấp chỉ làm bản xem thử nhanh hơn, không đụng tới bản final.\nCổng QC bật thì hệ thống chặn render final khi bản draft chưa đạt kiểm tra chất lượng; tắt đi là bạn tự chịu trách nhiệm.\nMọi thay đổi áp ngay cho job chạy sau, job đang chạy vẫn giữ cấu hình cũ.",
+
+  "help.config-ai-attempts.title": "AI tự làm lại video khi nào?",
+  "help.config-ai-attempts.body":
+    "Dựng một video đi qua nhiều chặng: bóc lời, dựng scene, render bản nháp, soi lại rồi mới render bản cuối. Có lúc AI kết thúc lượt của nó trong khi bản render vẫn chạy ngầm, nên nhìn vào thì video final chưa có - hệ thống liền cho nó chạy lại phiên đó.\nMỗi lần chạy lại gần như làm lại từ đầu, mà mỗi bước AI lại đọc lại toàn bộ hội thoại từ đầu tới đó. Nên tiền không cộng đều mà tăng vọt.\nSố đo thật của chính dự án này: phiên CÓ chạy lại tốn trung bình $61,87, còn phiên chạy một lần ăn ngay chỉ $22,57. Bốn phiên phải chạy lại đã nuốt 34% tổng chi phí.\nĐể mức thấp (3-4) thì phiên nào hỏng sẽ dừng sớm để bạn vào xem lỗi, thay vì tự đâm đầu làm lại tới 12 lần rồi mới chịu thua.",
+
+  "help.config-ai-turns.title": "Một bước là gì, hạ trần được lợi gì?",
+  "help.config-ai-turns.body":
+    "Một bước là một vòng: AI gọi một công cụ (đọc file, chạy render, xem lại khung hình) rồi nhận kết quả về. Dựng xong một video thường hết vài chục tới hơn trăm bước.\nTrần cao cho AI tự xoay xở lâu với video khó, nhưng cũng chính là thứ để một phiên đi lạc chạy mãi không ai chặn: phiên đắt nhất từng ghi nhận nuốt 92 triệu token đọc vào.\nHạ trần xuống là cắt sớm những phiên đi lạc đó. Nhưng đừng hạ quá tay - dưới khoảng 50 bước thì video phức tạp chưa kịp xong đã hết lượt, phải làm lại còn tốn hơn.\nChạm trần thì phiên dừng giữa chừng; những gì đã dựng vẫn còn trong project, bạn xem rồi cho chạy tiếp được.",
+
+  "help.model-cost.title": "Vì sao chọn model rẻ lại tiết kiệm nhiều thế?",
+  "help.model-cost.body":
+    "Đo trên chính dự án này: cứ 1 token AI viết ra thì có tới khoảng 300 token nó phải đọc vào (kịch bản, file, log render, khung hình). Nên tiền dựng video gần như nằm trọn ở phần ĐỌC VÀO.\nVì thế thứ quyết định hóa đơn là giá token đọc vào của model: Opus 5 $5, Sonnet 5 $3, Haiku 4.5 $1 cho mỗi triệu token. Đổi Opus 5 sang Sonnet 5 tiết kiệm khoảng 40%, sang Haiku 4.5 khoảng 80%.\nSonnet 5 đủ sức cho video theo khuôn đã có skill sẵn: TikTok dọc, YouTube ngang, dịch video. Haiku 4.5 hợp việc nhẹ hơn: sửa vặt, đổi phụ đề, dựng lại một scene.\nĐể dành Opus 5 cho video khó, nhiều yêu cầu lắt léo hoặc phải tự quyết nhiều - đúng chỗ đó thì model yếu hơn làm sai rồi phải làm lại, còn tốn hơn là chọn Opus ngay từ đầu.",
 
   "help.connections.title": "Trang Kết nối để làm gì?",
   "help.connections.body":

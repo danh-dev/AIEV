@@ -44,6 +44,26 @@ export interface RenderSettings {
    *   commit dở dang vì mọi push đều hiện ra thành "có bản mới".
    */
   updateChannel: UpdateChannel;
+  /**
+   * Số lần phiên dựng video (goal='final') được TỰ CHẠY LẠI khi lượt trước kết
+   * thúc mà video final chưa có.
+   *
+   * VÌ SAO ĐÁNG TIỀN: đo trên dữ liệu thật, 4 phiên có chạy lại tốn trung bình
+   * $61,87 trong khi 20 phiên không chạy lại chỉ $22,57 - tức 4 phiên đó nuốt
+   * 34% tổng chi phí. Mỗi lần chạy lại là làm lại gần như từ đầu, mà mỗi lượt
+   * agent lại đọc lại toàn bộ hội thoại, nên tiền tăng rất nhanh.
+   *
+   * Hạ xuống thì phiên hỏng dừng sớm để người dùng xem lỗi thay vì tự đâm đầu.
+   */
+  aiMaxAttempts: number;
+  /**
+   * Trần số lượt (turn) trong MỘT lần chạy của phiên dựng video.
+   *
+   * Một "lượt" là một vòng agent gọi công cụ rồi nhận kết quả. Trần cao cho
+   * phép agent tự xoay xở lâu, nhưng cũng là thứ cho phép một phiên lạc đường
+   * chạy mãi: phiên đắt nhất trong lịch sử ngốn 92 triệu token vào.
+   */
+  aiMaxTurns: number;
 }
 
 /** Kênh cập nhật - xem RenderSettings.updateChannel */
@@ -69,7 +89,18 @@ export const DEFAULT_RENDER_SETTINGS: RenderSettings = {
   draftFps: null,
   qcGate: true,
   updateChannel: "stable",
+  // 4 thay vì 12 như hằng số cũ trong agent.ts. 12 lần chạy lại là quá rộng:
+  // phiên nào hỏng thật thì hỏng luôn từ lần 3-4, chạy tiếp chỉ đốt tiền chứ
+  // không cứu được. Cần rộng hơn thì chỉnh trong Cấu hình.
+  aiMaxAttempts: 4,
+  // Giữ đúng 300 như hằng số cũ để bản cập nhật không đổi hành vi mặc định -
+  // ai muốn siết thì tự hạ, và trang Cấu hình nói rõ hạ để làm gì.
+  aiMaxTurns: 300,
 };
+
+/** Trần chọn được trên UI cho hai thiết lập AI - xem RenderSettings. */
+export const AI_ATTEMPT_OPTIONS = [1, 2, 3, 4, 6, 8, 12] as const;
+export const AI_TURN_OPTIONS = [50, 100, 150, 200, 300] as const;
 
 const settingsFile = path.join(paths.dataDir, "render-settings.json");
 
@@ -95,6 +126,16 @@ function normalizeSettings(raw: Record<string, unknown>): RenderSettings {
   }
   if (raw.draftFps === null) base.draftFps = null;
   else if (typeof raw.draftFps === "number") base.draftFps = clamp(Math.round(raw.draftFps), 10, 60);
+  // Trần 12 = đúng hằng số cũ, để người cần vẫn quay lại được hành vi trước đây.
+  // Sàn 1 chứ không phải 0: 0 nghĩa là không chạy lượt nào, phiên chết ngay.
+  if (typeof raw.aiMaxAttempts === "number") {
+    base.aiMaxAttempts = clamp(Math.round(raw.aiMaxAttempts), 1, 12);
+  }
+  // Sàn 20: dưới mức đó agent chưa kịp đọc xong nguồn thì đã hết lượt, phiên
+  // nào cũng hỏng - siết quá tay còn tốn hơn vì phải làm lại.
+  if (typeof raw.aiMaxTurns === "number") {
+    base.aiMaxTurns = clamp(Math.round(raw.aiMaxTurns), 20, 300);
+  }
   return base;
 }
 

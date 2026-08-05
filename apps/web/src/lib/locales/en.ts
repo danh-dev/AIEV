@@ -186,6 +186,8 @@ export const en: Record<string, string> = {
   "model.gemini-connected": "Gemini connected - only used for Image generation, not for chat/edit.",
   "model.gemini-not-connected": "Gemini not connected - only used for Image generation, not for chat/edit.",
   "model.gemini-images-only": "Gemini: images only",
+  "model.cost-tip":
+    "For videos that follow a familiar template (TikTok, YouTube - a skill already covers them) Sonnet 5 is enough and about 40% cheaper; for lighter work Haiku 4.5 is about 80% cheaper. Save Opus 5 for hard videos with fiddly requirements. Almost the whole cost of building a video is what the AI reads in, so the input token price is what decides it.",
   "model.aria-model": "AI model for the new session",
   "model.aria-effort": "AI mode for the new session",
   "effort.low": "Fast",
@@ -1019,6 +1021,14 @@ export const en: Record<string, string> = {
   "config.update-channel": "Update channel",
   "config.update-channel-hint": "Stable only offers published releases - recommended. Latest takes every commit pushed to main, so fixes land sooner but it can be unstable.",
   "config.update-channel-aria": "System update channel",
+  "config.ai-max-attempts": "How many times the AI may redo a video",
+  "config.ai-max-attempts-hint":
+    "If a run ends without a final video, the system lets the AI start over, up to this many times. Each redo costs nearly as much as a brand new video, so 3-4 is the sweet spot.",
+  "config.ai-max-attempts-aria": "How many times the AI may redo a video",
+  "config.ai-max-turns": "Step limit for a single run",
+  "config.ai-max-turns-hint":
+    "One step is the AI calling a tool and reading the result. Hitting the limit stops the run even mid-task - lower it to cut off runs that wander, but under 50 a hard video never finishes.",
+  "config.ai-max-turns-aria": "Step limit for a single AI run",
 
   // ===== Connections =====
   "conn.subtitle": "Manage AI providers and API keys",
@@ -1484,6 +1494,18 @@ export const en: Record<string, string> = {
   "help.config-render.title": "Render settings",
   "help.config-render.body":
     "These knobs trade speed against safety: more workers and higher concurrency go faster but eat RAM, and overdoing it kills jobs midway.\nGPU encoding is much faster but lower quality than CPU at the same file size - fine for drafts, think twice for finals. A lower draft fps only makes previews quicker and never touches the final render.\nWith the QC gate on the system blocks a final render while the draft has not passed the quality check; turn it off and it is on you.\nEvery change applies to jobs started afterwards; jobs already running keep the old settings.",
+
+  "help.config-ai-attempts.title": "When does the AI redo a video?",
+  "help.config-ai-attempts.body":
+    "Building a video goes through several stages: transcribe, build scenes, draft render, review, then the final render. Sometimes the AI ends its run while a render is still going in the background, so from the outside there is no final video yet - and the system starts the run over.\nEach redo is almost a fresh start, and on every step the AI re-reads the whole conversation up to that point. So the cost does not add up evenly, it jumps.\nMeasured on this very project: runs that DID restart cost $61.87 on average, runs that finished first try only $22.57. Four restarted runs swallowed 34% of the total spend.\nKeeping it low (3-4) means a broken run stops early so you can look at the error, instead of pushing on for 12 attempts before giving up.",
+
+  "help.config-ai-turns.title": "What is a step, and what does lowering the limit buy?",
+  "help.config-ai-turns.body":
+    "A step is one round trip: the AI calls a tool (read a file, run a render, look at a frame) and gets the result back. Finishing a video usually takes a few dozen to a bit over a hundred steps.\nA high limit lets the AI work its way through a hard video, but it is also what lets a run that went off the rails keep going unchecked: the most expensive run on record ate 92 million input tokens.\nLowering it cuts those wandering runs short. Do not overdo it though - below roughly 50 steps a complex video runs out before it is done, and redoing it costs more.\nWhen the limit is hit the run stops mid-way; whatever was built stays in the project, so you can look at it and continue.",
+
+  "help.model-cost.title": "Why does a cheaper model save so much?",
+  "help.model-cost.body":
+    "Measured on this project: for every 1 token the AI writes, it reads about 300 (scripts, files, render logs, frames). So the cost of building a video sits almost entirely on the INPUT side.\nThat makes the input price the thing that decides your bill: Opus 5 $5, Sonnet 5 $3, Haiku 4.5 $1 per million tokens. Switching Opus 5 to Sonnet 5 saves about 40%, to Haiku 4.5 about 80%.\nSonnet 5 is plenty for videos that follow a template a skill already covers: vertical TikTok, landscape YouTube, video translation. Haiku 4.5 suits lighter work: small fixes, subtitle changes, rebuilding a single scene.\nSave Opus 5 for hard videos with fiddly requirements or a lot of judgement calls - that is exactly where a weaker model gets it wrong and the redo costs more than picking Opus in the first place.",
 
   "help.connections.title": "What is the Connections page for?",
   "help.connections.body":

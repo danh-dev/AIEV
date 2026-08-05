@@ -96,6 +96,25 @@ const UPDATE_CHANNEL_OPTIONS: SegOption<UpdateChannel>[] = [
 ];
 
 /**
+ * Hai thiết lập chi phí của phiên AI dựng video - mốc phải khớp
+ * AI_ATTEMPT_OPTIONS / AI_TURN_OPTIONS trong apps/server/src/renderSettings.ts
+ * (server còn kẹp lại 1..12 và 20..300 nên chọn ngoài mốc cũng không hỏng).
+ *
+ * ★ đánh vào ĐÚNG giá trị mặc định của server: 4 lần chạy lại và trần 300 lượt.
+ */
+const AI_ATTEMPT_OPTIONS: SegOption[] = [1, 2, 3, 4, 6, 8, 12].map((v) => ({
+  value: v,
+  label: String(v),
+  recommended: v === 4,
+}));
+
+const AI_TURN_OPTIONS: SegOption[] = [50, 100, 150, 200, 300].map((v) => ({
+  value: v,
+  label: String(v),
+  recommended: v === 300,
+}));
+
+/**
  * Nhóm nút chọn một giá trị. Ruột là <Segmented> dùng chung - trang này trước
  * đây tự chế một biến thể riêng (viền + nền primary-soft) trong khi mọi nhóm
  * chọn-một khác của dashboard lại là một hình dạng khác.
@@ -520,6 +539,49 @@ export default function ConfigPage() {
                         options={UPDATE_CHANNEL_OPTIONS}
                         value={settings.updateChannel ?? "stable"}
                         onSelect={(v) => apply({ updateChannel: v })}
+                      />
+                    </Field>
+                  </Row>
+
+                  {/* Hai ô dưới đây là hai cái van CHI PHÍ của phiên AI dựng
+                      video, không phải thiết lập tốc độ render. Đặt sau cùng
+                      trong cột chọn-giá-trị vì chúng đắt tiền nhất khi đặt sai:
+                      chạy lại nhiều lần và trần lượt cao là hai thứ đã làm bốn
+                      phiên nuốt 34% tổng chi phí của cả dự án.
+                      Server cũ chưa có field này → rơi về đúng mặc định của
+                      server (4 / 300) để UI không hiện một mức không có thật. */}
+                  <Row>
+                    <Field
+                      label={t("config.ai-max-attempts")}
+                      hint={t("config.ai-max-attempts-hint")}
+                      hintKeys={{
+                        titleKey: "help.config-ai-attempts.title",
+                        bodyKey: "help.config-ai-attempts.body",
+                      }}
+                    >
+                      <SegGroup
+                        ariaLabel={t("config.ai-max-attempts-aria")}
+                        options={AI_ATTEMPT_OPTIONS}
+                        value={settings.aiMaxAttempts ?? 4}
+                        onSelect={(v) => apply({ aiMaxAttempts: v ?? 4 })}
+                      />
+                    </Field>
+                  </Row>
+
+                  <Row>
+                    <Field
+                      label={t("config.ai-max-turns")}
+                      hint={t("config.ai-max-turns-hint")}
+                      hintKeys={{
+                        titleKey: "help.config-ai-turns.title",
+                        bodyKey: "help.config-ai-turns.body",
+                      }}
+                    >
+                      <SegGroup
+                        ariaLabel={t("config.ai-max-turns-aria")}
+                        options={AI_TURN_OPTIONS}
+                        value={settings.aiMaxTurns ?? 300}
+                        onSelect={(v) => apply({ aiMaxTurns: v ?? 300 })}
                       />
                     </Field>
                   </Row>

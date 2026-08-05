@@ -13,7 +13,9 @@
 import { AlertTriangle, Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/Badge";
+import { Banner } from "@/components/Banner";
 import { Field } from "@/components/Field";
+import { InfoHint } from "@/components/InfoHint";
 import { Panel } from "@/components/Panel";
 import {
   getClaudeModels,
@@ -24,7 +26,25 @@ import {
 } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
-export const DEFAULT_MODEL = "claude-fable-5";
+/**
+ * Model mặc định cho phiên AI mới.
+ *
+ * SONNET 5 CHỨ KHÔNG PHẢI MODEL MẠNH NHẤT - đây là quyết định về TIỀN, đo trên
+ * dữ liệu thật của dự án chứ không phải cảm tính:
+ *
+ * - Dựng một video tiêu khoảng 24,6 triệu token VÀO và 0,08 triệu token RA.
+ *   Tỉ lệ 300:1, nên gần như toàn bộ chi phí nằm ở giá token vào; giá token ra
+ *   gần như không ảnh hưởng gì.
+ * - Giá token vào: Fable 5 $10, Opus 5 $5, Sonnet 5 $3, Haiku 4.5 $1 mỗi triệu.
+ * - Quy ra mỗi video (sau prompt cache): Fable 5 ~$50, Opus 5 ~$25,
+ *   Sonnet 5 ~$15.
+ *
+ * Trước đây mặc định là Fable 5 - model đắt nhất - nên mỗi video tốn gấp hơn ba
+ * lần mức cần thiết cho công việc dựng video vốn đã có skill hướng dẫn từng
+ * bước. Người dùng vẫn chọn được model mạnh hơn trong ô ngay cạnh; đây chỉ là
+ * điểm khởi đầu hợp lý, không phải giới hạn.
+ */
+export const DEFAULT_MODEL = "claude-sonnet-5";
 export const DEFAULT_EFFORT: AgentEffort = "medium";
 
 export const EFFORT_OPTIONS: {
@@ -38,8 +58,13 @@ export const EFFORT_OPTIONS: {
   { value: "high", label: "effort.high", hint: "effort.high-hint" },
 ];
 
-/** Fallback khi chưa fetch được /api/providers - chỉ để select không trống. */
-const FALLBACK_MODELS = [{ id: DEFAULT_MODEL, label: "Claude Fable 5" }];
+/**
+ * Fallback khi chưa fetch được /api/providers - chỉ để select không trống.
+ * Nhãn phải BÁM THEO DEFAULT_MODEL: trước đây nó ghi cứng "Claude Fable 5",
+ * nên đổi model mặc định mà quên chỗ này là ô select hiện sai tên model, người
+ * dùng tưởng đang chạy model khác hẳn với thứ thật sự được gọi.
+ */
+const FALLBACK_MODELS = [{ id: DEFAULT_MODEL, label: "Claude Sonnet 5" }];
 
 // KEY dictionary - dịch bằng t() lúc render
 const GEMINI_TOOLTIP = "model.gemini-tooltip";
@@ -211,6 +236,24 @@ export function AiModelBlock({
           </select>
         </Field>
       </div>
+      {/* GỢI Ý, KHÔNG PHẢI CƯỠNG CHẾ - model mặc định giữ nguyên, người dùng
+          vẫn tự quyết. Đặt ngay dưới ô chọn vì đây đúng là lúc quyết định, chứ
+          không phải sau khi phiên đã chạy và tiền đã tiêu. Chỉ có ở khối đầy đủ
+          (modal Bắt đầu edit); hàng inline trong ChatThread không nhét được một
+          banner mà không phá nhịp một hàng. */}
+      <Banner
+        tone="info"
+        message={
+          <>
+            {t("model.cost-tip")}{" "}
+            <InfoHint
+              titleKey="help.model-cost.title"
+              bodyKey="help.model-cost.body"
+              className="align-middle"
+            />
+          </>
+        }
+      />
       {gemini && (
         <p
           className="flex items-center gap-2 text-meta text-[var(--text-muted)]"
