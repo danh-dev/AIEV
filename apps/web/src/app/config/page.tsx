@@ -377,22 +377,25 @@ export default function ConfigPage() {
             </div>
           }
         >
-          {/* HAI CỘT, nhưng chỉ cho những hàng vừa một nửa card.
-              1. Chia theo CHIỀU CAO, không theo số hàng. Bản trước đếm "4 hàng
-                 mỗi bên" rồi vẫn so le gần 170px, vì một hàng công tắc chỉ cao
-                 2 dòng còn một hàng Field + Segmented cao 3-4 dòng. Giờ chia
-                 theo hình dạng hàng: TRÁI là toàn bộ công tắc bật/tắt (5 hàng
-                 thấp), PHẢI là toàn bộ ô chọn giá trị (3 hàng cao) - hai bên
-                 xấp xỉ bằng nhau, lệch chưa tới một hàng.
-              2. Nhóm nút chọn số worker / concurrency Remotion có tới 8-9 mốc,
-                 nhét vào nửa card là bị bóp thành mấy hàng nút vụn. Giờ hai
-                 hàng đó TRẢI HẾT bề ngang, nằm trên cùng.
+          {/* CẢ CARD CHIA HAI CỘT, kể cả hàng chọn số luồng trên cùng.
+              1. Hai nhóm "worker Chrome" và "Remotion concurrency" nói về cùng
+                 một thứ - chạy bao nhiêu việc song song - nên đứng CẠNH NHAU
+                 thành một hàng để so sánh, thay vì mỗi cái một hàng trải hết
+                 bề ngang rồi đẩy mọi thứ khác tụt xuống.
+                 Chúng có 8-9 mốc nút; ở nửa card thì `.seg` tự xuống hàng
+                 (flex-wrap trong globals.css) thành hai hàng nút gọn, không
+                 tràn ra ngoài card.
+              2. Phần còn lại chia theo CHIỀU CAO chứ không theo số hàng. Bản
+                 trước đếm "4 hàng mỗi bên" rồi vẫn so le gần 170px, vì một hàng
+                 công tắc chỉ cao 2 dòng còn một hàng Field + Segmented cao 3-4
+                 dòng. Giờ chia theo hình dạng hàng: TRÁI là toàn bộ công tắc
+                 bật/tắt, PHẢI là toàn bộ ô chọn giá trị.
               Cắt cột bằng container query chứ không phải media query: bề rộng
               thật của card phụ thuộc rail trái đang gấp hay mở, không phụ
               thuộc bề rộng cửa sổ. */}
           <div className="@container">
             <div className="divide-y divide-[var(--border)]">
-              <Row>
+              <div className="grid gap-x-6 pb-4 @3xl:grid-cols-2">
                 <Field label={t("config.workers")} hint={workerHint}>
                   <SegGroup
                     ariaLabel={t("config.workers-aria")}
@@ -401,21 +404,23 @@ export default function ConfigPage() {
                     onSelect={(v) => apply({ workers: v ?? 0 })}
                   />
                 </Field>
-              </Row>
 
-              <Row>
-                <Field
-                  label="Remotion concurrency"
-                  hint={tf("config.remotion-hint", { n: rec.concurrency })}
-                >
-                  <SegGroup
-                    ariaLabel="Remotion concurrency"
-                    options={remotionOptions}
-                    value={settings.remotionConcurrency}
-                    onSelect={(v) => apply({ remotionConcurrency: v ?? 0 })}
-                  />
-                </Field>
-              </Row>
+                {/* Lúc xếp chồng (card hẹp) thì tự mọc nét kẻ ngăn với ô trên;
+                    lúc đủ hai cột thì bỏ đi, vì đã có khoảng cách cột tách rồi. */}
+                <div className="mt-4 border-t border-[var(--border)] pt-4 @3xl:mt-0 @3xl:border-t-0 @3xl:pt-0">
+                  <Field
+                    label="Remotion concurrency"
+                    hint={tf("config.remotion-hint", { n: rec.concurrency })}
+                  >
+                    <SegGroup
+                      ariaLabel="Remotion concurrency"
+                      options={remotionOptions}
+                      value={settings.remotionConcurrency}
+                      onSelect={(v) => apply({ remotionConcurrency: v ?? 0 })}
+                    />
+                  </Field>
+                </div>
+              </div>
 
               {/* Nét kẻ nằm TRONG từng cột (mỗi cột một `divide-y` riêng), không
                   kẻ một đường dài vắt ngang qua cả hai - hai cột là hai mạch

@@ -682,62 +682,69 @@ textarea.input {
   color: var(--danger);
 }
 
-/* Nhóm nút phân đoạn (segmented) - chọn MỘT trong vài lựa chọn ngắn.
+/* Nhóm nút chọn - chọn MỘT trong vài lựa chọn ngắn.
    Thay cho 6 biến thể tự chế trước đây: 3 bán kính (9999px / --radius), 3 kiểu
-   padding và 2 màu chữ lúc không được chọn. Chốt hình vuông bo --radius chứ
-   không bo tròn hoàn toàn: bo tròn dễ bị đọc nhầm thành badge (thứ không bấm
-   được), mà hai thứ này hay đứng cạnh nhau. */
+   padding và 2 màu chữ lúc không được chọn.
+
+   TỪNG NÚT RỜI, KHÔNG PHẢI MỘT THANH DÀI. Bản đầu làm kiểu "segmented": cả
+   nhóm nằm trong một cái khung xám, mục đang chọn nổi lên bằng nền trắng +
+   đổ bóng. Nhìn ra thì nó thành một thanh ngang dài mà mắt phải dò mới thấy
+   ô nào đang sáng - người dùng báo lại đúng chỗ đó. Giờ mỗi lựa chọn là một
+   nút riêng có viền riêng, cách nhau hẳn ra, và cái đang chọn tô màu thương
+   hiệu nên liếc một cái là thấy. */
 .seg {
-  display: inline-flex;
-  align-items: center;
-  /* Cho xuống hàng: nhóm này thiết kế cho 2-4 mục nhãn ngắn, nhưng trang Cấu
-     hình dùng nó cho số worker (7-9 nút, ~330px không ngắt được). Không cho
-     wrap thì `.card` không có overflow-x sẽ bị các nút đẩy tràn ra ngoài ở cột
-     hẹp. Với 2-4 mục thì thuộc tính này không đổi gì. */
+  display: flex;
   flex-wrap: wrap;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-subtle);
+  align-items: center;
+  gap: 8px;
 }
 .seg-item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: calc(var(--radius) - 2px);
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text);
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--transition), color var(--transition);
+  transition: background-color var(--transition), color var(--transition),
+    border-color var(--transition);
 }
-.seg-item:hover:not(:disabled):not([aria-checked="true"]) {
-  color: var(--text);
+.seg-item:hover:not(:disabled):not([aria-checked="true"]):not(
+    [aria-pressed="true"]
+  ) {
+  border-color: var(--text-muted);
+  background: var(--bg-subtle);
 }
-/* Mục đang chọn NỔI LÊN bằng nền --surface + đổ bóng, không phải bằng màu
-   thương hiệu: cả nhóm đỏ rực thì nó tranh mất sự chú ý với nút primary thật. */
+/* Đang chọn: tô hẳn màu thương hiệu - viền, nền nhạt và chữ cùng một màu.
+   Đây là chỗ cố ý KHÁC bản trước (nền trắng + bóng): người dùng cần nhìn phát
+   ra ngay, mà nút chọn nằm trong biểu mẫu chứ không cạnh nút primary thật nên
+   không sợ tranh chú ý. */
 .seg-item[aria-checked="true"],
 .seg-item[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow-card);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
 }
 .seg-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* Cỡ khớp hàng điều khiển: 2px đệm + 30px mục + 2px viền = 36px, ĐÚNG BẰNG
-   `.input` và `.btn`. Dùng khi segmented đứng cạnh ô nhập hay nút trên cùng một
-   hàng (header card biểu đồ ở Dashboard) - lệch 4px trên một hàng ngang là thứ
-   nhìn ra ngay dù không chỉ được tên. Đứng một mình thì cỡ mặc định 32px gọn hơn. */
+/* Cỡ 36px - ĐÚNG BẰNG `.input` và `.btn`. Dùng khi nhóm nút đứng cạnh ô nhập
+   hay nút trên cùng một hàng (header card biểu đồ ở Dashboard): lệch 4px trên
+   một hàng ngang là thứ nhìn ra ngay dù không chỉ được tên.
+   Cỡ mặc định 30px khớp `.btn-sm`, hợp với biểu mẫu và toolbar. */
 .seg-md .seg-item {
-  height: 30px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
 }
 
 /* Thẻ lựa chọn - lựa chọn "to" cần tiêu đề + mô tả (chế độ cắt, engine giọng

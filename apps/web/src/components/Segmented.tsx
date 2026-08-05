@@ -1,14 +1,19 @@
 "use client";
 
 /**
- * Chọn MỘT trong vài lựa chọn ngắn (2-4 mục, nhãn một hai chữ): vi/en,
- * sáng/tối, 16:9 / 9:16, tự động / thủ công.
+ * Chọn MỘT trong vài lựa chọn ngắn: vi/en, sáng/tối, 16:9 / 9:16, số worker,
+ * số ngày trên biểu đồ…
+ *
+ * Render ra TỪNG NÚT RỜI, mỗi nút một viền, nút đang chọn tô màu thương hiệu.
+ * Cố ý không còn là "thanh phân đoạn" (cả nhóm trong một khung xám, mục đang
+ * chọn nổi lên bằng nền trắng): kiểu đó gom thành một thanh ngang dài, phải dò
+ * mới thấy ô nào đang sáng. Nút rời thì liếc một cái là ra.
  *
  * Thay cho 6 biến thể tự chế trước đây - 3 bán kính khác nhau, 3 kiểu padding,
  * 2 màu chữ lúc không được chọn, và một bản còn quên cả role.
  *
  * Lựa chọn "to" cần tiêu đề + mô tả thì dùng <OptionCard> chứ không phải cái
- * này: nhãn dài nhét vào segmented là vỡ hàng ngay trên màn hẹp.
+ * này: nhãn dài nhét vào một nút là vỡ hàng ngay trên màn hẹp.
  *
  * ```tsx
  * <Segmented
@@ -47,8 +52,9 @@ export function Segmented<T extends string>({
   options: ReadonlyArray<SegmentedOption<T>>;
   disabled?: boolean;
   /**
-   * sm (32px, mặc định) đứng một mình; md (36px) khi nằm cùng HÀNG NGANG với
-   * ô nhập hoặc nút - lệch 4px giữa các control cạnh nhau nhìn ra ngay.
+   * sm (30px, mặc định - khớp `.btn-sm`) cho biểu mẫu và toolbar;
+   * md (36px - khớp `.btn` và `.input`) khi nằm cùng HÀNG NGANG với ô nhập
+   * hoặc nút, vì lệch 4px giữa các control cạnh nhau nhìn ra ngay.
    */
   size?: "sm" | "md";
   className?: string;
