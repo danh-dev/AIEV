@@ -249,10 +249,28 @@ Found a security problem? Do not open a public issue - follow [SECURITY.md](SECU
 > Remotion in particular is free for individuals and companies of up to 3 people; beyond that you
 > need a [Company License](https://remotion.pro). Claude and Gemini usage is billed to your own account.
 >
-> Note on bundled assets: the brand logos under `assets/brand-logos/` are trademarks of their
-> respective owners and are **not** covered by this MIT license - see
-> [`assets/brand-logos/README.md`](assets/brand-logos/README.md). Fonts and any media you add
-> yourself keep their own licenses too.
+### Assets: this repo ships code, not media
+
+The MIT license above covers the **code**. Media licensing varies per file, so the repo deliberately
+ships none of it:
+
+| Folder | Bundled? | License |
+|---|---|---|
+| [`assets/sound-effects/`](assets/sound-effects/README.md) | No - ships empty | Whatever your source says. Record `source` + `license` per file |
+| [`assets/music/`](assets/music/README.md) | No - ships empty | Whatever your source says |
+| [`assets/styles/files/`](assets/styles/README.md) | No fonts bundled | The font's own. Most of Google Fonts is SIL OFL |
+| [`assets/brand-logos/`](assets/brand-logos/README.md) | Yes, 123 logos | **Trademarks of their owners**, NOT covered by MIT |
+| The **noti.vn** name and logo | Yes | **noti.vn trademark**, NOT covered by MIT |
+
+Sound effects and music ship empty for the same reason: audio collected from scattered sources
+without recording where it came from cannot be shown to be licensed, and what cannot be shown to be
+licensed cannot be redistributed. Each README above lists free sources usable in commercial video.
+
+Fonts are the same, but there is a built-in path: type a font name in **Style Design** and the system
+downloads it from Google Fonts onto your machine, so the repo never has to carry one.
+
+If you fork this, replace the noti.vn name and logo with your own: swap the PNGs in
+`apps/web/public/brand/` and run `node apps/web/scripts/build-brand.mjs`.
 
 ---
 

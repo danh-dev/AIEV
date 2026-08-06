@@ -19,6 +19,20 @@ export interface SfxEntry {
   tags: string[];
   durationMs: number | null;
   description: string;
+  /**
+   * URL nơi lấy file. Không bắt buộc, nhưng thiếu nó thì file coi như không rõ
+   * nguồn gốc - và file không rõ nguồn gốc là file không được phát tán lại.
+   * Repo từng kèm 104 file không ghi nguồn và phải gỡ sạch khi mở mã nguồn;
+   * hai field này có mặt để chuyện đó không lặp lại. Xem README của thư mục.
+   */
+  source?: string;
+  /** Mã giấy phép: "CC0-1.0", "CC-BY-4.0", "Pixabay", "mua-license", "tu-thu-am"… */
+  license?: string;
+}
+
+/** Chuỗi không rỗng thì giữ, còn lại bỏ hẳn field (đừng ghi "" vào file). */
+function optionalText(v: unknown, max = 500): string | undefined {
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
 }
 
 /** Tag quy ước "đề xuất" - AI ưu tiên dùng khi brief đặt sfxMode "recommended" */
@@ -32,12 +46,22 @@ export function readLibrary(): SfxEntry[] {
     if (!Array.isArray(raw)) return [];
     return raw
       .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
-      .map((e) => ({
-        file: typeof e.file === "string" ? e.file : "",
-        tags: Array.isArray(e.tags) ? e.tags.map(String) : [],
-        durationMs: typeof e.durationMs === "number" ? e.durationMs : null,
-        description: typeof e.description === "string" ? e.description : "",
-      }))
+      .map((e) => {
+        const source = optionalText(e.source);
+        const license = optionalText(e.license, 60);
+        return {
+          file: typeof e.file === "string" ? e.file : "",
+          tags: Array.isArray(e.tags) ? e.tags.map(String) : [],
+          durationMs: typeof e.durationMs === "number" ? e.durationMs : null,
+          description: typeof e.description === "string" ? e.description : "",
+          // Phải mang qua ở ĐÂY: readLibrary là đường duy nhất để đọc, và
+          // writeLibrary ghi đè bằng đúng thứ nó trả về. Quên một field ở đây
+          // là mỗi lần sửa mô tả trên UI lại xóa mất nguồn của file, không báo
+          // gì cả - đúng kiểu hỏng im lặng khó thấy nhất.
+          ...(source ? { source } : {}),
+          ...(license ? { license } : {}),
+        };
+      })
       .filter((e) => e.file);
   } catch {
     return []; // chưa có library.json → coi như rỗng
@@ -101,7 +125,16 @@ router.post("/", upload.single("file"), async (req, res) => {
     const description = typeof body.description === "string" ? body.description : "";
     const durationMs = await ffprobeDurationMs(destAbs); // null nếu ffprobe fail
 
-    const entry: SfxEntry = { file: finalName, tags, durationMs, description };
+    const source = optionalText(body.source);
+    const license = optionalText(body.license, 60);
+    const entry: SfxEntry = {
+      file: finalName,
+      tags,
+      durationMs,
+      description,
+      ...(source ? { source } : {}),
+      ...(license ? { license } : {}),
+    };
     const entries = readLibrary().filter((e) => e.file !== finalName);
     entries.push(entry);
     writeLibrary(entries);
@@ -120,7 +153,7 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// PATCH /api/sfx/:file - { description?, tags?, recommended? } → SfxEntry sau cập nhật
+// PATCH /api/sfx/:file - { description?, tags?, recommended?, source?, license? } → SfxEntry sau cập nhật
 router.patch("/:file", (req, res) => {
   const file = path.basename(req.params.file); // chặn traversal
   const entries = readLibrary();
@@ -153,6 +186,18 @@ router.patch("/:file", (req, res) => {
     } else {
       entry.tags = entry.tags.filter((t) => t !== RECOMMENDED_TAG);
     }
+  }
+
+  // Chuỗi rỗng = xóa field, chứ không phải ghi "" - để file JSON sạch và để
+  // "chưa ghi nguồn" phân biệt được với "đã ghi rồi xóa đi".
+  for (const key of ["source", "license"] as const) {
+    if (!(key in body)) continue;
+    if (typeof body[key] !== "string") {
+      throw new HttpError(400, "INVALID_SETTING", `${key} phải là string`);
+    }
+    const v = optionalText(body[key], key === "license" ? 60 : 500);
+    if (v) entry[key] = v;
+    else delete entry[key];
   }
 
   entry.tags = [...new Set(entry.tags)]; // không trùng lặp

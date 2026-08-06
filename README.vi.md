@@ -248,9 +248,23 @@ Phát hiện lỗ hổng bảo mật? Đừng mở issue công khai, làm theo [
 > Remotion miễn phí cho cá nhân và công ty tối đa 3 người; vượt mức đó cần
 > [Company License](https://remotion.pro). Chi phí Claude và Gemini tính vào tài khoản của bạn.
 >
-> Lưu ý về asset đi kèm: logo trong `assets/brand-logos/` là **nhãn hiệu của chủ thương hiệu**,
-> KHÔNG nằm trong giấy phép MIT này - xem [`assets/brand-logos/README.md`](assets/brand-logos/README.md).
-> Font và mọi media bạn tự thêm vào cũng giữ giấy phép riêng của chúng.
+### Asset: repo ship code, không ship media
+
+Giấy phép MIT ở trên áp cho **code**. Media thì mỗi thứ một giấy phép, nên repo cố ý không kèm sẵn:
+
+| Thư mục | Repo có kèm? | Giấy phép |
+|---|---|---|
+| [`assets/sound-effects/`](assets/sound-effects/README.md) | Không - ship rỗng | Của nguồn bạn lấy. Ghi `source` + `license` cho từng file |
+| [`assets/music/`](assets/music/README.md) | Không - ship rỗng | Của nguồn bạn lấy |
+| [`assets/styles/files/`](assets/styles/README.md) | Không kèm font | Của font đó. Google Fonts phần lớn là SIL OFL |
+| [`assets/brand-logos/`](assets/brand-logos/README.md) | Có, 123 logo | **Nhãn hiệu của chủ thương hiệu**, KHÔNG thuộc MIT |
+| Tên và logo **noti.vn** | Có | **Nhãn hiệu của noti.vn**, KHÔNG thuộc MIT |
+
+Sound effect và nhạc nền ship rỗng vì cùng một lý do: file audio gom từ nhiều nguồn mà không ghi lại nguồn thì không chứng minh được quyền, và không chứng minh được quyền thì không phát tán lại được. Mỗi README ở trên có danh sách nguồn miễn phí dùng được cho video thương mại.
+
+Font cũng vậy, nhưng có sẵn lối đi: gõ tên font trong **Style Design** là hệ thống tự tải từ Google Fonts về máy bạn, không cần repo kèm file nào.
+
+Fork dự án này thì nhớ thay logo và tên noti.vn bằng của bạn: thay PNG trong `apps/web/public/brand/` rồi chạy `node apps/web/scripts/build-brand.mjs`.
 
 ---
 

@@ -851,6 +851,10 @@ export const en: Record<string, string> = {
   "styleDetail.download-font": "Download this font",
   "styleDetail.font-ready": "Font file present:",
   "styleDetail.font-missing": "No file yet - click “Download this font” so renders use the correct font.",
+  "styleDetail.font-browse":
+    "No fonts ship with the system. Type a font name above and it downloads itself; to see the whole catalogue, browse",
+  "styleDetail.font-license-note":
+    "- pick one that covers the characters your language needs. Every font keeps its own license (most of Google Fonts is SIL OFL: free for commercial use, but redistributing the font file means shipping the license with it).",
   "styleDetail.manual-upload": "or upload a font file manually",
   "styleDetail.no-font-file": "None - using the system font",
   "styleDetail.upload-file": "Upload file",

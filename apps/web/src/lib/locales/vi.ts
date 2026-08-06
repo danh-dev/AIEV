@@ -851,6 +851,10 @@ export const vi: Record<string, string> = {
   "styleDetail.download-font": "Tải font này",
   "styleDetail.font-ready": "Đã có file font:",
   "styleDetail.font-missing": "Chưa có file - bấm “Tải font này” để render đúng font.",
+  "styleDetail.font-browse":
+    "Hệ thống không kèm sẵn font nào. Gõ tên font vào ô trên là tự tải về; muốn xem hết kho thì duyệt tại",
+  "styleDetail.font-license-note":
+    "- nhớ chọn font có bộ dấu tiếng Việt. Mỗi font giữ giấy phép riêng của nó (Google Fonts phần lớn là SIL OFL: dùng thương mại thoải mái, nhưng nếu bạn phát tán lại file font thì phải kèm bản giấy phép).",
   "styleDetail.manual-upload": "hoặc tự upload file font",
   "styleDetail.no-font-file": "Chưa có - dùng font hệ thống",
   "styleDetail.upload-file": "Tải file",

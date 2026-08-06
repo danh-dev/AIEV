@@ -19,8 +19,8 @@
         "body": "Inter"
       },
       "fontFiles": {
-        "heading": "assets/styles/files/inter-700.ttf",
-        "body": "assets/styles/files/inter-400.ttf"
+        "heading": null,
+        "body": null
       },
       "effects": {
         "gradient": true,

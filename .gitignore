@@ -26,6 +26,25 @@ assets/music/*
 !assets/music/library.json
 !assets/music/README.md
 
+# Sound effect: y hệt lý do của nhạc nền, và đây là bài học phải trả giá. Repo
+# từng kèm 104 file gom từ nhiều nguồn không nhớ giấy phép - trong đó có cả
+# trích đoạn nhận ra ngay là của ai (jingle Netflix, nhạc Nintendo, SpongeBob)
+# và file còn nguyên tên của trang tải YouTube. Phát tán lại chúng trong một
+# repo MIT công khai là không được, nên thư mục này ship RỖNG, ai dùng thì tự
+# thêm. library.json cũng không theo dõi: nó là danh mục file của riêng từng
+# máy, mà server thiếu nó thì tự coi thư viện rỗng (routes/sfx.ts).
+assets/sound-effects/*
+!assets/sound-effects/README.md
+
+# File font: font có giấy phép riêng (Google Fonts phần lớn là SIL OFL, bắt
+# buộc kèm bản giấy phép khi phát tán lại), nên không ship kèm font nào. Người
+# dùng gõ tên font trong Style Design là server tự tải từ Google Fonts về đây,
+# hoặc tự upload file của mình. Logo thì vẫn theo dõi - đó là tài sản của dự án.
+assets/styles/files/*.ttf
+assets/styles/files/*.otf
+assets/styles/files/*.woff
+assets/styles/files/*.woff2
+
 # Giọng nhân bản: file mẫu là BẢN GHI ÂM GIỌNG THẬT của người dùng. Repo này
 # công khai, mà đẩy giọng một người lên mạng là chuyện không lấy lại được -
 # nên giữ ở máy. Muốn mang sang máy khác thì copy tay cả thư mục assets/voices/.

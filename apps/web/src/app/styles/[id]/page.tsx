@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Check,
   Download,
+  ExternalLink,
   Image as ImageIcon,
   Loader2,
   Save,
@@ -657,6 +658,28 @@ export default function StyleDetailPage() {
                       <option key={f} value={f} />
                     ))}
                   </datalist>
+
+                  {/* Danh sách gợi ý ở trên chỉ là vài font hợp tiếng Việt, còn
+                      kho thật thì hàng nghìn - nói thẳng ra chỗ duyệt, vì hệ
+                      thống KHÔNG kèm sẵn font nào (font có giấy phép riêng). */}
+                  <Banner
+                    tone="info"
+                    message={
+                      <>
+                        {t("styleDetail.font-browse")}{" "}
+                        <a
+                          href="https://fonts.google.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] hover:underline"
+                        >
+                          fonts.google.com
+                          <ExternalLink size={12} strokeWidth={2} className="shrink-0" />
+                        </a>{" "}
+                        {t("styleDetail.font-license-note")}
+                      </>
+                    }
+                  />
 
                   {/* Đường PHỤ cho cùng một trường: file font tự có trên máy.
                       Trước đây khối này nấp sau một nút "hoặc tự upload file

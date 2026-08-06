@@ -1055,17 +1055,22 @@ POST   /api/skills/generate     — tạo draft SKILL.md bằng Claude (Agent SD
 ## Sound Effects
 
 ```
-SfxEntry = { file, tags: string[], durationMs: number|null, description }
+SfxEntry = { file, tags: string[], durationMs: number|null, description, source?, license? }
 
 GET    /api/sfx                 → SfxEntry[]  (đọc assets/sound-effects/library.json, chỉ trả entry có file tồn tại)
-POST   /api/sfx                 multipart: file (audio) + fields tags (csv), description
+POST   /api/sfx                 multipart: file (audio) + fields tags (csv), description, source, license
                                 → SfxEntry (lưu file kebab-case ASCII, đo durationMs bằng ffprobe, cập nhật library.json)
-PATCH  /api/sfx/:file           { description?, tags?, recommended? } → SfxEntry
+PATCH  /api/sfx/:file           { description?, tags?, recommended?, source?, license? } → SfxEntry
                                 — recommended=true thêm tag "hay-dung", false gỡ tag đó
+                                — source/license: chuỗi rỗng = XÓA field (không ghi "" vào file)
 DELETE /api/sfx/:file           → 204
 
 Quy ước "đề xuất": entry có tag `hay-dung` là sound effect được đề xuất — UI hiển thị khu riêng,
 AI ưu tiên dùng khi brief đặt sfxMode "recommended".
+
+`source` (URL nơi lấy file) và `license` (mã giấy phép) là tùy chọn nhưng nên có: repo ship thư mục
+sound-effects RỖNG vì file audio không rõ nguồn thì không phát tán lại được. Xem
+assets/sound-effects/README.md.
 ```
 
 ## Music (nhạc nền)
