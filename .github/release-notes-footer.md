@@ -1,36 +1,38 @@
-## Cách chạy
+## How to run
 
-**Windows** - nhấp đúp `start\start.bat`
-**macOS** - nhấp đúp `start/start.command` trong Finder. File `.sh` KHÔNG nhấp đúp được trên macOS, nó chỉ mở ra bằng trình soạn thảo. Lần đầu macOS chặn "unidentified developer" thì chuột phải vào file → **Open** → **Open**.
-**Linux** - chạy `./start/start.sh` trong terminal
+**Windows** - double-click `start\start.bat`
+**macOS** - double-click `start/start.command` in Finder. `.sh` files CANNOT be double-clicked on macOS, they only open in an editor. If macOS blocks it as an "unidentified developer" the first time, right-click the file → **Open** → **Open**.
+**Linux** - run `./start/start.sh` in a terminal
 
-Tải bản ZIP về (thay vì `git clone`) thì lần đầu cần cấp quyền chạy cho script:
+If you downloaded the ZIP instead of cloning, grant the scripts permission to run, once:
 
 ```bash
 chmod +x start/*.sh start/*.command update/*.sh update/*.command
 ```
 
-| Việc | Windows | macOS | Linux |
+| Task | Windows | macOS | Linux |
 |---|---|---|---|
-| Chạy hệ thống | `start\start.bat` | `start/start.command` | `./start/start.sh` |
-| Dừng hệ thống | `start\stop.bat` | `start/stop.command` | `./start/stop.sh` |
-| Cập nhật thủ công | `update\update.bat` | `update/update.command` | `bash update/update.sh` |
-| Mở tunnel (upload từ điện thoại qua 4G/5G) | `start\tunnel.bat` | `start/tunnel.command` | `./start/tunnel.sh` |
+| Start | `start\start.bat` | `start/start.command` | `./start/start.sh` |
+| Stop | `start\stop.bat` | `start/stop.command` | `./start/stop.sh` |
+| Update manually | `update\update.bat` | `update/update.command` | `bash update/update.sh` |
+| Open a tunnel (upload from your phone over 4G/5G) | `start\tunnel.bat` | `start/tunnel.command` | `./start/tunnel.sh` |
 
-Bình thường không cần chạy script cập nhật bằng tay: bấm nút cập nhật ngay trên dashboard là xong.
+You normally never run the update script by hand: the update button on the dashboard does it for you.
 
-Lần chạy đầu script tự kiểm tra môi trường, cài giúp phần cài được, cài dependencies, build rồi mở `http://localhost:6868`.
+> **The ZIP download cannot update itself.** Updating runs on git, and the source ZIP has no `.git` folder, so the dashboard's update button will report a failed check. Moving to a newer version means downloading a fresh ZIP and copying your own data across: `apps/server/data/` (the database), `video-projects/`, `assets/` and `.env`. If you plan to keep the project, `git clone` instead - then updating is one button, and the updater backs your data up before it pulls.
 
-**Yêu cầu:** Node.js 22+, FFmpeg trên PATH, Google Chrome. Cần đăng nhập Claude Code trên máy hoặc có `ANTHROPIC_API_KEY`; phần tạo ảnh cần thêm `GEMINI_API_KEY`.
+On the first run the script checks your environment, installs what it can, installs dependencies, builds, then opens `http://localhost:6868`.
 
-Hướng dẫn sử dụng đầy đủ: [README tiếng Việt](https://github.com/notivn/AIEV/blob/main/README.vi.md) · [English README](https://github.com/notivn/AIEV/blob/main/README.md)
+**Requirements:** Node.js 22+, FFmpeg on PATH, Google Chrome. You need to be signed in to Claude Code on the machine, or have an `ANTHROPIC_API_KEY`; image generation additionally needs a `GEMINI_API_KEY`.
 
-### How to run (English)
+Full documentation: [English README](https://github.com/notivn/AIEV/blob/main/README.md) · [README tiếng Việt](https://github.com/notivn/AIEV/blob/main/README.vi.md)
 
-Windows: double-click `start\start.bat`. macOS: double-click `start/start.command` in Finder (`.sh` files cannot be double-clicked on macOS; if macOS blocks an unidentified developer, right-click the file → Open → Open). Linux: run `./start/start.sh`.
+### Hướng dẫn chạy (tiếng Việt)
 
-If you downloaded a ZIP instead of cloning, run `chmod +x start/*.sh start/*.command update/*.sh update/*.command` once first.
+Windows: nhấp đúp `start\start.bat`. macOS: nhấp đúp `start/start.command` trong Finder (file `.sh` không nhấp đúp được trên macOS; lần đầu macOS chặn "unidentified developer" thì chuột phải vào file → Open → Open). Linux: chạy `./start/start.sh`.
 
-Stop with `start\stop.bat` / `start/stop.command` / `./start/stop.sh`. Manual update with `update\update.bat` / `update/update.command` / `bash update/update.sh`, though the dashboard's update button is the normal path.
+Tải bản ZIP thay vì `git clone` thì lần đầu cần chạy `chmod +x start/*.sh start/*.command update/*.sh update/*.command`.
 
-Requires Node.js 22+, FFmpeg on PATH and Google Chrome. The start script checks your environment and installs what it can.
+Dừng bằng `start\stop.bat` / `start/stop.command` / `./start/stop.sh`. Cập nhật thủ công bằng `update\update.bat` / `update/update.command` / `bash update/update.sh`, nhưng bình thường chỉ cần bấm nút cập nhật trên dashboard. **Bản ZIP không tự cập nhật được** (không có thư mục `.git`) - dùng lâu dài thì nên `git clone`.
+
+Yêu cầu: Node.js 22+, FFmpeg trên PATH, Google Chrome. Cần đăng nhập Claude Code trên máy hoặc có `ANTHROPIC_API_KEY`; phần tạo ảnh cần thêm `GEMINI_API_KEY`. Hướng dẫn đầy đủ: [README tiếng Việt](https://github.com/notivn/AIEV/blob/main/README.vi.md).
