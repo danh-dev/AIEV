@@ -36,14 +36,18 @@ assets/music/*
 assets/sound-effects/*
 !assets/sound-effects/README.md
 
-# File font: font có giấy phép riêng (Google Fonts phần lớn là SIL OFL, bắt
-# buộc kèm bản giấy phép khi phát tán lại), nên không ship kèm font nào. Người
-# dùng gõ tên font trong Style Design là server tự tải từ Google Fonts về đây,
-# hoặc tự upload file của mình. Logo thì vẫn theo dõi - đó là tài sản của dự án.
-assets/styles/files/*.ttf
-assets/styles/files/*.otf
-assets/styles/files/*.woff
-assets/styles/files/*.woff2
+# Style Design là DỮ LIỆU NHẬN DIỆN CỦA NGƯỜI DÙNG, cùng loại với nhạc, giọng
+# và project - nên ở lại máy chứ không đi theo repo:
+# - styles.json: màu, font, tone, guidelines của riêng một thương hiệu. Ship
+#   kèm thì ai clone về cũng nhận nguyên bộ nhận diện của noti.vn, và nếu style
+#   có logo thì video của họ bị đóng dấu logo người khác.
+# - files/: file font (giấy phép riêng, SIL OFL bắt buộc kèm bản giấy phép khi
+#   phát tán lại) và file logo. Gõ tên font trong Style Design là server tự tải
+#   từ Google Fonts về đây, nên không cần repo mang theo font nào.
+# Thiếu cả hai thì server trả danh sách rỗng, UI hiện màn hình trống có nút tạo,
+# và style đầu tiên người dùng tạo tự thành mặc định (routes/stylesRoute.ts).
+assets/styles/styles.json
+assets/styles/files/
 
 # Giọng nhân bản: file mẫu là BẢN GHI ÂM GIỌNG THẬT của người dùng. Repo này
 # công khai, mà đẩy giọng một người lên mạng là chuyện không lấy lại được -

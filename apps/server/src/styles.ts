@@ -58,13 +58,22 @@ export function normHexColor(hex: string): string {
 const stylesFilePath = () => path.join(paths.stylesDir, "styles.json");
 const legacyFilePath = () => path.join(paths.brandDir, "design-system.json");
 
-/** Style mặc định noti.vn - dùng làm template cho style mới và fallback khi chưa có style nào */
+/**
+ * Style khởi điểm - dùng làm template cho style mới và làm fallback khi chưa
+ * có style nào trên đĩa.
+ *
+ * KHÔNG mang tên hay nhận diện của một thương hiệu cụ thể. Trước đây hàm này
+ * trả về id "noti-vn" / name "noti.vn", nghĩa là mọi bản fork đều nhận sẵn tên
+ * thương hiệu của người khác ngay trong mã nguồn - đúng thứ vừa được dọn khỏi
+ * repo ở tầng dữ liệu (assets/styles/ không còn được commit). Bảng màu thì giữ
+ * vì màu không thuộc về ai; cái phải đổi là cái TÊN.
+ */
 export function defaultStyle(): StyleDesign {
   const now = nowIso();
   return {
-    id: "noti-vn",
-    name: "noti.vn",
-    tags: ["brand"],
+    id: "default",
+    name: "Mặc định",
+    tags: [],
     colors: {
       primary: "#ed3c47",
       secondary: "#ff7849",

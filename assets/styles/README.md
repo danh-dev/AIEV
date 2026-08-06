@@ -1,6 +1,9 @@
 # Style Design — bộ nhận diện dùng cho video và ảnh
 
-`styles.json` chứa các Style Design (màu, font, hiệu ứng, logo, tone). Quản lý ở trang **Style Design** trên web UI; hợp đồng API ở [`docs/API.md`](../../docs/API.md).
+> **Repo không kèm sẵn style nào.** Style Design là nhận diện thương hiệu của *bạn* — màu, font, logo, tone — nên nó là dữ liệu của bạn, ở lại máy bạn, giống nhạc nền và giọng đã nhân bản. Lần đầu mở trang **Style Design** sẽ thấy danh sách trống kèm nút tạo; style đầu tiên bạn tạo tự thành mặc định.
+> *This folder ships empty on purpose: a Style Design is your brand identity, so it stays on your machine. Create your first one from the Style Design page and it becomes the default.*
+
+`styles.json` chứa các style đã tạo (màu, font, hiệu ứng, logo, tone). Quản lý ở trang **Style Design** trên web UI; hợp đồng API ở [`docs/API.md`](../../docs/API.md). Chưa có style nào thì hệ thống vẫn chạy — nó rơi về một bảng màu khởi điểm trung tính cho tới khi bạn tạo style thật.
 
 ## Font — repo không kèm sẵn font nào
 
@@ -20,7 +23,9 @@ Chưa tải font thì render vẫn chạy, chỉ là rơi về font hệ thống
 
 ## Logo
 
-Logo của Style Design là file bạn upload, nằm cùng thư mục `files/`. Có logo thì khâu lắp ráp Remotion tự đóng nó lên góc trên trái toàn video (xem `jobs/assemble.ts` → `manifest.watermark`). Không muốn đóng logo thì dùng một style không có logo.
+Logo của Style Design là file bạn upload, nằm cùng thư mục `files/` và **không được commit lên git**. Có logo thì khâu lắp ráp Remotion tự đóng nó lên góc trên trái toàn video (xem `jobs/assemble.ts` → `manifest.watermark`). Không muốn đóng logo thì dùng một style không có logo.
+
+Đây cũng là lý do thư mục này ship rỗng: một repo mang sẵn logo của ai đó sẽ đóng dấu logo người đó lên video của mọi người clone về.
 
 Logo thương hiệu **khác** (Meta, TikTok, OpenAI…) không thuộc đây — chúng nằm ở [`assets/brand-logos/`](../brand-logos/README.md) và có ràng buộc nhãn hiệu riêng.
 
@@ -33,4 +38,4 @@ Logo thương hiệu **khác** (Meta, TikTok, OpenAI…) không thuộc đây �
 | Logo bạn upload | Của bạn |
 | Logo và tên **noti.vn** | Nhãn hiệu của noti.vn, **không** nằm trong giấy phép MIT |
 
-Thư mục `files/` đã được cấu hình để không commit file font lên git. File font, logo và các style của bạn ở lại máy bạn.
+Thư mục này đã được cấu hình để **không commit `styles.json` lẫn `files/` lên git** — chỉ README này được theo dõi. File font, logo và các style của bạn ở lại máy bạn.

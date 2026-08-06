@@ -258,9 +258,9 @@ ships none of it:
 |---|---|---|
 | [`assets/sound-effects/`](assets/sound-effects/README.md) | No - ships empty | Whatever your source says. Record `source` + `license` per file |
 | [`assets/music/`](assets/music/README.md) | No - ships empty | Whatever your source says |
-| [`assets/styles/files/`](assets/styles/README.md) | No fonts bundled | The font's own. Most of Google Fonts is SIL OFL |
+| [`assets/styles/`](assets/styles/README.md) | No - ships empty | Your styles, fonts and logo are yours |
 | [`assets/brand-logos/`](assets/brand-logos/README.md) | Yes, 123 logos | **Trademarks of their owners**, NOT covered by MIT |
-| The **noti.vn** name and logo | Yes | **noti.vn trademark**, NOT covered by MIT |
+| The **noti.vn** name and logo on the dashboard | Yes | **noti.vn trademark**, NOT covered by MIT |
 
 Sound effects and music ship empty for the same reason: audio collected from scattered sources
 without recording where it came from cannot be shown to be licensed, and what cannot be shown to be
@@ -268,6 +268,11 @@ licensed cannot be redistributed. Each README above lists free sources usable in
 
 Fonts are the same, but there is a built-in path: type a font name in **Style Design** and the system
 downloads it from Google Fonts onto your machine, so the repo never has to carry one.
+
+Style Design ships empty for a different reason: a style is your own brand identity. A repo carrying
+someone else's style would have everyone building videos in their colours, and if that style has a
+logo, watermarking everyone's video with it. Create your first style on the Style Design page and it
+becomes the default.
 
 If you fork this, replace the noti.vn name and logo with your own: swap the PNGs in
 `apps/web/public/brand/` and run `node apps/web/scripts/build-brand.mjs`.

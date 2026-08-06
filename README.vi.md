@@ -256,13 +256,15 @@ Giấy phép MIT ở trên áp cho **code**. Media thì mỗi thứ một giấy
 |---|---|---|
 | [`assets/sound-effects/`](assets/sound-effects/README.md) | Không - ship rỗng | Của nguồn bạn lấy. Ghi `source` + `license` cho từng file |
 | [`assets/music/`](assets/music/README.md) | Không - ship rỗng | Của nguồn bạn lấy |
-| [`assets/styles/files/`](assets/styles/README.md) | Không kèm font | Của font đó. Google Fonts phần lớn là SIL OFL |
+| [`assets/styles/`](assets/styles/README.md) | Không - ship rỗng | Style, font và logo là của bạn |
 | [`assets/brand-logos/`](assets/brand-logos/README.md) | Có, 123 logo | **Nhãn hiệu của chủ thương hiệu**, KHÔNG thuộc MIT |
-| Tên và logo **noti.vn** | Có | **Nhãn hiệu của noti.vn**, KHÔNG thuộc MIT |
+| Tên và logo **noti.vn** trên dashboard | Có | **Nhãn hiệu của noti.vn**, KHÔNG thuộc MIT |
 
 Sound effect và nhạc nền ship rỗng vì cùng một lý do: file audio gom từ nhiều nguồn mà không ghi lại nguồn thì không chứng minh được quyền, và không chứng minh được quyền thì không phát tán lại được. Mỗi README ở trên có danh sách nguồn miễn phí dùng được cho video thương mại.
 
 Font cũng vậy, nhưng có sẵn lối đi: gõ tên font trong **Style Design** là hệ thống tự tải từ Google Fonts về máy bạn, không cần repo kèm file nào.
+
+Style Design ship rỗng vì lý do khác: đó là nhận diện thương hiệu của riêng bạn. Repo mang sẵn style của người khác thì ai clone về cũng dựng video bằng màu của họ, và nếu style đó có logo thì video bị đóng dấu logo người khác. Lần đầu vào trang Style Design, tạo style của bạn - nó tự thành mặc định.
 
 Fork dự án này thì nhớ thay logo và tên noti.vn bằng của bạn: thay PNG trong `apps/web/public/brand/` rồi chạy `node apps/web/scripts/build-brand.mjs`.
 
