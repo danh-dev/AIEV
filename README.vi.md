@@ -254,13 +254,15 @@ Giấy phép MIT ở trên áp cho **code**. Media thì mỗi thứ một giấy
 
 | Thư mục | Repo có kèm? | Giấy phép |
 |---|---|---|
-| [`assets/sound-effects/`](assets/sound-effects/README.md) | Không - ship rỗng | Của nguồn bạn lấy. Ghi `source` + `license` cho từng file |
+| [`assets/sound-effects/`](assets/sound-effects/README.md) | Có, 86 file | **Sưu tầm nhiều nguồn, không rõ giấy phép - đừng dùng cho video thương mại** |
 | [`assets/music/`](assets/music/README.md) | Không - ship rỗng | Của nguồn bạn lấy |
 | [`assets/styles/`](assets/styles/README.md) | Không - ship rỗng | Style, font và logo là của bạn |
 | [`assets/brand-logos/`](assets/brand-logos/README.md) | Có, 123 logo | **Nhãn hiệu của chủ thương hiệu**, KHÔNG thuộc MIT |
 | Tên và logo **noti.vn** trên dashboard | Có | **Nhãn hiệu của noti.vn**, KHÔNG thuộc MIT |
 
-Sound effect và nhạc nền ship rỗng vì cùng một lý do: file audio gom từ nhiều nguồn mà không ghi lại nguồn thì không chứng minh được quyền, và không chứng minh được quyền thì không phát tán lại được. Mỗi README ở trên có danh sách nguồn miễn phí dùng được cho video thương mại.
+**Sound effect đi kèm nhưng có điều kiện.** Bộ 86 file này là đồ sưu tầm nhiều năm từ nhiều nguồn, không ghi lại giấy phép của từng file. Nó có mặt để cài xong là dùng được ngay, nhưng **không dùng cho video thương mại** - không ai chứng minh được quyền với chúng. Làm thương mại thì thay dần bằng nguồn CC0 hoặc đã mua giấy phép, và ghi `source` + `license` cho từng file. Một số trích đoạn nhận ra ngay là của ai (jingle Netflix, nhạc Nintendo, SpongeBob…) thì không đi kèm repo, dù danh mục vẫn còn tên.
+
+Nhạc nền thì ship rỗng hẳn: một bài nhạc dài vài phút rủi ro hơn một tiếng whoosh nửa giây rất nhiều.
 
 Font cũng vậy, nhưng có sẵn lối đi: gõ tên font trong **Style Design** là hệ thống tự tải từ Google Fonts về máy bạn, không cần repo kèm file nào.
 

@@ -256,15 +256,20 @@ ships none of it:
 
 | Folder | Bundled? | License |
 |---|---|---|
-| [`assets/sound-effects/`](assets/sound-effects/README.md) | No - ships empty | Whatever your source says. Record `source` + `license` per file |
+| [`assets/sound-effects/`](assets/sound-effects/README.md) | Yes, 86 files | **Collected from assorted sources, licensing unknown - not for commercial video** |
 | [`assets/music/`](assets/music/README.md) | No - ships empty | Whatever your source says |
 | [`assets/styles/`](assets/styles/README.md) | No - ships empty | Your styles, fonts and logo are yours |
 | [`assets/brand-logos/`](assets/brand-logos/README.md) | Yes, 123 logos | **Trademarks of their owners**, NOT covered by MIT |
 | The **noti.vn** name and logo on the dashboard | Yes | **noti.vn trademark**, NOT covered by MIT |
 
-Sound effects and music ship empty for the same reason: audio collected from scattered sources
-without recording where it came from cannot be shown to be licensed, and what cannot be shown to be
-licensed cannot be redistributed. Each README above lists free sources usable in commercial video.
+**The sound effects ship with a condition.** Those 86 files were collected over years from assorted
+sources with no licensing records. They are here so the feature works out of the box, but **not for
+commercial video** - nobody can prove rights to them. For commercial work, replace them with CC0 or
+properly licensed audio and record `source` + `license` per file. Excerpts that are recognisably
+someone's property (the Netflix jingle, Nintendo sounds, SpongeBob…) are not included, even though
+the catalogue still lists their names.
+
+Music ships empty outright: a multi-minute track is a far bigger risk than a half-second whoosh.
 
 Fonts are the same, but there is a built-in path: type a font name in **Style Design** and the system
 downloads it from Google Fonts onto your machine, so the repo never has to carry one.

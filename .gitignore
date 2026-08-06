@@ -26,15 +26,35 @@ assets/music/*
 !assets/music/library.json
 !assets/music/README.md
 
-# Sound effect: y hệt lý do của nhạc nền, và đây là bài học phải trả giá. Repo
-# từng kèm 104 file gom từ nhiều nguồn không nhớ giấy phép - trong đó có cả
-# trích đoạn nhận ra ngay là của ai (jingle Netflix, nhạc Nintendo, SpongeBob)
-# và file còn nguyên tên của trang tải YouTube. Phát tán lại chúng trong một
-# repo MIT công khai là không được, nên thư mục này ship RỖNG, ai dùng thì tự
-# thêm. library.json cũng không theo dõi: nó là danh mục file của riêng từng
-# máy, mà server thiếu nó thì tự coi thư viện rỗng (routes/sfx.ts).
-assets/sound-effects/*
-!assets/sound-effects/README.md
+# Sound effect: thư viện đi kèm repo, nhưng KHÔNG kèm 18 file dưới đây.
+#
+# Cả thư viện là đồ sưu tầm nhiều năm từ nhiều nguồn, không ghi lại giấy phép -
+# README nói rõ chuyện đó và khuyến cáo không dùng cho video thương mại. Với
+# file không rõ nguồn thì khuyến cáo là cách xử lý được.
+#
+# Nhưng 18 file này thì KHÔNG phải "không rõ nguồn", mà là BIẾT RÕ CỦA AI:
+# trích đoạn từ Netflix (jingle này còn là nhãn hiệu âm thanh đã đăng ký),
+# Nintendo, Sega, Nickelodeon, Fox, Microsoft, Supercell, clip Vine, cộng hai
+# file còn nguyên tên do trang tải video YouTube đặt. Khuyến cáo không đổi được
+# việc phát tán tác phẩm của một chủ sở hữu đã xác định, nên chúng ở lại máy.
+assets/sound-effects/anime-wow-1.mp3
+assets/sound-effects/anime-wow-2.mp3
+assets/sound-effects/clash-royale-startup.mp3
+assets/sound-effects/hava-nagila.mp3
+assets/sound-effects/jontron-what.mp3
+assets/sound-effects/mario-coin.mp3
+assets/sound-effects/mii-channel-music.mp3
+assets/sound-effects/netflix-jingle.mp3
+assets/sound-effects/run-vine.mp3
+assets/sound-effects/sonic-ring.mp3
+assets/sound-effects/spongebob-a-few-moments-later.mp3
+assets/sound-effects/spongebob-two-hours-later.mp3
+assets/sound-effects/video0_k03U0Iy.mp3
+assets/sound-effects/vine-boom.mp3
+assets/sound-effects/windows-xp-startup.mp3
+assets/sound-effects/x-files-theme-1.mp3
+assets/sound-effects/x-files-theme-2.mp3
+assets/sound-effects/y2mate_VKI8qDn.mp3
 
 # Style Design là DỮ LIỆU NHẬN DIỆN CỦA NGƯỜI DÙNG, cùng loại với nhạc, giọng
 # và project - nên ở lại máy chứ không đi theo repo:
