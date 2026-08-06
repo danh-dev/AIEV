@@ -46,31 +46,62 @@ Write-Host ("  -> Cập nhật tới: " + $target) -ForegroundColor DarkGray
 # merge --ff-only chứ không checkout tag: checkout tag làm repo rơi vào detached
 # HEAD, lần cập nhật sau sẽ rối. Cách này giữ nhánh main và chỉ tua tới đúng
 # commit mà tag trỏ vào.
+# Backup dữ liệu người dùng TRƯỚC KHI merge, LUÔN LUÔN - không chỉ khi pull lỗi.
+#
+# VÌ SAO KHÔNG ĐỢI PULL LỖI MỚI BACKUP: merge --ff-only THÀNH CÔNG cũng xóa file.
+# Bản nào gỡ một file đang được theo dõi khỏi repo thì file đó biến mất khỏi máy
+# người dùng ngay lúc tua tới - im lặng, vì merge có báo lỗi gì đâu. Đúng chuyện
+# đã xảy ra ở v1.1.0: 104 file sound effect và Style Design chuyển sang "dữ liệu
+# của máy, không đi theo repo", và nếu không có bước này thì ai cập nhật cũng
+# mất sạch thư viện của mình. .gitignore KHÔNG cứu được - nó chỉ chặn commit
+# file mới, không giữ lại file mà bản mới đã xóa.
+$userPaths = @(".claude\skills", "assets\styles", "assets\sound-effects", "assets\music", "assets\prompts")
+$bk = Join-Path $root ("start\backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+New-Item -ItemType Directory -Force $bk | Out-Null
+foreach ($p in $userPaths) {
+    $src = Join-Path $root $p
+    if (Test-Path $src) {
+        $dst = Join-Path $bk (Split-Path $p -Parent)
+        New-Item -ItemType Directory -Force $dst | Out-Null
+        Copy-Item $src $dst -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 git merge --ff-only $target
 if ($LASTEXITCODE -ne 0) {
     # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) - stash rồi pull lại
-    # Backup dữ liệu người dùng TRƯỚC khi stash - skill tự tạo là file untracked,
-    # `git stash -u` sẽ gom mất; styles/library.json bị server ghi đè nên cũng dirty.
-    $bk = Join-Path $root ("start\backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
-    New-Item -ItemType Directory -Force $bk | Out-Null
-    foreach ($p in @(".claude\skills", "assets\styles", "assets\sound-effects\library.json", "assets\music\library.json", "assets\prompts")) {
-        $src = Join-Path $root $p
-        if (Test-Path $src) {
-            $dst = Join-Path $bk (Split-Path $p -Parent)
-            New-Item -ItemType Directory -Force $dst | Out-Null
-            Copy-Item $src $dst -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
+    # `git stash -u` gom cả file untracked (skill tự tạo) nên backup ở trên là bắt buộc.
     Write-Host "  -> Pull thất bại - đã backup dữ liệu vào $bk rồi stash thay đổi cục bộ..." -ForegroundColor Yellow
     git stash push -u -m "aiev-auto-stash"
     git merge --ff-only $target
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  [LOI] Vẫn không pull được - xem chi tiết trong start\update.log. Hệ thống cũ vẫn chạy bình thường." -ForegroundColor Red
         Write-Host "        Chạy 'git status' xem file nào đổi, 'git stash list' xem bản stash." -ForegroundColor Yellow
+        Write-Host "        Dữ liệu của bạn vẫn nằm nguyên trong $bk." -ForegroundColor Yellow
         Stop-UpdateLog
         Read-Host "  Enter để thoát"
         exit 1
     }
+}
+
+# Chép lại những file CÓ trong backup mà KHÔNG còn trong thư mục làm việc.
+# Chỉ đụng vào file đã biến mất - file bản mới mang tới thì để nguyên.
+$restored = 0
+foreach ($f in Get-ChildItem -Path $bk -Recurse -File -ErrorAction SilentlyContinue) {
+    $rel = $f.FullName.Substring($bk.Length).TrimStart('\')
+    $dest = Join-Path $root $rel
+    if (-not (Test-Path $dest)) {
+        New-Item -ItemType Directory -Force (Split-Path $dest -Parent) | Out-Null
+        Copy-Item $f.FullName $dest -Force -ErrorAction SilentlyContinue
+        $restored++
+    }
+}
+if ($restored -gt 0) {
+    Write-Host "  -> Bản mới không còn kèm $restored file dữ liệu - đã chép lại từ máy bạn." -ForegroundColor Cyan
+    Write-Host "     Bản sao lưu giữ tại $bk" -ForegroundColor DarkGray
+} else {
+    # Không phải chép lại gì thì bản backup kia chỉ tổ chật đĩa qua từng lần cập nhật.
+    Remove-Item $bk -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # 2. Pull OK → giờ mới dừng hệ thống để build lại (tránh file bị khóa)

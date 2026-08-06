@@ -38,22 +38,57 @@ printf '  \033[90m-> Cập nhật tới: %s\033[0m\n' "$TARGET"
 # merge --ff-only chứ không checkout tag: checkout tag làm repo rơi vào detached
 # HEAD, lần cập nhật sau sẽ rối. Cách này giữ nhánh main và chỉ tua tới đúng
 # commit mà tag trỏ vào.
+# Backup dữ liệu người dùng TRƯỚC KHI merge, LUÔN LUÔN - không chỉ khi pull lỗi.
+#
+# VÌ SAO KHÔNG ĐỢI PULL LỖI MỚI BACKUP: merge --ff-only THÀNH CÔNG cũng xóa file.
+# Bản nào gỡ một file đang được theo dõi khỏi repo thì file đó biến mất khỏi máy
+# người dùng ngay lúc tua tới - im lặng, vì merge có báo lỗi gì đâu. Đúng chuyện
+# đã xảy ra ở v1.1.0: 104 file sound effect và Style Design chuyển sang "dữ liệu
+# của máy, không đi theo repo", và nếu không có bước này thì ai cập nhật cũng
+# mất sạch thư viện của mình. .gitignore KHÔNG cứu được - nó chỉ chặn commit
+# file mới, không giữ lại file mà bản mới đã xóa.
+USER_PATHS=(".claude/skills" "assets/styles" "assets/sound-effects" "assets/music" "assets/prompts")
+BK="$ROOT/start/backup-$(date '+%Y%m%d-%H%M%S')"
+mkdir -p "$BK"
+for p in "${USER_PATHS[@]}"; do
+  [ -e "$ROOT/$p" ] && mkdir -p "$BK/$(dirname "$p")" && cp -R "$ROOT/$p" "$BK/$(dirname "$p")/" 2>/dev/null || true
+done
+
+# Chép lại những file CÓ trong backup mà KHÔNG còn trong thư mục làm việc.
+# Chỉ đụng vào file đã biến mất - file bản mới mang tới thì để nguyên.
+restore_missing() {
+  local restored=0 rel
+  [ -d "$BK" ] || return 0
+  while IFS= read -r -d '' rel; do
+    rel="${rel#./}"
+    if [ ! -e "$ROOT/$rel" ]; then
+      mkdir -p "$ROOT/$(dirname "$rel")"
+      cp -p "$BK/$rel" "$ROOT/$rel" 2>/dev/null && restored=$((restored + 1))
+    fi
+  done < <(cd "$BK" && find . -type f -print0)
+  echo "$restored"
+}
+
 if ! git merge --ff-only "$TARGET"; then
   # Máy chỉ-dùng hay dính thay đổi cục bộ (đổi eol, sửa nhầm file…) - stash rồi pull lại
-  # Backup dữ liệu người dùng TRƯỚC khi stash - skill tự tạo là file untracked,
-  # `git stash -u` sẽ gom mất; styles/library.json là file tracked bị server ghi đè.
-  BK="$ROOT/start/backup-$(date '+%Y%m%d-%H%M%S')"
-  mkdir -p "$BK"
-  for p in ".claude/skills" "assets/styles" "assets/sound-effects/library.json" "assets/music/library.json" "assets/prompts"; do
-    [ -e "$ROOT/$p" ] && mkdir -p "$BK/$(dirname "$p")" && cp -R "$ROOT/$p" "$BK/$(dirname "$p")/" 2>/dev/null || true
-  done
+  # `git stash -u` gom cả file untracked (skill tự tạo) nên backup ở trên là bắt buộc.
   printf '  \033[33m-> Pull thất bại - đã backup dữ liệu vào %s rồi stash thay đổi cục bộ...\033[0m\n' "$BK"
   git stash push -u -m "aiev-auto-stash" || true
   if ! git merge --ff-only "$TARGET"; then
     printf '  \033[31m[LOI] Vẫn không pull được - xem chi tiết trong start/update.log. Hệ thống cũ vẫn chạy bình thường.\033[0m\n'
     printf '  \033[33m       Chạy "git status" xem file nào đổi, "git stash list" xem bản stash.\033[0m\n'
+    printf '  \033[33m       Dữ liệu của bạn vẫn nằm nguyên trong %s.\033[0m\n' "$BK"
     exit 1
   fi
+fi
+
+RESTORED="$(restore_missing)"
+if [ "${RESTORED:-0}" -gt 0 ]; then
+  printf '  \033[36m-> Bản mới không còn kèm %s file dữ liệu - đã chép lại từ máy bạn.\033[0m\n' "$RESTORED"
+  printf '  \033[90m   Bản sao lưu giữ tại %s\033[0m\n' "$BK"
+else
+  # Không phải chép lại gì thì bản backup 18MB kia chỉ tổ chật đĩa qua từng lần cập nhật.
+  rm -rf "$BK"
 fi
 
 # 2. Pull OK → giờ mới dừng hệ thống để build lại
